@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_create_serving_config():
     # Initialize request argument(s)
     serving_config = retail_v2alpha.ServingConfig()
     serving_config.display_name = "display_name_value"
-    serving_config.solution_types = ['SOLUTION_TYPE_SEARCH']
+    serving_config.solution_types = ["SOLUTION_TYPE_SEARCH"]
 
     request = retail_v2alpha.CreateServingConfigRequest(
         parent="parent_value",
@@ -54,5 +54,6 @@ def sample_create_serving_config():
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2alpha_generated_ServingConfigService_CreateServingConfig_sync]

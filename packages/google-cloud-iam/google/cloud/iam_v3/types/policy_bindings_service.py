@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.iam_v3.types import policy_binding_resources
@@ -49,10 +49,10 @@ class CreatePolicyBindingRequest(proto.Message):
 
             Format:
 
-            -  ``projects/{project_id}/locations/{location}``
-            -  ``projects/{project_number}/locations/{location}``
-            -  ``folders/{folder_id}/locations/{location}``
-            -  ``organizations/{organization_id}/locations/{location}``
+            - ``projects/{project_id}/locations/{location}``
+            - ``projects/{project_number}/locations/{location}``
+            - ``folders/{folder_id}/locations/{location}``
+            - ``organizations/{organization_id}/locations/{location}``
         policy_binding_id (str):
             Required. The ID to use for the policy binding, which will
             become the final component of the policy binding's resource
@@ -97,10 +97,10 @@ class GetPolicyBindingRequest(proto.Message):
 
             Format:
 
-            -  ``projects/{project_id}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``projects/{project_number}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``folders/{folder_id}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``organizations/{organization_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``projects/{project_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``projects/{project_number}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``folders/{folder_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``organizations/{organization_id}/locations/{location}/policyBindings/{policy_binding_id}``
     """
 
     name: str = proto.Field(
@@ -150,10 +150,10 @@ class DeletePolicyBindingRequest(proto.Message):
 
             Format:
 
-            -  ``projects/{project_id}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``projects/{project_number}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``folders/{folder_id}/locations/{location}/policyBindings/{policy_binding_id}``
-            -  ``organizations/{organization_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``projects/{project_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``projects/{project_number}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``folders/{folder_id}/locations/{location}/policyBindings/{policy_binding_id}``
+            - ``organizations/{organization_id}/locations/{location}/policyBindings/{policy_binding_id}``
         etag (str):
             Optional. The etag of the policy binding.
             If this is provided, it must match the server's
@@ -188,10 +188,10 @@ class ListPolicyBindingsRequest(proto.Message):
 
             Format:
 
-            -  ``projects/{project_id}/locations/{location}``
-            -  ``projects/{project_number}/locations/{location}``
-            -  ``folders/{folder_id}/locations/{location}``
-            -  ``organizations/{organization_id}/locations/{location}``
+            - ``projects/{project_id}/locations/{location}``
+            - ``projects/{project_number}/locations/{location}``
+            - ``folders/{folder_id}/locations/{location}``
+            - ``organizations/{organization_id}/locations/{location}``
         page_size (int):
             Optional. The maximum number of policy
             bindings to return. The service may return fewer
@@ -213,17 +213,17 @@ class ListPolicyBindingsRequest(proto.Message):
             request. Filter rules are case insensitive. Some eligible
             fields for filtering are:
 
-            -  ``target``
-            -  ``policy``
+            - ``target``
+            - ``policy``
 
             Some examples of filter queries:
 
-            -  ``target:ex*``: The binding target's name starts with
-               "ex".
-            -  ``target:example``: The binding target's name is
-               ``example``.
-            -  ``policy:example``: The binding policy's name is
-               ``example``.
+            - ``target:ex*``: The binding target's name starts with
+              "ex".
+            - ``target:example``: The binding target's name is
+              ``example``.
+            - ``policy:example``: The binding policy's name is
+              ``example``.
     """
 
     parent: str = proto.Field(
@@ -261,12 +261,12 @@ class ListPolicyBindingsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    policy_bindings: MutableSequence[
-        policy_binding_resources.PolicyBinding
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=policy_binding_resources.PolicyBinding,
+    policy_bindings: MutableSequence[policy_binding_resources.PolicyBinding] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=policy_binding_resources.PolicyBinding,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -284,12 +284,12 @@ class SearchTargetPolicyBindingsRequest(proto.Message):
 
             Format:
 
-            -  ``//iam.googleapis.com/locations/global/workforcePools/POOL_ID``
-            -  ``//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID``
-            -  ``//iam.googleapis.com/locations/global/workspace/WORKSPACE_ID``
-            -  ``//cloudresourcemanager.googleapis.com/projects/{project_number}``
-            -  ``//cloudresourcemanager.googleapis.com/folders/{folder_id}``
-            -  ``//cloudresourcemanager.googleapis.com/organizations/{organization_id}``
+            - ``//iam.googleapis.com/locations/global/workforcePools/POOL_ID``
+            - ``//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID``
+            - ``//iam.googleapis.com/locations/global/workspace/WORKSPACE_ID``
+            - ``//cloudresourcemanager.googleapis.com/projects/{project_number}``
+            - ``//cloudresourcemanager.googleapis.com/folders/{folder_id}``
+            - ``//cloudresourcemanager.googleapis.com/organizations/{organization_id}``
         page_size (int):
             Optional. The maximum number of policy
             bindings to return. The service may return fewer
@@ -313,10 +313,10 @@ class SearchTargetPolicyBindingsRequest(proto.Message):
 
             Format:
 
-            -  ``projects/{project_id}/locations/{location}``
-            -  ``projects/{project_number}/locations/{location}``
-            -  ``folders/{folder_id}/locations/{location}``
-            -  ``organizations/{organization_id}/locations/{location}``
+            - ``projects/{project_id}/locations/{location}``
+            - ``projects/{project_number}/locations/{location}``
+            - ``folders/{folder_id}/locations/{location}``
+            - ``organizations/{organization_id}/locations/{location}``
     """
 
     target: str = proto.Field(
@@ -354,12 +354,12 @@ class SearchTargetPolicyBindingsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    policy_bindings: MutableSequence[
-        policy_binding_resources.PolicyBinding
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=policy_binding_resources.PolicyBinding,
+    policy_bindings: MutableSequence[policy_binding_resources.PolicyBinding] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=policy_binding_resources.PolicyBinding,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

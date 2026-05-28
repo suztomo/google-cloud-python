@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ from .grpc_asyncio import KeyDashboardServiceGrpcAsyncIOTransport
 from .rest import KeyDashboardServiceRestInterceptor, KeyDashboardServiceRestTransport
 
 # Compile a registry of transports.
-_transport_registry = (
-    OrderedDict()
-)  # type: Dict[str, Type[KeyDashboardServiceTransport]]
+_transport_registry = OrderedDict()  # type: Dict[str, Type[KeyDashboardServiceTransport]]
 _transport_registry["grpc"] = KeyDashboardServiceGrpcTransport
 _transport_registry["grpc_asyncio"] = KeyDashboardServiceGrpcAsyncIOTransport
 _transport_registry["rest"] = KeyDashboardServiceRestTransport

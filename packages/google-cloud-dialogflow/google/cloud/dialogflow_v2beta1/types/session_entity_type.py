@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2beta1.types import entity_type
@@ -52,10 +52,10 @@ class SessionEntityType(proto.Message):
             Required. The unique identifier of this session entity type.
             Supported formats:
 
-            -  ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
 
             If ``Location ID`` is not specified we assume default 'us'
             location. If ``Environment ID`` is not specified, we assume
@@ -97,6 +97,7 @@ class SessionEntityType(proto.Message):
                 [EntityTypes.GetEntityType][google.cloud.dialogflow.v2beta1.EntityTypes.GetEntityType]
                 on the custom entity type and merge.
         """
+
         ENTITY_OVERRIDE_MODE_UNSPECIFIED = 0
         ENTITY_OVERRIDE_MODE_OVERRIDE = 1
         ENTITY_OVERRIDE_MODE_SUPPLEMENT = 2
@@ -126,10 +127,10 @@ class ListSessionEntityTypesRequest(proto.Message):
             Required. The session to list all session entity types from.
             Supported formats:
 
-            -  \`projects//agent/sessions/,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - \`projects//agent/sessions/,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
 
             If ``Location ID`` is not specified we assume default 'us'
             location. If ``Environment ID`` is not specified, we assume
@@ -197,10 +198,10 @@ class GetSessionEntityTypeRequest(proto.Message):
             Required. The name of the session entity type. Supported
             formats:
 
-            -  ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
 
             If ``Location ID`` is not specified we assume default 'us'
             location. If ``Environment ID`` is not specified, we assume
@@ -223,10 +224,10 @@ class CreateSessionEntityTypeRequest(proto.Message):
             Required. The session to create a session entity type for.
             Supported formats:
 
-            -  \`projects//agent/sessions/,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - \`projects//agent/sessions/,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>``,
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>``,
 
             If ``Location ID`` is not specified we assume default 'us'
             location. If ``Environment ID`` is not specified, we assume
@@ -280,10 +281,10 @@ class DeleteSessionEntityTypeRequest(proto.Message):
             Required. The name of the entity type to delete. Supported
             formats:
 
-            -  ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/agent/environments/<Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/environments/ <Environment ID>/users/<User ID>/sessions/<Session ID>/entityTypes/<Entity Type Display Name>``
 
             If ``Location ID`` is not specified we assume default 'us'
             location. If ``Environment ID`` is not specified, we assume

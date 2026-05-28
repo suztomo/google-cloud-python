@@ -1,5 +1,80 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-eventarc/#history
+
+## [1.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.19.0...google-cloud-eventarc-v1.20.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.18.0...google-cloud-eventarc-v1.19.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.17.0...google-cloud-eventarc-v1.18.0) (2025-12-04)
+
+
+### Features
+
+* add wide-scope Eventarc GoogleApiSource flags ([d4e6a4ab7b428e821a59b053c689343b5f5511f9](https://github.com/googleapis/google-cloud-python/commit/d4e6a4ab7b428e821a59b053c689343b5f5511f9))
+* add Eventarc Trigger RetryPolicy ([d4e6a4ab7b428e821a59b053c689343b5f5511f9](https://github.com/googleapis/google-cloud-python/commit/d4e6a4ab7b428e821a59b053c689343b5f5511f9))
+
+## [1.17.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.16.0...google-cloud-eventarc-v1.17.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.15.3...google-cloud-eventarc-v1.16.0) (2025-09-24)
+
+
+### Documentation
+
+* [google-cloud-eventarc] correct some comments  ([26730096e491346f02af2a82138224a110485e74](https://github.com/googleapis/google-cloud-python/commit/26730096e491346f02af2a82138224a110485e74))
+
+
+### Features
+
+* [google-cloud-eventarc] add new fields to Eventarc resources  ([26730096e491346f02af2a82138224a110485e74](https://github.com/googleapis/google-cloud-python/commit/26730096e491346f02af2a82138224a110485e74))
+
+
+### Bug Fixes
+
+* [google-cloud-eventarc] upgrade gRPC service registration func An update to Go gRPC Protobuf generation will change service
+registration function signatures to use an interface instead of a
+concrete type in generated .pb.go service files. This change should
+affect very few client library users. See release notes advisories in
+https://github.com/googleapis/google-cloud-go/pull/11025. ([26730096e491346f02af2a82138224a110485e74](https://github.com/googleapis/google-cloud-python/commit/26730096e491346f02af2a82138224a110485e74))
+
+## [1.15.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.15.2...google-cloud-eventarc-v1.15.3) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([821bdb1](https://github.com/googleapis/google-cloud-python/commit/821bdb1d108c8e77a7a576557aa95d4b9c943e12))
+
 ## [1.15.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-eventarc-v1.15.1...google-cloud-eventarc-v1.15.2) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,9 +40,15 @@ async def sample_create_model():
 
     # Initialize request argument(s)
     model = retail_v2alpha.Model()
-    model.page_optimization_config.page_optimization_event_type = "page_optimization_event_type_value"
-    model.page_optimization_config.panels.candidates.serving_config_id = "serving_config_id_value"
-    model.page_optimization_config.panels.default_candidate.serving_config_id = "serving_config_id_value"
+    model.page_optimization_config.page_optimization_event_type = (
+        "page_optimization_event_type_value"
+    )
+    model.page_optimization_config.panels.candidates.serving_config_id = (
+        "serving_config_id_value"
+    )
+    model.page_optimization_config.panels.default_candidate.serving_config_id = (
+        "serving_config_id_value"
+    )
     model.name = "name_value"
     model.display_name = "display_name_value"
     model.type_ = "type__value"
@@ -53,13 +59,14 @@ async def sample_create_model():
     )
 
     # Make the request
-    operation = client.create_model(request=request)
+    operation = await client.create_model(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2alpha_generated_ModelService_CreateModel_async]

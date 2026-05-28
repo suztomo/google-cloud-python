@@ -1,5 +1,64 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-gdchardwaremanagement/#history
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.4.0...google-cloud-gdchardwaremanagement-v0.5.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.3.0...google-cloud-gdchardwaremanagement-v0.4.0) (2026-03-12)
+
+
+### Features
+
+* Add `OFFLINE` state to Zone resources A new `OFFLINE` state has been added to the `Zone.State` enum. This state indicates that the zone is temporarily not operational, for example, while undergoing maintenance or repair ([505bc9725fec0b2238a1fc102967f68027f9afdf](https://github.com/googleapis/google-cloud-python/commit/505bc9725fec0b2238a1fc102967f68027f9afdf))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.2.0...google-cloud-gdchardwaremanagement-v0.3.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.1.13...google-cloud-gdchardwaremanagement-v0.2.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.13](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.1.12...google-cloud-gdchardwaremanagement-v0.1.13) (2025-08-29)
+
+
+### Features
+
+* Added CancelOrder RPC - allows Customers to request cancellation ([0db1073](https://github.com/googleapis/google-cloud-python/commit/0db1073d0c466ef00dc0bf11b196315349116584))
+* Added RequestOrderDateChange RPC - allows Customers to request date changes ([0db1073](https://github.com/googleapis/google-cloud-python/commit/0db1073d0c466ef00dc0bf11b196315349116584))
+* Exposed Order-level output-only fields for transparency ([0db1073](https://github.com/googleapis/google-cloud-python/commit/0db1073d0c466ef00dc0bf11b196315349116584))
+
+
+### Documentation
+
+* Mark `fulfillment_time` as deprecated ([0db1073](https://github.com/googleapis/google-cloud-python/commit/0db1073d0c466ef00dc0bf11b196315349116584))
+
 ## [0.1.12](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gdchardwaremanagement-v0.1.11...google-cloud-gdchardwaremanagement-v0.1.12) (2025-04-23)
 
 

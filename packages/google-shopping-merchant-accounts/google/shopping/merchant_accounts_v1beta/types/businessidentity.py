@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -89,6 +89,7 @@ class BusinessIdentity(proto.Message):
                 having their business identity used for
                 promotions.
         """
+
         PROMOTIONS_CONSENT_UNSPECIFIED = 0
         PROMOTIONS_CONSENT_GIVEN = 1
         PROMOTIONS_CONSENT_DENIED = 2
@@ -117,6 +118,7 @@ class BusinessIdentity(proto.Message):
                     Indicates that the account does not identify
                     with the attribute.
             """
+
             IDENTITY_DECLARATION_UNSPECIFIED = 0
             SELF_IDENTIFIES_AS = 1
             DOES_NOT_SELF_IDENTIFY_AS = 2

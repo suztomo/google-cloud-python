@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.notebooks_v1.types import environment
@@ -102,6 +102,7 @@ class Runtime(proto.Message):
                 The runtime is being created and set up. It
                 is not ready for use.
         """
+
         STATE_UNSPECIFIED = 0
         STARTING = 1
         PROVISIONING = 2
@@ -133,6 +134,7 @@ class Runtime(proto.Message):
                 The runtime health monitoring agent is not
                 running. Applies to ACTIVE state.
         """
+
         HEALTH_STATE_UNSPECIFIED = 0
         HEALTHY = 1
         UNHEALTHY = 2
@@ -193,12 +195,12 @@ class RuntimeAcceleratorConfig(proto.Message):
     AcceleratorTypes <https://cloud.google.com/compute/docs/reference/beta/acceleratorTypes>`__.
     Examples:
 
-    -  ``nvidia-tesla-k80``
-    -  ``nvidia-tesla-p100``
-    -  ``nvidia-tesla-v100``
-    -  ``nvidia-tesla-p4``
-    -  ``nvidia-tesla-t4``
-    -  ``nvidia-tesla-a100``
+    - ``nvidia-tesla-k80``
+    - ``nvidia-tesla-p100``
+    - ``nvidia-tesla-v100``
+    - ``nvidia-tesla-p4``
+    - ``nvidia-tesla-t4``
+    - ``nvidia-tesla-a100``
 
     Attributes:
         type_ (google.cloud.notebooks_v1.types.RuntimeAcceleratorConfig.AcceleratorType):
@@ -239,6 +241,7 @@ class RuntimeAcceleratorConfig(proto.Message):
                 Accelerator type is NVIDIA Tesla P4 Virtual
                 Workstations.
         """
+
         ACCELERATOR_TYPE_UNSPECIFIED = 0
         NVIDIA_TESLA_K80 = 1
         NVIDIA_TESLA_P100 = 2
@@ -338,8 +341,8 @@ class LocalDisk(proto.Message):
             For performance characteristics of SCSI over NVMe, see Local
             SSD performance. Valid values:
 
-            -  ``NVME``
-            -  ``SCSI``
+            - ``NVME``
+            - ``SCSI``
         kind (str):
             Output only. Type of the resource. Always
             compute#attachedDisk for attached disks.
@@ -351,8 +354,8 @@ class LocalDisk(proto.Message):
             or ``READ_ONLY``. If not specified, the default is to attach
             the disk in ``READ_WRITE`` mode. Valid values:
 
-            -  ``READ_ONLY``
-            -  ``READ_WRITE``
+            - ``READ_ONLY``
+            - ``READ_WRITE``
         source (str):
             Specifies a valid partial or full URL to an
             existing Persistent Disk resource.
@@ -361,8 +364,8 @@ class LocalDisk(proto.Message):
             ``PERSISTENT``. If not specified, the default is
             ``PERSISTENT``. Valid values:
 
-            -  ``PERSISTENT``
-            -  ``SCRATCH``
+            - ``PERSISTENT``
+            - ``SCRATCH``
     """
 
     class RuntimeGuestOsFeature(proto.Message):
@@ -381,12 +384,12 @@ class LocalDisk(proto.Message):
 
                 Valid values:
 
-                -  ``FEATURE_TYPE_UNSPECIFIED``
-                -  ``MULTI_IP_SUBNET``
-                -  ``SECURE_BOOT``
-                -  ``UEFI_COMPATIBLE``
-                -  ``VIRTIO_SCSI_MULTIQUEUE``
-                -  ``WINDOWS``
+                - ``FEATURE_TYPE_UNSPECIFIED``
+                - ``MULTI_IP_SUBNET``
+                - ``SECURE_BOOT``
+                - ``UEFI_COMPATIBLE``
+                - ``VIRTIO_SCSI_MULTIQUEUE``
+                - ``WINDOWS``
         """
 
         type_: str = proto.Field(
@@ -496,6 +499,7 @@ class LocalDiskInitializeParams(proto.Message):
             PD_EXTREME (4):
                 Extreme persistent disk type.
         """
+
         DISK_TYPE_UNSPECIFIED = 0
         PD_STANDARD = 1
         PD_SSD = 2
@@ -557,6 +561,7 @@ class RuntimeAccessConfig(proto.Message):
                 Users accessing the Runtime need ActAs (Service
                 Account User) permission.
         """
+
         RUNTIME_ACCESS_TYPE_UNSPECIFIED = 0
         SINGLE_USER = 1
         SERVICE_ACCOUNT = 2
@@ -581,9 +586,9 @@ class RuntimeSoftwareConfig(proto.Message):
     runtime. The properties to set on runtime. Properties keys are
     specified in ``key:value`` format, for example:
 
-    -  ``idle_shutdown: true``
-    -  ``idle_shutdown_timeout: 180``
-    -  ``enable_health_monitoring: true``
+    - ``idle_shutdown: true``
+    - ``idle_shutdown_timeout: 180``
+    - ``enable_health_monitoring: true``
 
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
@@ -653,6 +658,7 @@ class RuntimeSoftwareConfig(proto.Message):
                 Downloads and runs the provided post startup
                 script at every start.
         """
+
         POST_STARTUP_SCRIPT_BEHAVIOR_UNSPECIFIED = 0
         RUN_EVERY_START = 1
         DOWNLOAD_AND_RUN_EVERY_START = 2
@@ -812,13 +818,13 @@ class VirtualMachineConfig(proto.Message):
             location in the corresponding runtime region. On a get
             request, zone will always be present. Example:
 
-            -  ``us-central1-b``
+            - ``us-central1-b``
         machine_type (str):
             Required. The Compute Engine machine type used for runtimes.
             Short name is valid. Examples:
 
-            -  ``n1-standard-2``
-            -  ``e2-standard-8``
+            - ``n1-standard-2``
+            - ``e2-standard-8``
         container_images (MutableSequence[google.cloud.notebooks_v1.types.ContainerImage]):
             Optional. Use a list of container images to
             use as Kernels in the notebook instance.
@@ -842,25 +848,25 @@ class VirtualMachineConfig(proto.Message):
 
             A full URL or partial URI. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/networks/default``
-            -  ``projects/[project_id]/global/networks/default``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/networks/default``
+            - ``projects/[project_id]/global/networks/default``
 
             Runtimes are managed resources inside Google Infrastructure.
             Runtimes support the following network configurations:
 
-            -  Google Managed Network (Network & subnet are empty)
-            -  Consumer Project VPC (network & subnet are required).
-               Requires configuring Private Service Access.
-            -  Shared VPC (network & subnet are required). Requires
-               configuring Private Service Access.
+            - Google Managed Network (Network & subnet are empty)
+            - Consumer Project VPC (network & subnet are required).
+              Requires configuring Private Service Access.
+            - Shared VPC (network & subnet are required). Requires
+              configuring Private Service Access.
         subnet (str):
             Optional. The Compute Engine subnetwork to be used for
             machine communications. Cannot be specified with network.
 
             A full URL or partial URI are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/regions/us-east1/subnetworks/sub0``
-            -  ``projects/[project_id]/regions/us-east1/subnetworks/sub0``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/regions/us-east1/subnetworks/sub0``
+            - ``projects/[project_id]/regions/us-east1/subnetworks/sub0``
         internal_ip_only (bool):
             Optional. If true, runtime will only have internal IP
             addresses. By default, runtimes are not restricted to
@@ -927,6 +933,7 @@ class VirtualMachineConfig(proto.Message):
             GVNIC (2):
                 GVNIC
         """
+
         UNSPECIFIED_NIC_TYPE = 0
         VIRTIO_NET = 1
         GVNIC = 2

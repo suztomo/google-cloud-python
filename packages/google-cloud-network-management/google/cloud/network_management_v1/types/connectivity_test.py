@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.network_management_v1.types import trace
@@ -200,18 +200,14 @@ class Endpoint(proto.Message):
         instance (str):
             A Compute Engine instance URI.
         forwarding_rule (str):
-            A forwarding rule and its corresponding IP
-            address represent the frontend configuration of
-            a Google Cloud load balancer. Forwarding rules
-            are also used for protocol forwarding, Private
-            Service Connect and other network services to
-            provide forwarding information in the control
-            plane. Applicable only to destination endpoint.
-            Format:
-
-            projects/{project}/global/forwardingRules/{id}
-            or
-            projects/{project}/regions/{region}/forwardingRules/{id}
+            A forwarding rule and its corresponding IP address represent
+            the frontend configuration of a Google Cloud load balancer.
+            Forwarding rules are also used for protocol forwarding,
+            Private Service Connect and other network services to
+            provide forwarding information in the control plane.
+            Applicable only to destination endpoint. Format:
+            ``projects/{project}/global/forwardingRules/{id}`` or
+            ``projects/{project}/regions/{region}/forwardingRules/{id}``
         forwarding_rule_target (google.cloud.network_management_v1.types.Endpoint.ForwardingRuleTarget):
             Output only. Specifies the type of the target
             of the forwarding rule.
@@ -247,6 +243,10 @@ class Endpoint(proto.Message):
             A `Redis
             Cluster <https://cloud.google.com/memorystore/docs/cluster>`__
             URI. Applicable only to destination endpoint.
+        gke_pod (str):
+            A `GKE
+            Pod <https://cloud.google.com/kubernetes-engine/docs/concepts/pod>`__
+            URI.
         cloud_function (google.cloud.network_management_v1.types.Endpoint.CloudFunctionEndpoint):
             A `Cloud Function <https://cloud.google.com/functions>`__.
             Applicable only to source endpoint.
@@ -260,48 +260,60 @@ class Endpoint(proto.Message):
             `revision <https://cloud.google.com/run/docs/reference/rest/v1/namespaces.revisions/get>`__
             Applicable only to source endpoint.
         network (str):
-            A VPC network URI.
+            A VPC network URI. For source endpoints, used according to
+            the ``network_type``. For destination endpoints, used only
+            when the source is an external IP address endpoint, and the
+            destination is an internal IP address endpoint.
         network_type (google.cloud.network_management_v1.types.Endpoint.NetworkType):
-            Type of the network where the endpoint is
-            located. Applicable only to source endpoint, as
-            destination network type can be inferred from
-            the source.
+            For source endpoints, type of the network
+            where the endpoint is located. Not relevant for
+            destination endpoints.
         project_id (str):
-            Project ID where the endpoint is located.
-            The project ID can be derived from the URI if
-            you provide a endpoint or network URI.
-            The following are two cases where you may need
-            to provide the project ID:
-
-            1. Only the IP address is specified, and the IP
-                address is within a Google Cloud project.
-            2. When you are using Shared VPC and the IP
-                address that you provide is from the service
-                project. In this case, the network that the
-                IP address resides in is defined in the host
-                project.
+            For source endpoints, endpoint project ID. Used according to
+            the ``network_type``. Not relevant for destination
+            endpoints.
     """
 
     class NetworkType(proto.Enum):
-        r"""The type definition of an endpoint's network. Use one of the
-        following choices:
+        r"""The type of the network of the IP address endpoint. Relevant
+        for the source IP address endpoints.
 
         Values:
             NETWORK_TYPE_UNSPECIFIED (0):
-                Default type if unspecified.
+                Unspecified. The test will analyze all possible IP address
+                locations. This might take longer and produce inaccurate or
+                ambiguous results, so prefer specifying an explicit network
+                type.
+
+                The ``project_id`` field should be set to the project where
+                the GCP endpoint is located, or where the non-GCP endpoint
+                should be reachable from (via routes to non-GCP networks).
+                The project might also be inferred from the Connectivity
+                Test project or other projects referenced in the request.
             GCP_NETWORK (1):
-                A network hosted within Google Cloud.
-                To receive more detailed output, specify the URI
-                for the source or destination network.
+                A VPC network. Should be used for internal IP addresses in
+                VPC networks. The ``network`` field should be set to the URI
+                of this network. Only endpoints within this network will be
+                considered.
             NON_GCP_NETWORK (2):
-                A network hosted outside of Google Cloud.
-                This can be an on-premises network, an internet
-                resource or a network hosted by another cloud
-                provider.
+                A non-GCP network (for example, an on-premises network or
+                another cloud provider network). Should be used for internal
+                IP addresses outside of Google Cloud. The ``network`` field
+                should be set to the URI of the VPC network containing a
+                corresponding Cloud VPN tunnel, Cloud Interconnect VLAN
+                attachment, or a router appliance instance. Only endpoints
+                reachable from the provided VPC network via the routes to
+                non-GCP networks will be considered.
+            INTERNET (3):
+                Internet. Should be used for
+                internet-routable external IP addresses or IP
+                addresses for global Google APIs and services.
         """
+
         NETWORK_TYPE_UNSPECIFIED = 0
         GCP_NETWORK = 1
         NON_GCP_NETWORK = 2
+        INTERNET = 3
 
     class ForwardingRuleTarget(proto.Enum):
         r"""Type of the target of a forwarding rule.
@@ -322,6 +334,7 @@ class Endpoint(proto.Message):
                 Forwarding Rule is a Private Service Connect
                 endpoint.
         """
+
         FORWARDING_RULE_TARGET_UNSPECIFIED = 0
         INSTANCE = 1
         LOAD_BALANCER = 2
@@ -367,11 +380,20 @@ class Endpoint(proto.Message):
                 `revision <https://cloud.google.com/run/docs/reference/rest/v1/namespaces.revisions/get>`__
                 URI. The format is:
                 projects/{project}/locations/{location}/revisions/{revision}
+            service_uri (str):
+                Output only. The URI of the Cloud Run service
+                that the revision belongs to. The format is:
+
+                projects/{project}/locations/{location}/services/{service}
         """
 
         uri: str = proto.Field(
             proto.STRING,
             number=1,
+        )
+        service_uri: str = proto.Field(
+            proto.STRING,
+            number=2,
         )
 
     ip_address: str = proto.Field(
@@ -426,6 +448,10 @@ class Endpoint(proto.Message):
     redis_cluster: str = proto.Field(
         proto.STRING,
         number=18,
+    )
+    gke_pod: str = proto.Field(
+        proto.STRING,
+        number=21,
     )
     cloud_function: CloudFunctionEndpoint = proto.Field(
         proto.MESSAGE,
@@ -486,13 +512,13 @@ class ReachabilityDetails(proto.Message):
             REACHABLE (1):
                 Possible scenarios are:
 
-                -  The configuration analysis determined that a packet
-                   originating from the source is expected to reach the
-                   destination.
-                -  The analysis didn't complete because the user lacks
-                   permission for some of the resources in the trace.
-                   However, at the time the user's permission became
-                   insufficient, the trace had been successful so far.
+                - The configuration analysis determined that a packet
+                  originating from the source is expected to reach the
+                  destination.
+                - The analysis didn't complete because the user lacks
+                  permission for some of the resources in the trace.
+                  However, at the time the user's permission became
+                  insufficient, the trace had been successful so far.
             UNREACHABLE (2):
                 A packet originating from the source is
                 expected to be dropped before reaching the
@@ -511,13 +537,14 @@ class ReachabilityDetails(proto.Message):
                 The configuration analysis did not complete. Possible
                 reasons are:
 
-                -  A permissions error occurred--for example, the user might
-                   not have read permission for all of the resources named
-                   in the test.
-                -  An internal error occurred.
-                -  The analyzer received an invalid or unsupported argument
-                   or was unable to identify a known endpoint.
+                - A permissions error occurred--for example, the user might
+                  not have read permission for all of the resources named in
+                  the test.
+                - An internal error occurred.
+                - The analyzer received an invalid or unsupported argument
+                  or was unable to identify a known endpoint.
         """
+
         RESULT_UNSPECIFIED = 0
         REACHABLE = 1
         UNREACHABLE = 2
@@ -612,13 +639,17 @@ class ProbingDetails(proto.Message):
             direction: from the source to the destination
             endpoint.
         destination_egress_location (google.cloud.network_management_v1.types.ProbingDetails.EdgeLocation):
-            The EdgeLocation from which a packet destined
-            for/originating from the internet will egress/ingress the
-            Google network. This will only be populated for a
-            connectivity test which has an internet destination/source
-            address. The absence of this field *must not* be used as an
-            indication that the destination/source is part of the Google
-            network.
+            The EdgeLocation from which a packet, destined to the
+            internet, will egress the Google network. This will only be
+            populated for a connectivity test which has an internet
+            destination address. The absence of this field *must not* be
+            used as an indication that the destination is part of the
+            Google network.
+        edge_responses (MutableSequence[google.cloud.network_management_v1.types.ProbingDetails.SingleEdgeResponse]):
+            Probing results for all edge devices.
+        probed_all_devices (bool):
+            Whether all relevant edge devices were
+            probed.
     """
 
     class ProbingResult(proto.Enum):
@@ -638,12 +669,13 @@ class ProbingDetails(proto.Message):
             UNDETERMINED (4):
                 Reachability could not be determined. Possible reasons are:
 
-                -  The user lacks permission to access some of the network
-                   resources required to run the test.
-                -  No valid source endpoint could be derived from the
-                   request.
-                -  An internal error occurred.
+                - The user lacks permission to access some of the network
+                  resources required to run the test.
+                - No valid source endpoint could be derived from the
+                  request.
+                - An internal error occurred.
         """
+
         PROBING_RESULT_UNSPECIFIED = 0
         REACHABLE = 1
         UNREACHABLE = 2
@@ -663,6 +695,7 @@ class ProbingDetails(proto.Message):
                 No valid source endpoint could be derived
                 from the request.
         """
+
         PROBING_ABORT_CAUSE_UNSPECIFIED = 0
         PERMISSION_DENIED = 1
         NO_SOURCE_LOCATION = 2
@@ -679,6 +712,63 @@ class ProbingDetails(proto.Message):
         metropolitan_area: str = proto.Field(
             proto.STRING,
             number=1,
+        )
+
+    class SingleEdgeResponse(proto.Message):
+        r"""Probing results for a single edge device.
+
+        Attributes:
+            result (google.cloud.network_management_v1.types.ProbingDetails.ProbingResult):
+                The overall result of active probing for this
+                egress device.
+            sent_probe_count (int):
+                Number of probes sent.
+            successful_probe_count (int):
+                Number of probes that reached the
+                destination.
+            probing_latency (google.cloud.network_management_v1.types.LatencyDistribution):
+                Latency as measured by active probing in one
+                direction: from the source to the destination
+                endpoint.
+            destination_egress_location (google.cloud.network_management_v1.types.ProbingDetails.EdgeLocation):
+                The EdgeLocation from which a packet, destined to the
+                internet, will egress the Google network. This will only be
+                populated for a connectivity test which has an internet
+                destination address. The absence of this field *must not* be
+                used as an indication that the destination is part of the
+                Google network.
+            destination_router (str):
+                Router name in the format
+                '{router}.{metroshard}'. For example:
+                pf01.aaa01, pr02.aaa01.
+        """
+
+        result: "ProbingDetails.ProbingResult" = proto.Field(
+            proto.ENUM,
+            number=1,
+            enum="ProbingDetails.ProbingResult",
+        )
+        sent_probe_count: int = proto.Field(
+            proto.INT32,
+            number=2,
+        )
+        successful_probe_count: int = proto.Field(
+            proto.INT32,
+            number=3,
+        )
+        probing_latency: "LatencyDistribution" = proto.Field(
+            proto.MESSAGE,
+            number=4,
+            message="LatencyDistribution",
+        )
+        destination_egress_location: "ProbingDetails.EdgeLocation" = proto.Field(
+            proto.MESSAGE,
+            number=5,
+            message="ProbingDetails.EdgeLocation",
+        )
+        destination_router: str = proto.Field(
+            proto.STRING,
+            number=6,
         )
 
     result: ProbingResult = proto.Field(
@@ -723,6 +813,15 @@ class ProbingDetails(proto.Message):
         proto.MESSAGE,
         number=9,
         message=EdgeLocation,
+    )
+    edge_responses: MutableSequence[SingleEdgeResponse] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=10,
+        message=SingleEdgeResponse,
+    )
+    probed_all_devices: bool = proto.Field(
+        proto.BOOL,
+        number=11,
     )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,9 @@ def sample_update_certificate_authority():
     certificate_authority = privateca_v1beta1.CertificateAuthority()
     certificate_authority.type_ = "SUBORDINATE"
     certificate_authority.tier = "DEVOPS"
-    certificate_authority.config.reusable_config.reusable_config = "reusable_config_value"
+    certificate_authority.config.reusable_config.reusable_config = (
+        "reusable_config_value"
+    )
     certificate_authority.key_spec.cloud_kms_key_version = "cloud_kms_key_version_value"
 
     request = privateca_v1beta1.UpdateCertificateAuthorityRequest(
@@ -58,5 +60,6 @@ def sample_update_certificate_authority():
 
     # Handle the response
     print(response)
+
 
 # [END privateca_v1beta1_generated_CertificateAuthorityService_UpdateCertificateAuthority_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ class MetricAggregation(proto.Enum):
         COUNT (4):
             Count operator.
     """
+
     METRIC_AGGREGATION_UNSPECIFIED = 0
     TOTAL = 1
     MINIMUM = 5
@@ -125,6 +126,7 @@ class MetricType(proto.Enum):
             A length in kilometers; a special floating
             point type.
     """
+
     METRIC_TYPE_UNSPECIFIED = 0
     TYPE_INTEGER = 1
     TYPE_FLOAT = 2
@@ -152,6 +154,7 @@ class RestrictedMetricType(proto.Enum):
         REVENUE_DATA (2):
             Revenue metrics such as ``purchaseRevenue``.
     """
+
     RESTRICTED_METRIC_TYPE_UNSPECIFIED = 0
     COST_DATA = 1
     REVENUE_DATA = 2
@@ -172,6 +175,7 @@ class Compatibility(proto.Enum):
             dimension or metric cannot be successfully added
             to a report.
     """
+
     COMPATIBILITY_UNSPECIFIED = 0
     COMPATIBLE = 1
     INCOMPATIBLE = 2
@@ -383,7 +387,7 @@ class DimensionExpression(proto.Message):
             delimiter (str):
                 The delimiter placed between dimension names.
 
-                Delimiters are often single characters such as "|" or ","
+                Delimiters are often single characters such as "\|" or ","
                 but can be longer strings. If a dimension value contains the
                 delimiter, both will be present in response with no
                 distinction. For example if dimension 1 value = "US,FR",
@@ -673,6 +677,7 @@ class Filter(proto.Message):
                     Partial match for the regular expression with
                     the string value.
             """
+
             MATCH_TYPE_UNSPECIFIED = 0
             EXACT = 1
             BEGINS_WITH = 2
@@ -742,6 +747,7 @@ class Filter(proto.Message):
                 GREATER_THAN_OR_EQUAL (5):
                     Greater than or equal
             """
+
             OPERATION_UNSPECIFIED = 0
             EQUAL = 1
             LESS_THAN = 2
@@ -896,6 +902,7 @@ class OrderBy(proto.Message):
                     values all have equal ordering value below all numeric
                     values.
             """
+
             ORDER_TYPE_UNSPECIFIED = 0
             ALPHANUMERIC = 1
             CASE_INSENSITIVE_ALPHANUMERIC = 2
@@ -968,12 +975,12 @@ class OrderBy(proto.Message):
             proto.STRING,
             number=1,
         )
-        pivot_selections: MutableSequence[
-            "OrderBy.PivotOrderBy.PivotSelection"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="OrderBy.PivotOrderBy.PivotSelection",
+        pivot_selections: MutableSequence["OrderBy.PivotOrderBy.PivotSelection"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="OrderBy.PivotOrderBy.PivotSelection",
+            )
         )
 
     metric: MetricOrderBy = proto.Field(
@@ -1235,6 +1242,7 @@ class CohortsRange(proto.Message):
                 ``dateRange`` is a month in duration and the request
                 contains ``cohortNthMonth``.
         """
+
         GRANULARITY_UNSPECIFIED = 0
         DAILY = 1
         WEEKLY = 2
@@ -1386,12 +1394,12 @@ class ResponseMetaData(proto.Message):
                 number=1,
                 optional=True,
             )
-            restricted_metric_types: MutableSequence[
-                "RestrictedMetricType"
-            ] = proto.RepeatedField(
-                proto.ENUM,
-                number=2,
-                enum="RestrictedMetricType",
+            restricted_metric_types: MutableSequence["RestrictedMetricType"] = (
+                proto.RepeatedField(
+                    proto.ENUM,
+                    number=2,
+                    enum="RestrictedMetricType",
+                )
             )
 
         active_metric_restrictions: MutableSequence[
@@ -1530,12 +1538,12 @@ class PivotHeader(proto.Message):
             ``offset`` and ``limit`` are specified in the request.
     """
 
-    pivot_dimension_headers: MutableSequence[
-        "PivotDimensionHeader"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="PivotDimensionHeader",
+    pivot_dimension_headers: MutableSequence["PivotDimensionHeader"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="PivotDimensionHeader",
+        )
     )
     row_count: int = proto.Field(
         proto.INT32,
@@ -1917,6 +1925,7 @@ class MetricMetadata(proto.Message):
                 related metrics for this property, and this
                 metric is cost related.
         """
+
         BLOCKED_REASON_UNSPECIFIED = 0
         NO_REVENUE_METRICS = 1
         NO_COST_METRICS = 2

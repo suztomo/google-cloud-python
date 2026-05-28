@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -127,6 +127,7 @@ class Project(proto.Message):
                 be reversed by invoking [UndeleteProject]
                 [google.cloud.resourcemanager.v3.Projects.UndeleteProject].
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         DELETE_REQUESTED = 2
@@ -303,36 +304,36 @@ class SearchProjectsRequest(proto.Message):
             return results that match any of the fields. Some eligible
             fields are:
 
-            -  **``displayName``, ``name``**: Filters by displayName.
-            -  **``parent``**: Project's parent (for example:
-               ``folders/123``, ``organizations/*``). Prefer ``parent``
-               field over ``parent.type`` and ``parent.id``.
-            -  **``parent.type``**: Parent's type: ``folder`` or
-               ``organization``.
-            -  **``parent.id``**: Parent's id number (for example:
-               ``123``).
-            -  **``id``, ``projectId``**: Filters by projectId.
-            -  **``state``, ``lifecycleState``**: Filters by state.
-            -  **``labels``**: Filters by label name or value.
-            -  **``labels.<key>`` (where ``<key>`` is the name of a
-               label)**: Filters by label name.
+            - **``displayName``, ``name``**: Filters by displayName.
+            - **``parent``**: Project's parent (for example:
+              ``folders/123``, ``organizations/*``). Prefer ``parent``
+              field over ``parent.type`` and ``parent.id``.
+            - **``parent.type``**: Parent's type: ``folder`` or
+              ``organization``.
+            - **``parent.id``**: Parent's id number (for example:
+              ``123``).
+            - **``id``, ``projectId``**: Filters by projectId.
+            - **``state``, ``lifecycleState``**: Filters by state.
+            - **``labels``**: Filters by label name or value.
+            - **``labels.<key>`` (where ``<key>`` is the name of a
+              label)**: Filters by label name.
 
             Search expressions are case insensitive.
 
             Some examples queries:
 
-            -  **``name:how*``**: The project's name starts with "how".
-            -  **``name:Howl``**: The project's name is ``Howl`` or
-               ``howl``.
-            -  **``name:HOWL``**: Equivalent to above.
-            -  **``NAME:howl``**: Equivalent to above.
-            -  **``labels.color:*``**: The project has the label
-               ``color``.
-            -  **``labels.color:red``**: The project's label ``color``
-               has the value ``red``.
-            -  **``labels.color:red labels.size:big``**: The project's
-               label ``color`` has the value ``red`` or its label
-               ``size`` has the value ``big``.
+            - **``name:how*``**: The project's name starts with "how".
+            - **``name:Howl``**: The project's name is ``Howl`` or
+              ``howl``.
+            - **``name:HOWL``**: Equivalent to above.
+            - **``NAME:howl``**: Equivalent to above.
+            - **``labels.color:*``**: The project has the label
+              ``color``.
+            - **``labels.color:red``**: The project's label ``color``
+              has the value ``red``.
+            - **``labels.color:red labels.size:big``**: The project's
+              label ``color`` has the value ``red`` or its label
+              ``size`` has the value ``big``.
 
             If no query is specified, the call will return projects for
             which the user has the ``resourcemanager.projects.get``

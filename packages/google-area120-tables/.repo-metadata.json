@@ -1,17 +1,15 @@
 {
-    "name": "area120tables",
-    "name_pretty": "Area 120 Tables",
-    "product_documentation": "https://area120.google.com",
+    "api_description": "Area 120 Tables is a collaborative database program developed out of Google's Area 120 incubator.",
+    "api_id": "area120tables.googleapis.com",
+    "api_shortname": "area120tables",
     "client_documentation": "https://googleapis.dev/python/area120tables/latest",
-    "issue_tracker": "",
-    "release_level": "preview",
+    "default_version": "v1alpha1",
+    "distribution_name": "google-area120-tables",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-area120-tables",
-    "api_id": "area120tables.googleapis.com",
-    "default_version": "v1alpha1",
-    "codeowner_team": "",
-    "api_shortname": "area120tables",
-    "api_description": "provides programmatic methods to the Area 120 Tables API."
+    "name": "area120tables",
+    "name_pretty": "Area120 Tables",
+    "product_documentation": "https://area120.google.com",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

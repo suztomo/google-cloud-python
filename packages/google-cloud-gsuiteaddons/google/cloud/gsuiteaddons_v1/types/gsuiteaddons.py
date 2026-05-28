@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import proto  # type: ignore
 from google.apps.script.type.calendar.types import calendar_addon_manifest
 from google.apps.script.type.docs.types import docs_addon_manifest
 from google.apps.script.type.drive.types import drive_addon_manifest
@@ -24,8 +26,6 @@ from google.apps.script.type.gmail.types import gmail_addon_manifest
 from google.apps.script.type.sheets.types import sheets_addon_manifest
 from google.apps.script.type.slides.types import slides_addon_manifest
 from google.apps.script.type.types import script_manifest
-from google.protobuf import wrappers_pb2  # type: ignore
-import proto  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.cloud.gsuiteaddons.v1",

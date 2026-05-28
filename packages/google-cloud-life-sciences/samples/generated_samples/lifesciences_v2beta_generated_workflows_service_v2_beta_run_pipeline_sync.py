@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_run_pipeline():
     client = lifesciences_v2beta.WorkflowsServiceV2BetaClient()
 
     # Initialize request argument(s)
-    request = lifesciences_v2beta.RunPipelineRequest(
-    )
+    request = lifesciences_v2beta.RunPipelineRequest()
 
     # Make the request
     operation = client.run_pipeline(request=request)
@@ -51,5 +50,6 @@ def sample_run_pipeline():
 
     # Handle the response
     print(response)
+
 
 # [END lifesciences_v2beta_generated_WorkflowsServiceV2Beta_RunPipeline_sync]

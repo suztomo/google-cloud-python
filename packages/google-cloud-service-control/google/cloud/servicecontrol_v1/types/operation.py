@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.servicecontrol_v1.types import log_entry, metric_value
@@ -57,14 +57,14 @@ class Operation(proto.Message):
             consumer, but not for service-initiated operations that are
             not related to a specific consumer.
 
-            -  This can be in one of the following formats:
+            - This can be in one of the following formats:
 
-               -  project:PROJECT_ID,
-               -  project\ ``_``\ number:PROJECT_NUMBER,
-               -  projects/PROJECT_ID or PROJECT_NUMBER,
-               -  folders/FOLDER_NUMBER,
-               -  organizations/ORGANIZATION_NUMBER,
-               -  api\ ``_``\ key:API_KEY.
+              - project:PROJECT_ID,
+              - project\ ``_``\ number:PROJECT_NUMBER,
+              - projects/PROJECT_ID or PROJECT_NUMBER,
+              - folders/FOLDER_NUMBER,
+              - organizations/ORGANIZATION_NUMBER,
+              - api\ ``_``\ key:API_KEY.
         start_time (google.protobuf.timestamp_pb2.Timestamp):
             Required. Start time of the operation.
         end_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -77,22 +77,22 @@ class Operation(proto.Message):
             Labels describing the operation. Only the following labels
             are allowed:
 
-            -  Labels describing monitored resources as defined in the
-               service configuration.
-            -  Default labels of metric values. When specified, labels
-               defined in the metric value override these default.
-            -  The following labels defined by Google Cloud Platform:
+            - Labels describing monitored resources as defined in the
+              service configuration.
+            - Default labels of metric values. When specified, labels
+              defined in the metric value override these default.
+            - The following labels defined by Google Cloud Platform:
 
-               -  ``cloud.googleapis.com/location`` describing the
-                  location where the operation happened,
-               -  ``servicecontrol.googleapis.com/user_agent``
-                  describing the user agent of the API request,
-               -  ``servicecontrol.googleapis.com/service_agent``
-                  describing the service used to handle the API request
-                  (e.g. ESP),
-               -  ``servicecontrol.googleapis.com/platform`` describing
-                  the platform where the API is served, such as App
-                  Engine, Compute Engine, or Kubernetes Engine.
+              - ``cloud.googleapis.com/location`` describing the
+                location where the operation happened,
+              - ``servicecontrol.googleapis.com/user_agent`` describing
+                the user agent of the API request,
+              - ``servicecontrol.googleapis.com/service_agent``
+                describing the service used to handle the API request
+                (e.g. ESP),
+              - ``servicecontrol.googleapis.com/platform`` describing
+                the platform where the API is served, such as App
+                Engine, Compute Engine, or Kubernetes Engine.
         metric_value_sets (MutableSequence[google.cloud.servicecontrol_v1.types.MetricValueSet]):
             Represents information about this operation.
             Each MetricValueSet corresponds to a metric
@@ -131,6 +131,7 @@ class Operation(proto.Message):
                 significant monetary value or audit trail. This
                 feature only applies to the client libraries.
         """
+
         LOW = 0
         HIGH = 1
 
@@ -161,12 +162,12 @@ class Operation(proto.Message):
         proto.STRING,
         number=6,
     )
-    metric_value_sets: MutableSequence[
-        metric_value.MetricValueSet
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=metric_value.MetricValueSet,
+    metric_value_sets: MutableSequence[metric_value.MetricValueSet] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=metric_value.MetricValueSet,
+        )
     )
     log_entries: MutableSequence[log_entry.LogEntry] = proto.RepeatedField(
         proto.MESSAGE,

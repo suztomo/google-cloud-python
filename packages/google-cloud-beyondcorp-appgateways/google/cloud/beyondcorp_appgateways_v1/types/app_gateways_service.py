@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -144,10 +144,10 @@ class CreateAppGatewayRequest(proto.Message):
         app_gateway_id (str):
             Optional. User-settable AppGateway resource ID.
 
-            -  Must start with a letter.
-            -  Must contain between 4-63 characters from
-               ``/[a-z][0-9]-/``.
-            -  Must end with a number or a letter.
+            - Must start with a letter.
+            - Must contain between 4-63 characters from
+              ``/[a-z][0-9]-/``.
+            - Must end with a number or a letter.
         app_gateway (google.cloud.beyondcorp_appgateways_v1.types.AppGateway):
             Required. A BeyondCorp AppGateway resource.
         request_id (str):
@@ -301,6 +301,7 @@ class AppGateway(proto.Message):
                 TCP Proxy based BeyondCorp Connection. API
                 will default to this if unset.
         """
+
         TYPE_UNSPECIFIED = 0
         TCP_PROXY = 1
 
@@ -323,6 +324,7 @@ class AppGateway(proto.Message):
                 future. This happens when CCFE sends
                 ProjectState = OFF.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         CREATED = 2
@@ -341,6 +343,7 @@ class AppGateway(proto.Message):
                 AppGateway hosted in a GCP regional managed
                 instance group.
         """
+
         HOST_TYPE_UNSPECIFIED = 0
         GCP_REGIONAL_MIG = 1
 

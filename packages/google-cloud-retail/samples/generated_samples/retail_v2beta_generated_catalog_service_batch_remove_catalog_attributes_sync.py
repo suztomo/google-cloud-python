@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_batch_remove_catalog_attributes():
     # Initialize request argument(s)
     request = retail_v2beta.BatchRemoveCatalogAttributesRequest(
         attributes_config="attributes_config_value",
-        attribute_keys=['attribute_keys_value1', 'attribute_keys_value2'],
+        attribute_keys=["attribute_keys_value1", "attribute_keys_value2"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ def sample_batch_remove_catalog_attributes():
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2beta_generated_CatalogService_BatchRemoveCatalogAttributes_sync]

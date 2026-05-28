@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@ from collections import OrderedDict
 from typing import Dict, Type
 
 from .base import ApiHubDependenciesTransport
+from .grpc import ApiHubDependenciesGrpcTransport
+from .grpc_asyncio import ApiHubDependenciesGrpcAsyncIOTransport
 from .rest import ApiHubDependenciesRestInterceptor, ApiHubDependenciesRestTransport
 
 # Compile a registry of transports.
-_transport_registry = (
-    OrderedDict()
-)  # type: Dict[str, Type[ApiHubDependenciesTransport]]
+_transport_registry = OrderedDict()  # type: Dict[str, Type[ApiHubDependenciesTransport]]
+_transport_registry["grpc"] = ApiHubDependenciesGrpcTransport
+_transport_registry["grpc_asyncio"] = ApiHubDependenciesGrpcAsyncIOTransport
 _transport_registry["rest"] = ApiHubDependenciesRestTransport
 
 __all__ = (
     "ApiHubDependenciesTransport",
+    "ApiHubDependenciesGrpcTransport",
+    "ApiHubDependenciesGrpcAsyncIOTransport",
     "ApiHubDependenciesRestTransport",
     "ApiHubDependenciesRestInterceptor",
 )

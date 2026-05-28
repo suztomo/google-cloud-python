@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ class NotificationConfig(proto.Message):
             FINDING (1):
                 Events for findings.
         """
+
         EVENT_TYPE_UNSPECIFIED = 0
         FINDING = 1
 
@@ -95,15 +96,15 @@ class NotificationConfig(proto.Message):
 
                 The supported operators are:
 
-                -  ``=`` for all value types.
-                -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-                -  ``:``, meaning substring matching, for strings.
+                - ``=`` for all value types.
+                - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+                - ``:``, meaning substring matching, for strings.
 
                 The supported value types are:
 
-                -  string literals in quotes.
-                -  integer literals without quotes.
-                -  boolean literals ``true`` and ``false`` without quotes.
+                - string literals in quotes.
+                - integer literals without quotes.
+                - boolean literals ``true`` and ``false`` without quotes.
         """
 
         filter: str = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ def sample_export_entity_types():
     request = dialogflowcx_v3beta1.ExportEntityTypesRequest(
         entity_types_uri="entity_types_uri_value",
         parent="parent_value",
-        entity_types=['entity_types_value1', 'entity_types_value2'],
+        entity_types=["entity_types_value1", "entity_types_value2"],
     )
 
     # Make the request
@@ -54,5 +54,6 @@ def sample_export_entity_types():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v3beta1_generated_EntityTypes_ExportEntityTypes_sync]

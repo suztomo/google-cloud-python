@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import test_case, webhook
@@ -92,13 +92,16 @@ class Environment(proto.Message):
 
         Attributes:
             version (str):
-                Required. Both flow and playbook versions are
-                supported. Format for flow version:
+                Required. Flow, playbook and tool versions
+                are supported. Format for flow version:
 
                 projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/flows/<FlowID>/versions/<VersionID>.
                 Format for playbook version:
 
                 projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/playbooks/<PlaybookID>/versions/<VersionID>.
+                Format for tool version:
+
+                projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/tools/<ToolID>/versions/<VersionID>.
         """
 
         version: str = proto.Field(
@@ -433,6 +436,7 @@ class ContinuousTestResult(proto.Message):
             FAILED (2):
                 At least one test did not pass.
         """
+
         AGGREGATED_TEST_RESULT_UNSPECIFIED = 0
         PASSED = 1
         FAILED = 2
@@ -552,12 +556,12 @@ class ListContinuousTestResultsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    continuous_test_results: MutableSequence[
-        "ContinuousTestResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="ContinuousTestResult",
+    continuous_test_results: MutableSequence["ContinuousTestResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="ContinuousTestResult",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

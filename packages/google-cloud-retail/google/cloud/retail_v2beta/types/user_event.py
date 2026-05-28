@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2beta.types import common
@@ -43,16 +43,15 @@ class UserEvent(proto.Message):
         event_type (str):
             Required. User event type. Allowed values are:
 
-            -  ``add-to-cart``: Products being added to cart.
-            -  ``remove-from-cart``: Products being removed from cart.
-            -  ``category-page-view``: Special pages such as sale or
-               promotion pages viewed.
-            -  ``detail-page-view``: Products detail page viewed.
-            -  ``home-page-view``: Homepage viewed.
-            -  ``purchase-complete``: User finishing a purchase.
-            -  ``search``: Product search.
-            -  ``shopping-cart-page-view``: User viewing a shopping
-               cart.
+            - ``add-to-cart``: Products being added to cart.
+            - ``remove-from-cart``: Products being removed from cart.
+            - ``category-page-view``: Special pages such as sale or
+              promotion pages viewed.
+            - ``detail-page-view``: Products detail page viewed.
+            - ``home-page-view``: Homepage viewed.
+            - ``purchase-complete``: User finishing a purchase.
+            - ``search``: Product search.
+            - ``shopping-cart-page-view``: User viewing a shopping cart.
         visitor_id (str):
             Required. A unique identifier for tracking visitors.
 
@@ -124,9 +123,9 @@ class UserEvent(proto.Message):
 
             This field is optional except for the following event types:
 
-            -  ``add-to-cart``
-            -  ``detail-page-view``
-            -  ``purchase-complete``
+            - ``add-to-cart``
+            - ``detail-page-view``
+            - ``purchase-complete``
 
             In a ``search`` event, this field represents the products
             returned to the end user on the current page (the end user
@@ -158,12 +157,12 @@ class UserEvent(proto.Message):
             This field needs to pass all below criteria, otherwise an
             INVALID_ARGUMENT error is returned:
 
-            -  The key must be a UTF-8 encoded string with a length
-               limit of 5,000 characters.
-            -  For text attributes, at most 400 values are allowed.
-               Empty values are not allowed. Each value must be a UTF-8
-               encoded string with a length limit of 256 characters.
-            -  For number attributes, at most 400 values are allowed.
+            - The key must be a UTF-8 encoded string with a length limit
+              of 5,000 characters.
+            - For text attributes, at most 400 values are allowed. Empty
+              values are not allowed. Each value must be a UTF-8 encoded
+              string with a length limit of 256 characters.
+            - For number attributes, at most 400 values are allowed.
 
             For product recommendations, an example of extra user
             information is traffic_channel, which is how a user arrives
@@ -401,11 +400,11 @@ class ProductDetail(proto.Message):
 
             Required field(s):
 
-            -  [Product.id][google.cloud.retail.v2beta.Product.id]
+            - [Product.id][google.cloud.retail.v2beta.Product.id]
 
             Optional override field(s):
 
-            -  [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
+            - [Product.price_info][google.cloud.retail.v2beta.Product.price_info]
 
             If any supported optional fields are provided, we will treat
             them as a full override when looking up product information
@@ -487,12 +486,12 @@ class PurchaseTransaction(proto.Message):
             manufacturing costs, shipping expenses not borne by the end
             user, or any other costs, such that:
 
-            -  Profit =
-               [revenue][google.cloud.retail.v2beta.PurchaseTransaction.revenue]
-               -
-               [tax][google.cloud.retail.v2beta.PurchaseTransaction.tax]
-               -
-               [cost][google.cloud.retail.v2beta.PurchaseTransaction.cost]
+            - Profit =
+              [revenue][google.cloud.retail.v2beta.PurchaseTransaction.revenue]
+              -
+              [tax][google.cloud.retail.v2beta.PurchaseTransaction.tax]
+              -
+              [cost][google.cloud.retail.v2beta.PurchaseTransaction.cost]
         currency_code (str):
             Required. Currency code. Use three-character
             ISO-4217 code.

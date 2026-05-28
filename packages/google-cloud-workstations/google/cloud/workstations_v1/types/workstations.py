@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -479,30 +479,30 @@ class WorkstationConfig(proto.Message):
                     the `same restrictions as Compute Engine
                     instances <https://cloud.google.com/compute/docs/instances/nested-virtualization/overview#restrictions>`__:
 
-                    -  **Organization policy**: projects, folders, or
-                       organizations may be restricted from creating nested VMs
-                       if the **Disable VM nested virtualization** constraint is
-                       enforced in the organization policy. For more
-                       information, see the Compute Engine section, `Checking
-                       whether nested virtualization is
-                       allowed <https://cloud.google.com/compute/docs/instances/nested-virtualization/managing-constraint#checking_whether_nested_virtualization_is_allowed>`__.
-                    -  **Performance**: nested VMs might experience a 10% or
-                       greater decrease in performance for workloads that are
-                       CPU-bound and possibly greater than a 10% decrease for
-                       workloads that are input/output bound.
-                    -  **Machine Type**: nested virtualization can only be
-                       enabled on workstation configurations that specify a
-                       [machine_type][google.cloud.workstations.v1.WorkstationConfig.Host.GceInstance.machine_type]
-                       in the N1 or N2 machine series.
-                    -  **GPUs**: nested virtualization may not be enabled on
-                       workstation configurations with accelerators.
-                    -  **Operating System**: Because `Container-Optimized
-                       OS <https://cloud.google.com/compute/docs/images/os-details#container-optimized_os_cos>`__
-                       does not support nested virtualization, when nested
-                       virtualization is enabled, the underlying Compute Engine
-                       VM instances boot from an `Ubuntu
-                       LTS <https://cloud.google.com/compute/docs/images/os-details#ubuntu_lts>`__
-                       image.
+                    - **Organization policy**: projects, folders, or
+                      organizations may be restricted from creating nested VMs
+                      if the **Disable VM nested virtualization** constraint is
+                      enforced in the organization policy. For more information,
+                      see the Compute Engine section, `Checking whether nested
+                      virtualization is
+                      allowed <https://cloud.google.com/compute/docs/instances/nested-virtualization/managing-constraint#checking_whether_nested_virtualization_is_allowed>`__.
+                    - **Performance**: nested VMs might experience a 10% or
+                      greater decrease in performance for workloads that are
+                      CPU-bound and possibly greater than a 10% decrease for
+                      workloads that are input/output bound.
+                    - **Machine Type**: nested virtualization can only be
+                      enabled on workstation configurations that specify a
+                      [machine_type][google.cloud.workstations.v1.WorkstationConfig.Host.GceInstance.machine_type]
+                      in the N1 or N2 machine series.
+                    - **GPUs**: nested virtualization may not be enabled on
+                      workstation configurations with accelerators.
+                    - **Operating System**: Because `Container-Optimized
+                      OS <https://cloud.google.com/compute/docs/images/os-details#container-optimized_os_cos>`__
+                      does not support nested virtualization, when nested
+                      virtualization is enabled, the underlying Compute Engine
+                      VM instances boot from an `Ubuntu
+                      LTS <https://cloud.google.com/compute/docs/images/os-details#ubuntu_lts>`__
+                      image.
                 shielded_instance_config (google.cloud.workstations_v1.types.WorkstationConfig.Host.GceInstance.GceShieldedInstanceConfig):
                     Optional. A set of Compute Engine Shielded
                     instance options.
@@ -690,6 +690,7 @@ class WorkstationConfig(proto.Message):
                         workstation. An administrator must manually
                         delete the disk.
                 """
+
                 RECLAIM_POLICY_UNSPECIFIED = 0
                 DELETE = 1
                 RETAIN = 2
@@ -1009,6 +1010,7 @@ class Workstation(proto.Message):
                 The workstation is stopped and will not be
                 able to receive requests until it is started.
         """
+
         STATE_UNSPECIFIED = 0
         STATE_STARTING = 1
         STATE_RUNNING = 2

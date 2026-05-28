@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_service():
     client = servicedirectory_v1.RegistrationServiceClient()
 
     # Initialize request argument(s)
-    request = servicedirectory_v1.UpdateServiceRequest(
-    )
+    request = servicedirectory_v1.UpdateServiceRequest()
 
     # Make the request
     response = client.update_service(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END servicedirectory_v1_generated_RegistrationService_UpdateService_sync]

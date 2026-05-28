@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_start_node():
     client = tpu_v1.TpuClient()
 
     # Initialize request argument(s)
-    request = tpu_v1.StartNodeRequest(
-    )
+    request = tpu_v1.StartNodeRequest()
 
     # Make the request
     operation = client.start_node(request=request)
@@ -51,5 +50,6 @@ def sample_start_node():
 
     # Handle the response
     print(response)
+
 
 # [END tpu_v1_generated_Tpu_StartNode_sync]

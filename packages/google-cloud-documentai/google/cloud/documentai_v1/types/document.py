@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import color_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
-from google.type import postal_address_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.color_pb2 as color_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.documentai_v1.types import barcode as gcd_barcode
@@ -110,6 +110,28 @@ class Document(proto.Message):
             Parsed layout of the document.
         chunked_document (google.cloud.documentai_v1.types.Document.ChunkedDocument):
             Document chunked based on chunking config.
+        blob_assets (MutableSequence[google.cloud.documentai_v1.types.Document.BlobAsset]):
+            Optional. The blob assets in this document.
+            This is used to store the content of the inline
+            blobs in this document, for example, image
+            bytes, such that it can be referenced by other
+            fields in the document via asset id.
+        entity_validation_output (google.cloud.documentai_v1.types.Document.EntityValidationOutput):
+            The entity validation output for the document. This is the
+            validation output for ``document.entities`` field.
+        entities_revisions (MutableSequence[google.cloud.documentai_v1.types.Document.EntitiesRevision]):
+            A list of entity revisions. The entity
+            revisions are appended to the document in the
+            processing order. This field can be used for
+            comparing the entity extraction results at
+            different stages of the processing.
+        entities_revision_id (str):
+            The entity revision ID that ``document.entities`` field is
+            based on. If this field is set and ``entities_revisions`` is
+            not empty, the entities in ``document.entities`` field are
+            the entities in the entity revision with this id and
+            ``document.entity_validation_output`` field is the
+            ``entity_validation_output`` field in this entity revision.
     """
 
     class ShardInfo(proto.Message):
@@ -275,8 +297,9 @@ class Document(proto.Message):
                 A list of visually detected tokens on the
                 page.
             visual_elements (MutableSequence[google.cloud.documentai_v1.types.Document.Page.VisualElement]):
-                A list of detected non-text visual elements
-                e.g. checkbox, signature etc. on the page.
+                A list of detected non-text visual elements,
+                for example, checkbox, signature etc. on the
+                page.
             tables (MutableSequence[google.cloud.documentai_v1.types.Document.Page.Table]):
                 A list of visually detected tables on the
                 page.
@@ -366,7 +389,7 @@ class Document(proto.Message):
                     uses. For example, 0 (CV_8U) is an unsigned 8-bit image. For
                     the full list of OpenCV primitive data types, please refer
                     to
-                    https://docs.opencv.org/4.3.0/d1/d1b/group__core__hal__interface.html
+                    https://docs.opencv.org/4.3.0/d1/d1b/group\__core\__hal\__interface.html
                 data (bytes):
                     The matrix data.
             """
@@ -398,9 +421,9 @@ class Document(proto.Message):
                 confidence (float):
                     Confidence of the current
                     [Layout][google.cloud.documentai.v1.Document.Page.Layout]
-                    within context of the object this layout is for. e.g.
-                    confidence can be for a single token, a table, a visual
-                    element, etc. depending on context. Range ``[0, 1]``.
+                    within context of the object this layout is for. For
+                    example, confidence can be for a single token, a table, a
+                    visual element, etc. depending on context. Range ``[0, 1]``.
                 bounding_poly (google.cloud.documentai_v1.types.BoundingPoly):
                     The bounding polygon for the
                     [Layout][google.cloud.documentai.v1.Document.Page.Layout].
@@ -429,6 +452,7 @@ class Document(proto.Message):
                         Turn the head 90 degrees counterclockwise from
                         upright to read.
                 """
+
                 ORIENTATION_UNSPECIFIED = 0
                 PAGE_UP = 1
                 PAGE_RIGHT = 2
@@ -475,12 +499,12 @@ class Document(proto.Message):
                 number=1,
                 message="Document.Page.Layout",
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
             provenance: "Document.Provenance" = proto.Field(
                 proto.MESSAGE,
@@ -509,12 +533,12 @@ class Document(proto.Message):
                 number=1,
                 message="Document.Page.Layout",
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
             provenance: "Document.Provenance" = proto.Field(
                 proto.MESSAGE,
@@ -543,12 +567,12 @@ class Document(proto.Message):
                 number=1,
                 message="Document.Page.Layout",
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
             provenance: "Document.Provenance" = proto.Field(
                 proto.MESSAGE,
@@ -598,6 +622,7 @@ class Document(proto.Message):
                             A hyphen that indicates that a token has been
                             split across lines.
                     """
+
                     TYPE_UNSPECIFIED = 0
                     SPACE = 1
                     WIDE_SPACE = 2
@@ -619,7 +644,7 @@ class Document(proto.Message):
                         Font size in pixels, equal to *unrounded
                         [font_size][google.cloud.documentai.v1.Document.Page.Token.StyleInfo.font_size]*
 
-                        -  *resolution* ÷ ``72.0``.
+                        - *resolution* ÷ ``72.0``.
                     letter_spacing (float):
                         Letter spacing in points.
                     font_type (str):
@@ -728,12 +753,12 @@ class Document(proto.Message):
                 number=2,
                 message="Document.Page.Token.DetectedBreak",
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=3,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=3,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
             provenance: "Document.Provenance" = proto.Field(
                 proto.MESSAGE,
@@ -764,17 +789,17 @@ class Document(proto.Message):
                 number=1,
                 message="Document.Page.Layout",
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
 
         class VisualElement(proto.Message):
-            r"""Detected non-text visual elements e.g. checkbox, signature
-            etc. on the page.
+            r"""Detected non-text visual elements, for example, checkbox,
+            signature etc. on the page.
 
             Attributes:
                 layout (google.cloud.documentai_v1.types.Document.Page.Layout):
@@ -798,12 +823,12 @@ class Document(proto.Message):
                 proto.STRING,
                 number=2,
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=3,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=3,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
 
         class Table(proto.Message):
@@ -832,12 +857,12 @@ class Document(proto.Message):
                         Cells that make up this row.
                 """
 
-                cells: MutableSequence[
-                    "Document.Page.Table.TableCell"
-                ] = proto.RepeatedField(
-                    proto.MESSAGE,
-                    number=1,
-                    message="Document.Page.Table.TableCell",
+                cells: MutableSequence["Document.Page.Table.TableCell"] = (
+                    proto.RepeatedField(
+                        proto.MESSAGE,
+                        number=1,
+                        message="Document.Page.Table.TableCell",
+                    )
                 )
 
             class TableCell(proto.Message):
@@ -883,26 +908,26 @@ class Document(proto.Message):
                 number=1,
                 message="Document.Page.Layout",
             )
-            header_rows: MutableSequence[
-                "Document.Page.Table.TableRow"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Document.Page.Table.TableRow",
+            header_rows: MutableSequence["Document.Page.Table.TableRow"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Document.Page.Table.TableRow",
+                )
             )
-            body_rows: MutableSequence[
-                "Document.Page.Table.TableRow"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=3,
-                message="Document.Page.Table.TableRow",
+            body_rows: MutableSequence["Document.Page.Table.TableRow"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=3,
+                    message="Document.Page.Table.TableRow",
+                )
             )
-            detected_languages: MutableSequence[
-                "Document.Page.DetectedLanguage"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=4,
-                message="Document.Page.DetectedLanguage",
+            detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Document.Page.DetectedLanguage",
+                )
             )
             provenance: "Document.Provenance" = proto.Field(
                 proto.MESSAGE,
@@ -918,7 +943,7 @@ class Document(proto.Message):
                     [Layout][google.cloud.documentai.v1.Document.Page.Layout]
                     for the
                     [FormField][google.cloud.documentai.v1.Document.Page.FormField]
-                    name. e.g. ``Address``, ``Email``, ``Grand total``,
+                    name. For example, ``Address``, ``Email``, ``Grand total``,
                     ``Phone number``, etc.
                 field_value (google.cloud.documentai_v1.types.Document.Page.Layout):
                     [Layout][google.cloud.documentai.v1.Document.Page.Layout]
@@ -935,9 +960,9 @@ class Document(proto.Message):
                     If the value is non-textual, this field represents the type.
                     Current valid values are:
 
-                    -  blank (this indicates the ``field_value`` is normal text)
-                    -  ``unfilled_checkbox``
-                    -  ``filled_checkbox``
+                    - blank (this indicates the ``field_value`` is normal text)
+                    - ``unfilled_checkbox``
+                    - ``filled_checkbox``
                 corrected_key_text (str):
                     Created for Labeling UI to export key text. If corrections
                     were made to the text identified by the
@@ -1057,14 +1082,14 @@ class Document(proto.Message):
                     type_ (str):
                         Name of the defect type. Supported values are:
 
-                        -  ``quality/defect_blurry``
-                        -  ``quality/defect_noisy``
-                        -  ``quality/defect_dark``
-                        -  ``quality/defect_faint``
-                        -  ``quality/defect_text_too_small``
-                        -  ``quality/defect_document_cutoff``
-                        -  ``quality/defect_text_cutoff``
-                        -  ``quality/defect_glare``
+                        - ``quality/defect_blurry``
+                        - ``quality/defect_noisy``
+                        - ``quality/defect_dark``
+                        - ``quality/defect_faint``
+                        - ``quality/defect_text_too_small``
+                        - ``quality/defect_document_cutoff``
+                        - ``quality/defect_text_cutoff``
+                        - ``quality/defect_glare``
                     confidence (float):
                         Confidence of detected defect. Range ``[0, 1]`` where ``1``
                         indicates strong confidence that the defect exists.
@@ -1115,12 +1140,12 @@ class Document(proto.Message):
             number=3,
             message="Document.Page.Layout",
         )
-        detected_languages: MutableSequence[
-            "Document.Page.DetectedLanguage"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="Document.Page.DetectedLanguage",
+        detected_languages: MutableSequence["Document.Page.DetectedLanguage"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="Document.Page.DetectedLanguage",
+            )
         )
         blocks: MutableSequence["Document.Page.Block"] = proto.RepeatedField(
             proto.MESSAGE,
@@ -1142,12 +1167,12 @@ class Document(proto.Message):
             number=8,
             message="Document.Page.Token",
         )
-        visual_elements: MutableSequence[
-            "Document.Page.VisualElement"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=9,
-            message="Document.Page.VisualElement",
+        visual_elements: MutableSequence["Document.Page.VisualElement"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=9,
+                message="Document.Page.VisualElement",
+            )
         )
         tables: MutableSequence["Document.Page.Table"] = proto.RepeatedField(
             proto.MESSAGE,
@@ -1164,12 +1189,12 @@ class Document(proto.Message):
             number=12,
             message="Document.Page.Symbol",
         )
-        detected_barcodes: MutableSequence[
-            "Document.Page.DetectedBarcode"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=15,
-            message="Document.Page.DetectedBarcode",
+        detected_barcodes: MutableSequence["Document.Page.DetectedBarcode"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=15,
+                message="Document.Page.DetectedBarcode",
+            )
         )
         image_quality_scores: "Document.Page.ImageQualityScores" = proto.Field(
             proto.MESSAGE,
@@ -1193,9 +1218,10 @@ class Document(proto.Message):
                 into the
                 [Document.text][google.cloud.documentai.v1.Document.text].
             type_ (str):
-                Required. Entity type from a schema e.g. ``Address``.
+                Required. Entity type from a schema, for example,
+                ``Address``.
             mention_text (str):
-                Optional. Text value of the entity e.g.
+                Optional. Text value of the entity, for example,
                 ``1600 Amphitheatre Pkwy``.
             mention_id (str):
                 Optional. Deprecated. Use ``id`` field instead.
@@ -1212,8 +1238,8 @@ class Document(proto.Message):
             normalized_value (google.cloud.documentai_v1.types.Document.Entity.NormalizedValue):
                 Optional. Normalized entity value. Absent if
                 the extracted value could not be converted or
-                the type (e.g. address) is not supported for
-                certain parsers. This field is also only
+                the type (for example, address) is not supported
+                for certain parsers. This field is also only
                 populated for certain supported document types.
             properties (MutableSequence[google.cloud.documentai_v1.types.Document.Entity]):
                 Optional. Entities can be nested to form a
@@ -1224,7 +1250,30 @@ class Document(proto.Message):
             redacted (bool):
                 Optional. Whether the entity will be redacted
                 for de-identification purposes.
+            method (google.cloud.documentai_v1.types.Document.Entity.Method):
+                Optional. Specifies how the entity's value is
+                obtained.
         """
+
+        class Method(proto.Enum):
+            r"""Specifies how the entity's value is obtained.
+
+            Values:
+                METHOD_UNSPECIFIED (0):
+                    When the method is not specified, it should be treated as
+                    ``EXTRACT``.
+                EXTRACT (1):
+                    The entity's value is directly extracted
+                    as-is from the document text.
+                DERIVE (2):
+                    The entity's value is derived through
+                    inference and is not necessarily an exact text
+                    extraction from the document.
+            """
+
+            METHOD_UNSPECIFIED = 0
+            EXTRACT = 1
+            DERIVE = 2
 
         class NormalizedValue(proto.Message):
             r"""Parsed and normalized entity value.
@@ -1273,6 +1322,11 @@ class Document(proto.Message):
                     Float value.
 
                     This field is a member of `oneof`_ ``structured_value``.
+                signature_value (bool):
+                    A signature - a graphical representation of a
+                    person's name, often used to sign a document.
+
+                    This field is a member of `oneof`_ ``structured_value``.
                 text (str):
                     Optional. An optional field to store a normalized string.
                     For some entity types, one of respective
@@ -1283,12 +1337,11 @@ class Document(proto.Message):
 
                     Below are sample formats mapped to structured values.
 
-                    -  Money/Currency type (``money_value``) is in the ISO 4217
-                       text format.
-                    -  Date type (``date_value``) is in the ISO 8601 text
-                       format.
-                    -  Datetime type (``datetime_value``) is in the ISO 8601
-                       text format.
+                    - Money/Currency type (``money_value``) is in the ISO 4217
+                      text format.
+                    - Date type (``date_value``) is in the ISO 8601 text format.
+                    - Datetime type (``datetime_value``) is in the ISO 8601 text
+                      format.
             """
 
             money_value: money_pb2.Money = proto.Field(
@@ -1328,6 +1381,11 @@ class Document(proto.Message):
             float_value: float = proto.Field(
                 proto.FLOAT,
                 number=8,
+                oneof="structured_value",
+            )
+            signature_value: bool = proto.Field(
+                proto.BOOL,
+                number=10,
                 oneof="structured_value",
             )
             text: str = proto.Field(
@@ -1383,6 +1441,11 @@ class Document(proto.Message):
         redacted: bool = proto.Field(
             proto.BOOL,
             number=12,
+        )
+        method: "Document.Entity.Method" = proto.Field(
+            proto.ENUM,
+            number=15,
+            enum="Document.Entity.Method",
         )
 
     class EntityRelation(proto.Message):
@@ -1452,12 +1515,12 @@ class Document(proto.Message):
                 number=2,
             )
 
-        text_segments: MutableSequence[
-            "Document.TextAnchor.TextSegment"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="Document.TextAnchor.TextSegment",
+        text_segments: MutableSequence["Document.TextAnchor.TextSegment"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="Document.TextAnchor.TextSegment",
+            )
         )
         content: str = proto.Field(
             proto.STRING,
@@ -1541,6 +1604,7 @@ class Document(proto.Message):
                         [Page.form_fields][google.cloud.documentai.v1.Document.Page.form_fields]
                         element.
                 """
+
                 LAYOUT_TYPE_UNSPECIFIED = 0
                 BLOCK = 1
                 PARAGRAPH = 2
@@ -1630,6 +1694,7 @@ class Document(proto.Message):
                     Deprecated. Element is skipped in the
                     validation process.
             """
+
             OPERATION_TYPE_UNSPECIFIED = 0
             ADD = 1
             REMOVE = 2
@@ -1735,8 +1800,8 @@ class Document(proto.Message):
 
             Attributes:
                 state (str):
-                    Human review state. e.g. ``requested``, ``succeeded``,
-                    ``rejected``.
+                    Human review state. For example, ``requested``,
+                    ``succeeded``, ``rejected``.
                 state_message (str):
                     A message providing more details about the current state of
                     processing. For example, the rejection reason when the state
@@ -1817,6 +1882,20 @@ class Document(proto.Message):
             message="Document.Provenance",
         )
 
+    class Annotations(proto.Message):
+        r"""Represents the annotation of a block or a chunk.
+
+        Attributes:
+            description (str):
+                The description of the content with this
+                annotation.
+        """
+
+        description: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+
     class DocumentLayout(proto.Message):
         r"""Represents the parsed layout of a document as a collection of
         blocks that the document is divided into.
@@ -1848,6 +1927,10 @@ class Document(proto.Message):
                     This field is a member of `oneof`_ ``block``.
                 list_block (google.cloud.documentai_v1.types.Document.DocumentLayout.DocumentLayoutBlock.LayoutListBlock):
                     Block consisting of list content/structure.
+
+                    This field is a member of `oneof`_ ``block``.
+                image_block (google.cloud.documentai_v1.types.Document.DocumentLayout.DocumentLayoutBlock.LayoutImageBlock):
+                    Block consisting of image content.
 
                     This field is a member of `oneof`_ ``block``.
                 block_id (str):
@@ -1892,6 +1975,8 @@ class Document(proto.Message):
                         A text block could further have child blocks.
                         Repeated blocks support further hierarchies and
                         nested blocks.
+                    annotations (google.cloud.documentai_v1.types.Document.Annotations):
+                        Annotation of the text block.
                 """
 
                 text: str = proto.Field(
@@ -1909,6 +1994,11 @@ class Document(proto.Message):
                     number=3,
                     message="Document.DocumentLayout.DocumentLayoutBlock",
                 )
+                annotations: "Document.Annotations" = proto.Field(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Document.Annotations",
+                )
 
             class LayoutTableBlock(proto.Message):
                 r"""Represents a table type block.
@@ -1920,6 +2010,8 @@ class Document(proto.Message):
                         Body rows containing main table content.
                     caption (str):
                         Table caption/title.
+                    annotations (google.cloud.documentai_v1.types.Document.Annotations):
+                        Annotation of the table block.
                 """
 
                 header_rows: MutableSequence[
@@ -1939,6 +2031,11 @@ class Document(proto.Message):
                 caption: str = proto.Field(
                     proto.STRING,
                     number=3,
+                )
+                annotations: "Document.Annotations" = proto.Field(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Document.Annotations",
                 )
 
             class LayoutTableRow(proto.Message):
@@ -2028,6 +2125,74 @@ class Document(proto.Message):
                     message="Document.DocumentLayout.DocumentLayoutBlock",
                 )
 
+            class LayoutImageBlock(proto.Message):
+                r"""Represents an image type block.
+
+                This message has `oneof`_ fields (mutually exclusive fields).
+                For each oneof, at most one member field can be set at the same time.
+                Setting any member of the oneof automatically clears all other
+                members.
+
+                .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+                Attributes:
+                    blob_asset_id (str):
+                        Optional. Asset id of the inline image. If set, find the
+                        image content in the blob_assets field.
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    gcs_uri (str):
+                        Optional. Google Cloud Storage uri of the
+                        image.
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    data_uri (str):
+                        Optional. Data uri of the image. It is composed of four
+                        parts: a prefix (data:), a MIME type indicating the type of
+                        data, an optional base64 token if non-textual, and the data
+                        itself: data:[][;base64],
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    mime_type (str):
+                        Mime type of the image. An IANA published [media type (MIME
+                        type)]
+                        (https://www.iana.org/assignments/media-types/media-types.xhtml).
+                    image_text (str):
+                        Text extracted from the image using OCR or
+                        alt text describing the image.
+                    annotations (google.cloud.documentai_v1.types.Document.Annotations):
+                        Annotation of the image block.
+                """
+
+                blob_asset_id: str = proto.Field(
+                    proto.STRING,
+                    number=4,
+                    oneof="image_source",
+                )
+                gcs_uri: str = proto.Field(
+                    proto.STRING,
+                    number=5,
+                    oneof="image_source",
+                )
+                data_uri: str = proto.Field(
+                    proto.STRING,
+                    number=6,
+                    oneof="image_source",
+                )
+                mime_type: str = proto.Field(
+                    proto.STRING,
+                    number=1,
+                )
+                image_text: str = proto.Field(
+                    proto.STRING,
+                    number=2,
+                )
+                annotations: "Document.Annotations" = proto.Field(
+                    proto.MESSAGE,
+                    number=3,
+                    message="Document.Annotations",
+                )
+
             text_block: "Document.DocumentLayout.DocumentLayoutBlock.LayoutTextBlock" = proto.Field(
                 proto.MESSAGE,
                 number=2,
@@ -2046,6 +2211,12 @@ class Document(proto.Message):
                 oneof="block",
                 message="Document.DocumentLayout.DocumentLayoutBlock.LayoutListBlock",
             )
+            image_block: "Document.DocumentLayout.DocumentLayoutBlock.LayoutImageBlock" = proto.Field(
+                proto.MESSAGE,
+                number=7,
+                oneof="block",
+                message="Document.DocumentLayout.DocumentLayoutBlock.LayoutImageBlock",
+            )
             block_id: str = proto.Field(
                 proto.STRING,
                 number=1,
@@ -2061,12 +2232,12 @@ class Document(proto.Message):
                 message=geometry.BoundingPoly,
             )
 
-        blocks: MutableSequence[
-            "Document.DocumentLayout.DocumentLayoutBlock"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="Document.DocumentLayout.DocumentLayoutBlock",
+        blocks: MutableSequence["Document.DocumentLayout.DocumentLayoutBlock"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="Document.DocumentLayout.DocumentLayoutBlock",
+            )
         )
 
     class ChunkedDocument(proto.Message):
@@ -2093,6 +2264,8 @@ class Document(proto.Message):
                     Page headers associated with the chunk.
                 page_footers (MutableSequence[google.cloud.documentai_v1.types.Document.ChunkedDocument.Chunk.ChunkPageFooter]):
                     Page footers associated with the chunk.
+                chunk_fields (MutableSequence[google.cloud.documentai_v1.types.Document.ChunkedDocument.Chunk.ChunkField]):
+                    Chunk fields inside this chunk.
             """
 
             class ChunkPageSpan(proto.Message):
@@ -2154,6 +2327,112 @@ class Document(proto.Message):
                     message="Document.ChunkedDocument.Chunk.ChunkPageSpan",
                 )
 
+            class ImageChunkField(proto.Message):
+                r"""The image chunk field in the chunk.
+
+                This message has `oneof`_ fields (mutually exclusive fields).
+                For each oneof, at most one member field can be set at the same time.
+                Setting any member of the oneof automatically clears all other
+                members.
+
+                .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+                Attributes:
+                    blob_asset_id (str):
+                        Optional. Asset id of the inline image. If set, find the
+                        image content in the blob_assets field.
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    gcs_uri (str):
+                        Optional. Google Cloud Storage uri of the
+                        image.
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    data_uri (str):
+                        Optional. Data uri of the image. It is composed of four
+                        parts: a prefix (data:), a MIME type indicating the type of
+                        data, an optional base64 token if non-textual, and the data
+                        itself: data:[][;base64],
+
+                        This field is a member of `oneof`_ ``image_source``.
+                    annotations (google.cloud.documentai_v1.types.Document.Annotations):
+                        Annotation of the image chunk field.
+                """
+
+                blob_asset_id: str = proto.Field(
+                    proto.STRING,
+                    number=1,
+                    oneof="image_source",
+                )
+                gcs_uri: str = proto.Field(
+                    proto.STRING,
+                    number=2,
+                    oneof="image_source",
+                )
+                data_uri: str = proto.Field(
+                    proto.STRING,
+                    number=3,
+                    oneof="image_source",
+                )
+                annotations: "Document.Annotations" = proto.Field(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Document.Annotations",
+                )
+
+            class TableChunkField(proto.Message):
+                r"""The table chunk field in the chunk.
+
+                Attributes:
+                    annotations (google.cloud.documentai_v1.types.Document.Annotations):
+                        Annotation of the table chunk field.
+                """
+
+                annotations: "Document.Annotations" = proto.Field(
+                    proto.MESSAGE,
+                    number=1,
+                    message="Document.Annotations",
+                )
+
+            class ChunkField(proto.Message):
+                r"""The chunk field in the chunk. A chunk field could be one of
+                the various types (for example, image, table) supported.
+
+                This message has `oneof`_ fields (mutually exclusive fields).
+                For each oneof, at most one member field can be set at the same time.
+                Setting any member of the oneof automatically clears all other
+                members.
+
+                .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+                Attributes:
+                    image_chunk_field (google.cloud.documentai_v1.types.Document.ChunkedDocument.Chunk.ImageChunkField):
+                        The image chunk field in the chunk.
+
+                        This field is a member of `oneof`_ ``field_type``.
+                    table_chunk_field (google.cloud.documentai_v1.types.Document.ChunkedDocument.Chunk.TableChunkField):
+                        The table chunk field in the chunk.
+
+                        This field is a member of `oneof`_ ``field_type``.
+                """
+
+                image_chunk_field: "Document.ChunkedDocument.Chunk.ImageChunkField" = (
+                    proto.Field(
+                        proto.MESSAGE,
+                        number=1,
+                        oneof="field_type",
+                        message="Document.ChunkedDocument.Chunk.ImageChunkField",
+                    )
+                )
+                table_chunk_field: "Document.ChunkedDocument.Chunk.TableChunkField" = (
+                    proto.Field(
+                        proto.MESSAGE,
+                        number=2,
+                        oneof="field_type",
+                        message="Document.ChunkedDocument.Chunk.TableChunkField",
+                    )
+                )
+
             chunk_id: str = proto.Field(
                 proto.STRING,
                 number=1,
@@ -2185,11 +2464,157 @@ class Document(proto.Message):
                 number=6,
                 message="Document.ChunkedDocument.Chunk.ChunkPageFooter",
             )
+            chunk_fields: MutableSequence[
+                "Document.ChunkedDocument.Chunk.ChunkField"
+            ] = proto.RepeatedField(
+                proto.MESSAGE,
+                number=7,
+                message="Document.ChunkedDocument.Chunk.ChunkField",
+            )
 
         chunks: MutableSequence["Document.ChunkedDocument.Chunk"] = proto.RepeatedField(
             proto.MESSAGE,
             number=1,
             message="Document.ChunkedDocument.Chunk",
+        )
+
+    class BlobAsset(proto.Message):
+        r"""Represents a blob asset. It's used to store the content of
+        the inline blob in this document, for example, image bytes, such
+        that it can be referenced by other fields in the document via
+        asset ID.
+
+        Attributes:
+            asset_id (str):
+                Optional. The id of the blob asset.
+            content (bytes):
+                Optional. The content of the blob asset, for
+                example, image bytes.
+            mime_type (str):
+                The mime type of the blob asset. An IANA published `media
+                type (MIME
+                type) <https://www.iana.org/assignments/media-types/media-types.xhtml>`__.
+        """
+
+        asset_id: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        content: bytes = proto.Field(
+            proto.BYTES,
+            number=2,
+        )
+        mime_type: str = proto.Field(
+            proto.STRING,
+            number=3,
+        )
+
+    class EntityValidationOutput(proto.Message):
+        r"""The output of the validation given the document and the
+        validation rules.
+
+        Attributes:
+            validation_results (MutableSequence[google.cloud.documentai_v1.types.Document.EntityValidationOutput.ValidationResult]):
+                The result of each validation rule.
+            pass_all_rules (bool):
+                The overall result of the validation, true if
+                all applicable rules are valid.
+        """
+
+        class ValidationResult(proto.Message):
+            r"""Validation result for a single validation rule.
+
+            Attributes:
+                rule_name (str):
+                    The name of the validation rule.
+                rule_description (str):
+                    The description of the validation rule.
+                validation_result_type (google.cloud.documentai_v1.types.Document.EntityValidationOutput.ValidationResult.ValidationResultType):
+                    The result of the validation rule.
+                validation_details (str):
+                    The detailed information of the running the
+                    validation process using the entity from the
+                    document based on the validation rule.
+            """
+
+            class ValidationResultType(proto.Enum):
+                r"""The result of the validation rule.
+
+                Values:
+                    VALIDATION_RESULT_TYPE_UNSPECIFIED (0):
+                        The validation result type is unspecified.
+                    VALIDATION_RESULT_TYPE_VALID (1):
+                        The validation is valid.
+                    VALIDATION_RESULT_TYPE_INVALID (2):
+                        The validation is invalid.
+                    VALIDATION_RESULT_TYPE_SKIPPED (3):
+                        The validation is skipped.
+                    VALIDATION_RESULT_TYPE_NOT_APPLICABLE (4):
+                        The validation is not applicable.
+                """
+
+                VALIDATION_RESULT_TYPE_UNSPECIFIED = 0
+                VALIDATION_RESULT_TYPE_VALID = 1
+                VALIDATION_RESULT_TYPE_INVALID = 2
+                VALIDATION_RESULT_TYPE_SKIPPED = 3
+                VALIDATION_RESULT_TYPE_NOT_APPLICABLE = 4
+
+            rule_name: str = proto.Field(
+                proto.STRING,
+                number=1,
+            )
+            rule_description: str = proto.Field(
+                proto.STRING,
+                number=2,
+            )
+            validation_result_type: "Document.EntityValidationOutput.ValidationResult.ValidationResultType" = proto.Field(
+                proto.ENUM,
+                number=3,
+                enum="Document.EntityValidationOutput.ValidationResult.ValidationResultType",
+            )
+            validation_details: str = proto.Field(
+                proto.STRING,
+                number=4,
+            )
+
+        validation_results: MutableSequence[
+            "Document.EntityValidationOutput.ValidationResult"
+        ] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="Document.EntityValidationOutput.ValidationResult",
+        )
+        pass_all_rules: bool = proto.Field(
+            proto.BOOL,
+            number=2,
+        )
+
+    class EntitiesRevision(proto.Message):
+        r"""Entity revision.
+
+        Attributes:
+            revision_id (str):
+                The revision id.
+            entities (MutableSequence[google.cloud.documentai_v1.types.Document.Entity]):
+                The entities in this revision.
+            entity_validation_output (google.cloud.documentai_v1.types.Document.EntityValidationOutput):
+                The entity validation output for this
+                revision.
+        """
+
+        revision_id: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        entities: MutableSequence["Document.Entity"] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="Document.Entity",
+        )
+        entity_validation_output: "Document.EntityValidationOutput" = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message="Document.EntityValidationOutput",
         )
 
     uri: str = proto.Field(
@@ -2263,6 +2688,25 @@ class Document(proto.Message):
         proto.MESSAGE,
         number=18,
         message=ChunkedDocument,
+    )
+    blob_assets: MutableSequence[BlobAsset] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=19,
+        message=BlobAsset,
+    )
+    entity_validation_output: EntityValidationOutput = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message=EntityValidationOutput,
+    )
+    entities_revisions: MutableSequence[EntitiesRevision] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=22,
+        message=EntitiesRevision,
+    )
+    entities_revision_id: str = proto.Field(
+        proto.STRING,
+        number=23,
     )
 
 

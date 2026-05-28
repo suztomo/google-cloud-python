@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.ai.generativelanguage_v1.types import citation
+from google.ai.generativelanguage_v1.types import citation, safety
 from google.ai.generativelanguage_v1.types import content as gag_content
-from google.ai.generativelanguage_v1.types import safety
 
 __protobuf__ = proto.module(
     package="google.ai.generativelanguage.v1",
@@ -31,6 +31,8 @@ __protobuf__ = proto.module(
         "GenerationConfig",
         "GenerateContentResponse",
         "Candidate",
+        "UrlContextMetadata",
+        "UrlMetadata",
         "LogprobsResult",
         "RetrievalMetadata",
         "GroundingMetadata",
@@ -81,6 +83,7 @@ class TaskType(proto.Enum):
             Specifies that the given text will be used
             for code retrieval.
     """
+
     TASK_TYPE_UNSPECIFIED = 0
     RETRIEVAL_QUERY = 1
     RETRIEVAL_DOCUMENT = 2
@@ -244,6 +247,9 @@ class GenerationConfig(proto.Message):
             the request uses a randomly generated seed.
 
             This field is a member of `oneof`_ ``_seed``.
+        response_json_schema_ordered (google.protobuf.struct_pb2.Value):
+            Optional. An internal detail. Use ``responseJsonSchema``
+            rather than this field.
         presence_penalty (float):
             Optional. Presence penalty applied to the next token's
             logprobs if the token has already been seen in the response.
@@ -294,6 +300,7 @@ class GenerationConfig(proto.Message):
             This sets the number of top logprobs to return at each
             decoding step in the
             [Candidate.logprobs_result][google.ai.generativelanguage.v1.Candidate.logprobs_result].
+            The number must be in the range of [0, 20].
 
             This field is a member of `oneof`_ ``_logprobs``.
         enable_enhanced_civic_answers (bool):
@@ -337,6 +344,11 @@ class GenerationConfig(proto.Message):
         number=8,
         optional=True,
     )
+    response_json_schema_ordered: struct_pb2.Value = proto.Field(
+        proto.MESSAGE,
+        number=28,
+        message=struct_pb2.Value,
+    )
     presence_penalty: float = proto.Field(
         proto.FLOAT,
         number=15,
@@ -371,11 +383,11 @@ class GenerateContentResponse(proto.Message):
     ``GenerateContentResponse.prompt_feedback`` and for each candidate
     in ``finish_reason`` and in ``safety_ratings``. The API:
 
-    -  Returns either all requested candidates or none of them
-    -  Returns no candidates at all only if there was something wrong
-       with the prompt (check ``prompt_feedback``)
-    -  Reports feedback on each candidate in ``finish_reason`` and
-       ``safety_ratings``.
+    - Returns either all requested candidates or none of them
+    - Returns no candidates at all only if there was something wrong
+      with the prompt (check ``prompt_feedback``)
+    - Reports feedback on each candidate in ``finish_reason`` and
+      ``safety_ratings``.
 
     Attributes:
         candidates (MutableSequence[google.ai.generativelanguage_v1.types.Candidate]):
@@ -389,6 +401,8 @@ class GenerateContentResponse(proto.Message):
         model_version (str):
             Output only. The model version used to
             generate the response.
+        response_id (str):
+            Output only. response_id is used to identify each response.
     """
 
     class PromptFeedback(proto.Message):
@@ -425,6 +439,7 @@ class GenerateContentResponse(proto.Message):
                     Candidates blocked due to unsafe image
                     generation content.
             """
+
             BLOCK_REASON_UNSPECIFIED = 0
             SAFETY = 1
             OTHER = 2
@@ -499,26 +514,26 @@ class GenerateContentResponse(proto.Message):
             proto.INT32,
             number=3,
         )
-        prompt_tokens_details: MutableSequence[
-            gag_content.ModalityTokenCount
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message=gag_content.ModalityTokenCount,
+        prompt_tokens_details: MutableSequence[gag_content.ModalityTokenCount] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message=gag_content.ModalityTokenCount,
+            )
         )
-        cache_tokens_details: MutableSequence[
-            gag_content.ModalityTokenCount
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=6,
-            message=gag_content.ModalityTokenCount,
+        cache_tokens_details: MutableSequence[gag_content.ModalityTokenCount] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=6,
+                message=gag_content.ModalityTokenCount,
+            )
         )
-        candidates_tokens_details: MutableSequence[
-            gag_content.ModalityTokenCount
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=7,
-            message=gag_content.ModalityTokenCount,
+        candidates_tokens_details: MutableSequence[gag_content.ModalityTokenCount] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=7,
+                message=gag_content.ModalityTokenCount,
+            )
         )
         tool_use_prompt_tokens_details: MutableSequence[
             gag_content.ModalityTokenCount
@@ -547,6 +562,10 @@ class GenerateContentResponse(proto.Message):
         proto.STRING,
         number=4,
     )
+    response_id: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
 
 
 class Candidate(proto.Message):
@@ -568,6 +587,12 @@ class Candidate(proto.Message):
             model stopped generating tokens.
             If empty, the model has not stopped generating
             tokens.
+        finish_message (str):
+            Optional. Output only. Details the reason why the model
+            stopped generating tokens. This is populated only when
+            ``finish_reason`` is set.
+
+            This field is a member of `oneof`_ ``_finish_message``.
         safety_ratings (MutableSequence[google.ai.generativelanguage_v1.types.SafetyRating]):
             List of ratings for the safety of a response
             candidate.
@@ -592,6 +617,9 @@ class Candidate(proto.Message):
         logprobs_result (google.ai.generativelanguage_v1.types.LogprobsResult):
             Output only. Log-likelihood scores for the
             response tokens and top tokens
+        url_context_metadata (google.ai.generativelanguage_v1.types.UrlContextMetadata):
+            Output only. Metadata related to url context
+            retrieval tool.
     """
 
     class FinishReason(proto.Enum):
@@ -633,7 +661,25 @@ class Candidate(proto.Message):
             IMAGE_SAFETY (11):
                 Token generation stopped because generated
                 images contain safety violations.
+            IMAGE_PROHIBITED_CONTENT (14):
+                Image generation stopped because generated
+                images has other prohibited content.
+            IMAGE_OTHER (15):
+                Image generation stopped because of other
+                miscellaneous issue.
+            NO_IMAGE (16):
+                The model was expected to generate an image,
+                but none was generated.
+            IMAGE_RECITATION (17):
+                Image generation stopped due to recitation.
+            UNEXPECTED_TOOL_CALL (12):
+                Model generated a tool call but no tools were
+                enabled in the request.
+            TOO_MANY_TOOL_CALLS (13):
+                Model called too many tools consecutively,
+                thus the system exited execution.
         """
+
         FINISH_REASON_UNSPECIFIED = 0
         STOP = 1
         MAX_TOKENS = 2
@@ -646,6 +692,12 @@ class Candidate(proto.Message):
         SPII = 9
         MALFORMED_FUNCTION_CALL = 10
         IMAGE_SAFETY = 11
+        IMAGE_PROHIBITED_CONTENT = 14
+        IMAGE_OTHER = 15
+        NO_IMAGE = 16
+        IMAGE_RECITATION = 17
+        UNEXPECTED_TOOL_CALL = 12
+        TOO_MANY_TOOL_CALLS = 13
 
     index: int = proto.Field(
         proto.INT32,
@@ -661,6 +713,11 @@ class Candidate(proto.Message):
         proto.ENUM,
         number=2,
         enum=FinishReason,
+    )
+    finish_message: str = proto.Field(
+        proto.STRING,
+        number=4,
+        optional=True,
     )
     safety_ratings: MutableSequence[safety.SafetyRating] = proto.RepeatedField(
         proto.MESSAGE,
@@ -690,12 +747,83 @@ class Candidate(proto.Message):
         number=11,
         message="LogprobsResult",
     )
+    url_context_metadata: "UrlContextMetadata" = proto.Field(
+        proto.MESSAGE,
+        number=13,
+        message="UrlContextMetadata",
+    )
+
+
+class UrlContextMetadata(proto.Message):
+    r"""Metadata related to url context retrieval tool.
+
+    Attributes:
+        url_metadata (MutableSequence[google.ai.generativelanguage_v1.types.UrlMetadata]):
+            List of url context.
+    """
+
+    url_metadata: MutableSequence["UrlMetadata"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="UrlMetadata",
+    )
+
+
+class UrlMetadata(proto.Message):
+    r"""Context of the a single url retrieval.
+
+    Attributes:
+        retrieved_url (str):
+            Retrieved url by the tool.
+        url_retrieval_status (google.ai.generativelanguage_v1.types.UrlMetadata.UrlRetrievalStatus):
+            Status of the url retrieval.
+    """
+
+    class UrlRetrievalStatus(proto.Enum):
+        r"""Status of the url retrieval.
+
+        Values:
+            URL_RETRIEVAL_STATUS_UNSPECIFIED (0):
+                Default value. This value is unused.
+            URL_RETRIEVAL_STATUS_SUCCESS (1):
+                Url retrieval is successful.
+            URL_RETRIEVAL_STATUS_ERROR (2):
+                Url retrieval is failed due to error.
+            URL_RETRIEVAL_STATUS_PAYWALL (3):
+                Url retrieval is failed because the content
+                is behind paywall.
+            URL_RETRIEVAL_STATUS_UNSAFE (4):
+                Url retrieval is failed because the content
+                is unsafe.
+        """
+
+        URL_RETRIEVAL_STATUS_UNSPECIFIED = 0
+        URL_RETRIEVAL_STATUS_SUCCESS = 1
+        URL_RETRIEVAL_STATUS_ERROR = 2
+        URL_RETRIEVAL_STATUS_PAYWALL = 3
+        URL_RETRIEVAL_STATUS_UNSAFE = 4
+
+    retrieved_url: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    url_retrieval_status: UrlRetrievalStatus = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=UrlRetrievalStatus,
+    )
 
 
 class LogprobsResult(proto.Message):
     r"""Logprobs Result
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
+        log_probability_sum (float):
+            Sum of log probabilities for all tokens.
+
+            This field is a member of `oneof`_ ``_log_probability_sum``.
         top_candidates (MutableSequence[google.ai.generativelanguage_v1.types.LogprobsResult.TopCandidates]):
             Length = total number of decoding steps.
         chosen_candidates (MutableSequence[google.ai.generativelanguage_v1.types.LogprobsResult.Candidate]):
@@ -754,6 +882,11 @@ class LogprobsResult(proto.Message):
             message="LogprobsResult.Candidate",
         )
 
+    log_probability_sum: float = proto.Field(
+        proto.FLOAT,
+        number=3,
+        optional=True,
+    )
     top_candidates: MutableSequence[TopCandidates] = proto.RepeatedField(
         proto.MESSAGE,
         number=1,
@@ -810,6 +943,14 @@ class GroundingMetadata(proto.Message):
         web_search_queries (MutableSequence[str]):
             Web search queries for the following-up web
             search.
+        google_maps_widget_context_token (str):
+            Optional. Resource name of the Google Maps
+            widget context token that can be used with the
+            PlacesContextElement widget in order to render
+            contextual data. Only populated in the case that
+            grounding with Google Maps is enabled.
+
+            This field is a member of `oneof`_ ``_google_maps_widget_context_token``.
     """
 
     search_entry_point: "SearchEntryPoint" = proto.Field(
@@ -837,6 +978,11 @@ class GroundingMetadata(proto.Message):
     web_search_queries: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
         number=5,
+    )
+    google_maps_widget_context_token: str = proto.Field(
+        proto.STRING,
+        number=7,
+        optional=True,
     )
 
 
@@ -1156,7 +1302,7 @@ class CountTokensRequest(proto.Message):
             instructions <https://ai.google.dev/gemini-api/docs/system-instructions>`__,
             and/or function declarations for `function
             calling <https://ai.google.dev/gemini-api/docs/function-calling>`__.
-            ``Model``\ s/\ ``Content``\ s and
+            ``Model``\ s/``Content``\ s and
             ``generate_content_request``\ s are mutually exclusive. You
             can either send ``Model`` + ``Content``\ s or a
             ``generate_content_request``, but never both.
@@ -1199,19 +1345,19 @@ class CountTokensResponse(proto.Message):
         proto.INT32,
         number=1,
     )
-    prompt_tokens_details: MutableSequence[
-        gag_content.ModalityTokenCount
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message=gag_content.ModalityTokenCount,
+    prompt_tokens_details: MutableSequence[gag_content.ModalityTokenCount] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message=gag_content.ModalityTokenCount,
+        )
     )
-    cache_tokens_details: MutableSequence[
-        gag_content.ModalityTokenCount
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=gag_content.ModalityTokenCount,
+    cache_tokens_details: MutableSequence[gag_content.ModalityTokenCount] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=gag_content.ModalityTokenCount,
+        )
     )
 
 

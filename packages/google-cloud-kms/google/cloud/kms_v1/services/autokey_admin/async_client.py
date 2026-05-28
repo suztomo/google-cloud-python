@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.kms_v1 import gapic_version as package_version
 
@@ -44,11 +44,13 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.cloud.kms_v1.types import autokey_admin
 
@@ -69,13 +71,15 @@ _LOGGER = std_logging.getLogger(__name__)
 class AutokeyAdminAsyncClient:
     """Provides interfaces for managing `Cloud KMS
     Autokey <https://cloud.google.com/kms/help/autokey>`__ folder-level
-    configurations. A configuration is inherited by all descendent
-    projects. A configuration at one folder overrides any other
-    configurations in its ancestry. Setting a configuration on a folder
-    is a prerequisite for Cloud KMS Autokey, so that users working in a
-    descendant project can request provisioned
-    [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for Customer
-    Managed Encryption Key (CMEK) use, on-demand.
+    or project-level configurations. A configuration is inherited by all
+    descendent folders and projects. A configuration at a folder or
+    project overrides any other configurations in its ancestry. Setting
+    a configuration on a folder is a prerequisite for Cloud KMS Autokey,
+    so that users working in a descendant project can request
+    provisioned [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for
+    Customer Managed Encryption Key (CMEK) use, on-demand when using the
+    dedicated key project mode. This is not required when using the
+    delegated key management mode for same-project keys.
     """
 
     _client: AutokeyAdminClient
@@ -125,7 +129,10 @@ class AutokeyAdminAsyncClient:
         Returns:
             AutokeyAdminAsyncClient: The constructed client.
         """
-        return AutokeyAdminClient.from_service_account_info.__func__(AutokeyAdminAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            AutokeyAdminClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(AutokeyAdminAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -141,7 +148,10 @@ class AutokeyAdminAsyncClient:
         Returns:
             AutokeyAdminAsyncClient: The constructed client.
         """
-        return AutokeyAdminClient.from_service_account_file.__func__(AutokeyAdminAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            AutokeyAdminClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(AutokeyAdminAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -191,7 +201,7 @@ class AutokeyAdminAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -310,7 +320,7 @@ class AutokeyAdminAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> autokey_admin.AutokeyConfig:
         r"""Updates the [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-        for a folder. The caller must have both
+        for a folder or a project. The caller must have both
         ``cloudkms.autokeyConfigs.update`` permission on the parent
         folder and ``cloudkms.cryptoKeys.setIamPolicy`` permission on
         the provided key project. A
@@ -441,7 +451,7 @@ class AutokeyAdminAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> autokey_admin.AutokeyConfig:
         r"""Returns the [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-        for a folder.
+        for a folder or project.
 
         .. code-block:: python
 
@@ -476,8 +486,8 @@ class AutokeyAdminAsyncClient:
             name (:class:`str`):
                 Required. Name of the
                 [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-                resource, e.g.
-                ``folders/{FOLDER_NUMBER}/autokeyConfig``.
+                resource, e.g. ``folders/{FOLDER_NUMBER}/autokeyConfig``
+                or ``projects/{PROJECT_NUMBER}/autokeyConfig``.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -665,7 +675,7 @@ class AutokeyAdminAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -691,8 +701,12 @@ class AutokeyAdminAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -701,7 +715,7 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -709,7 +723,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -720,7 +734,7 @@ class AutokeyAdminAsyncClient:
 
     async def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -812,8 +826,12 @@ class AutokeyAdminAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -822,7 +840,9 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -830,7 +850,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -841,7 +861,7 @@ class AutokeyAdminAsyncClient:
 
     async def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -934,8 +954,12 @@ class AutokeyAdminAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -944,7 +968,9 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -952,7 +978,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -963,7 +989,7 @@ class AutokeyAdminAsyncClient:
 
     async def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -994,8 +1020,12 @@ class AutokeyAdminAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1006,7 +1036,9 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -1014,7 +1046,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1025,7 +1057,7 @@ class AutokeyAdminAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1051,8 +1083,12 @@ class AutokeyAdminAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1061,7 +1097,7 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1069,7 +1105,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1080,7 +1116,7 @@ class AutokeyAdminAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1106,8 +1142,12 @@ class AutokeyAdminAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1116,7 +1156,7 @@ class AutokeyAdminAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1124,7 +1164,7 @@ class AutokeyAdminAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

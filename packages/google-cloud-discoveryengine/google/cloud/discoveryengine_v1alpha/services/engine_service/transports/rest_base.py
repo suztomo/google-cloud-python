@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,8 @@ from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf import json_format
 
-from google.cloud.discoveryengine_v1alpha.types import engine
+from google.cloud.discoveryengine_v1alpha.types import engine, engine_service
 from google.cloud.discoveryengine_v1alpha.types import engine as gcd_engine
-from google.cloud.discoveryengine_v1alpha.types import engine_service
 
 from .base import DEFAULT_CLIENT_INFO, EngineServiceTransport
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.talent_v4beta1.types import common
@@ -161,7 +161,7 @@ class JobQuery(proto.Message):
             Supported operators are: ``=``, ``!=``, ``<``, ``<=``,
             ``>``, and ``>=`` where the left of the operator is a custom
             field key and the right of the operator is a number or a
-            quoted string. You must escape backslash (\) and quote (")
+            quoted string. You must escape backslash (\\) and quote (")
             characters.
 
             Supported functions are ``LOWER([field_name])`` to perform a
@@ -368,6 +368,7 @@ class LocationFilter(proto.Message):
             TELECOMMUTE_JOBS_EXCLUDED (3):
                 Exclude telecommute jobs.
         """
+
         TELECOMMUTE_PREFERENCE_UNSPECIFIED = 0
         TELECOMMUTE_EXCLUDED = 1
         TELECOMMUTE_ALLOWED = 2
@@ -466,6 +467,7 @@ class CompensationFilter(proto.Message):
                 and zero or more
                 [units][google.cloud.talent.v4beta1.CompensationFilter.units].
         """
+
         FILTER_TYPE_UNSPECIFIED = 0
         UNIT_ONLY = 1
         UNIT_AND_AMOUNT = 2
@@ -477,12 +479,12 @@ class CompensationFilter(proto.Message):
         number=1,
         enum=FilterType,
     )
-    units: MutableSequence[
-        common.CompensationInfo.CompensationUnit
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=2,
-        enum=common.CompensationInfo.CompensationUnit,
+    units: MutableSequence[common.CompensationInfo.CompensationUnit] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=2,
+            enum=common.CompensationInfo.CompensationUnit,
+        )
     )
     range_: common.CompensationInfo.CompensationRange = proto.Field(
         proto.MESSAGE,
@@ -552,6 +554,7 @@ class CommuteFilter(proto.Message):
                 Commute time calculation takes in account the
                 peak traffic impact.
         """
+
         ROAD_TRAFFIC_UNSPECIFIED = 0
         TRAFFIC_FREE = 1
         BUSY_HOUR = 2

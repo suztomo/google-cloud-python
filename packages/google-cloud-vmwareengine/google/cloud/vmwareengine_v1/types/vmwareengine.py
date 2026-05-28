@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.vmwareengine_v1.types import vmwareengine_resources
@@ -230,12 +230,12 @@ class ListPrivateCloudsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    private_clouds: MutableSequence[
-        vmwareengine_resources.PrivateCloud
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.PrivateCloud,
+    private_clouds: MutableSequence[vmwareengine_resources.PrivateCloud] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.PrivateCloud,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -285,13 +285,13 @@ class CreatePrivateCloudRequest(proto.Message):
             token in the name URI. The identifier must meet the
             following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         private_cloud (google.cloud.vmwareengine_v1.types.PrivateCloud):
             Required. The initial description of the new
             private cloud.
@@ -601,13 +601,13 @@ class CreateClusterRequest(proto.Message):
             within the parent and becomes the final token in the name
             URI. The identifier must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         cluster (google.cloud.vmwareengine_v1.types.Cluster):
             Required. The initial description of the new
             cluster.
@@ -907,12 +907,12 @@ class ListExternalAddressesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    external_addresses: MutableSequence[
-        vmwareengine_resources.ExternalAddress
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.ExternalAddress,
+    external_addresses: MutableSequence[vmwareengine_resources.ExternalAddress] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.ExternalAddress,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -986,12 +986,12 @@ class FetchNetworkPolicyExternalAddressesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    external_addresses: MutableSequence[
-        vmwareengine_resources.ExternalAddress
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.ExternalAddress,
+    external_addresses: MutableSequence[vmwareengine_resources.ExternalAddress] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.ExternalAddress,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1041,13 +1041,13 @@ class CreateExternalAddressRequest(proto.Message):
             and becomes the final token in the name URI. The identifier
             must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         request_id (str):
             Optional. A request ID to identify requests.
             Specify a unique request ID so that if you must
@@ -1476,13 +1476,13 @@ class CreateExternalAccessRuleRequest(proto.Message):
             parent and becomes the final token in the name URI. The
             identifier must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         request_id (str):
             A request ID to identify requests. Specify a
             unique request ID so that if you must retry your
@@ -1729,12 +1729,12 @@ class ListLoggingServersResponse(proto.Message):
     def raw_page(self):
         return self
 
-    logging_servers: MutableSequence[
-        vmwareengine_resources.LoggingServer
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.LoggingServer,
+    logging_servers: MutableSequence[vmwareengine_resources.LoggingServer] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.LoggingServer,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1788,13 +1788,13 @@ class CreateLoggingServerRequest(proto.Message):
             and becomes the final token in the name URI. The identifier
             must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         request_id (str):
             Optional. A request ID to identify requests.
             Specify a unique request ID so that if you must
@@ -2307,12 +2307,12 @@ class ListHcxActivationKeysResponse(proto.Message):
     def raw_page(self):
         return self
 
-    hcx_activation_keys: MutableSequence[
-        vmwareengine_resources.HcxActivationKey
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.HcxActivationKey,
+    hcx_activation_keys: MutableSequence[vmwareengine_resources.HcxActivationKey] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.HcxActivationKey,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2408,13 +2408,13 @@ class CreateHcxActivationKeyRequest(proto.Message):
             parent and becomes the final token in the name URI. The
             identifier must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         request_id (str):
             A request ID to identify requests. Specify a
             unique request ID so that if you must retry your
@@ -2549,13 +2549,13 @@ class CreateNetworkPeeringRequest(proto.Message):
             the final token in the name URI. The identifier must meet
             the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         network_peering (google.cloud.vmwareengine_v1.types.NetworkPeering):
             Required. The initial description of the new
             network peering.
@@ -2820,12 +2820,12 @@ class ListNetworkPeeringsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    network_peerings: MutableSequence[
-        vmwareengine_resources.NetworkPeering
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.NetworkPeering,
+    network_peerings: MutableSequence[vmwareengine_resources.NetworkPeering] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.NetworkPeering,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2906,12 +2906,12 @@ class ListPeeringRoutesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    peering_routes: MutableSequence[
-        vmwareengine_resources.PeeringRoute
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.PeeringRoute,
+    peering_routes: MutableSequence[vmwareengine_resources.PeeringRoute] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.PeeringRoute,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -3023,12 +3023,12 @@ class ListNetworkPoliciesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    network_policies: MutableSequence[
-        vmwareengine_resources.NetworkPolicy
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.NetworkPolicy,
+    network_policies: MutableSequence[vmwareengine_resources.NetworkPolicy] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.NetworkPolicy,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -3131,13 +3131,13 @@ class CreateNetworkPolicyRequest(proto.Message):
             and becomes the final token in the name URI. The identifier
             must meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         network_policy (google.cloud.vmwareengine_v1.types.NetworkPolicy):
             Required. The network policy configuration to
             use in the request.
@@ -3393,13 +3393,13 @@ class CreateManagementDnsZoneBindingRequest(proto.Message):
             the name URI. The identifier must meet the following
             requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         request_id (str):
             Optional. A request ID to identify requests.
             Specify a unique request ID so that if you must
@@ -3609,17 +3609,17 @@ class CreateVmwareEngineNetworkRequest(proto.Message):
             final token in the name URI. The identifier must meet the
             following requirements:
 
-            -  For networks of type LEGACY, adheres to the format:
-               ``{region-id}-default``. Replace ``{region-id}`` with the
-               region where you want to create the VMware Engine
-               network. For example, "us-central1-default".
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - For networks of type LEGACY, adheres to the format:
+              ``{region-id}-default``. Replace ``{region-id}`` with the
+              region where you want to create the VMware Engine network.
+              For example, "us-central1-default".
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         vmware_engine_network (google.cloud.vmwareengine_v1.types.VmwareEngineNetwork):
             Required. The initial description of the new
             VMware Engine network.
@@ -3931,13 +3931,13 @@ class CreatePrivateConnectionRequest(proto.Message):
             token in the name URI. The identifier must meet the
             following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
         private_connection (google.cloud.vmwareengine_v1.types.PrivateConnection):
             Required. The initial description of the new
             private connection.
@@ -4105,12 +4105,12 @@ class ListPrivateConnectionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    private_connections: MutableSequence[
-        vmwareengine_resources.PrivateConnection
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.PrivateConnection,
+    private_connections: MutableSequence[vmwareengine_resources.PrivateConnection] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.PrivateConnection,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -4278,12 +4278,12 @@ class ListPrivateConnectionPeeringRoutesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    peering_routes: MutableSequence[
-        vmwareengine_resources.PeeringRoute
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=vmwareengine_resources.PeeringRoute,
+    peering_routes: MutableSequence[vmwareengine_resources.PeeringRoute] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=vmwareengine_resources.PeeringRoute,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

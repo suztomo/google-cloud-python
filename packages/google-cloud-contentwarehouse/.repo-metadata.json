@@ -1,17 +1,14 @@
 {
-    "name": "contentwarehouse",
-    "name_pretty": "Document AI Warehouse",
-    "api_description": "",
-    "product_documentation": "https://cloud.google.com/document-warehouse/",
+    "api_id": "contentwarehouse.googleapis.com",
+    "api_shortname": "contentwarehouse",
     "client_documentation": "https://cloud.google.com/python/docs/reference/contentwarehouse/latest",
-    "issue_tracker": "https://github.com/googleapis/google-cloud-python/issues",
-    "release_level": "preview",
+    "default_version": "v1",
+    "distribution_name": "google-cloud-contentwarehouse",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-cloud-contentwarehouse",
-    "api_id": "contentwarehouse.googleapis.com",
-    "default_version": "v1",
-    "codeowner_team": "",
-    "api_shortname": "contentwarehouse"
+    "name": "contentwarehouse",
+    "name_pretty": "Document AI Warehouse",
+    "product_documentation": "https://cloud.google.com/document-warehouse/",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

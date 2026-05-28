@@ -1,5 +1,78 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-quotas/#history
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.5.0...google-cloud-quotas-v0.6.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.4.0...google-cloud-quotas-v0.5.0) (2026-02-05)
+
+
+### Documentation
+
+* Folder level and organization level support for the quota adjuster feature. ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+
+### Features
+
+* Hierarchical Quota Adjuster ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.3.0...google-cloud-quotas-v0.4.0) (2026-01-29)
+
+
+### Documentation
+
+* Correct typo in comment for field `quota_id` ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.2.0...google-cloud-quotas-v0.3.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.1.18...google-cloud-quotas-v0.2.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.18](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.1.17...google-cloud-quotas-v0.1.18) (2025-06-11)
+
+
+### Features
+
+* Added support for hierarchical enrollment in Quota Adjuster consumer API ([78428ff](https://github.com/googleapis/google-cloud-python/commit/78428ff7406d808f7ac06a9726190b732d72b5a7))
+
+
+### Documentation
+
+* Added 2 new fields in `.google.api.cloudquotas.v1beta.QuotaAdjusterSettings` ([78428ff](https://github.com/googleapis/google-cloud-python/commit/78428ff7406d808f7ac06a9726190b732d72b5a7))
+* Added inherited and inherited_from in `.google.api.cloudquotas.v1beta.QuotaAdjusterSettings` ([78428ff](https://github.com/googleapis/google-cloud-python/commit/78428ff7406d808f7ac06a9726190b732d72b5a7))
+* Added support for folder and organization level enrollment ([78428ff](https://github.com/googleapis/google-cloud-python/commit/78428ff7406d808f7ac06a9726190b732d72b5a7))
+* Update import statement example in README ([dfc2cd6](https://github.com/googleapis/google-cloud-python/commit/dfc2cd6be6422baa45dcebc5ff6e7fc846bf5c7d))
+
 ## [0.1.17](https://github.com/googleapis/google-cloud-python/compare/google-cloud-quotas-v0.1.16...google-cloud-quotas-v0.1.17) (2025-03-15)
 
 

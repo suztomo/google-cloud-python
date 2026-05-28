@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,20 +37,25 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
 
 from google.cloud.securitycentermanagement_v1.services.security_center_management import (
     SecurityCenterManagementAsyncClient,
@@ -120,6 +119,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert SecurityCenterManagementClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -141,6 +141,10 @@ def test__get_default_mtls_endpoint():
     assert (
         SecurityCenterManagementClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        SecurityCenterManagementClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -168,12 +172,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            SecurityCenterManagementClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                SecurityCenterManagementClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert SecurityCenterManagementClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert SecurityCenterManagementClient._read_environment_variables() == (
@@ -210,6 +221,107 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                SecurityCenterManagementClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert SecurityCenterManagementClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    SecurityCenterManagementClient._use_client_cert_effective() is False
+                )
 
 
 def test__get_client_cert_source():
@@ -605,17 +717,6 @@ def test_security_center_management_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -854,6 +955,117 @@ def test_security_center_management_client_get_mtls_endpoint_and_cert_source(
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -886,10 +1098,9 @@ def test_security_center_management_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -902,18 +1113,6 @@ def test_security_center_management_client_get_mtls_endpoint_and_cert_source(
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1158,13 +1357,13 @@ def test_security_center_management_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1221,9 +1420,7 @@ def test_list_effective_security_health_analytics_custom_modules(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1260,11 +1457,12 @@ def test_list_effective_security_health_analytics_custom_modules_non_empty_reque
         client.list_effective_security_health_analytics_custom_modules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest(
-            parent="parent_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest(
+                parent="parent_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -1382,9 +1580,7 @@ async def test_list_effective_security_health_analytics_custom_modules_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1408,9 +1604,7 @@ def test_list_effective_security_health_analytics_custom_modules_field_headers()
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-    )
+    request = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -1419,9 +1613,7 @@ def test_list_effective_security_health_analytics_custom_modules_field_headers()
         type(client.transport.list_effective_security_health_analytics_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
         client.list_effective_security_health_analytics_custom_modules(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -1445,9 +1637,7 @@ async def test_list_effective_security_health_analytics_custom_modules_field_hea
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-    )
+    request = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -1485,9 +1675,7 @@ def test_list_effective_security_health_analytics_custom_modules_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_effective_security_health_analytics_custom_modules(
@@ -1529,9 +1717,7 @@ async def test_list_effective_security_health_analytics_custom_modules_flattened
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
@@ -1784,9 +1970,7 @@ async def test_list_effective_security_health_analytics_custom_modules_async_pag
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_effective_security_health_analytics_custom_modules(
                 request={}
             )
@@ -1831,9 +2015,7 @@ def test_get_effective_security_health_analytics_custom_module(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1875,10 +2057,11 @@ def test_get_effective_security_health_analytics_custom_module_non_empty_request
         client.get_effective_security_health_analytics_custom_module(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest(
-            name="name_value",
+        assert (
+            args[0]
+            == security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest(
+                name="name_value",
+            )
         )
 
 
@@ -1998,9 +2181,7 @@ async def test_get_effective_security_health_analytics_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2030,9 +2211,7 @@ def test_get_effective_security_health_analytics_custom_module_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-    )
+    request = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
 
     request.name = "name_value"
 
@@ -2067,9 +2246,7 @@ async def test_get_effective_security_health_analytics_custom_module_field_heade
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-    )
+    request = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
 
     request.name = "name_value"
 
@@ -2413,9 +2590,7 @@ def test_list_security_health_analytics_custom_modules_field_headers():
     with mock.patch.object(
         type(client.transport.list_security_health_analytics_custom_modules), "__call__"
     ) as call:
-        call.return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
         client.list_security_health_analytics_custom_modules(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -2477,9 +2652,7 @@ def test_list_security_health_analytics_custom_modules_flattened():
         type(client.transport.list_security_health_analytics_custom_modules), "__call__"
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_security_health_analytics_custom_modules(
@@ -2520,9 +2693,7 @@ async def test_list_security_health_analytics_custom_modules_flattened_async():
         type(client.transport.list_security_health_analytics_custom_modules), "__call__"
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
@@ -2767,9 +2938,7 @@ async def test_list_security_health_analytics_custom_modules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_security_health_analytics_custom_modules(request={})
         ).pages:
             pages.append(page_)
@@ -2812,9 +2981,7 @@ def test_list_descendant_security_health_analytics_custom_modules(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2851,11 +3018,12 @@ def test_list_descendant_security_health_analytics_custom_modules_non_empty_requ
         client.list_descendant_security_health_analytics_custom_modules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest(
-            parent="parent_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest(
+                parent="parent_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -2975,9 +3143,7 @@ async def test_list_descendant_security_health_analytics_custom_modules_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3001,9 +3167,7 @@ def test_list_descendant_security_health_analytics_custom_modules_field_headers(
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-    )
+    request = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -3012,9 +3176,7 @@ def test_list_descendant_security_health_analytics_custom_modules_field_headers(
         type(client.transport.list_descendant_security_health_analytics_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
         client.list_descendant_security_health_analytics_custom_modules(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -3038,9 +3200,7 @@ async def test_list_descendant_security_health_analytics_custom_modules_field_he
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-    )
+    request = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -3078,9 +3238,7 @@ def test_list_descendant_security_health_analytics_custom_modules_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_descendant_security_health_analytics_custom_modules(
@@ -3122,9 +3280,7 @@ async def test_list_descendant_security_health_analytics_custom_modules_flattene
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
@@ -3377,9 +3533,7 @@ async def test_list_descendant_security_health_analytics_custom_modules_async_pa
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_descendant_security_health_analytics_custom_modules(
                 request={}
             )
@@ -3809,9 +3963,7 @@ def test_create_security_health_analytics_custom_module(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3856,10 +4008,11 @@ def test_create_security_health_analytics_custom_module_non_empty_request_with_a
         client.create_security_health_analytics_custom_module(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest(
-            parent="parent_value",
+        assert (
+            args[0]
+            == security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest(
+                parent="parent_value",
+            )
         )
 
 
@@ -3979,9 +4132,7 @@ async def test_create_security_health_analytics_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -4227,9 +4378,7 @@ def test_update_security_health_analytics_custom_module(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -4394,9 +4543,7 @@ async def test_update_security_health_analytics_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -4636,9 +4783,7 @@ def test_delete_security_health_analytics_custom_module(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -4673,10 +4818,11 @@ def test_delete_security_health_analytics_custom_module_non_empty_request_with_a
         client.delete_security_health_analytics_custom_module(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest(
-            name="name_value",
+        assert (
+            args[0]
+            == security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest(
+                name="name_value",
+            )
         )
 
 
@@ -4788,9 +4934,7 @@ async def test_delete_security_health_analytics_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -4982,17 +5126,13 @@ def test_simulate_security_health_analytics_custom_module(
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        call.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
         response = client.simulate_security_health_analytics_custom_module(request)
 
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -5030,10 +5170,11 @@ def test_simulate_security_health_analytics_custom_module_non_empty_request_with
         client.simulate_security_health_analytics_custom_module(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest(
-            parent="parent_value",
+        assert (
+            args[0]
+            == security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest(
+                parent="parent_value",
+            )
         )
 
 
@@ -5149,9 +5290,7 @@ async def test_simulate_security_health_analytics_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -5184,9 +5323,7 @@ def test_simulate_security_health_analytics_custom_module_field_headers():
         type(client.transport.simulate_security_health_analytics_custom_module),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        call.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
         client.simulate_security_health_analytics_custom_module(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -5250,9 +5387,7 @@ def test_simulate_security_health_analytics_custom_module_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        call.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.simulate_security_health_analytics_custom_module(
@@ -5316,9 +5451,7 @@ async def test_simulate_security_health_analytics_custom_module_flattened_async(
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        call.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
@@ -5408,9 +5541,7 @@ def test_list_effective_event_threat_detection_custom_modules(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -5447,11 +5578,12 @@ def test_list_effective_event_threat_detection_custom_modules_non_empty_request_
         client.list_effective_event_threat_detection_custom_modules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest(
-            parent="parent_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest(
+                parent="parent_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -5569,9 +5701,7 @@ async def test_list_effective_event_threat_detection_custom_modules_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -5595,9 +5725,7 @@ def test_list_effective_event_threat_detection_custom_modules_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-    )
+    request = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -5606,9 +5734,7 @@ def test_list_effective_event_threat_detection_custom_modules_field_headers():
         type(client.transport.list_effective_event_threat_detection_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
         client.list_effective_event_threat_detection_custom_modules(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -5632,9 +5758,7 @@ async def test_list_effective_event_threat_detection_custom_modules_field_header
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-    )
+    request = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -5672,9 +5796,7 @@ def test_list_effective_event_threat_detection_custom_modules_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_effective_event_threat_detection_custom_modules(
@@ -5716,9 +5838,7 @@ async def test_list_effective_event_threat_detection_custom_modules_flattened_as
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
@@ -5967,9 +6087,7 @@ async def test_list_effective_event_threat_detection_custom_modules_async_pages(
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_effective_event_threat_detection_custom_modules(
                 request={}
             )
@@ -6016,9 +6134,7 @@ def test_get_effective_event_threat_detection_custom_module(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -6063,10 +6179,11 @@ def test_get_effective_event_threat_detection_custom_module_non_empty_request_wi
         client.get_effective_event_threat_detection_custom_module(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest(
-            name="name_value",
+        assert (
+            args[0]
+            == security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest(
+                name="name_value",
+            )
         )
 
 
@@ -6188,9 +6305,7 @@ async def test_get_effective_event_threat_detection_custom_module_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -6942,9 +7057,7 @@ async def test_list_event_threat_detection_custom_modules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_event_threat_detection_custom_modules(request={})
         ).pages:
             pages.append(page_)
@@ -6985,9 +7098,7 @@ def test_list_descendant_event_threat_detection_custom_modules(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -7024,11 +7135,12 @@ def test_list_descendant_event_threat_detection_custom_modules_non_empty_request
         client.list_descendant_event_threat_detection_custom_modules(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest(
-            parent="parent_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest(
+                parent="parent_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -7146,9 +7258,7 @@ async def test_list_descendant_event_threat_detection_custom_modules_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -7172,9 +7282,7 @@ def test_list_descendant_event_threat_detection_custom_modules_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-    )
+    request = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -7183,9 +7291,7 @@ def test_list_descendant_event_threat_detection_custom_modules_field_headers():
         type(client.transport.list_descendant_event_threat_detection_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
         client.list_descendant_event_threat_detection_custom_modules(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -7209,9 +7315,7 @@ async def test_list_descendant_event_threat_detection_custom_modules_field_heade
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-    )
+    request = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
 
     request.parent = "parent_value"
 
@@ -7249,9 +7353,7 @@ def test_list_descendant_event_threat_detection_custom_modules_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_descendant_event_threat_detection_custom_modules(
@@ -7293,9 +7395,7 @@ async def test_list_descendant_event_threat_detection_custom_modules_flattened_a
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
@@ -7542,9 +7642,7 @@ async def test_list_descendant_event_threat_detection_custom_modules_async_pages
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_descendant_event_threat_detection_custom_modules(
                 request={}
             )
@@ -9131,9 +9229,7 @@ def test_validate_event_threat_detection_custom_module(
         type(client.transport.validate_event_threat_detection_custom_module), "__call__"
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
-        )
+        call.return_value = security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
         response = client.validate_event_threat_detection_custom_module(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -9332,9 +9428,7 @@ def test_validate_event_threat_detection_custom_module_field_headers():
     with mock.patch.object(
         type(client.transport.validate_event_threat_detection_custom_module), "__call__"
     ) as call:
-        call.return_value = (
-            security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
-        )
+        call.return_value = security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
         client.validate_event_threat_detection_custom_module(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -10302,9 +10396,7 @@ async def test_list_security_center_services_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_security_center_services(request={})
         ).pages:
             pages.append(page_)
@@ -10783,9 +10875,7 @@ def test_list_effective_security_health_analytics_custom_modules_rest_required_f
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-    )
+    return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -10821,7 +10911,7 @@ def test_list_effective_security_health_analytics_custom_modules_rest_required_f
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_effective_security_health_analytics_custom_modules_rest_unset_required_fields():
@@ -10852,9 +10942,7 @@ def test_list_effective_security_health_analytics_custom_modules_rest_flattened(
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -11110,7 +11198,7 @@ def test_get_effective_security_health_analytics_custom_module_rest_required_fie
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_effective_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -11320,7 +11408,7 @@ def test_list_security_health_analytics_custom_modules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_security_health_analytics_custom_modules_rest_unset_required_fields():
@@ -11351,9 +11439,7 @@ def test_list_security_health_analytics_custom_modules_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -11577,9 +11663,7 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_required_
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-    )
+    return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -11615,7 +11699,7 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_required_
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_descendant_security_health_analytics_custom_modules_rest_unset_required_fields():
@@ -11646,9 +11730,7 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_flattened
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -11901,7 +11983,7 @@ def test_get_security_health_analytics_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -12105,7 +12187,7 @@ def test_create_security_health_analytics_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -12321,7 +12403,7 @@ def test_update_security_health_analytics_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -12538,7 +12620,7 @@ def test_delete_security_health_analytics_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -12734,7 +12816,7 @@ def test_simulate_security_health_analytics_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_simulate_security_health_analytics_custom_module_rest_unset_required_fields():
@@ -12766,9 +12848,7 @@ def test_simulate_security_health_analytics_custom_module_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -12925,9 +13005,7 @@ def test_list_effective_event_threat_detection_custom_modules_rest_required_fiel
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-    )
+    return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -12963,7 +13041,7 @@ def test_list_effective_event_threat_detection_custom_modules_rest_required_fiel
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_effective_event_threat_detection_custom_modules_rest_unset_required_fields():
@@ -12994,9 +13072,7 @@ def test_list_effective_event_threat_detection_custom_modules_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -13253,7 +13329,7 @@ def test_get_effective_event_threat_detection_custom_module_rest_required_fields
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_effective_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -13463,7 +13539,7 @@ def test_list_event_threat_detection_custom_modules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_event_threat_detection_custom_modules_rest_unset_required_fields():
@@ -13720,9 +13796,7 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_required_fie
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-    )
+    return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -13758,7 +13832,7 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_required_fie
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_descendant_event_threat_detection_custom_modules_rest_unset_required_fields():
@@ -13789,9 +13863,7 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "projects/sample1/locations/sample2"}
@@ -14042,7 +14114,7 @@ def test_get_event_threat_detection_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -14246,7 +14318,7 @@ def test_create_event_threat_detection_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -14460,7 +14532,7 @@ def test_update_event_threat_detection_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -14675,7 +14747,7 @@ def test_delete_event_threat_detection_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -14879,7 +14951,7 @@ def test_validate_event_threat_detection_custom_module_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_validate_event_threat_detection_custom_module_rest_unset_required_fields():
@@ -15019,7 +15091,7 @@ def test_get_security_center_service_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_security_center_service_rest_unset_required_fields():
@@ -15216,7 +15288,7 @@ def test_list_security_center_services_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_security_center_services_rest_unset_required_fields():
@@ -15484,7 +15556,7 @@ def test_update_security_center_service_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_security_center_service_rest_unset_required_fields():
@@ -15698,17 +15770,13 @@ def test_list_effective_security_health_analytics_custom_modules_empty_call_grpc
         type(client.transport.list_effective_security_health_analytics_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
         client.list_effective_security_health_analytics_custom_modules(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -15734,9 +15802,7 @@ def test_get_effective_security_health_analytics_custom_module_empty_call_grpc()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -15753,9 +15819,7 @@ def test_list_security_health_analytics_custom_modules_empty_call_grpc():
     with mock.patch.object(
         type(client.transport.list_security_health_analytics_custom_modules), "__call__"
     ) as call:
-        call.return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
         client.list_security_health_analytics_custom_modules(request=None)
 
         # Establish that the underlying stub method was called.
@@ -15781,17 +15845,13 @@ def test_list_descendant_security_health_analytics_custom_modules_empty_call_grp
         type(client.transport.list_descendant_security_health_analytics_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
         client.list_descendant_security_health_analytics_custom_modules(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -15844,9 +15904,7 @@ def test_create_security_health_analytics_custom_module_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -15872,9 +15930,7 @@ def test_update_security_health_analytics_custom_module_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -15898,9 +15954,7 @@ def test_delete_security_health_analytics_custom_module_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -15918,17 +15972,13 @@ def test_simulate_security_health_analytics_custom_module_empty_call_grpc():
         type(client.transport.simulate_security_health_analytics_custom_module),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        call.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
         client.simulate_security_health_analytics_custom_module(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -15946,17 +15996,13 @@ def test_list_effective_event_threat_detection_custom_modules_empty_call_grpc():
         type(client.transport.list_effective_event_threat_detection_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
         client.list_effective_event_threat_detection_custom_modules(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -15982,9 +16028,7 @@ def test_get_effective_event_threat_detection_custom_module_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16029,17 +16073,13 @@ def test_list_descendant_event_threat_detection_custom_modules_empty_call_grpc()
         type(client.transport.list_descendant_event_threat_detection_custom_modules),
         "__call__",
     ) as call:
-        call.return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        call.return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
         client.list_descendant_event_threat_detection_custom_modules(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -16162,9 +16202,7 @@ def test_validate_event_threat_detection_custom_module_empty_call_grpc():
     with mock.patch.object(
         type(client.transport.validate_event_threat_detection_custom_module), "__call__"
     ) as call:
-        call.return_value = (
-            security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
-        )
+        call.return_value = security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
         client.validate_event_threat_detection_custom_module(request=None)
 
         # Establish that the underlying stub method was called.
@@ -16289,9 +16327,7 @@ async def test_list_effective_security_health_analytics_custom_modules_empty_cal
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -16323,9 +16359,7 @@ async def test_get_effective_security_health_analytics_custom_module_empty_call_
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16388,9 +16422,7 @@ async def test_list_descendant_security_health_analytics_custom_modules_empty_ca
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -16459,9 +16491,7 @@ async def test_create_security_health_analytics_custom_module_empty_call_grpc_as
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16495,9 +16525,7 @@ async def test_update_security_health_analytics_custom_module_empty_call_grpc_as
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16523,9 +16551,7 @@ async def test_delete_security_health_analytics_custom_module_empty_call_grpc_as
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16553,9 +16579,7 @@ async def test_simulate_security_health_analytics_custom_module_empty_call_grpc_
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16585,9 +16609,7 @@ async def test_list_effective_event_threat_detection_custom_modules_empty_call_g
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -16621,9 +16643,7 @@ async def test_get_effective_event_threat_detection_custom_module_empty_call_grp
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -16684,9 +16704,7 @@ async def test_list_descendant_event_threat_detection_custom_modules_empty_call_
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -16967,8 +16985,9 @@ def test_list_effective_security_health_analytics_custom_modules_rest_bad_reques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17041,20 +17060,22 @@ def test_list_effective_security_health_analytics_custom_modules_rest_intercepto
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_effective_security_health_analytics_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_effective_security_health_analytics_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_effective_security_health_analytics_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_effective_security_health_analytics_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_effective_security_health_analytics_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_effective_security_health_analytics_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17076,17 +17097,13 @@ def test_list_effective_security_health_analytics_custom_modules_rest_intercepto
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        post.return_value = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse()
         post_with_metadata.return_value = (
             security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesResponse(),
             metadata,
@@ -17118,8 +17135,9 @@ def test_get_effective_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17202,20 +17220,22 @@ def test_get_effective_security_health_analytics_custom_module_rest_interceptors
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_effective_security_health_analytics_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_effective_security_health_analytics_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_get_effective_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_effective_security_health_analytics_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_effective_security_health_analytics_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_get_effective_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17237,9 +17257,7 @@ def test_get_effective_security_health_analytics_custom_module_rest_interceptors
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -17277,8 +17295,9 @@ def test_list_security_health_analytics_custom_modules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17347,20 +17366,22 @@ def test_list_security_health_analytics_custom_modules_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_security_health_analytics_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_security_health_analytics_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_security_health_analytics_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_security_health_analytics_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_security_health_analytics_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_security_health_analytics_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17390,9 +17411,7 @@ def test_list_security_health_analytics_custom_modules_rest_interceptors(
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        post.return_value = security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse()
         post_with_metadata.return_value = (
             security_center_management.ListSecurityHealthAnalyticsCustomModulesResponse(),
             metadata,
@@ -17422,8 +17441,9 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_bad_reque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17496,20 +17516,22 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_intercept
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_descendant_security_health_analytics_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_descendant_security_health_analytics_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_descendant_security_health_analytics_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_descendant_security_health_analytics_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_descendant_security_health_analytics_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_descendant_security_health_analytics_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17531,17 +17553,13 @@ def test_list_descendant_security_health_analytics_custom_modules_rest_intercept
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
-        )
+        post.return_value = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse()
         post_with_metadata.return_value = (
             security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesResponse(),
             metadata,
@@ -17573,8 +17591,9 @@ def test_get_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17658,20 +17677,22 @@ def test_get_security_health_analytics_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_security_health_analytics_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_security_health_analytics_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_get_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_security_health_analytics_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_security_health_analytics_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_get_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17735,8 +17756,9 @@ def test_create_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17921,20 +17943,22 @@ def test_create_security_health_analytics_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_create_security_health_analytics_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_create_security_health_analytics_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_create_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_create_security_health_analytics_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_create_security_health_analytics_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_create_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17958,9 +17982,7 @@ def test_create_security_health_analytics_custom_module_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -18002,8 +18024,9 @@ def test_update_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18192,20 +18215,22 @@ def test_update_security_health_analytics_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_security_health_analytics_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_security_health_analytics_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_update_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_security_health_analytics_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_security_health_analytics_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_update_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18229,9 +18254,7 @@ def test_update_security_health_analytics_custom_module_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -18271,8 +18294,9 @@ def test_delete_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18333,14 +18357,14 @@ def test_delete_security_health_analytics_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_delete_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_delete_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest.pb(
             security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
@@ -18356,9 +18380,7 @@ def test_delete_security_health_analytics_custom_module_rest_interceptors(
         req.return_value.status_code = 200
         req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
 
-        request = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -18387,8 +18409,9 @@ def test_simulate_security_health_analytics_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18422,9 +18445,7 @@ def test_simulate_security_health_analytics_custom_module_rest_call_success(
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
 
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18459,20 +18480,22 @@ def test_simulate_security_health_analytics_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_simulate_security_health_analytics_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_simulate_security_health_analytics_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_simulate_security_health_analytics_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_simulate_security_health_analytics_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_simulate_security_health_analytics_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_simulate_security_health_analytics_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18494,17 +18517,13 @@ def test_simulate_security_health_analytics_custom_module_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
-        )
+        post.return_value = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse()
         post_with_metadata.return_value = (
             security_center_management.SimulateSecurityHealthAnalyticsCustomModuleResponse(),
             metadata,
@@ -18534,8 +18553,9 @@ def test_list_effective_event_threat_detection_custom_modules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18606,20 +18626,22 @@ def test_list_effective_event_threat_detection_custom_modules_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_effective_event_threat_detection_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_effective_event_threat_detection_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_effective_event_threat_detection_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_effective_event_threat_detection_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_effective_event_threat_detection_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_effective_event_threat_detection_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18641,17 +18663,13 @@ def test_list_effective_event_threat_detection_custom_modules_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
-        )
+        post.return_value = security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse()
         post_with_metadata.return_value = (
             security_center_management.ListEffectiveEventThreatDetectionCustomModulesResponse(),
             metadata,
@@ -18683,8 +18701,9 @@ def test_get_effective_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18770,20 +18789,22 @@ def test_get_effective_event_threat_detection_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_effective_event_threat_detection_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_effective_event_threat_detection_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_get_effective_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_effective_event_threat_detection_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_effective_event_threat_detection_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_get_effective_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18805,9 +18826,7 @@ def test_get_effective_event_threat_detection_custom_module_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -18845,8 +18864,9 @@ def test_list_event_threat_detection_custom_modules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -18915,20 +18935,22 @@ def test_list_event_threat_detection_custom_modules_rest_interceptors(null_inter
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_event_threat_detection_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_event_threat_detection_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_event_threat_detection_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_event_threat_detection_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_event_threat_detection_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_event_threat_detection_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -18990,8 +19012,9 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19062,20 +19085,22 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_interceptors
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_descendant_event_threat_detection_custom_modules",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_descendant_event_threat_detection_custom_modules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_descendant_event_threat_detection_custom_modules",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_descendant_event_threat_detection_custom_modules",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_descendant_event_threat_detection_custom_modules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_descendant_event_threat_detection_custom_modules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19097,17 +19122,13 @@ def test_list_descendant_event_threat_detection_custom_modules_rest_interceptors
         )
         req.return_value.content = return_value
 
-        request = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
-        )
+        post.return_value = security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse()
         post_with_metadata.return_value = (
             security_center_management.ListDescendantEventThreatDetectionCustomModulesResponse(),
             metadata,
@@ -19139,8 +19160,9 @@ def test_get_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19224,20 +19246,22 @@ def test_get_event_threat_detection_custom_module_rest_interceptors(null_interce
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_event_threat_detection_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_event_threat_detection_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_get_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_event_threat_detection_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_event_threat_detection_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_get_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19303,8 +19327,9 @@ def test_create_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19476,20 +19501,22 @@ def test_create_event_threat_detection_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_create_event_threat_detection_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_create_event_threat_detection_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_create_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_create_event_threat_detection_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_create_event_threat_detection_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_create_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19557,8 +19584,9 @@ def test_update_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19734,20 +19762,22 @@ def test_update_event_threat_detection_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_event_threat_detection_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_event_threat_detection_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_update_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_event_threat_detection_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_event_threat_detection_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_update_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -19813,8 +19843,9 @@ def test_delete_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19875,14 +19906,14 @@ def test_delete_event_threat_detection_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_delete_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_delete_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = security_center_management.DeleteEventThreatDetectionCustomModuleRequest.pb(
             security_center_management.DeleteEventThreatDetectionCustomModuleRequest()
@@ -19929,8 +19960,9 @@ def test_validate_event_threat_detection_custom_module_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19962,9 +19994,7 @@ def test_validate_event_threat_detection_custom_module_rest_call_success(request
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
-        )
+        return_value = security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
 
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -19999,20 +20029,22 @@ def test_validate_event_threat_detection_custom_module_rest_interceptors(
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_validate_event_threat_detection_custom_module",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_validate_event_threat_detection_custom_module_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_validate_event_threat_detection_custom_module",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_validate_event_threat_detection_custom_module",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_validate_event_threat_detection_custom_module_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_validate_event_threat_detection_custom_module",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20042,9 +20074,7 @@ def test_validate_event_threat_detection_custom_module_rest_interceptors(
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
-        )
+        post.return_value = security_center_management.ValidateEventThreatDetectionCustomModuleResponse()
         post_with_metadata.return_value = (
             security_center_management.ValidateEventThreatDetectionCustomModuleResponse(),
             metadata,
@@ -20076,8 +20106,9 @@ def test_get_security_center_service_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20152,20 +20183,22 @@ def test_get_security_center_service_rest_interceptors(null_interceptor):
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_security_center_service",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_get_security_center_service_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_get_security_center_service",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_security_center_service",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_get_security_center_service_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_get_security_center_service",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20223,8 +20256,9 @@ def test_list_security_center_services_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20289,20 +20323,22 @@ def test_list_security_center_services_rest_interceptors(null_interceptor):
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_security_center_services",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_list_security_center_services_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_list_security_center_services",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_security_center_services",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_list_security_center_services_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_list_security_center_services",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20368,8 +20404,9 @@ def test_update_security_center_service_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -20527,20 +20564,22 @@ def test_update_security_center_service_rest_interceptors(null_interceptor):
     )
     client = SecurityCenterManagementClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_security_center_service",
-    ) as post, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "post_update_security_center_service_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SecurityCenterManagementRestInterceptor,
-        "pre_update_security_center_service",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_security_center_service",
+        ) as post,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "post_update_security_center_service_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SecurityCenterManagementRestInterceptor,
+            "pre_update_security_center_service",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -20598,8 +20637,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -20658,8 +20698,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -20732,9 +20773,7 @@ def test_list_effective_security_health_analytics_custom_modules_empty_call_rest
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -20757,9 +20796,7 @@ def test_get_effective_security_health_analytics_custom_module_empty_call_rest()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -20806,9 +20843,7 @@ def test_list_descendant_security_health_analytics_custom_modules_empty_call_res
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantSecurityHealthAnalyticsCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -20855,9 +20890,7 @@ def test_create_security_health_analytics_custom_module_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.CreateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -20880,9 +20913,7 @@ def test_update_security_health_analytics_custom_module_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.UpdateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -20905,9 +20936,7 @@ def test_delete_security_health_analytics_custom_module_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.DeleteSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -20930,9 +20959,7 @@ def test_simulate_security_health_analytics_custom_module_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
-        )
+        request_msg = security_center_management.SimulateSecurityHealthAnalyticsCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -20955,9 +20982,7 @@ def test_list_effective_event_threat_detection_custom_modules_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListEffectiveEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -20980,9 +21005,7 @@ def test_get_effective_event_threat_detection_custom_module_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
-        )
+        request_msg = security_center_management.GetEffectiveEventThreatDetectionCustomModuleRequest()
 
         assert args[0] == request_msg
 
@@ -21029,9 +21052,7 @@ def test_list_descendant_event_threat_detection_custom_modules_empty_call_rest()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
-        )
+        request_msg = security_center_management.ListDescendantEventThreatDetectionCustomModulesRequest()
 
         assert args[0] == request_msg
 
@@ -21297,11 +21318,14 @@ def test_security_center_management_base_transport():
 
 def test_security_center_management_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.securitycentermanagement_v1.services.security_center_management.transports.SecurityCenterManagementTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.securitycentermanagement_v1.services.security_center_management.transports.SecurityCenterManagementTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SecurityCenterManagementTransport(
@@ -21318,9 +21342,12 @@ def test_security_center_management_base_transport_with_credentials_file():
 
 def test_security_center_management_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.securitycentermanagement_v1.services.security_center_management.transports.SecurityCenterManagementTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.securitycentermanagement_v1.services.security_center_management.transports.SecurityCenterManagementTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SecurityCenterManagementTransport()
@@ -21394,11 +21421,12 @@ def test_security_center_management_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -21540,12 +21568,8 @@ def test_security_center_management_client_transport_session_collision(transport
         credentials=creds2,
         transport=transport_name,
     )
-    session1 = (
-        client1.transport.list_effective_security_health_analytics_custom_modules._session
-    )
-    session2 = (
-        client2.transport.list_effective_security_health_analytics_custom_modules._session
-    )
+    session1 = client1.transport.list_effective_security_health_analytics_custom_modules._session
+    session2 = client2.transport.list_effective_security_health_analytics_custom_modules._session
     assert session1 != session2
     session1 = (
         client1.transport.get_effective_security_health_analytics_custom_module._session
@@ -21557,12 +21581,8 @@ def test_security_center_management_client_transport_session_collision(transport
     session1 = client1.transport.list_security_health_analytics_custom_modules._session
     session2 = client2.transport.list_security_health_analytics_custom_modules._session
     assert session1 != session2
-    session1 = (
-        client1.transport.list_descendant_security_health_analytics_custom_modules._session
-    )
-    session2 = (
-        client2.transport.list_descendant_security_health_analytics_custom_modules._session
-    )
+    session1 = client1.transport.list_descendant_security_health_analytics_custom_modules._session
+    session2 = client2.transport.list_descendant_security_health_analytics_custom_modules._session
     assert session1 != session2
     session1 = client1.transport.get_security_health_analytics_custom_module._session
     session2 = client2.transport.get_security_health_analytics_custom_module._session
@@ -21661,6 +21681,7 @@ def test_security_center_management_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -22218,6 +22239,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = SecurityCenterManagementClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = SecurityCenterManagementAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = SecurityCenterManagementClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -22361,6 +22416,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = SecurityCenterManagementClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = SecurityCenterManagementAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

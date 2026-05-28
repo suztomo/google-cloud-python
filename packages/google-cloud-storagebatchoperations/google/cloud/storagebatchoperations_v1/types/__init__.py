@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,24 +18,32 @@ from .storage_batch_operations import (
     CancelJobResponse,
     CreateJobRequest,
     DeleteJobRequest,
+    GetBucketOperationRequest,
     GetJobRequest,
+    ListBucketOperationsRequest,
+    ListBucketOperationsResponse,
     ListJobsRequest,
     ListJobsResponse,
     OperationMetadata,
 )
 from .storage_batch_operations_types import (
     BucketList,
+    BucketOperation,
     Counters,
+    CustomContextUpdates,
     DeleteObject,
     ErrorLogEntry,
     ErrorSummary,
     Job,
     LoggingConfig,
     Manifest,
+    ObjectCustomContextPayload,
+    ObjectRetention,
     PrefixList,
     PutMetadata,
     PutObjectHold,
     RewriteObject,
+    UpdateObjectCustomContext,
 )
 
 __all__ = (
@@ -43,20 +51,28 @@ __all__ = (
     "CancelJobResponse",
     "CreateJobRequest",
     "DeleteJobRequest",
+    "GetBucketOperationRequest",
     "GetJobRequest",
+    "ListBucketOperationsRequest",
+    "ListBucketOperationsResponse",
     "ListJobsRequest",
     "ListJobsResponse",
     "OperationMetadata",
     "BucketList",
+    "BucketOperation",
     "Counters",
+    "CustomContextUpdates",
     "DeleteObject",
     "ErrorLogEntry",
     "ErrorSummary",
     "Job",
     "LoggingConfig",
     "Manifest",
+    "ObjectCustomContextPayload",
+    "ObjectRetention",
     "PrefixList",
     "PutMetadata",
     "PutObjectHold",
     "RewriteObject",
+    "UpdateObjectCustomContext",
 )

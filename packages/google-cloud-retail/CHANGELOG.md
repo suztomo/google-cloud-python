@@ -1,5 +1,90 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-retail/#history
+
+## [2.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.9.0...google-cloud-retail-v2.10.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.8.0...google-cloud-retail-v2.9.0) (2026-01-29)
+
+
+### Features
+
+* add a user_attributes field in SearchRequest that can be used for personalization ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+* add a model_scores field in SearchResponse.results to expose model quality signals ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+
+## [2.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.7.0...google-cloud-retail-v2.8.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [2.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.6.0...google-cloud-retail-v2.7.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [2.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.5.0...google-cloud-retail-v2.6.0) (2025-09-08)
+
+
+### Features
+
+* release the conversational search public SDK ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+
+
+### Documentation
+
+* A comment for enum `Mode` is changed ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+* A comment for enum value `CONVERSATIONAL_FILTER_ONLY` in enum `Mode` is changed ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+* A comment for enum value `DISABLED` in enum `Mode` is changed ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+* A comment for enum value `ENABLED` in enum `Mode` is changed ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+* A comment for field `user_query_types` in message `.google.cloud.retail.v2alpha.ConversationalSearchResponse` is changed ([6b0660c](https://github.com/googleapis/google-cloud-python/commit/6b0660c83e33976f0a7441b01310244d7b205381))
+
+## [2.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.4.0...google-cloud-retail-v2.5.0) (2025-07-26)
+
+
+### Features
+
+* **v2alpha:** add new fields in conversational search public SDK ([#14156](https://github.com/googleapis/google-cloud-python/issues/14156)) ([848d823](https://github.com/googleapis/google-cloud-python/commit/848d82340281340679bb68979db799d2583a4a12))
+
+## [2.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.3.0...google-cloud-retail-v2.4.0) (2025-07-23)
+
+
+### Features
+
+* [google-cloud-retail] add experiment_id in the SearchRequest proto ([#14127](https://github.com/googleapis/google-cloud-python/issues/14127)) ([195684e](https://github.com/googleapis/google-cloud-python/commit/195684e739f0ec7480abd349a23b6122fbc02d61))
+
+## [2.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.2.0...google-cloud-retail-v2.3.0) (2025-07-02)
+
+
+### Features
+
+* add a model_scores field in SearchResponse.results to expose model quality signals ([cdfb4a3](https://github.com/googleapis/google-cloud-python/commit/cdfb4a337fa96b482f4db0e6e4691dc58d0f79c2))
+* add a user_attributes field in SearchRequest that can be used for personalization ([cdfb4a3](https://github.com/googleapis/google-cloud-python/commit/cdfb4a337fa96b482f4db0e6e4691dc58d0f79c2))
+
 ## [2.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-retail-v2.1.0...google-cloud-retail-v2.2.0) (2025-05-29)
 
 

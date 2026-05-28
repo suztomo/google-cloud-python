@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ class AutoRenewalBehavior(proto.Enum):
             Auto Renewal will be disabled on
             subscription.
     """
+
     AUTO_RENEWAL_BEHAVIOR_UNSPECIFIED = 0
     AUTO_RENEWAL_BEHAVIOR_ENABLE = 1
     AUTO_RENEWAL_BEHAVIOR_DISABLE = 2
@@ -142,7 +143,7 @@ class ListOrdersRequest(proto.Message):
             with string values. For example, ``display_name=abc``.
             Supported query attributes are
 
-            -  ``display_name``
+            - ``display_name``
 
             If the query contains special characters other than letters,
             underscore, or digits, the phrase must be quoted with double
@@ -334,6 +335,7 @@ class CancelOrderRequest(proto.Message):
                 order is not subscription based, the request
                 will fail.
         """
+
         CANCELLATION_POLICY_UNSPECIFIED = 0
         CANCELLATION_POLICY_CANCEL_IMMEDIATELY = 1
         CANCELLATION_POLICY_CANCEL_AT_TERM_END = 2

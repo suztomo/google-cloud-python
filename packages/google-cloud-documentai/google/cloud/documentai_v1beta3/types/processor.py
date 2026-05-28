@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
@@ -48,27 +48,29 @@ class ProcessorVersion(proto.Message):
         display_name (str):
             The display name of the processor version.
         document_schema (google.cloud.documentai_v1beta3.types.DocumentSchema):
-            The schema of the processor version.
-            Describes the output.
+            Output only. The schema of the processor
+            version. Describes the output.
         state (google.cloud.documentai_v1beta3.types.ProcessorVersion.State):
             Output only. The state of the processor
             version.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
-            The time the processor version was created.
+            Output only. The time the processor version
+            was created.
         latest_evaluation (google.cloud.documentai_v1beta3.types.EvaluationReference):
-            The most recently invoked evaluation for the
-            processor version.
+            Output only. The most recently invoked
+            evaluation for the processor version.
         kms_key_name (str):
-            The KMS key name used for encryption.
+            Output only. The KMS key name used for
+            encryption.
         kms_key_version_name (str):
-            The KMS key version with which data is
-            encrypted.
+            Output only. The KMS key version with which
+            data is encrypted.
         google_managed (bool):
             Output only. Denotes that this ``ProcessorVersion`` is
             managed by Google.
         deprecation_info (google.cloud.documentai_v1beta3.types.ProcessorVersion.DeprecationInfo):
-            If set, information about the eventual
-            deprecation of this version.
+            Output only. If set, information about the
+            eventual deprecation of this version.
         model_type (google.cloud.documentai_v1beta3.types.ProcessorVersion.ModelType):
             Output only. The model type of this processor
             version.
@@ -108,6 +110,7 @@ class ProcessorVersion(proto.Message):
             IMPORTING (8):
                 The processor version is being imported.
         """
+
         STATE_UNSPECIFIED = 0
         DEPLOYED = 1
         DEPLOYING = 2
@@ -131,6 +134,7 @@ class ProcessorVersion(proto.Message):
             MODEL_TYPE_CUSTOM (2):
                 The processor version has custom model type.
         """
+
         MODEL_TYPE_UNSPECIFIED = 0
         MODEL_TYPE_GENERATIVE = 1
         MODEL_TYPE_CUSTOM = 2
@@ -187,11 +191,11 @@ class ProcessorVersion(proto.Message):
 
             Attributes:
                 finetuning_allowed (bool):
-                    Whether finetuning is allowed for this base
+                    Whether fine tuning is allowed for this base
                     processor version.
                 min_train_labeled_documents (int):
                     The minimum number of labeled documents in
-                    the training dataset required for finetuning.
+                    the training dataset required for fine tuning.
             """
 
             finetuning_allowed: bool = proto.Field(
@@ -227,6 +231,7 @@ class ProcessorVersion(proto.Message):
                     FINE_TUNED (2):
                         The model is a finetuned foundation model.
                 """
+
                 CUSTOM_MODEL_TYPE_UNSPECIFIED = 0
                 VERSIONED_FOUNDATION = 1
                 FINE_TUNED = 2
@@ -367,7 +372,8 @@ class Processor(proto.Message):
             Output only. Immutable. The http endpoint
             that can be called to invoke processing.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
-            The time the processor was created.
+            Output only. The time the processor was
+            created.
         kms_key_name (str):
             The `KMS
             key <https://cloud.google.com/security-key-management>`__
@@ -414,6 +420,7 @@ class Processor(proto.Message):
                 The processor is being deleted, will be
                 removed if successful.
         """
+
         STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -444,12 +451,12 @@ class Processor(proto.Message):
         proto.STRING,
         number=9,
     )
-    processor_version_aliases: MutableSequence[
-        "ProcessorVersionAlias"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=10,
-        message="ProcessorVersionAlias",
+    processor_version_aliases: MutableSequence["ProcessorVersionAlias"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=10,
+            message="ProcessorVersionAlias",
+        )
     )
     process_endpoint: str = proto.Field(
         proto.STRING,

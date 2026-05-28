@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import httpbody_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.httpbody_pb2 as httpbody_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.tasks_v2beta2.types import queue as gct_queue
@@ -665,11 +665,11 @@ class LeaseTasksRequest(proto.Message):
 
             Grammar Syntax:
 
-            -  ``filter = "tag=" tag | "tag_function=" function``
+            - ``filter = "tag=" tag | "tag_function=" function``
 
-            -  ``tag = string``
+            - ``tag = string``
 
-            -  ``function = "oldest_tag()"``
+            - ``function = "oldest_tag()"``
 
             The ``oldest_tag()`` function returns tasks which have the
             same tag as the oldest task (ordered by schedule time).

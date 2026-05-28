@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,9 +44,12 @@ def sample_retrieve_for_application_terms_of_service_agreement_state():
     )
 
     # Make the request
-    response = client.retrieve_for_application_terms_of_service_agreement_state(request=request)
+    response = client.retrieve_for_application_terms_of_service_agreement_state(
+        request=request
+    )
 
     # Handle the response
     print(response)
+
 
 # [END merchantapi_v1beta_generated_TermsOfServiceAgreementStateService_RetrieveForApplicationTermsOfServiceAgreementState_sync]

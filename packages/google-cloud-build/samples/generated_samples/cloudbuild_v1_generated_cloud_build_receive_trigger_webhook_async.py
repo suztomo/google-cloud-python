@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_receive_trigger_webhook():
     client = cloudbuild_v1.CloudBuildAsyncClient()
 
     # Initialize request argument(s)
-    request = cloudbuild_v1.ReceiveTriggerWebhookRequest(
-    )
+    request = cloudbuild_v1.ReceiveTriggerWebhookRequest()
 
     # Make the request
     response = await client.receive_trigger_webhook(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END cloudbuild_v1_generated_CloudBuild_ReceiveTriggerWebhook_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,9 +41,6 @@ async def sample_create_cloud_vm_cluster():
     # Initialize request argument(s)
     cloud_vm_cluster = oracledatabase_v1.CloudVmCluster()
     cloud_vm_cluster.exadata_infrastructure = "exadata_infrastructure_value"
-    cloud_vm_cluster.cidr = "cidr_value"
-    cloud_vm_cluster.backup_subnet_cidr = "backup_subnet_cidr_value"
-    cloud_vm_cluster.network = "network_value"
 
     request = oracledatabase_v1.CreateCloudVmClusterRequest(
         parent="parent_value",
@@ -52,13 +49,14 @@ async def sample_create_cloud_vm_cluster():
     )
 
     # Make the request
-    operation = client.create_cloud_vm_cluster(request=request)
+    operation = await client.create_cloud_vm_cluster(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END oracledatabase_v1_generated_OracleDatabase_CreateCloudVmCluster_async]

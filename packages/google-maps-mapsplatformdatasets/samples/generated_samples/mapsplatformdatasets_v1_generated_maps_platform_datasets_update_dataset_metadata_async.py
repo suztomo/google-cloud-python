@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_dataset_metadata():
     client = mapsplatformdatasets_v1.MapsPlatformDatasetsAsyncClient()
 
     # Initialize request argument(s)
-    request = mapsplatformdatasets_v1.UpdateDatasetMetadataRequest(
-    )
+    request = mapsplatformdatasets_v1.UpdateDatasetMetadataRequest()
 
     # Make the request
     response = await client.update_dataset_metadata(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END mapsplatformdatasets_v1_generated_MapsPlatformDatasets_UpdateDatasetMetadata_async]

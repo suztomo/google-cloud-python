@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,21 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.bigquery_analyticshub_v1.types import analyticshub
 
@@ -58,7 +58,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +93,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -160,9 +160,10 @@ class AnalyticsHubServiceGrpcTransport(AnalyticsHubServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -193,6 +194,10 @@ class AnalyticsHubServiceGrpcTransport(AnalyticsHubServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -296,9 +301,10 @@ class AnalyticsHubServiceGrpcTransport(AnalyticsHubServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -814,12 +820,12 @@ class AnalyticsHubServiceGrpcTransport(AnalyticsHubServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_shared_resource_subscriptions" not in self._stubs:
-            self._stubs[
-                "list_shared_resource_subscriptions"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/ListSharedResourceSubscriptions",
-                request_serializer=analyticshub.ListSharedResourceSubscriptionsRequest.serialize,
-                response_deserializer=analyticshub.ListSharedResourceSubscriptionsResponse.deserialize,
+            self._stubs["list_shared_resource_subscriptions"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/ListSharedResourceSubscriptions",
+                    request_serializer=analyticshub.ListSharedResourceSubscriptionsRequest.serialize,
+                    response_deserializer=analyticshub.ListSharedResourceSubscriptionsResponse.deserialize,
+                )
             )
         return self._stubs["list_shared_resource_subscriptions"]
 
@@ -958,6 +964,200 @@ class AnalyticsHubServiceGrpcTransport(AnalyticsHubServiceTransport):
                 response_deserializer=iam_policy_pb2.TestIamPermissionsResponse.FromString,
             )
         return self._stubs["test_iam_permissions"]
+
+    @property
+    def create_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.CreateQueryTemplateRequest], analyticshub.QueryTemplate
+    ]:
+        r"""Return a callable for the create query template method over gRPC.
+
+        Creates a new QueryTemplate
+
+        Returns:
+            Callable[[~.CreateQueryTemplateRequest],
+                    ~.QueryTemplate]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "create_query_template" not in self._stubs:
+            self._stubs["create_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/CreateQueryTemplate",
+                request_serializer=analyticshub.CreateQueryTemplateRequest.serialize,
+                response_deserializer=analyticshub.QueryTemplate.deserialize,
+            )
+        return self._stubs["create_query_template"]
+
+    @property
+    def get_query_template(
+        self,
+    ) -> Callable[[analyticshub.GetQueryTemplateRequest], analyticshub.QueryTemplate]:
+        r"""Return a callable for the get query template method over gRPC.
+
+        Gets a QueryTemplate
+
+        Returns:
+            Callable[[~.GetQueryTemplateRequest],
+                    ~.QueryTemplate]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_query_template" not in self._stubs:
+            self._stubs["get_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/GetQueryTemplate",
+                request_serializer=analyticshub.GetQueryTemplateRequest.serialize,
+                response_deserializer=analyticshub.QueryTemplate.deserialize,
+            )
+        return self._stubs["get_query_template"]
+
+    @property
+    def list_query_templates(
+        self,
+    ) -> Callable[
+        [analyticshub.ListQueryTemplatesRequest],
+        analyticshub.ListQueryTemplatesResponse,
+    ]:
+        r"""Return a callable for the list query templates method over gRPC.
+
+        Lists all QueryTemplates in a given project and
+        location.
+
+        Returns:
+            Callable[[~.ListQueryTemplatesRequest],
+                    ~.ListQueryTemplatesResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_query_templates" not in self._stubs:
+            self._stubs["list_query_templates"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/ListQueryTemplates",
+                request_serializer=analyticshub.ListQueryTemplatesRequest.serialize,
+                response_deserializer=analyticshub.ListQueryTemplatesResponse.deserialize,
+            )
+        return self._stubs["list_query_templates"]
+
+    @property
+    def update_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.UpdateQueryTemplateRequest], analyticshub.QueryTemplate
+    ]:
+        r"""Return a callable for the update query template method over gRPC.
+
+        Updates an existing QueryTemplate
+
+        Returns:
+            Callable[[~.UpdateQueryTemplateRequest],
+                    ~.QueryTemplate]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "update_query_template" not in self._stubs:
+            self._stubs["update_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/UpdateQueryTemplate",
+                request_serializer=analyticshub.UpdateQueryTemplateRequest.serialize,
+                response_deserializer=analyticshub.QueryTemplate.deserialize,
+            )
+        return self._stubs["update_query_template"]
+
+    @property
+    def delete_query_template(
+        self,
+    ) -> Callable[[analyticshub.DeleteQueryTemplateRequest], empty_pb2.Empty]:
+        r"""Return a callable for the delete query template method over gRPC.
+
+        Deletes a query template.
+
+        Returns:
+            Callable[[~.DeleteQueryTemplateRequest],
+                    ~.Empty]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_query_template" not in self._stubs:
+            self._stubs["delete_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/DeleteQueryTemplate",
+                request_serializer=analyticshub.DeleteQueryTemplateRequest.serialize,
+                response_deserializer=empty_pb2.Empty.FromString,
+            )
+        return self._stubs["delete_query_template"]
+
+    @property
+    def submit_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.SubmitQueryTemplateRequest], analyticshub.QueryTemplate
+    ]:
+        r"""Return a callable for the submit query template method over gRPC.
+
+        Submits a query template for approval.
+
+        Returns:
+            Callable[[~.SubmitQueryTemplateRequest],
+                    ~.QueryTemplate]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "submit_query_template" not in self._stubs:
+            self._stubs["submit_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/SubmitQueryTemplate",
+                request_serializer=analyticshub.SubmitQueryTemplateRequest.serialize,
+                response_deserializer=analyticshub.QueryTemplate.deserialize,
+            )
+        return self._stubs["submit_query_template"]
+
+    @property
+    def approve_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.ApproveQueryTemplateRequest], analyticshub.QueryTemplate
+    ]:
+        r"""Return a callable for the approve query template method over gRPC.
+
+        Approves a query template.
+
+        Returns:
+            Callable[[~.ApproveQueryTemplateRequest],
+                    ~.QueryTemplate]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "approve_query_template" not in self._stubs:
+            self._stubs["approve_query_template"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.analyticshub.v1.AnalyticsHubService/ApproveQueryTemplate",
+                request_serializer=analyticshub.ApproveQueryTemplateRequest.serialize,
+                response_deserializer=analyticshub.QueryTemplate.deserialize,
+            )
+        return self._stubs["approve_query_template"]
 
     def close(self):
         self._logged_channel.close()

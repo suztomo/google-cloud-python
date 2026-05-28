@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,9 +40,7 @@ async def sample_create_gateway():
 
     # Initialize request argument(s)
     gateway = network_services_v1.Gateway()
-    gateway.name = "name_value"
     gateway.ports = [569, 570]
-    gateway.scope = "scope_value"
 
     request = network_services_v1.CreateGatewayRequest(
         parent="parent_value",
@@ -51,13 +49,14 @@ async def sample_create_gateway():
     )
 
     # Make the request
-    operation = client.create_gateway(request=request)
+    operation = await client.create_gateway(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_CreateGateway_async]

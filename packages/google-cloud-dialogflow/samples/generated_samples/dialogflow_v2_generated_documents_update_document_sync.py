@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ def sample_update_document():
     document.content_uri = "content_uri_value"
     document.display_name = "display_name_value"
     document.mime_type = "mime_type_value"
-    document.knowledge_types = ['AGENT_FACING_SMART_REPLY']
+    document.knowledge_types = ["AGENT_FACING_SMART_REPLY"]
 
     request = dialogflow_v2.UpdateDocumentRequest(
         document=document,
@@ -58,5 +58,6 @@ def sample_update_document():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2_generated_Documents_UpdateDocument_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,17 +41,18 @@ async def sample_batch_delete_entities():
     # Initialize request argument(s)
     request = dialogflow_v2beta1.BatchDeleteEntitiesRequest(
         parent="parent_value",
-        entity_values=['entity_values_value1', 'entity_values_value2'],
+        entity_values=["entity_values_value1", "entity_values_value2"],
     )
 
     # Make the request
-    operation = client.batch_delete_entities(request=request)
+    operation = await client.batch_delete_entities(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2beta1_generated_EntityTypes_BatchDeleteEntities_async]

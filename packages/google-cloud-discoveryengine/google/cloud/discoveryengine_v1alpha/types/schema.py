@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -259,8 +259,8 @@ class FieldConfig(proto.Message):
             starting from ``_root``, with a period ``.`` as the
             delimiter. Examples:
 
-            -  Publish date of the root: \_root.datePublished
-            -  Publish date of the reviews: \_root.review.datePublished
+            - Publish date of the root: \_root.datePublished
+            - Publish date of the reviews: \_root.review.datePublished
     """
 
     class FieldType(proto.Enum):
@@ -283,13 +283,13 @@ class FieldConfig(proto.Message):
                 Field value type is Geolocation. Geolocation is expressed as
                 an object with the following keys:
 
-                -  ``id``: a string representing the location id
-                -  ``longitude``: a number representing the longitude
-                   coordinate of the location
-                -  ``latitude``: a number repesenting the latitude
-                   coordinate of the location
-                -  ``address``: a string representing the full address of
-                   the location
+                - ``id``: a string representing the location id
+                - ``longitude``: a number representing the longitude
+                  coordinate of the location
+                - ``latitude``: a number repesenting the latitude coordinate
+                  of the location
+                - ``address``: a string representing the full address of the
+                  location
 
                 ``latitude`` and ``longitude`` must always be provided
                 together. At least one of a) ``address`` or b)
@@ -298,14 +298,15 @@ class FieldConfig(proto.Message):
                 Field value type is Datetime. Datetime can be expressed as
                 either:
 
-                -  a number representing milliseconds-since-the-epoch
-                -  a string representing milliseconds-since-the-epoch. e.g.
-                   ``"1420070400001"``
-                -  a string representing the `ISO
-                   8601 <https://en.wikipedia.org/wiki/ISO_8601>`__ date or
-                   date and time. e.g. ``"2015-01-01"`` or
-                   ``"2015-01-01T12:10:30Z"``
+                - a number representing milliseconds-since-the-epoch
+                - a string representing milliseconds-since-the-epoch. e.g.
+                  ``"1420070400001"``
+                - a string representing the `ISO
+                  8601 <https://en.wikipedia.org/wiki/ISO_8601>`__ date or
+                  date and time. e.g. ``"2015-01-01"`` or
+                  ``"2015-01-01T12:10:30Z"``
         """
+
         FIELD_TYPE_UNSPECIFIED = 0
         OBJECT = 1
         STRING = 2
@@ -326,6 +327,7 @@ class FieldConfig(proto.Message):
             INDEXABLE_DISABLED (2):
                 Indexable option disabled for a schema field.
         """
+
         INDEXABLE_OPTION_UNSPECIFIED = 0
         INDEXABLE_ENABLED = 1
         INDEXABLE_DISABLED = 2
@@ -343,6 +345,7 @@ class FieldConfig(proto.Message):
                 Dynamic facetable option disabled for a
                 schema field.
         """
+
         DYNAMIC_FACETABLE_OPTION_UNSPECIFIED = 0
         DYNAMIC_FACETABLE_ENABLED = 1
         DYNAMIC_FACETABLE_DISABLED = 2
@@ -359,6 +362,7 @@ class FieldConfig(proto.Message):
                 Searchable option disabled for a schema
                 field.
         """
+
         SEARCHABLE_OPTION_UNSPECIFIED = 0
         SEARCHABLE_ENABLED = 1
         SEARCHABLE_DISABLED = 2
@@ -376,6 +380,7 @@ class FieldConfig(proto.Message):
                 Retrievable option disabled for a schema
                 field.
         """
+
         RETRIEVABLE_OPTION_UNSPECIFIED = 0
         RETRIEVABLE_ENABLED = 1
         RETRIEVABLE_DISABLED = 2
@@ -393,6 +398,7 @@ class FieldConfig(proto.Message):
                 Completable option disabled for a schema
                 field.
         """
+
         COMPLETABLE_OPTION_UNSPECIFIED = 0
         COMPLETABLE_ENABLED = 1
         COMPLETABLE_DISABLED = 2
@@ -409,6 +415,7 @@ class FieldConfig(proto.Message):
                 Filterable option disabled for a schema
                 field.
         """
+
         FILTERABLE_OPTION_UNSPECIFIED = 0
         FILTERABLE_ENABLED = 1
         FILTERABLE_DISABLED = 2
@@ -430,6 +437,7 @@ class FieldConfig(proto.Message):
             SCHEMA_ORG (4):
                 Retrieve value from schema.org data.
         """
+
         ADVANCED_SITE_SEARCH_DATA_SOURCE_UNSPECIFIED = 0
         METATAGS = 1
         PAGEMAP = 2
@@ -479,12 +487,12 @@ class FieldConfig(proto.Message):
         proto.STRING,
         number=7,
     )
-    advanced_site_search_data_sources: MutableSequence[
-        AdvancedSiteSearchDataSource
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=10,
-        enum=AdvancedSiteSearchDataSource,
+    advanced_site_search_data_sources: MutableSequence[AdvancedSiteSearchDataSource] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=10,
+            enum=AdvancedSiteSearchDataSource,
+        )
     )
     schema_org_paths: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,

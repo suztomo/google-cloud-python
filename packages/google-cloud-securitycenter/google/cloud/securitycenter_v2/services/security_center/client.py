@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.securitycenter_v2 import gapic_version as package_version
 
@@ -61,23 +61,26 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.securitycenter_v2.services.security_center import pagers
 from google.cloud.securitycenter_v2.types import (
     access,
+    affected_resources,
+    ai_model,
     application,
     attack_exposure,
     attack_path,
     backup_disaster_recovery,
     bigquery_export,
+    chokepoint,
     cloud_armor,
     cloud_dlp_data_profile,
     cloud_dlp_inspection,
@@ -90,28 +93,39 @@ from google.cloud.securitycenter_v2.types import (
     database,
     disk,
     exfiltration,
-)
-from google.cloud.securitycenter_v2.types import (
+    file,
+    finding,
     group_membership,
     iam_binding,
     indicator,
+    ip_rules,
+    job,
     kernel_rootkit,
     kubernetes,
     load_balancer,
     log_entry,
     mitre_attack,
-)
-from google.cloud.securitycenter_v2.types import (
+    mute_config,
+    network,
+    notebook,
+    notification_config,
+    org_policy,
+    process,
+    resource,
+    resource_value_config,
+    security_marks,
     security_posture,
     securitycenter_service,
     simulation,
-)
-from google.cloud.securitycenter_v2.types import (
+    source,
     toxic_combination,
     valued_resource,
+    vertex_ai,
     vulnerability,
 )
 from google.cloud.securitycenter_v2.types import external_system as gcs_external_system
+from google.cloud.securitycenter_v2.types import finding as gcs_finding
+from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
 from google.cloud.securitycenter_v2.types import (
     notification_config as gcs_notification_config,
 )
@@ -119,17 +133,6 @@ from google.cloud.securitycenter_v2.types import (
     resource_value_config as gcs_resource_value_config,
 )
 from google.cloud.securitycenter_v2.types import security_marks as gcs_security_marks
-from google.cloud.securitycenter_v2.types import file
-from google.cloud.securitycenter_v2.types import finding
-from google.cloud.securitycenter_v2.types import finding as gcs_finding
-from google.cloud.securitycenter_v2.types import mute_config
-from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
-from google.cloud.securitycenter_v2.types import notebook
-from google.cloud.securitycenter_v2.types import notification_config
-from google.cloud.securitycenter_v2.types import org_policy, process, resource
-from google.cloud.securitycenter_v2.types import resource_value_config
-from google.cloud.securitycenter_v2.types import security_marks
-from google.cloud.securitycenter_v2.types import source
 from google.cloud.securitycenter_v2.types import source as gcs_source
 
 from .transports.base import DEFAULT_CLIENT_INFO, SecurityCenterTransport
@@ -146,9 +149,7 @@ class SecurityCenterClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[SecurityCenterTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[SecurityCenterTransport]]
     _transport_registry["grpc"] = SecurityCenterGrpcTransport
     _transport_registry["grpc_asyncio"] = SecurityCenterGrpcAsyncIOTransport
     _transport_registry["rest"] = SecurityCenterRestTransport
@@ -179,7 +180,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
     """V2 APIs for Security Center service."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -187,7 +188,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -197,6 +198,10 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -216,6 +221,34 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "securitycenter.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -692,12 +725,8 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = SecurityCenterClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -705,7 +734,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -737,20 +766,14 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = SecurityCenterClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -774,7 +797,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -871,7 +894,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -958,18 +981,16 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = SecurityCenterClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            SecurityCenterClient._read_environment_variables()
+        )
         self._client_cert_source = SecurityCenterClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = SecurityCenterClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -997,8 +1018,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(SecurityCenterTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1269,12 +1289,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 updated in global. The following list shows some
                 examples:
 
-                -  ``organizations/[organization_id]``
-                -  ``organizations/[organization_id]/locations/[location_id]``
-                -  ``folders/[folder_id]``
-                -  ``folders/[folder_id]/locations/[location_id]``
-                -  ``projects/[project_id]``
-                -  ``projects/[project_id]/locations/[location_id]``
+                - ``organizations/[organization_id]``
+                - ``organizations/[organization_id]/locations/[location_id]``
+                - ``folders/[folder_id]``
+                - ``folders/[folder_id]/locations/[location_id]``
+                - ``projects/[project_id]``
+                - ``projects/[project_id]/locations/[location_id]``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2127,8 +2147,8 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
                 ``organizations/{organization}/locations/{location}/bigQueryExports/{export_id}``
 
-                -  ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
-                -  ``projects/{project}/locations/{location}/bigQueryExports/{export_id}``
+                - ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
+                - ``projects/{project}/locations/{location}/bigQueryExports/{export_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2230,15 +2250,15 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 Required. Name of the mute config to delete. The
                 following list shows some examples of the format:
 
-                -  ``organizations/{organization}/muteConfigs/{config_id}``
+                - ``organizations/{organization}/muteConfigs/{config_id}``
                 -
 
                 ``organizations/{organization}/locations/{location}/muteConfigs/{config_id}``
 
-                -  ``folders/{folder}/muteConfigs/{config_id}``
-                -  ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
-                -  ``projects/{project}/muteConfigs/{config_id}``
-                -  ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
+                - ``folders/{folder}/muteConfigs/{config_id}``
+                - ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
+                - ``projects/{project}/muteConfigs/{config_id}``
+                - ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2579,8 +2599,8 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
                 ``organizations/{organization}/locations/{location}/bigQueryExports/{export_id}``
 
-                -  ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
-                -  ``projects/{project}locations/{location}//bigQueryExports/{export_id}``
+                - ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
+                - ``projects/{project}locations/{location}//bigQueryExports/{export_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2895,7 +2915,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v2
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_get_iam_policy():
                 # Create a client
@@ -2951,19 +2971,19 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -3062,15 +3082,15 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 Required. Name of the mute config to retrieve. The
                 following list shows some examples of the format:
 
-                -  ``organizations/{organization}/muteConfigs/{config_id}``
+                - ``organizations/{organization}/muteConfigs/{config_id}``
                 -
 
                 ``organizations/{organization}/locations/{location}/muteConfigs/{config_id}``
 
-                -  ``folders/{folder}/muteConfigs/{config_id}``
-                -  ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
-                -  ``projects/{project}/muteConfigs/{config_id}``
-                -  ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
+                - ``folders/{folder}/muteConfigs/{config_id}``
+                - ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
+                - ``projects/{project}/muteConfigs/{config_id}``
+                - ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3528,15 +3548,15 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         To group across all sources provide a ``-`` as the source id.
         The following list shows some examples:
 
-        -  ``/v2/organizations/{organization_id}/sources/-/findings``
+        - ``/v2/organizations/{organization_id}/sources/-/findings``
         -
 
         ``/v2/organizations/{organization_id}/sources/-/locations/{location_id}/findings``
 
-        -  ``/v2/folders/{folder_id}/sources/-/findings``
-        -  ``/v2/folders/{folder_id}/sources/-/locations/{location_id}/findings``
-        -  ``/v2/projects/{project_id}/sources/-/findings``
-        -  ``/v2/projects/{project_id}/sources/-/locations/{location_id}/findings``
+        - ``/v2/folders/{folder_id}/sources/-/findings``
+        - ``/v2/folders/{folder_id}/sources/-/locations/{location_id}/findings``
+        - ``/v2/projects/{project_id}/sources/-/findings``
+        - ``/v2/projects/{project_id}/sources/-/locations/{location_id}/findings``
 
         .. code-block:: python
 
@@ -3575,25 +3595,25 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 is specified, finding is assumed to be in global. The
                 following list shows some examples:
 
-                -  ``organizations/[organization_id]/sources/[source_id]``
+                - ``organizations/[organization_id]/sources/[source_id]``
                 -
 
                 ``organizations/[organization_id]/sources/[source_id]/locations/[location_id]``
 
-                -  ``folders/[folder_id]/sources/[source_id]``
-                -  ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
-                -  ``projects/[project_id]/sources/[source_id]``
-                -  ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
+                - ``folders/[folder_id]/sources/[source_id]``
+                - ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
+                - ``projects/[project_id]/sources/[source_id]``
+                - ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
 
                 To groupBy across all sources provide a source_id of
                 ``-``. The following list shows some examples:
 
-                -  ``organizations/{organization_id}/sources/-``
-                -  ``organizations/{organization_id}/sources/-/locations/[location_id]``
-                -  ``folders/{folder_id}/sources/-``
-                -  ``folders/{folder_id}/sources/-/locations/[location_id]``
-                -  ``projects/{project_id}/sources/-``
-                -  ``projects/{project_id}/sources/-/locations/[location_id]``
+                - ``organizations/{organization_id}/sources/-``
+                - ``organizations/{organization_id}/sources/-/locations/[location_id]``
+                - ``folders/{folder_id}/sources/-``
+                - ``folders/{folder_id}/sources/-/locations/[location_id]``
+                - ``projects/{project_id}/sources/-``
+                - ``projects/{project_id}/sources/-/locations/[location_id]``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3967,7 +3987,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         as the source id. If no location is specified, finding are
         assumed to be in global. The following list shows some examples:
 
-        -  ``/v2/organizations/{organization_id}/sources/-/findings``
+        - ``/v2/organizations/{organization_id}/sources/-/findings``
         -
 
         ``/v2/organizations/{organization_id}/sources/-/locations/{location_id}/findings``
@@ -4007,25 +4027,25 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 no location is specified, the default is global. The
                 following list shows some examples:
 
-                -  ``organizations/[organization_id]/sources/[source_id]``
+                - ``organizations/[organization_id]/sources/[source_id]``
                 -
 
                 ``organizations/[organization_id]/sources/[source_id]/locations/[location_id]``
 
-                -  ``folders/[folder_id]/sources/[source_id]``
-                -  ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
-                -  ``projects/[project_id]/sources/[source_id]``
-                -  ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
+                - ``folders/[folder_id]/sources/[source_id]``
+                - ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
+                - ``projects/[project_id]/sources/[source_id]``
+                - ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
 
                 To list across all sources provide a source_id of ``-``.
                 The following list shows some examples:
 
-                -  ``organizations/{organization_id}/sources/-``
-                -  ``organizations/{organization_id}/sources/-/locations/{location_id}``
-                -  ``folders/{folder_id}/sources/-``
-                -  ``folders/{folder_id}/sources/-locations/{location_id}``
-                -  ``projects/{projects_id}/sources/-``
-                -  ``projects/{projects_id}/sources/-/locations/{location_id}``
+                - ``organizations/{organization_id}/sources/-``
+                - ``organizations/{organization_id}/sources/-/locations/{location_id}``
+                - ``folders/{folder_id}/sources/-``
+                - ``folders/{folder_id}/sources/-locations/{location_id}``
+                - ``projects/{projects_id}/sources/-``
+                - ``projects/{projects_id}/sources/-/locations/{location_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4836,12 +4856,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 +
                 ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-                -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+                - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
                 -
 
                 ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-                -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+                - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
                 -
 
                 ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
@@ -4948,7 +4968,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v2
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_set_iam_policy():
                 # Create a client
@@ -5004,19 +5024,19 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -5123,12 +5143,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
                 +
                 ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-                -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+                - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
                 -
 
                 ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-                -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+                - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
                 -
 
                 ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
@@ -5236,7 +5256,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import securitycenter_v2
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             def sample_test_iam_permissions():
                 # Create a client
@@ -6422,7 +6442,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6448,8 +6468,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6458,7 +6482,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6467,7 +6491,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -6481,7 +6505,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6507,8 +6531,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6517,7 +6545,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6526,7 +6554,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -6540,7 +6568,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6570,8 +6598,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6580,7 +6612,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6588,7 +6620,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6596,7 +6628,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
     def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6625,8 +6657,12 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6635,7 +6671,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6643,7 +6679,7 @@ class SecurityCenterClient(metaclass=SecurityCenterClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

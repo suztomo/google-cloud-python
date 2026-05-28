@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,6 +136,7 @@ class TranslationTaskDetails(proto.Message):
             UTF_16BE (6):
                 File encoding is UTF_16BE.
         """
+
         FILE_ENCODING_UNSPECIFIED = 0
         UTF_8 = 1
         ISO_8859_1 = 2
@@ -165,6 +166,7 @@ class TranslationTaskDetails(proto.Message):
             TIMESTAMP (7):
                 Token type as timestamp.
         """
+
         TOKEN_TYPE_UNSPECIFIED = 0
         STRING = 1
         INT64 = 2
@@ -271,6 +273,7 @@ class IdentifierSettings(proto.Message):
             LOWER (3):
                 Identifiers will be in lower cases.
         """
+
         IDENTIFIER_CASE_UNSPECIFIED = 0
         ORIGINAL = 1
         UPPER = 2
@@ -287,6 +290,7 @@ class IdentifierSettings(proto.Message):
             REWRITE_ALL (2):
                 All SQL identifiers will be rewrite.
         """
+
         IDENTIFIER_REWRITE_MODE_UNSPECIFIED = 0
         NONE = 1
         REWRITE_ALL = 2
@@ -349,7 +353,7 @@ class DatasetReference(proto.Message):
         dataset_id (str):
             A unique ID for this dataset, without the project name. The
             ID must contain only letters (a-z, A-Z), numbers (0-9), or
-            underscores (_). The maximum length is 1,024 characters.
+            underscores (\_). The maximum length is 1,024 characters.
         project_id (str):
             The ID of the project containing this
             dataset.

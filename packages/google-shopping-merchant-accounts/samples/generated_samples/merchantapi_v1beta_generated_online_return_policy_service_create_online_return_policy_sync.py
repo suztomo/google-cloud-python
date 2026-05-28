@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_create_online_return_policy():
     # Initialize request argument(s)
     online_return_policy = merchant_accounts_v1beta.OnlineReturnPolicy()
     online_return_policy.label = "label_value"
-    online_return_policy.countries = ['countries_value1', 'countries_value2']
+    online_return_policy.countries = ["countries_value1", "countries_value2"]
     online_return_policy.return_policy_uri = "return_policy_uri_value"
 
     request = merchant_accounts_v1beta.CreateOnlineReturnPolicyRequest(
@@ -54,5 +54,6 @@ def sample_create_online_return_policy():
 
     # Handle the response
     print(response)
+
 
 # [END merchantapi_v1beta_generated_OnlineReturnPolicyService_CreateOnlineReturnPolicy_sync]

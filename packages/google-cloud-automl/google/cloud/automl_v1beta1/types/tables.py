@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.automl_v1beta1.types import column_spec, data_stats, ranges
@@ -47,9 +47,9 @@ class TablesDatasetMetadata(proto.Message):
             be non-nullable and have one of following data types
             (otherwise model creation will error):
 
-            -  CATEGORY
+            - CATEGORY
 
-            -  FLOAT64
+            - FLOAT64
 
             If the type is CATEGORY , only up to 100 unique values may
             exist in that column across all rows.
@@ -119,13 +119,13 @@ class TablesDatasetMetadata(proto.Message):
         proto.STRING,
         number=4,
     )
-    target_column_correlations: MutableMapping[
-        str, data_stats.CorrelationStats
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=6,
-        message=data_stats.CorrelationStats,
+    target_column_correlations: MutableMapping[str, data_stats.CorrelationStats] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=6,
+            message=data_stats.CorrelationStats,
+        )
     )
     stats_update_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
@@ -183,14 +183,14 @@ class TablesModelMetadata(proto.Message):
 
             Only 3 fields are used:
 
-            -  name - May be set on CreateModel, if set only the columns
-               specified are used, otherwise all primary table's columns
-               (except the ones listed above) are used for the training
-               and prediction input.
+            - name - May be set on CreateModel, if set only the columns
+              specified are used, otherwise all primary table's columns
+              (except the ones listed above) are used for the training
+              and prediction input.
 
-            -  display_name - Output only.
+            - display_name - Output only.
 
-            -  data_type - Output only.
+            - data_type - Output only.
         optimization_objective (str):
             Objective function the model is optimizing towards. The
             training process creates a model that maximizes/minimizes
@@ -268,23 +268,23 @@ class TablesModelMetadata(proto.Message):
         number=2,
         message=column_spec.ColumnSpec,
     )
-    input_feature_column_specs: MutableSequence[
-        column_spec.ColumnSpec
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=column_spec.ColumnSpec,
+    input_feature_column_specs: MutableSequence[column_spec.ColumnSpec] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=column_spec.ColumnSpec,
+        )
     )
     optimization_objective: str = proto.Field(
         proto.STRING,
         number=4,
     )
-    tables_model_column_info: MutableSequence[
-        "TablesModelColumnInfo"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message="TablesModelColumnInfo",
+    tables_model_column_info: MutableSequence["TablesModelColumnInfo"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message="TablesModelColumnInfo",
+        )
     )
     train_budget_milli_node_hours: int = proto.Field(
         proto.INT64,
@@ -323,11 +323,11 @@ class TablesAnnotation(proto.Message):
             [target_column][google.cloud.automl.v1beta1.TablesModelMetadata.target_column_spec].
             The value depends on the column's DataType:
 
-            -  CATEGORY - the predicted (with the above confidence
-               ``score``) CATEGORY value.
+            - CATEGORY - the predicted (with the above confidence
+              ``score``) CATEGORY value.
 
-            -  FLOAT64 - the predicted (with above
-               ``prediction_interval``) FLOAT64 value.
+            - FLOAT64 - the predicted (with above
+              ``prediction_interval``) FLOAT64 value.
         tables_model_column_info (MutableSequence[google.cloud.automl_v1beta1.types.TablesModelColumnInfo]):
             Output only. Auxiliary information for each of the model's
 
@@ -368,12 +368,12 @@ class TablesAnnotation(proto.Message):
         number=2,
         message=struct_pb2.Value,
     )
-    tables_model_column_info: MutableSequence[
-        "TablesModelColumnInfo"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message="TablesModelColumnInfo",
+    tables_model_column_info: MutableSequence["TablesModelColumnInfo"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message="TablesModelColumnInfo",
+        )
     )
     baseline_score: float = proto.Field(
         proto.FLOAT,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,42 +16,46 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
-from google.cloud.artifactregistry_v1.types import apt_artifact, artifact
-from google.cloud.artifactregistry_v1.types import attachment
+from google.cloud.artifactregistry_v1.types import (
+    apt_artifact,
+    artifact,
+    attachment,
+    export,
+    file,
+    package,
+    repository,
+    rule,
+    settings,
+    tag,
+    version,
+    vpcsc_config,
+    yum_artifact,
+)
 from google.cloud.artifactregistry_v1.types import attachment as gda_attachment
-from google.cloud.artifactregistry_v1.types import file
 from google.cloud.artifactregistry_v1.types import file as gda_file
-from google.cloud.artifactregistry_v1.types import package
 from google.cloud.artifactregistry_v1.types import package as gda_package
-from google.cloud.artifactregistry_v1.types import repository
 from google.cloud.artifactregistry_v1.types import repository as gda_repository
-from google.cloud.artifactregistry_v1.types import rule
 from google.cloud.artifactregistry_v1.types import rule as gda_rule
-from google.cloud.artifactregistry_v1.types import settings
-from google.cloud.artifactregistry_v1.types import tag
 from google.cloud.artifactregistry_v1.types import tag as gda_tag
-from google.cloud.artifactregistry_v1.types import version
 from google.cloud.artifactregistry_v1.types import version as gda_version
-from google.cloud.artifactregistry_v1.types import vpcsc_config
-from google.cloud.artifactregistry_v1.types import yum_artifact
+from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseArtifactRegistryRestTransport
@@ -180,6 +184,14 @@ class ArtifactRegistryRestInterceptor:
                 return request, metadata
 
             def post_delete_version(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_export_artifact(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_export_artifact(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -968,6 +980,52 @@ class ArtifactRegistryRestInterceptor:
         `post_delete_version` interceptor. The (possibly modified) response returned by
         `post_delete_version` will be passed to
         `post_delete_version_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_export_artifact(
+        self,
+        request: export.ExportArtifactRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[export.ExportArtifactRequest, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Pre-rpc interceptor for export_artifact
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the ArtifactRegistry server.
+        """
+        return request, metadata
+
+    def post_export_artifact(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for export_artifact
+
+        DEPRECATED. Please use the `post_export_artifact_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the ArtifactRegistry server but before
+        it is returned to user code. This `post_export_artifact` interceptor runs
+        before the `post_export_artifact_with_metadata` interceptor.
+        """
+        return response
+
+    def post_export_artifact_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for export_artifact
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the ArtifactRegistry server but before it is returned to user code.
+
+        We recommend only using this `post_export_artifact_with_metadata`
+        interceptor in new development instead of the `post_export_artifact` interceptor.
+        When both interceptors are used, this `post_export_artifact_with_metadata` interceptor runs after the
+        `post_export_artifact` interceptor. The (possibly modified) response returned by
+        `post_export_artifact` will be passed to
+        `post_export_artifact_with_metadata`.
         """
         return response, metadata
 
@@ -2789,12 +2847,12 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
     The resources managed by this API are:
 
-    -  Repositories, which group packages and their data.
-    -  Packages, which group versions and their tags.
-    -  Versions, which are specific forms of a package.
-    -  Tags, which represent alternative names for versions.
-    -  Files, which contain content and are optionally associated with a
-       Package or Version.
+    - Repositories, which group packages and their data.
+    - Packages, which group versions and their tags.
+    - Versions, which are specific forms of a package.
+    - Tags, which represent alternative names for versions.
+    - Files, which contain content and are optionally associated with a
+      Package or Version.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -2829,9 +2887,10 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2849,6 +2908,12 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ArtifactRegistryRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2965,9 +3030,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseBatchDeleteVersions._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseBatchDeleteVersions._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_delete_versions(
                 request, metadata
@@ -2993,7 +3056,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3120,9 +3183,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseCreateAttachment._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseCreateAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_attachment(
                 request, metadata
@@ -3148,7 +3209,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3275,9 +3336,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseCreateRepository._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseCreateRepository._get_http_options()
 
             request, metadata = self._interceptor.pre_create_repository(
                 request, metadata
@@ -3303,7 +3362,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3737,9 +3796,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseDeleteAttachment._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseDeleteAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_attachment(
                 request, metadata
@@ -3761,7 +3818,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3906,7 +3963,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4029,9 +4086,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseDeletePackage._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseDeletePackage._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_package(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseDeletePackage._get_transcoded_request(
@@ -4051,7 +4106,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4175,9 +4230,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseDeleteRepository._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseDeleteRepository._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_repository(
                 request, metadata
@@ -4199,7 +4252,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4337,7 +4390,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4443,7 +4496,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4534,9 +4587,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseDeleteVersion._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseDeleteVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_version(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseDeleteVersion._get_transcoded_request(
@@ -4556,7 +4607,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4616,6 +4667,156 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                     extra={
                         "serviceName": "google.devtools.artifactregistry.v1.ArtifactRegistry",
                         "rpcName": "DeleteVersion",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ExportArtifact(
+        _BaseArtifactRegistryRestTransport._BaseExportArtifact, ArtifactRegistryRestStub
+    ):
+        def __hash__(self):
+            return hash("ArtifactRegistryRestTransport.ExportArtifact")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: export.ExportArtifactRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the export artifact method over HTTP.
+
+            Args:
+                request (~.export.ExportArtifactRequest):
+                    The request object. The request for exporting an artifact
+                to a destination.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseArtifactRegistryRestTransport._BaseExportArtifact._get_http_options()
+
+            request, metadata = self._interceptor.pre_export_artifact(request, metadata)
+            transcoded_request = _BaseArtifactRegistryRestTransport._BaseExportArtifact._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseArtifactRegistryRestTransport._BaseExportArtifact._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseArtifactRegistryRestTransport._BaseExportArtifact._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.devtools.artifactregistry_v1.ArtifactRegistryClient.ExportArtifact",
+                    extra={
+                        "serviceName": "google.devtools.artifactregistry.v1.ArtifactRegistry",
+                        "rpcName": "ExportArtifact",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ArtifactRegistryRestTransport._ExportArtifact._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_export_artifact(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_export_artifact_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.devtools.artifactregistry_v1.ArtifactRegistryClient.export_artifact",
+                    extra={
+                        "serviceName": "google.devtools.artifactregistry.v1.ArtifactRegistry",
+                        "rpcName": "ExportArtifact",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -4682,9 +4883,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetAttachment._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_get_attachment(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseGetAttachment._get_transcoded_request(
@@ -4828,15 +5027,13 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 resource, using camelcase keys (i.e.
                 metadata.imageSizeBytes):
 
-                -  imageSizeBytes
-                -  mediaType
-                -  buildTime
+                - imageSizeBytes
+                - mediaType
+                - buildTime
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetDockerImage._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetDockerImage._get_http_options()
 
             request, metadata = self._interceptor.pre_get_docker_image(
                 request, metadata
@@ -5353,9 +5550,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetMavenArtifact._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetMavenArtifact._get_http_options()
 
             request, metadata = self._interceptor.pre_get_maven_artifact(
                 request, metadata
@@ -5501,9 +5696,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetNpmPackage._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetNpmPackage._get_http_options()
 
             request, metadata = self._interceptor.pre_get_npm_package(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseGetNpmPackage._get_transcoded_request(
@@ -5795,9 +5988,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetProjectSettings._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetProjectSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_get_project_settings(
                 request, metadata
@@ -5944,9 +6135,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetPythonPackage._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetPythonPackage._get_http_options()
 
             request, metadata = self._interceptor.pre_get_python_package(
                 request, metadata
@@ -6092,9 +6281,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetRepository._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetRepository._get_http_options()
 
             request, metadata = self._interceptor.pre_get_repository(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseGetRepository._get_transcoded_request(
@@ -6692,9 +6879,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseGetVPCSCConfig._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseGetVPCSCConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_get_vpcsc_config(
                 request, metadata
@@ -6844,9 +7029,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseImportAptArtifacts._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseImportAptArtifacts._get_http_options()
 
             request, metadata = self._interceptor.pre_import_apt_artifacts(
                 request, metadata
@@ -6872,7 +7055,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6999,9 +7182,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseImportYumArtifacts._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseImportYumArtifacts._get_http_options()
 
             request, metadata = self._interceptor.pre_import_yum_artifacts(
                 request, metadata
@@ -7027,7 +7208,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7151,9 +7332,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListAttachments._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListAttachments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_attachments(
                 request, metadata
@@ -7302,9 +7481,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListDockerImages._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListDockerImages._get_http_options()
 
             request, metadata = self._interceptor.pre_list_docker_images(
                 request, metadata
@@ -7597,9 +7774,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListMavenArtifacts._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListMavenArtifacts._get_http_options()
 
             request, metadata = self._interceptor.pre_list_maven_artifacts(
                 request, metadata
@@ -7748,9 +7923,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListNpmPackages._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListNpmPackages._get_http_options()
 
             request, metadata = self._interceptor.pre_list_npm_packages(
                 request, metadata
@@ -8043,9 +8216,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListPythonPackages._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListPythonPackages._get_http_options()
 
             request, metadata = self._interceptor.pre_list_python_packages(
                 request, metadata
@@ -8194,9 +8365,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListRepositories._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListRepositories._get_http_options()
 
             request, metadata = self._interceptor.pre_list_repositories(
                 request, metadata
@@ -9003,9 +9172,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                     Response message for ``TestIamPermissions`` method.
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -9310,9 +9477,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseUpdatePackage._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseUpdatePackage._get_http_options()
 
             request, metadata = self._interceptor.pre_update_package(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseUpdatePackage._get_transcoded_request(
@@ -9463,9 +9628,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseUpdateProjectSettings._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseUpdateProjectSettings._get_http_options()
 
             request, metadata = self._interceptor.pre_update_project_settings(
                 request, metadata
@@ -9620,9 +9783,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseUpdateRepository._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseUpdateRepository._get_http_options()
 
             request, metadata = self._interceptor.pre_update_repository(
                 request, metadata
@@ -10087,9 +10248,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseUpdateVersion._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseUpdateVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_update_version(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseUpdateVersion._get_transcoded_request(
@@ -10240,9 +10399,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
 
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseUpdateVPCSCConfig._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseUpdateVPCSCConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_vpcsc_config(
                 request, metadata
@@ -10424,6 +10581,14 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._DeleteVersion(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def export_artifact(
+        self,
+    ) -> Callable[[export.ExportArtifactRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ExportArtifact(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_attachment(
@@ -10911,9 +11076,7 @@ class ArtifactRegistryRestTransport(_BaseArtifactRegistryRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseArtifactRegistryRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseArtifactRegistryRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseArtifactRegistryRestTransport._BaseListLocations._get_transcoded_request(

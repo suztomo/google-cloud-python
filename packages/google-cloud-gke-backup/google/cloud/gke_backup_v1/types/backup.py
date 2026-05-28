@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_backup_v1.types import common
@@ -85,10 +85,10 @@ class Backup(proto.Message):
             Optional. The age (in days) after which this Backup will be
             automatically deleted. Must be an integer value >= 0:
 
-            -  If 0, no automatic deletion will occur for this Backup.
-            -  If not 0, this must be >=
-               [delete_lock_days][google.cloud.gkebackup.v1.Backup.delete_lock_days]
-               and <= 365.
+            - If 0, no automatic deletion will occur for this Backup.
+            - If not 0, this must be >=
+              [delete_lock_days][google.cloud.gkebackup.v1.Backup.delete_lock_days]
+              and <= 365.
 
             Once a Backup is created, this value may only be increased.
 
@@ -210,6 +210,7 @@ class Backup(proto.Message):
                 This Backup resource (and its associated
                 artifacts) is in the process of being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         IN_PROGRESS = 2
@@ -233,8 +234,8 @@ class Backup(proto.Message):
                 Output only. The source cluster from which this Backup was
                 created. Valid formats:
 
-                -  ``projects/*/locations/*/clusters/*``
-                -  ``projects/*/zones/*/clusters/*``
+                - ``projects/*/locations/*/clusters/*``
+                - ``projects/*/zones/*/clusters/*``
 
                 This is inherited from the parent BackupPlan's
                 [cluster][google.cloud.gkebackup.v1.BackupPlan.cluster]

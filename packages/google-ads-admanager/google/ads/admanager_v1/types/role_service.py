@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class ListRolesRequest(proto.Message):
             Optional. The maximum number of ``Roles`` to return. The
             service may return fewer than this value. If unspecified, at
             most 50 ``Roles`` will be returned. The maximum value is
-            1000; values above 1000 will be coerced to 1000.
+            1000; values greater than 1000 will be coerced to 1000.
         page_token (str):
             Optional. A page token, received from a previous
             ``ListRoles`` call. Provide this to retrieve the subsequent
@@ -70,6 +70,15 @@ class ListRolesRequest(proto.Message):
             Optional. Expression to filter the response.
             See syntax details at
             https://developers.google.com/ad-manager/api/beta/filters
+
+            <b>Filterable fields:</b>
+            <ul style="list-style-type:none">
+              <li><code>builtIn</code></li>
+              <li><code>description</code></li>
+              <li><code>displayName</code></li>
+              <li><code>name</code></li>
+              <li><code>status</code></li>
+            </ul>
         order_by (str):
             Optional. Expression to specify sorting
             order. See syntax details at
@@ -121,8 +130,8 @@ class ListRolesResponse(proto.Message):
             in the request, this reflects the total number after the
             filtering is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.

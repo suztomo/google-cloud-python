@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ def sample_create_session_entity_type():
     session_entity_type.name = "name_value"
     session_entity_type.entity_override_mode = "ENTITY_OVERRIDE_MODE_SUPPLEMENT"
     session_entity_type.entities.value = "value_value"
-    session_entity_type.entities.synonyms = ['synonyms_value1', 'synonyms_value2']
+    session_entity_type.entities.synonyms = ["synonyms_value1", "synonyms_value2"]
 
     request = dialogflowcx_v3beta1.CreateSessionEntityTypeRequest(
         parent="parent_value",
@@ -55,5 +55,6 @@ def sample_create_session_entity_type():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v3beta1_generated_SessionEntityTypes_CreateSessionEntityType_sync]

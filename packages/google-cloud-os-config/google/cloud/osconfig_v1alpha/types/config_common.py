@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ class OSPolicyComplianceState(proto.Enum):
             instance. This state is only applicable to the
             instance.
     """
+
     _pb_options = {"deprecated": True}
     OS_POLICY_COMPLIANCE_STATE_UNSPECIFIED = 0
     COMPLIANT = 1
@@ -96,6 +97,7 @@ class OSPolicyResourceConfigStep(proto.Message):
                 configuring other resources during the current
                 configuration run.
         """
+
         _pb_options = {"deprecated": True}
         TYPE_UNSPECIFIED = 0
         VALIDATION = 1
@@ -114,6 +116,7 @@ class OSPolicyResourceConfigStep(proto.Message):
             FAILED (2):
                 The step failed.
         """
+
         _pb_options = {"deprecated": True}
         OUTCOME_UNSPECIFIED = 0
         SUCCEEDED = 1

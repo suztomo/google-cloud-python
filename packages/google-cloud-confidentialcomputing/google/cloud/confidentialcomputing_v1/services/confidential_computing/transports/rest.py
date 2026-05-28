@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -86,6 +86,22 @@ class ConfidentialComputingRestInterceptor:
                 return request, metadata
 
             def post_verify_attestation(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_verify_confidential_gke(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_verify_confidential_gke(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_verify_confidential_space(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_verify_confidential_space(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -189,6 +205,106 @@ class ConfidentialComputingRestInterceptor:
         """
         return response, metadata
 
+    def pre_verify_confidential_gke(
+        self,
+        request: service.VerifyConfidentialGkeRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.VerifyConfidentialGkeRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for verify_confidential_gke
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the ConfidentialComputing server.
+        """
+        return request, metadata
+
+    def post_verify_confidential_gke(
+        self, response: service.VerifyConfidentialGkeResponse
+    ) -> service.VerifyConfidentialGkeResponse:
+        """Post-rpc interceptor for verify_confidential_gke
+
+        DEPRECATED. Please use the `post_verify_confidential_gke_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the ConfidentialComputing server but before
+        it is returned to user code. This `post_verify_confidential_gke` interceptor runs
+        before the `post_verify_confidential_gke_with_metadata` interceptor.
+        """
+        return response
+
+    def post_verify_confidential_gke_with_metadata(
+        self,
+        response: service.VerifyConfidentialGkeResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.VerifyConfidentialGkeResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for verify_confidential_gke
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the ConfidentialComputing server but before it is returned to user code.
+
+        We recommend only using this `post_verify_confidential_gke_with_metadata`
+        interceptor in new development instead of the `post_verify_confidential_gke` interceptor.
+        When both interceptors are used, this `post_verify_confidential_gke_with_metadata` interceptor runs after the
+        `post_verify_confidential_gke` interceptor. The (possibly modified) response returned by
+        `post_verify_confidential_gke` will be passed to
+        `post_verify_confidential_gke_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_verify_confidential_space(
+        self,
+        request: service.VerifyConfidentialSpaceRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.VerifyConfidentialSpaceRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for verify_confidential_space
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the ConfidentialComputing server.
+        """
+        return request, metadata
+
+    def post_verify_confidential_space(
+        self, response: service.VerifyConfidentialSpaceResponse
+    ) -> service.VerifyConfidentialSpaceResponse:
+        """Post-rpc interceptor for verify_confidential_space
+
+        DEPRECATED. Please use the `post_verify_confidential_space_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the ConfidentialComputing server but before
+        it is returned to user code. This `post_verify_confidential_space` interceptor runs
+        before the `post_verify_confidential_space_with_metadata` interceptor.
+        """
+        return response
+
+    def post_verify_confidential_space_with_metadata(
+        self,
+        response: service.VerifyConfidentialSpaceResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service.VerifyConfidentialSpaceResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for verify_confidential_space
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the ConfidentialComputing server but before it is returned to user code.
+
+        We recommend only using this `post_verify_confidential_space_with_metadata`
+        interceptor in new development instead of the `post_verify_confidential_space` interceptor.
+        When both interceptors are used, this `post_verify_confidential_space_with_metadata` interceptor runs after the
+        `post_verify_confidential_space` interceptor. The (possibly modified) response returned by
+        `post_verify_confidential_space` will be passed to
+        `post_verify_confidential_space_with_metadata`.
+        """
+        return response, metadata
+
     def pre_get_location(
         self,
         request: locations_pb2.GetLocationRequest,
@@ -285,9 +401,10 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -305,6 +422,12 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ConfidentialComputingRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -384,9 +507,7 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
 
             """
 
-            http_options = (
-                _BaseConfidentialComputingRestTransport._BaseCreateChallenge._get_http_options()
-            )
+            http_options = _BaseConfidentialComputingRestTransport._BaseCreateChallenge._get_http_options()
 
             request, metadata = self._interceptor.pre_create_challenge(
                 request, metadata
@@ -525,7 +646,7 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
 
             Args:
                 request (~.service.VerifyAttestationRequest):
-                    The request object. A request for an OIDC token,
+                    The request object. A request for an attestation token,
                 providing all the necessary information
                 needed for this service to verify the
                 platform state of the requestor.
@@ -541,13 +662,11 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
                 ~.service.VerifyAttestationResponse:
                     A response once an attestation has
                 been successfully verified, containing a
-                signed OIDC token.
+                signed attestation token.
 
             """
 
-            http_options = (
-                _BaseConfidentialComputingRestTransport._BaseVerifyAttestation._get_http_options()
-            )
+            http_options = _BaseConfidentialComputingRestTransport._BaseVerifyAttestation._get_http_options()
 
             request, metadata = self._interceptor.pre_verify_attestation(
                 request, metadata
@@ -646,6 +765,330 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
                 )
             return resp
 
+    class _VerifyConfidentialGke(
+        _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialGke,
+        ConfidentialComputingRestStub,
+    ):
+        def __hash__(self):
+            return hash("ConfidentialComputingRestTransport.VerifyConfidentialGke")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.VerifyConfidentialGkeRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service.VerifyConfidentialGkeResponse:
+            r"""Call the verify confidential gke method over HTTP.
+
+            Args:
+                request (~.service.VerifyConfidentialGkeRequest):
+                    The request object. A request for an attestation token,
+                providing all the necessary information
+                needed for this service to verify
+                Confidential GKE platform state of the
+                requestor.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service.VerifyConfidentialGkeResponse:
+                    VerifyConfidentialGkeResponse
+                response is returened once a
+                Confidential GKE attestation has been
+                successfully verified, containing a
+                signed OIDC token.
+
+            """
+
+            http_options = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialGke._get_http_options()
+
+            request, metadata = self._interceptor.pre_verify_confidential_gke(
+                request, metadata
+            )
+            transcoded_request = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialGke._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialGke._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialGke._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.confidentialcomputing_v1.ConfidentialComputingClient.VerifyConfidentialGke",
+                    extra={
+                        "serviceName": "google.cloud.confidentialcomputing.v1.ConfidentialComputing",
+                        "rpcName": "VerifyConfidentialGke",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                ConfidentialComputingRestTransport._VerifyConfidentialGke._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                    body,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service.VerifyConfidentialGkeResponse()
+            pb_resp = service.VerifyConfidentialGkeResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_verify_confidential_gke(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_verify_confidential_gke_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = service.VerifyConfidentialGkeResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.confidentialcomputing_v1.ConfidentialComputingClient.verify_confidential_gke",
+                    extra={
+                        "serviceName": "google.cloud.confidentialcomputing.v1.ConfidentialComputing",
+                        "rpcName": "VerifyConfidentialGke",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _VerifyConfidentialSpace(
+        _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialSpace,
+        ConfidentialComputingRestStub,
+    ):
+        def __hash__(self):
+            return hash("ConfidentialComputingRestTransport.VerifyConfidentialSpace")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service.VerifyConfidentialSpaceRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service.VerifyConfidentialSpaceResponse:
+            r"""Call the verify confidential space method over HTTP.
+
+            Args:
+                request (~.service.VerifyConfidentialSpaceRequest):
+                    The request object. A request for an attestation token,
+                providing all the necessary information
+                needed for this service to verify the
+                platform state of the requestor.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service.VerifyConfidentialSpaceResponse:
+                    VerifyConfidentialSpaceResponse is
+                returned once a Confidential Space
+                attestation has been successfully
+                verified, containing a signed token.
+
+            """
+
+            http_options = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialSpace._get_http_options()
+
+            request, metadata = self._interceptor.pre_verify_confidential_space(
+                request, metadata
+            )
+            transcoded_request = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialSpace._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialSpace._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfidentialComputingRestTransport._BaseVerifyConfidentialSpace._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.confidentialcomputing_v1.ConfidentialComputingClient.VerifyConfidentialSpace",
+                    extra={
+                        "serviceName": "google.cloud.confidentialcomputing.v1.ConfidentialComputing",
+                        "rpcName": "VerifyConfidentialSpace",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfidentialComputingRestTransport._VerifyConfidentialSpace._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service.VerifyConfidentialSpaceResponse()
+            pb_resp = service.VerifyConfidentialSpaceResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_verify_confidential_space(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_verify_confidential_space_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = service.VerifyConfidentialSpaceResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.confidentialcomputing_v1.ConfidentialComputingClient.verify_confidential_space",
+                    extra={
+                        "serviceName": "google.cloud.confidentialcomputing.v1.ConfidentialComputing",
+                        "rpcName": "VerifyConfidentialSpace",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     @property
     def create_challenge(
         self,
@@ -663,6 +1106,29 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._VerifyAttestation(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def verify_confidential_gke(
+        self,
+    ) -> Callable[
+        [service.VerifyConfidentialGkeRequest], service.VerifyConfidentialGkeResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._VerifyConfidentialGke(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def verify_confidential_space(
+        self,
+    ) -> Callable[
+        [service.VerifyConfidentialSpaceRequest],
+        service.VerifyConfidentialSpaceResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._VerifyConfidentialSpace(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -722,9 +1188,7 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseConfidentialComputingRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseConfidentialComputingRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseConfidentialComputingRestTransport._BaseGetLocation._get_transcoded_request(
@@ -863,9 +1327,7 @@ class ConfidentialComputingRestTransport(_BaseConfidentialComputingRestTransport
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseConfidentialComputingRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseConfidentialComputingRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseConfidentialComputingRestTransport._BaseListLocations._get_transcoded_request(

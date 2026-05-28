@@ -1,5 +1,69 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-shopping-type/#history
+
+## [1.4.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v1.3.0...google-shopping-type-v1.4.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.3.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v1.2.0...google-shopping-type-v1.3.0) (2026-03-12)
+
+
+### Documentation
+
+* A comment for message `DestintionEnum` is changed ([505bc9725fec0b2238a1fc102967f68027f9afdf](https://github.com/googleapis/google-cloud-python/commit/505bc9725fec0b2238a1fc102967f68027f9afdf))
+
+
+### Features
+
+* add more values in DestintionEnum ([505bc9725fec0b2238a1fc102967f68027f9afdf](https://github.com/googleapis/google-cloud-python/commit/505bc9725fec0b2238a1fc102967f68027f9afdf))
+
+## [1.2.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v1.1.0...google-shopping-type-v1.2.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.1.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v1.0.0...google-shopping-type-v1.1.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.0.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v0.1.12...google-shopping-type-v1.0.0) (2025-08-13)
+
+
+### Features
+
+* update release level to stable ([36b954f](https://github.com/googleapis/google-cloud-python/commit/36b954fa18367a079311efcad7b18444c5c00c03))
+
+## [0.1.12](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v0.1.11...google-shopping-type-v0.1.12) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([4f0a027](https://github.com/googleapis/google-cloud-python/commit/4f0a0270b494d47e80373b87e7668283dbbceec7))
+
 ## [0.1.11](https://github.com/googleapis/google-cloud-python/compare/google-shopping-type-v0.1.10...google-shopping-type-v0.1.11) (2025-03-15)
 
 

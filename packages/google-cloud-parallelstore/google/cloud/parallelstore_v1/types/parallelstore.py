@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -30,6 +30,7 @@ __protobuf__ = proto.module(
         "DirectoryStripeLevel",
         "DeploymentType",
         "Instance",
+        "TransferMetadataOptions",
         "ListInstancesRequest",
         "ListInstancesResponse",
         "GetInstanceRequest",
@@ -66,6 +67,7 @@ class TransferType(proto.Enum):
         EXPORT (2):
             Exports from Parallelstore.
     """
+
     TRANSFER_TYPE_UNSPECIFIED = 0
     IMPORT = 1
     EXPORT = 2
@@ -85,6 +87,7 @@ class FileStripeLevel(proto.Enum):
         FILE_STRIPE_LEVEL_MAX (3):
             Maximum file striping
     """
+
     FILE_STRIPE_LEVEL_UNSPECIFIED = 0
     FILE_STRIPE_LEVEL_MIN = 1
     FILE_STRIPE_LEVEL_BALANCED = 2
@@ -105,6 +108,7 @@ class DirectoryStripeLevel(proto.Enum):
         DIRECTORY_STRIPE_LEVEL_MAX (3):
             Maximum directory striping
     """
+
     DIRECTORY_STRIPE_LEVEL_UNSPECIFIED = 0
     DIRECTORY_STRIPE_LEVEL_MIN = 1
     DIRECTORY_STRIPE_LEVEL_BALANCED = 2
@@ -123,6 +127,7 @@ class DeploymentType(proto.Enum):
         PERSISTENT (2):
             Persistent
     """
+
     DEPLOYMENT_TYPE_UNSPECIFIED = 0
     SCRATCH = 1
     PERSISTENT = 2
@@ -160,8 +165,8 @@ class Instance(proto.Message):
             between 12000 and 100000, in multiples of 4000;
             e.g., 12000, 16000, 20000, ...
         daos_version (str):
-            Output only. Deprecated 'daos_version' field. Output only.
-            The version of DAOS software running in the instance.
+            Output only. Deprecated: The version of DAOS
+            software running in the instance.
         access_points (MutableSequence[str]):
             Output only. A list of IPv4 addresses used
             for client side configuration.
@@ -184,29 +189,29 @@ class Instance(proto.Message):
             Optional. Immutable. Stripe level for files. Allowed values
             are:
 
-            -  ``FILE_STRIPE_LEVEL_MIN``: offers the best performance
-               for small size files.
-            -  ``FILE_STRIPE_LEVEL_BALANCED``: balances performance for
-               workloads involving a mix of small and large files.
-            -  ``FILE_STRIPE_LEVEL_MAX``: higher throughput performance
-               for larger files.
+            - ``FILE_STRIPE_LEVEL_MIN``: offers the best performance for
+              small size files.
+            - ``FILE_STRIPE_LEVEL_BALANCED``: balances performance for
+              workloads involving a mix of small and large files.
+            - ``FILE_STRIPE_LEVEL_MAX``: higher throughput performance
+              for larger files.
         directory_stripe_level (google.cloud.parallelstore_v1.types.DirectoryStripeLevel):
             Optional. Immutable. Stripe level for directories. Allowed
             values are:
 
-            -  ``DIRECTORY_STRIPE_LEVEL_MIN``: recommended when
-               directories contain a small number of files.
-            -  ``DIRECTORY_STRIPE_LEVEL_BALANCED``: balances performance
-               for workloads involving a mix of small and large
-               directories.
-            -  ``DIRECTORY_STRIPE_LEVEL_MAX``: recommended for
-               directories with a large number of files.
+            - ``DIRECTORY_STRIPE_LEVEL_MIN``: recommended when
+              directories contain a small number of files.
+            - ``DIRECTORY_STRIPE_LEVEL_BALANCED``: balances performance
+              for workloads involving a mix of small and large
+              directories.
+            - ``DIRECTORY_STRIPE_LEVEL_MAX``: recommended for
+              directories with a large number of files.
         deployment_type (google.cloud.parallelstore_v1.types.DeploymentType):
             Optional. Immutable. The deployment type of the instance.
             Allowed values are:
 
-            -  ``SCRATCH``: the instance is a scratch instance.
-            -  ``PERSISTENT``: the instance is a persistent instance.
+            - ``SCRATCH``: the instance is a scratch instance.
+            - ``PERSISTENT``: the instance is a persistent instance.
     """
 
     class State(proto.Enum):
@@ -229,6 +234,7 @@ class Instance(proto.Message):
                 The instance is being repaired. This should only be used by
                 instances using the ``PERSISTENT`` deployment type.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -303,6 +309,85 @@ class Instance(proto.Message):
         proto.ENUM,
         number=17,
         enum="DeploymentType",
+    )
+
+
+class TransferMetadataOptions(proto.Message):
+    r"""Transfer metadata options for the instance.
+
+    Attributes:
+        uid (google.cloud.parallelstore_v1.types.TransferMetadataOptions.Uid):
+            Optional. The UID preservation behavior.
+        gid (google.cloud.parallelstore_v1.types.TransferMetadataOptions.Gid):
+            Optional. The GID preservation behavior.
+        mode (google.cloud.parallelstore_v1.types.TransferMetadataOptions.Mode):
+            Optional. The mode preservation behavior.
+    """
+
+    class Uid(proto.Enum):
+        r"""The UID preservation behavior.
+
+        Values:
+            UID_UNSPECIFIED (0):
+                default is UID_NUMBER_PRESERVE.
+            UID_SKIP (1):
+                Do not preserve UID during a transfer job.
+            UID_NUMBER_PRESERVE (2):
+                Preserve UID that is in number format during
+                a transfer job.
+        """
+
+        UID_UNSPECIFIED = 0
+        UID_SKIP = 1
+        UID_NUMBER_PRESERVE = 2
+
+    class Gid(proto.Enum):
+        r"""The GID preservation behavior.
+
+        Values:
+            GID_UNSPECIFIED (0):
+                default is GID_NUMBER_PRESERVE.
+            GID_SKIP (1):
+                Do not preserve GID during a transfer job.
+            GID_NUMBER_PRESERVE (2):
+                Preserve GID that is in number format during
+                a transfer job.
+        """
+
+        GID_UNSPECIFIED = 0
+        GID_SKIP = 1
+        GID_NUMBER_PRESERVE = 2
+
+    class Mode(proto.Enum):
+        r"""The mode preservation behavior.
+
+        Values:
+            MODE_UNSPECIFIED (0):
+                default is MODE_PRESERVE.
+            MODE_SKIP (1):
+                Do not preserve mode during a transfer job.
+            MODE_PRESERVE (2):
+                Preserve mode during a transfer job.
+        """
+
+        MODE_UNSPECIFIED = 0
+        MODE_SKIP = 1
+        MODE_PRESERVE = 2
+
+    uid: Uid = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum=Uid,
+    )
+    gid: Gid = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=Gid,
+    )
+    mode: Mode = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=Mode,
     )
 
 
@@ -412,12 +497,11 @@ class CreateInstanceRequest(proto.Message):
         instance_id (str):
             Required. The name of the Parallelstore instance.
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the customer project / location
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the customer project / location
         instance (google.cloud.parallelstore_v1.types.Instance):
             Required. The instance to create.
         request_id (str):
@@ -429,11 +513,11 @@ class CreateInstanceRequest(proto.Message):
             for at least 60 minutes since the first request.
 
             For example, consider a situation where you make
-            an initial request and t he request times out.
-            If you make the request again with the same
-            request ID, the server can check if original
-            operation with the same request ID was received,
-            and if so, will ignore the second request. This
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
             prevents clients from accidentally creating
             duplicate commitments.
 
@@ -482,11 +566,11 @@ class UpdateInstanceRequest(proto.Message):
             for at least 60 minutes since the first request.
 
             For example, consider a situation where you make
-            an initial request and t he request times out.
-            If you make the request again with the same
-            request ID, the server can check if original
-            operation with the same request ID was received,
-            and if so, will ignore the second request. This
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
             prevents clients from accidentally creating
             duplicate commitments.
 
@@ -526,11 +610,11 @@ class DeleteInstanceRequest(proto.Message):
             for at least 60 minutes after the first request.
 
             For example, consider a situation where you make
-            an initial request and t he request times out.
-            If you make the request again with the same
-            request ID, the server can check if original
-            operation with the same request ID was received,
-            and if so, will ignore the second request. This
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
             prevents clients from accidentally creating
             duplicate commitments.
 
@@ -700,11 +784,11 @@ class ImportDataRequest(proto.Message):
             for at least 60 minutes since the first request.
 
             For example, consider a situation where you make
-            an initial request and t he request times out.
-            If you make the request again with the same
-            request ID, the server can check if original
-            operation with the same request ID was received,
-            and if so, will ignore the second request. This
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
             prevents clients from accidentally creating
             duplicate commitments.
 
@@ -717,12 +801,15 @@ class ImportDataRequest(proto.Message):
 
             Use one of the following formats:
 
-            -  ``{EMAIL_ADDRESS_OR_UNIQUE_ID}``
-            -  ``projects/{PROJECT_ID_OR_NUMBER}/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
-            -  ``projects/-/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``projects/{PROJECT_ID_OR_NUMBER}/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``projects/-/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
 
             If unspecified, the Parallelstore service agent is used:
             ``service-<PROJECT_NUMBER>@gcp-sa-parallelstore.iam.gserviceaccount.com``
+        metadata_options (google.cloud.parallelstore_v1.types.TransferMetadataOptions):
+            Optional. The transfer metadata options for
+            the import data.
     """
 
     source_gcs_bucket: "SourceGcsBucket" = proto.Field(
@@ -748,6 +835,11 @@ class ImportDataRequest(proto.Message):
     service_account: str = proto.Field(
         proto.STRING,
         number=5,
+    )
+    metadata_options: "TransferMetadataOptions" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="TransferMetadataOptions",
     )
 
 
@@ -776,11 +868,11 @@ class ExportDataRequest(proto.Message):
             for at least 60 minutes since the first request.
 
             For example, consider a situation where you make
-            an initial request and t he request times out.
-            If you make the request again with the same
-            request ID, the server can check if original
-            operation with the same request ID was received,
-            and if so, will ignore the second request. This
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
             prevents clients from accidentally creating
             duplicate commitments.
 
@@ -792,12 +884,15 @@ class ExportDataRequest(proto.Message):
             be used when performing the transfer. Use one of the
             following formats:
 
-            -  ``{EMAIL_ADDRESS_OR_UNIQUE_ID}``
-            -  ``projects/{PROJECT_ID_OR_NUMBER}/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
-            -  ``projects/-/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``projects/{PROJECT_ID_OR_NUMBER}/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
+            - ``projects/-/serviceAccounts/{EMAIL_ADDRESS_OR_UNIQUE_ID}``
 
             If unspecified, the Parallelstore service agent is used:
             ``service-<PROJECT_NUMBER>@gcp-sa-parallelstore.iam.gserviceaccount.com``
+        metadata_options (google.cloud.parallelstore_v1.types.TransferMetadataOptions):
+            Optional. The metadata options for the export
+            data.
     """
 
     source_parallelstore: "SourceParallelstore" = proto.Field(
@@ -823,6 +918,11 @@ class ExportDataRequest(proto.Message):
     service_account: str = proto.Field(
         proto.STRING,
         number=5,
+    )
+    metadata_options: "TransferMetadataOptions" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="TransferMetadataOptions",
     )
 
 
@@ -1137,10 +1237,10 @@ class TransferCounters(proto.Message):
             Bytes that are copied to the data
             destination.
         objects_failed (int):
-            Objects that are failed to write to the data
+            Objects that failed to be written to the data
             destination.
         bytes_failed (int):
-            Bytes that are failed to write to the data
+            Bytes that failed to be written to the data
             destination.
     """
 

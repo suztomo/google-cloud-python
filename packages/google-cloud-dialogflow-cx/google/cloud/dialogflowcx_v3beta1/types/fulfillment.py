@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import (
@@ -37,9 +37,9 @@ class Fulfillment(proto.Message):
     r"""A fulfillment can do one or more of the following actions at the
     same time:
 
-    -  Generate rich message responses.
-    -  Set parameter values.
-    -  Call the webhook.
+    - Generate rich message responses.
+    - Set parameter values.
+    - Call the webhook.
 
     Fulfillments can be called at various stages in the
     [Page][google.cloud.dialogflow.cx.v3beta1.Page] or
@@ -100,6 +100,9 @@ class Fulfillment(proto.Message):
             in the fulfillment will be respected. This flag is only
             useful for fulfillments associated with no-match event
             handlers.
+        generators (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.Fulfillment.GeneratorSettings]):
+            A list of Generators to be called during this
+            fulfillment.
     """
 
     class SetParameterAction(proto.Message):
@@ -198,12 +201,53 @@ class Fulfillment(proto.Message):
                 message="Fulfillment.ConditionalCases.Case.CaseContent",
             )
 
-        cases: MutableSequence[
-            "Fulfillment.ConditionalCases.Case"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
+        cases: MutableSequence["Fulfillment.ConditionalCases.Case"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="Fulfillment.ConditionalCases.Case",
+            )
+        )
+
+    class GeneratorSettings(proto.Message):
+        r"""Generator settings used by the LLM to generate a text
+        response.
+
+        Attributes:
+            generator (str):
+                Required. The generator to call. Format:
+                ``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/generators/<GeneratorID>``.
+            input_parameters (MutableMapping[str, str]):
+                Map from [placeholder parameter][Generator.Parameter.id] in
+                the
+                [Generator][google.cloud.dialogflow.cx.v3beta1.Generator] to
+                corresponding session parameters. By default, Dialogflow
+                uses the session parameter with the same name to fill in the
+                generator template. e.g. If there is a placeholder parameter
+                ``city`` in the Generator, Dialogflow default to fill in the
+                ``$city`` with ``$session.params.city``. However, you may
+                choose to fill ``$city`` with
+                ``$session.params.desination-city``.
+
+                - Map key: [parameter ID][Genrator.Parameter.id]
+                - Map value: session parameter name
+            output_parameter (str):
+                Required. Output parameter which should
+                contain the generator response.
+        """
+
+        generator: str = proto.Field(
+            proto.STRING,
             number=1,
-            message="Fulfillment.ConditionalCases.Case",
+        )
+        input_parameters: MutableMapping[str, str] = proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=2,
+        )
+        output_parameter: str = proto.Field(
+            proto.STRING,
+            number=3,
         )
 
     messages: MutableSequence[response_message.ResponseMessage] = proto.RepeatedField(
@@ -241,6 +285,11 @@ class Fulfillment(proto.Message):
     enable_generative_fallback: bool = proto.Field(
         proto.BOOL,
         number=12,
+    )
+    generators: MutableSequence[GeneratorSettings] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=13,
+        message=GeneratorSettings,
     )
 
 

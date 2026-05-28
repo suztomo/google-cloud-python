@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -50,8 +50,8 @@ class Fulfillment(proto.Message):
             Required. The unique identifier of the fulfillment.
             Supported formats:
 
-            -  ``projects/<Project ID>/agent/fulfillment``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/fulfillment``
+            - ``projects/<Project ID>/agent/fulfillment``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/fulfillment``
 
             This field is not used for Fulfillment in an Environment.
         display_name (str):
@@ -140,6 +140,7 @@ class Fulfillment(proto.Message):
                 SMALLTALK (1):
                     Fulfillment is enabled for SmallTalk.
             """
+
             TYPE_UNSPECIFIED = 0
             SMALLTALK = 1
 
@@ -182,8 +183,8 @@ class GetFulfillmentRequest(proto.Message):
         name (str):
             Required. The name of the fulfillment. Supported formats:
 
-            -  ``projects/<Project ID>/agent/fulfillment``
-            -  ``projects/<Project ID>/locations/<Location ID>/agent/fulfillment``
+            - ``projects/<Project ID>/agent/fulfillment``
+            - ``projects/<Project ID>/locations/<Location ID>/agent/fulfillment``
     """
 
     name: str = proto.Field(

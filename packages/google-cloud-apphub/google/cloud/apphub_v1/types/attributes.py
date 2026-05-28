@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ class Criticality(proto.Message):
             LOW (4):
                 Low impact.
         """
+
         TYPE_UNSPECIFIED = 0
         MISSION_CRITICAL = 1
         HIGH = 2
@@ -138,6 +139,7 @@ class Environment(proto.Message):
             DEVELOPMENT (4):
                 Development environment.
         """
+
         TYPE_UNSPECIFIED = 0
         PRODUCTION = 1
         STAGING = 2

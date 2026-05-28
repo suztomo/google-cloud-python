@@ -1,5 +1,93 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-vm-migration/#history
+
+## [1.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.15.0...google-cloud-vm-migration-v1.16.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.15.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.14.0...google-cloud-vm-migration-v1.15.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.13.0...google-cloud-vm-migration-v1.14.0) (2025-12-04)
+
+
+### Documentation
+
+* A comment for message `DataDiskImageImport` is changed ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+* A comment for method `CancelImageImportJob` in service `VmMigration` is changed ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+
+
+### Features
+
+* add adaptation modifiers and guest OS features to ImageImport target details ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+* add adaptation modifiers and storage pools to MigratingVM target defaults ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+
+## [1.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.12.0...google-cloud-vm-migration-v1.13.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.11.3...google-cloud-vm-migration-v1.12.0) (2025-09-08)
+
+
+### Features
+
+* API for extending the time to live (TTL) of a Migrating VM ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Azure as a source ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* CMEK support ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Cutover forecast ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Image Import ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Machine Image Import ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Migration warnings in addition to errors ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Multiple additional supported target details ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* OS capabilities detection ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* VM disk migration ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+
+
+### Bug Fixes
+
+* Changed field behavior for an existing field `key` in message `.google.cloud.vmmigration.v1.AwsSourceDetails` to `required` to protect from incorrect input ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Changed field behavior for an existing field `project` in message `.google.cloud.vmmigration.v1.TargetProject` to `required` to protect from incorrect input ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+* Changed field behavior for an existing field `value` in message `.google.cloud.vmmigration.v1.AwsSourceDetails` to `required` to protect from incorrect input ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+
+
+### Documentation
+
+* Updated comments and descriptions to improve clarity ([6b7325d](https://github.com/googleapis/google-cloud-python/commit/6b7325d5339c513f4567d0b745c2d1b9fac3fc24))
+
+## [1.11.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.11.2...google-cloud-vm-migration-v1.11.3) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([0131a33](https://github.com/googleapis/google-cloud-python/commit/0131a33582f84d9be5ecb1c0ef8b56aa3d9e9cf0))
+
 ## [1.11.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-vm-migration-v1.11.1...google-cloud-vm-migration-v1.11.2) (2025-03-15)
 
 

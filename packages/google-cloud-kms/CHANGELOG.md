@@ -4,6 +4,88 @@
 
 [1]: https://pypi.org/project/google-cloud-kms/#history
 
+## [3.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.12.0...google-cloud-kms-v3.13.0) (2026-05-06)
+
+## [3.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.11.0...google-cloud-kms-v3.12.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [3.11.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.10.0...google-cloud-kms-v3.11.0) (2026-02-19)
+
+
+### Documentation
+
+* Update documentation for AutokeyAdmin service and messages to support folder and project-level configurations ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Clarify supported resources for the crypto_key_backend field in ImportJob ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+
+### Features
+
+* Add KeyProjectResolutionMode to AutokeyConfig to support project-level configurations ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Add more post-quantum (PQ) signature algorithms to CryptoKeyVersion ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Added DeleteCryptoKey and DeleteCryptoKeyVersion RPCs to permanently remove resources ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Added ListRetiredResources and GetRetiredResource RPCs to manage and view these records ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Introduced the RetiredResource resource to track records of deleted keys and prevent the reuse of their resource names ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+## [3.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.9.0...google-cloud-kms-v3.10.0) (2026-01-22)
+
+
+### Documentation
+
+* A comment for field `crypto_key_backend` in message `.google.cloud.kms.v1.CryptoKey` is expanded to include SingleTenantHsmInstances ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* A comment for enum value `MODIFIED_GOOGLE_INITIATED_SYSTEM_OPERATION` in enum `AccessReason` is changed ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* A comment for enum value `MODIFIED_CUSTOMER_INITIATED_ACCESS` in enum `AccessReason` is changed ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+
+### Features
+
+* add the SingleTenantHsm functionality including the management API and resource types ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+## [3.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.8.0...google-cloud-kms-v3.9.0) (2026-01-15)
+
+
+### Documentation
+
+* Marking MODIFIED_CUSTOMER_INITIATED_ACCESS and MODIFIED_GOOGLE_INITIATED_SYSTEM_OPERATION Key Access Justification codes as deprecated in favor of GOOGLE_RESPONSE_TO_PRODUCTION_ALERT ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+## [3.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.7.0...google-cloud-kms-v3.8.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [3.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.6.0...google-cloud-kms-v3.7.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [3.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.5.1...google-cloud-kms-v3.6.0) (2025-09-22)
+
+
+### Features
+
+* Add PublicKeyFormat enums XWING_RAW_BYTES (used for KEM_XWING) and DER ([186cef2](https://github.com/googleapis/google-cloud-python/commit/186cef27be0e3b6669ed86d7ce064b90bfd545dc))
+* Support KEY_ENCAPSULATION purpose and quantum-safe algorithms ML_KEM_768, ML_KEM_1024 and KEM_XWING ([186cef2](https://github.com/googleapis/google-cloud-python/commit/186cef27be0e3b6669ed86d7ce064b90bfd545dc))
+
 ## [3.5.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-kms-v3.5.0...google-cloud-kms-v3.5.1) (2025-05-20)
 
 

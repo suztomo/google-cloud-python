@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_models():
     client = generativelanguage_v1.ModelServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = generativelanguage_v1.ListModelsRequest(
-    )
+    request = generativelanguage_v1.ListModelsRequest()
 
     # Make the request
     page_result = client.list_models(request=request)
@@ -48,5 +47,6 @@ async def sample_list_models():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END generativelanguage_v1_generated_ModelService_ListModels_async]

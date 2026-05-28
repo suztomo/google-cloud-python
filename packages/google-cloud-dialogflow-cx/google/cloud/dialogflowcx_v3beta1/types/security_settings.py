@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -309,6 +309,7 @@ class SecuritySettings(proto.Message):
                 Call redaction service to clean up the data
                 to be persisted.
         """
+
         REDACTION_STRATEGY_UNSPECIFIED = 0
         REDACT_WITH_SERVICE = 1
 
@@ -324,6 +325,7 @@ class SecuritySettings(proto.Message):
                 power is disconnected. This includes data that
                 are temporarily saved on disk.
         """
+
         REDACTION_SCOPE_UNSPECIFIED = 0
         REDACT_DISK_STORAGE = 2
 
@@ -341,6 +343,7 @@ class SecuritySettings(proto.Message):
                 explicitly established, a default conversation ends when the
                 corresponding Dialogflow session ends.
         """
+
         RETENTION_STRATEGY_UNSPECIFIED = 0
         REMOVE_AFTER_CONVERSATION = 1
 
@@ -356,6 +359,7 @@ class SecuritySettings(proto.Message):
                 Cloud logging, which is owned by the user - not
                 Dialogflow.
         """
+
         PURGE_DATA_TYPE_UNSPECIFIED = 0
         DIALOGFLOW_HISTORY = 1
 
@@ -372,7 +376,10 @@ class SecuritySettings(proto.Message):
                 should have the permission of
                 storage.buckets.setIamPolicy.
             audio_export_pattern (str):
-                Filename pattern for exported audio.
+                Filename pattern for exported audio. {conversation} and
+                {timestamp} are placeholders that will be replaced with the
+                conversation ID and epoch micros of the conversation. For
+                example, "{conversation}/recording\_{timestamp}.mulaw".
             enable_audio_redaction (bool):
                 Enable audio redaction if it is true.
                 Note that this only redacts end-user audio data;
@@ -400,6 +407,7 @@ class SecuritySettings(proto.Message):
                 OGG (3):
                     OGG Vorbis.
             """
+
             AUDIO_FORMAT_UNSPECIFIED = 0
             MULAW = 1
             MP3 = 2

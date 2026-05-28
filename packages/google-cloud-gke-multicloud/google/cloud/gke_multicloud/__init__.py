@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,9 @@ from google.cloud.gke_multicloud_v1.types.attached_resources import (
     AttachedProxyConfig,
     AttachedServerConfig,
     KubernetesSecret,
+    Label,
+    SystemComponentsConfig,
+    Toleration,
 )
 from google.cloud.gke_multicloud_v1.types.attached_service import (
     CreateAttachedClusterRequest,
@@ -200,6 +203,9 @@ __all__ = (
     "AttachedProxyConfig",
     "AttachedServerConfig",
     "KubernetesSecret",
+    "Label",
+    "SystemComponentsConfig",
+    "Toleration",
     "CreateAttachedClusterRequest",
     "DeleteAttachedClusterRequest",
     "GenerateAttachedClusterAgentTokenRequest",

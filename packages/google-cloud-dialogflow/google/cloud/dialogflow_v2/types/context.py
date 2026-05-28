@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,9 +73,9 @@ class Context(proto.Message):
             Dialogflow. You should not use these contexts or create
             contexts with these names:
 
-            -  ``__system_counters__``
-            -  ``*_id_dialog_context``
-            -  ``*_dialog_params_size``
+            - ``__system_counters__``
+            - ``*_id_dialog_context``
+            - ``*_dialog_params_size``
         lifespan_count (int):
             Optional. The number of conversational query requests after
             which the context expires. The default is ``0``. If set to
@@ -91,15 +91,15 @@ class Context(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
     """
 
     name: str = proto.Field(

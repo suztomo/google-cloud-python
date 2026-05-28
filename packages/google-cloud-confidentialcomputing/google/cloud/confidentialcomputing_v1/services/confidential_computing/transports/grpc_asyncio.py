@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
@@ -27,10 +30,7 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.confidentialcomputing_v1.types import service
 
@@ -61,7 +61,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +96,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -148,8 +148,9 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -200,9 +201,10 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -234,6 +236,10 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -364,7 +370,7 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
         r"""Return a callable for the verify attestation method over gRPC.
 
         Verifies the provided attestation info, returning a
-        signed OIDC token.
+        signed attestation token.
 
         Returns:
             Callable[[~.VerifyAttestationRequest],
@@ -383,6 +389,66 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
                 response_deserializer=service.VerifyAttestationResponse.deserialize,
             )
         return self._stubs["verify_attestation"]
+
+    @property
+    def verify_confidential_space(
+        self,
+    ) -> Callable[
+        [service.VerifyConfidentialSpaceRequest],
+        Awaitable[service.VerifyConfidentialSpaceResponse],
+    ]:
+        r"""Return a callable for the verify confidential space method over gRPC.
+
+        Verifies whether the provided attestation info is
+        valid, returning a signed attestation token if so.
+
+        Returns:
+            Callable[[~.VerifyConfidentialSpaceRequest],
+                    Awaitable[~.VerifyConfidentialSpaceResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "verify_confidential_space" not in self._stubs:
+            self._stubs["verify_confidential_space"] = self._logged_channel.unary_unary(
+                "/google.cloud.confidentialcomputing.v1.ConfidentialComputing/VerifyConfidentialSpace",
+                request_serializer=service.VerifyConfidentialSpaceRequest.serialize,
+                response_deserializer=service.VerifyConfidentialSpaceResponse.deserialize,
+            )
+        return self._stubs["verify_confidential_space"]
+
+    @property
+    def verify_confidential_gke(
+        self,
+    ) -> Callable[
+        [service.VerifyConfidentialGkeRequest],
+        Awaitable[service.VerifyConfidentialGkeResponse],
+    ]:
+        r"""Return a callable for the verify confidential gke method over gRPC.
+
+        Verifies the provided Confidential GKE attestation
+        info, returning a signed OIDC token.
+
+        Returns:
+            Callable[[~.VerifyConfidentialGkeRequest],
+                    Awaitable[~.VerifyConfidentialGkeResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "verify_confidential_gke" not in self._stubs:
+            self._stubs["verify_confidential_gke"] = self._logged_channel.unary_unary(
+                "/google.cloud.confidentialcomputing.v1.ConfidentialComputing/VerifyConfidentialGke",
+                request_serializer=service.VerifyConfidentialGkeRequest.serialize,
+                response_deserializer=service.VerifyConfidentialGkeResponse.deserialize,
+            )
+        return self._stubs["verify_confidential_gke"]
 
     def _prep_wrapped_messages(self, client_info):
         """Precompute the wrapped methods, overriding the base class method to use async wrappers."""
@@ -403,6 +469,34 @@ class ConfidentialComputingGrpcAsyncIOTransport(ConfidentialComputingTransport):
             ),
             self.verify_attestation: self._wrap_method(
                 self.verify_attestation,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.verify_confidential_space: self._wrap_method(
+                self.verify_confidential_space,
+                default_retry=retries.AsyncRetry(
+                    initial=1.0,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.verify_confidential_gke: self._wrap_method(
+                self.verify_confidential_gke,
                 default_retry=retries.AsyncRetry(
                     initial=1.0,
                     maximum=60.0,

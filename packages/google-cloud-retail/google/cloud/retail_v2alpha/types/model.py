@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2alpha.types import common
@@ -175,6 +175,7 @@ class Model(proto.Message):
                 The model is trained on tuned hyperparameters
                 and can be queried.
         """
+
         SERVING_STATE_UNSPECIFIED = 0
         INACTIVE = 1
         ACTIVE = 2
@@ -191,6 +192,7 @@ class Model(proto.Message):
             TRAINING (2):
                 The model is training.
         """
+
         TRAINING_STATE_UNSPECIFIED = 0
         PAUSED = 1
         TRAINING = 2
@@ -220,6 +222,7 @@ class Model(proto.Message):
                 disabled by calling the ``DisableModelPeriodicTuning``
                 method.
         """
+
         PERIODIC_TUNING_STATE_UNSPECIFIED = 0
         PERIODIC_TUNING_DISABLED = 1
         ALL_TUNING_DISABLED = 3
@@ -240,6 +243,7 @@ class Model(proto.Message):
                 data. Error messages can be queried via
                 Stackdriver.
         """
+
         DATA_STATE_UNSPECIFIED = 0
         DATA_OK = 1
         DATA_ERROR = 2
@@ -261,6 +265,7 @@ class Model(proto.Message):
                 the recommendation. Typically used on shopping
                 cart pages.
         """
+
         CONTEXT_PRODUCTS_TYPE_UNSPECIFIED = 0
         SINGLE_CONTEXT_PRODUCT = 1
         MULTIPLE_CONTEXT_PRODUCTS = 2
@@ -286,12 +291,11 @@ class Model(proto.Message):
 
                 Supported types:
 
-                -  ``add-to-cart``: Products being added to cart.
-                -  ``detail-page-view``: Products detail page viewed.
-                -  ``home-page-view``: Homepage viewed
-                -  ``category-page-view``: Homepage viewed
-                -  ``shopping-cart-page-view``: User viewing a shopping
-                   cart.
+                - ``add-to-cart``: Products being added to cart.
+                - ``detail-page-view``: Products detail page viewed.
+                - ``home-page-view``: Homepage viewed
+                - ``category-page-view``: Homepage viewed
+                - ``shopping-cart-page-view``: User viewing a shopping cart.
 
                 ``home-page-view`` only allows models with type
                 ``recommended-for-you``. All other
@@ -333,15 +337,15 @@ class Model(proto.Message):
 
                     ``Valid combinations``:
 
-                    -   (pdp_ctr, home_page_ctr_no_diversity)
-                    -  (pdp_ctr, home_page_ctr_diversity)
-                    -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_diversity)
-                    -  (pdp_cvr, pdp_cvr_no_diversity)
-                    -  (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
-                    -  (home_page_ctr_no_diversity, home_page_ctr_diversity)
-                    -  (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
+                    -  (pdp_ctr, home_page_ctr_no_diversity)
+                    - (pdp_ctr, home_page_ctr_diversity)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_diversity)
+                    - (pdp_cvr, pdp_cvr_no_diversity)
+                    - (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
+                    - (home_page_ctr_no_diversity, home_page_ctr_diversity)
+                    - (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
 
                     ``Invalid combinations``: []
                 UNIQUE_SERVING_CONFIG_RESTRICTION (2):
@@ -361,19 +365,19 @@ class Model(proto.Message):
 
                     ``Valid combinations``:
 
-                    -   (pdp_ctr, home_page_ctr_no_diversity)
-                    -  (pdp_ctr, home_page_ctr_diversity_low)
-                    -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_diversity_low)
-                    -  (pdp_cvr, pdp_cvr_no_diversity)
-                    -  (home_page_ctr_no_diversity, home_page_ctr_diversity_low)
-                    -  (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
+                    -  (pdp_ctr, home_page_ctr_no_diversity)
+                    - (pdp_ctr, home_page_ctr_diversity_low)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_diversity_low)
+                    - (pdp_cvr, pdp_cvr_no_diversity)
+                    - (home_page_ctr_no_diversity, home_page_ctr_diversity_low)
+                    - (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
 
                     ``Invalid combinations``:
 
-                    -   (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
+                    -  (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
                 UNIQUE_MODEL_RESTRICTION (3):
                     Do not allow multiple
                     [ServingConfigs][google.cloud.retail.v2alpha.ServingConfig]
@@ -393,18 +397,18 @@ class Model(proto.Message):
 
                     ``Valid combinations``:
 
-                    -   (pdp_ctr, home_page_ctr_no_diversity)
-                    -  (pdp_ctr, home_page_ctr_diversity)
-                    -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_diversity_low)
-                    -  (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
+                    -  (pdp_ctr, home_page_ctr_no_diversity)
+                    - (pdp_ctr, home_page_ctr_diversity)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_diversity_low)
+                    - (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
 
                     ``Invalid combinations``:
 
-                    -   (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
-                    -  (pdp_cvr, pdp_cvr_no_diversity)
+                    -  (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
+                    - (pdp_cvr, pdp_cvr_no_diversity)
                 UNIQUE_MODEL_TYPE_RESTRICTION (4):
                     Do not allow multiple
                     [ServingConfigs][google.cloud.retail.v2alpha.ServingConfig]
@@ -424,20 +428,21 @@ class Model(proto.Message):
 
                     ``Valid combinations``:
 
-                    -   (pdp_ctr, home_page_ctr_no_diversity)
-                    -  (pdp_ctr, home_page_ctr_diversity)
-                    -  (pdp_cvr, home_page_ctr_no_diversity)
-                    -  (pdp_cvr, home_page_ctr_diversity_low)
-                    -  (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
+                    -  (pdp_ctr, home_page_ctr_no_diversity)
+                    - (pdp_ctr, home_page_ctr_diversity)
+                    - (pdp_cvr, home_page_ctr_no_diversity)
+                    - (pdp_cvr, home_page_ctr_diversity_low)
+                    - (home_page_ctr_no_diversity, pdp_cvr_no_diversity)
 
                     ``Invalid combinations``:
 
-                    -   (pdp_ctr, pdp_cvr_no_diversity)
                     -  (pdp_ctr, pdp_cvr_no_diversity)
-                    -  (pdp_cvr, pdp_cvr_no_diversity)
-                    -  (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
-                    -  (home_page_ctr_no_diversity, home_page_ctr_diversity)
+                    - (pdp_ctr, pdp_cvr_no_diversity)
+                    - (pdp_cvr, pdp_cvr_no_diversity)
+                    - (home_page_ctr_no_diversity, home_page_ctr_no_diversity)
+                    - (home_page_ctr_no_diversity, home_page_ctr_diversity)
             """
+
             RESTRICTION_UNSPECIFIED = 0
             NO_RESTRICTION = 1
             UNIQUE_SERVING_CONFIG_RESTRICTION = 2
@@ -490,12 +495,12 @@ class Model(proto.Message):
                 proto.STRING,
                 number=1,
             )
-            candidates: MutableSequence[
-                "Model.PageOptimizationConfig.Candidate"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Model.PageOptimizationConfig.Candidate",
+            candidates: MutableSequence["Model.PageOptimizationConfig.Candidate"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Model.PageOptimizationConfig.Candidate",
+                )
             )
             default_candidate: "Model.PageOptimizationConfig.Candidate" = proto.Field(
                 proto.MESSAGE,
@@ -507,12 +512,12 @@ class Model(proto.Message):
             proto.STRING,
             number=1,
         )
-        panels: MutableSequence[
-            "Model.PageOptimizationConfig.Panel"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="Model.PageOptimizationConfig.Panel",
+        panels: MutableSequence["Model.PageOptimizationConfig.Panel"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="Model.PageOptimizationConfig.Panel",
+            )
         )
         restriction: "Model.PageOptimizationConfig.Restriction" = proto.Field(
             proto.ENUM,

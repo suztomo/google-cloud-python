@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import google.api_core as api_core
+
 from google.cloud.dialogflow_v2 import gapic_version as package_version
 
 __version__ = package_version.__version__
 
+from importlib import metadata
 
 from .services.agents import AgentsAsyncClient, AgentsClient
 from .services.answer_records import AnswerRecordsAsyncClient, AnswerRecordsClient
@@ -42,6 +47,10 @@ from .services.encryption_spec_service import (
 from .services.entity_types import EntityTypesAsyncClient, EntityTypesClient
 from .services.environments import EnvironmentsAsyncClient, EnvironmentsClient
 from .services.fulfillments import FulfillmentsAsyncClient, FulfillmentsClient
+from .services.generator_evaluations import (
+    GeneratorEvaluationsAsyncClient,
+    GeneratorEvaluationsClient,
+)
 from .services.generators import GeneratorsAsyncClient, GeneratorsClient
 from .services.intents import IntentsAsyncClient, IntentsClient
 from .services.knowledge_bases import KnowledgeBasesAsyncClient, KnowledgeBasesClient
@@ -51,6 +60,8 @@ from .services.session_entity_types import (
     SessionEntityTypesClient,
 )
 from .services.sessions import SessionsAsyncClient, SessionsClient
+from .services.sip_trunks import SipTrunksAsyncClient, SipTrunksClient
+from .services.tools import ToolsAsyncClient, ToolsClient
 from .services.versions import VersionsAsyncClient, VersionsClient
 from .types.agent import (
     Agent,
@@ -66,6 +77,7 @@ from .types.agent import (
     SetAgentRequest,
     TrainAgentRequest,
 )
+from .types.agent_coaching_instruction import AgentCoachingInstruction
 from .types.answer_record import (
     AgentAssistantFeedback,
     AgentAssistantRecord,
@@ -77,6 +89,7 @@ from .types.answer_record import (
 )
 from .types.audio_config import (
     AudioEncoding,
+    CustomPronunciationParams,
     InputAudioConfig,
     OutputAudioConfig,
     OutputAudioEncoding,
@@ -90,6 +103,8 @@ from .types.audio_config import (
     TelephonyDtmfEvents,
     VoiceSelectionParams,
 )
+from .types.ces_app import CesAppSpec
+from .types.ces_tool import CesToolSpec
 from .types.context import (
     Context,
     CreateContextRequest,
@@ -118,6 +133,7 @@ from .types.conversation import (
     ListMessagesRequest,
     ListMessagesResponse,
     SearchKnowledgeAnswer,
+    SearchKnowledgeDebugInfo,
     SearchKnowledgeRequest,
     SearchKnowledgeResponse,
     SuggestConversationSummaryRequest,
@@ -241,6 +257,8 @@ from .types.fulfillment import (
 )
 from .types.gcs import GcsDestination, GcsSources
 from .types.generator import (
+    AgentCoachingContext,
+    AgentCoachingSuggestion,
     ConversationContext,
     CreateGeneratorRequest,
     DeleteGeneratorRequest,
@@ -254,12 +272,25 @@ from .types.generator import (
     ListGeneratorsRequest,
     ListGeneratorsResponse,
     MessageEntry,
+    RaiSettings,
+    SuggestionDedupingConfig,
     SummarizationContext,
     SummarizationSection,
     SummarizationSectionList,
     SummarySuggestion,
     TriggerEvent,
     UpdateGeneratorRequest,
+)
+from .types.generator_evaluation import (
+    CreateGeneratorEvaluationRequest,
+    DeleteGeneratorEvaluationRequest,
+    EvaluationStatus,
+    GeneratorEvaluation,
+    GeneratorEvaluationConfig,
+    GetGeneratorEvaluationRequest,
+    ListGeneratorEvaluationsRequest,
+    ListGeneratorEvaluationsResponse,
+    SummarizationEvaluationMetrics,
 )
 from .types.human_agent_assistant_event import HumanAgentAssistantEvent
 from .types.intent import (
@@ -285,6 +316,7 @@ from .types.knowledge_base import (
     ListKnowledgeBasesResponse,
     UpdateKnowledgeBaseRequest,
 )
+from .types.operations import GeneratorEvaluationOperationMetadata
 from .types.participant import (
     AnalyzeContentRequest,
     AnalyzeContentResponse,
@@ -294,20 +326,24 @@ from .types.participant import (
     AudioInput,
     AutomatedAgentReply,
     CreateParticipantRequest,
+    DatastoreResponseReason,
     DialogflowAssistAnswer,
     DtmfParameters,
     FaqAnswer,
     GenerateSuggestionsResponse,
     GetParticipantRequest,
+    IngestedContextReferenceDebugInfo,
     InputTextConfig,
     IntentSuggestion,
     KnowledgeAssistAnswer,
+    KnowledgeAssistDebugInfo,
     ListParticipantsRequest,
     ListParticipantsResponse,
     Message,
     MessageAnnotation,
     OutputAudio,
     Participant,
+    ServiceLatency,
     SmartReplyAnswer,
     StreamingAnalyzeContentRequest,
     StreamingAnalyzeContentResponse,
@@ -348,6 +384,27 @@ from .types.session_entity_type import (
     SessionEntityType,
     UpdateSessionEntityTypeRequest,
 )
+from .types.sip_trunk import (
+    Connection,
+    CreateSipTrunkRequest,
+    DeleteSipTrunkRequest,
+    GetSipTrunkRequest,
+    ListSipTrunksRequest,
+    ListSipTrunksResponse,
+    SipTrunk,
+    UpdateSipTrunkRequest,
+)
+from .types.tool import (
+    CreateToolRequest,
+    DeleteToolRequest,
+    GetToolRequest,
+    ListToolsRequest,
+    ListToolsResponse,
+    Tool,
+    UpdateToolRequest,
+)
+from .types.tool_call import ToolCall, ToolCallResult
+from .types.toolset import ToolsetTool
 from .types.validation_result import ValidationError, ValidationResult
 from .types.version import (
     CreateVersionRequest,
@@ -359,6 +416,89 @@ from .types.version import (
     Version,
 )
 from .types.webhook import OriginalDetectIntentRequest, WebhookRequest, WebhookResponse
+
+if hasattr(api_core, "check_python_version") and hasattr(
+    api_core, "check_dependency_versions"
+):  # pragma: NO COVER
+    api_core.check_python_version("google.cloud.dialogflow_v2")  # type: ignore
+    api_core.check_dependency_versions("google.cloud.dialogflow_v2")  # type: ignore
+else:  # pragma: NO COVER
+    # An older version of api_core is installed which does not define the
+    # functions above. We do equivalent checks manually.
+    try:
+        import warnings
+
+        _py_version_str = sys.version.split()[0]
+        _package_label = "google.cloud.dialogflow_v2"
+        if sys.version_info < (3, 10):
+            warnings.warn(
+                "You are using a non-supported Python version "
+                + f"({_py_version_str}).  Google will not post any further "
+                + f"updates to {_package_label} supporting this Python version. "
+                + "Please upgrade to the latest Python version, or at "
+                + f"least to Python 3.10, and then update {_package_label}.",
+                FutureWarning,
+            )
+
+        def parse_version_to_tuple(version_string: str):
+            """Safely converts a semantic version string to a comparable tuple of integers.
+            Example: "4.25.8" -> (4, 25, 8)
+            Ignores non-numeric parts and handles common version formats.
+            Args:
+                version_string: Version string in the format "x.y.z" or "x.y.z<suffix>"
+            Returns:
+                Tuple of integers for the parsed version string.
+            """
+            parts = []
+            for part in version_string.split("."):
+                try:
+                    parts.append(int(part))
+                except ValueError:
+                    # If it's a non-numeric part (e.g., '1.0.0b1' -> 'b1'), stop here.
+                    # This is a simplification compared to 'packaging.parse_version', but sufficient
+                    # for comparing strictly numeric semantic versions.
+                    break
+            return tuple(parts)
+
+        def _get_version(dependency_name):
+            try:
+                version_string: str = metadata.version(dependency_name)
+                parsed_version = parse_version_to_tuple(version_string)
+                return (parsed_version, version_string)
+            except Exception:
+                # Catch exceptions from metadata.version() (e.g., PackageNotFoundError)
+                # or errors during parse_version_to_tuple
+                return (None, "--")
+
+        _dependency_package = "google.protobuf"
+        _next_supported_version = "4.25.8"
+        _next_supported_version_tuple = (4, 25, 8)
+        _recommendation = " (we recommend 6.x)"
+        (_version_used, _version_used_string) = _get_version(_dependency_package)
+        if _version_used and _version_used < _next_supported_version_tuple:
+            warnings.warn(
+                f"Package {_package_label} depends on "
+                + f"{_dependency_package}, currently installed at version "
+                + f"{_version_used_string}. Future updates to "
+                + f"{_package_label} will require {_dependency_package} at "
+                + f"version {_next_supported_version} or higher{_recommendation}."
+                + " Please ensure "
+                + "that either (a) your Python environment doesn't pin the "
+                + f"version of {_dependency_package}, so that updates to "
+                + f"{_package_label} can require the higher version, or "
+                + "(b) you manually update your Python environment to use at "
+                + f"least version {_next_supported_version} of "
+                + f"{_dependency_package}.",
+                FutureWarning,
+            )
+    except Exception:
+        warnings.warn(
+            "Could not determine the version of Python "
+            + "currently being used. To continue receiving "
+            + "updates for {_package_label}, ensure you are "
+            + "using a supported version of Python; see "
+            + "https://devguide.python.org/versions/"
+        )
 
 __all__ = (
     "AgentsAsyncClient",
@@ -373,16 +513,22 @@ __all__ = (
     "EntityTypesAsyncClient",
     "EnvironmentsAsyncClient",
     "FulfillmentsAsyncClient",
+    "GeneratorEvaluationsAsyncClient",
     "GeneratorsAsyncClient",
     "IntentsAsyncClient",
     "KnowledgeBasesAsyncClient",
     "ParticipantsAsyncClient",
     "SessionEntityTypesAsyncClient",
     "SessionsAsyncClient",
+    "SipTrunksAsyncClient",
+    "ToolsAsyncClient",
     "VersionsAsyncClient",
     "Agent",
     "AgentAssistantFeedback",
     "AgentAssistantRecord",
+    "AgentCoachingContext",
+    "AgentCoachingInstruction",
+    "AgentCoachingSuggestion",
     "AgentsClient",
     "AnalyzeContentRequest",
     "AnalyzeContentResponse",
@@ -406,10 +552,13 @@ __all__ = (
     "BatchUpdateEntityTypesResponse",
     "BatchUpdateIntentsRequest",
     "BatchUpdateIntentsResponse",
+    "CesAppSpec",
+    "CesToolSpec",
     "ClearSuggestionFeatureConfigOperationMetadata",
     "ClearSuggestionFeatureConfigRequest",
     "CloudConversationDebuggingInfo",
     "CompleteConversationRequest",
+    "Connection",
     "Context",
     "ContextsClient",
     "Conversation",
@@ -437,12 +586,17 @@ __all__ = (
     "CreateDocumentRequest",
     "CreateEntityTypeRequest",
     "CreateEnvironmentRequest",
+    "CreateGeneratorEvaluationRequest",
     "CreateGeneratorRequest",
     "CreateIntentRequest",
     "CreateKnowledgeBaseRequest",
     "CreateParticipantRequest",
     "CreateSessionEntityTypeRequest",
+    "CreateSipTrunkRequest",
+    "CreateToolRequest",
     "CreateVersionRequest",
+    "CustomPronunciationParams",
+    "DatastoreResponseReason",
     "DeleteAgentRequest",
     "DeleteAllContextsRequest",
     "DeleteContextRequest",
@@ -454,10 +608,13 @@ __all__ = (
     "DeleteDocumentRequest",
     "DeleteEntityTypeRequest",
     "DeleteEnvironmentRequest",
+    "DeleteGeneratorEvaluationRequest",
     "DeleteGeneratorRequest",
     "DeleteIntentRequest",
     "DeleteKnowledgeBaseRequest",
     "DeleteSessionEntityTypeRequest",
+    "DeleteSipTrunkRequest",
+    "DeleteToolRequest",
     "DeleteVersionRequest",
     "DeployConversationModelOperationMetadata",
     "DeployConversationModelRequest",
@@ -476,6 +633,7 @@ __all__ = (
     "EnvironmentHistory",
     "EnvironmentsClient",
     "EvaluationConfig",
+    "EvaluationStatus",
     "EventInput",
     "ExportAgentRequest",
     "ExportAgentResponse",
@@ -496,6 +654,10 @@ __all__ = (
     "GenerateSuggestionsRequest",
     "GenerateSuggestionsResponse",
     "Generator",
+    "GeneratorEvaluation",
+    "GeneratorEvaluationConfig",
+    "GeneratorEvaluationOperationMetadata",
+    "GeneratorEvaluationsClient",
     "GeneratorSuggestion",
     "GeneratorsClient",
     "GetAgentRequest",
@@ -511,11 +673,14 @@ __all__ = (
     "GetEnvironmentHistoryRequest",
     "GetEnvironmentRequest",
     "GetFulfillmentRequest",
+    "GetGeneratorEvaluationRequest",
     "GetGeneratorRequest",
     "GetIntentRequest",
     "GetKnowledgeBaseRequest",
     "GetParticipantRequest",
     "GetSessionEntityTypeRequest",
+    "GetSipTrunkRequest",
+    "GetToolRequest",
     "GetValidationResultRequest",
     "GetVersionRequest",
     "HumanAgentAssistantConfig",
@@ -531,6 +696,7 @@ __all__ = (
     "InferenceParameter",
     "IngestContextReferencesRequest",
     "IngestContextReferencesResponse",
+    "IngestedContextReferenceDebugInfo",
     "InitializeEncryptionSpecMetadata",
     "InitializeEncryptionSpecRequest",
     "InitializeEncryptionSpecResponse",
@@ -544,6 +710,7 @@ __all__ = (
     "IntentView",
     "IntentsClient",
     "KnowledgeAssistAnswer",
+    "KnowledgeAssistDebugInfo",
     "KnowledgeBase",
     "KnowledgeBasesClient",
     "KnowledgeOperationMetadata",
@@ -567,6 +734,8 @@ __all__ = (
     "ListEntityTypesResponse",
     "ListEnvironmentsRequest",
     "ListEnvironmentsResponse",
+    "ListGeneratorEvaluationsRequest",
+    "ListGeneratorEvaluationsResponse",
     "ListGeneratorsRequest",
     "ListGeneratorsResponse",
     "ListIntentsRequest",
@@ -579,6 +748,10 @@ __all__ = (
     "ListParticipantsResponse",
     "ListSessionEntityTypesRequest",
     "ListSessionEntityTypesResponse",
+    "ListSipTrunksRequest",
+    "ListSipTrunksResponse",
+    "ListToolsRequest",
+    "ListToolsResponse",
     "ListVersionsRequest",
     "ListVersionsResponse",
     "LoggingConfig",
@@ -595,22 +768,27 @@ __all__ = (
     "QueryInput",
     "QueryParameters",
     "QueryResult",
+    "RaiSettings",
     "ReloadDocumentRequest",
     "RestoreAgentRequest",
     "SearchAgentsRequest",
     "SearchAgentsResponse",
     "SearchKnowledgeAnswer",
+    "SearchKnowledgeDebugInfo",
     "SearchKnowledgeRequest",
     "SearchKnowledgeResponse",
     "Sentiment",
     "SentimentAnalysisRequestConfig",
     "SentimentAnalysisResult",
+    "ServiceLatency",
     "SessionEntityType",
     "SessionEntityTypesClient",
     "SessionsClient",
     "SetAgentRequest",
     "SetSuggestionFeatureConfigOperationMetadata",
     "SetSuggestionFeatureConfigRequest",
+    "SipTrunk",
+    "SipTrunksClient",
     "SmartReplyAnswer",
     "SmartReplyMetrics",
     "SmartReplyModelMetadata",
@@ -634,10 +812,12 @@ __all__ = (
     "SuggestKnowledgeAssistResponse",
     "SuggestSmartRepliesRequest",
     "SuggestSmartRepliesResponse",
+    "SuggestionDedupingConfig",
     "SuggestionFeature",
     "SuggestionInput",
     "SuggestionResult",
     "SummarizationContext",
+    "SummarizationEvaluationMetrics",
     "SummarizationSection",
     "SummarizationSectionList",
     "SummarySuggestion",
@@ -646,6 +826,11 @@ __all__ = (
     "TelephonyDtmfEvents",
     "TextInput",
     "TextToSpeechSettings",
+    "Tool",
+    "ToolCall",
+    "ToolCallResult",
+    "ToolsClient",
+    "ToolsetTool",
     "TrainAgentRequest",
     "TriggerEvent",
     "UndeployConversationModelOperationMetadata",
@@ -662,6 +847,8 @@ __all__ = (
     "UpdateKnowledgeBaseRequest",
     "UpdateParticipantRequest",
     "UpdateSessionEntityTypeRequest",
+    "UpdateSipTrunkRequest",
+    "UpdateToolRequest",
     "UpdateVersionRequest",
     "ValidationError",
     "ValidationResult",

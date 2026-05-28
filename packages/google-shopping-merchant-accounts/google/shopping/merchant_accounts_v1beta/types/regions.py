@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -265,12 +265,12 @@ class Region(proto.Message):
             proto.STRING,
             number=1,
         )
-        postal_codes: MutableSequence[
-            "Region.PostalCodeArea.PostalCodeRange"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="Region.PostalCodeArea.PostalCodeRange",
+        postal_codes: MutableSequence["Region.PostalCodeArea.PostalCodeRange"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="Region.PostalCodeArea.PostalCodeRange",
+            )
         )
 
     class GeoTargetArea(proto.Message):

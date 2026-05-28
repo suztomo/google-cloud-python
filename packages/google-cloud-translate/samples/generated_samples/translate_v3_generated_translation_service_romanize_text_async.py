@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_romanize_text():
     # Initialize request argument(s)
     request = translate_v3.RomanizeTextRequest(
         parent="parent_value",
-        contents=['contents_value1', 'contents_value2'],
+        contents=["contents_value1", "contents_value2"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ async def sample_romanize_text():
 
     # Handle the response
     print(response)
+
 
 # [END translate_v3_generated_TranslationService_RomanizeText_async]

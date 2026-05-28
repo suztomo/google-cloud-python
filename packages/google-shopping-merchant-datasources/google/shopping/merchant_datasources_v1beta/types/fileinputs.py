@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -63,6 +63,7 @@ class FileInput(proto.Message):
                 The file is fetched from Google Sheets specified in the
                 [fetch_uri][google.shopping.merchant.datasources.v1beta.FileInput.FetchSettings.fetch_uri].
         """
+
         FILE_INPUT_TYPE_UNSPECIFIED = 0
         UPLOAD = 1
         FETCH = 2
@@ -137,6 +138,7 @@ class FileInput(proto.Message):
                 FREQUENCY_MONTHLY (3):
                     The fetch happens every month.
             """
+
             FREQUENCY_UNSPECIFIED = 0
             FREQUENCY_DAILY = 1
             FREQUENCY_WEEKLY = 2

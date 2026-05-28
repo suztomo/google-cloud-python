@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -86,13 +86,16 @@ class QuotaAdjusterSettings(proto.Message):
 
     Attributes:
         name (str):
-            Identifier. Name of the configuration, in the following
-            format:
-            ``projects/PROJECT_NUMBER/locations/global/quotaAdjusterSettings``.
-            Replace PROJECT_NUMBER with the project number for your
-            project.
+            Identifier. Name of the configuration, in the formats below:
+
+            - For a project:
+              projects/PROJECT_NUMBER/locations/global/quotaAdjusterSettings
+            - For a folder:
+              folders/FOLDER_NUMBER/locations/global/quotaAdjusterSettings
+            - For an organization:
+              organizations/ORGANIZATION_NUMBER/locations/global/quotaAdjusterSettings
         enablement (google.cloud.cloudquotas_v1beta.types.QuotaAdjusterSettings.Enablement):
-            Required. The configured value of the
+            Optional. The configured value of the
             enablement at the given resource.
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The timestamp when the
@@ -105,6 +108,17 @@ class QuotaAdjusterSettings(proto.Message):
             is blocked and returns an ABORTED error. See
             https://google.aip.dev/134#etags for more
             details on ETags.
+        inherited (bool):
+            Optional. Indicates whether the setting is
+            inherited or explicitly specified.
+        inherited_from (str):
+            Output only. The resource container from which the setting
+            is inherited. This refers to the nearest ancestor with
+            enablement set (either ENABLED or DISABLED). The value can
+            be an organizations/{organization_id}, folders/{folder_id},
+            or can be 'default' if no ancestor exists with enablement
+            set. The value will be empty when enablement is directly set
+            on this container.
     """
 
     class Enablement(proto.Enum):
@@ -118,6 +132,7 @@ class QuotaAdjusterSettings(proto.Message):
             DISABLED (3):
                 The quota adjuster is disabled.
         """
+
         ENABLEMENT_UNSPECIFIED = 0
         ENABLED = 2
         DISABLED = 3
@@ -139,6 +154,14 @@ class QuotaAdjusterSettings(proto.Message):
     etag: str = proto.Field(
         proto.STRING,
         number=6,
+    )
+    inherited: bool = proto.Field(
+        proto.BOOL,
+        number=7,
+    )
+    inherited_from: str = proto.Field(
+        proto.STRING,
+        number=8,
     )
 
 

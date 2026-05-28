@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_custom_dimension():
     client = admin_v1beta.AnalyticsAdminServiceClient()
 
     # Initialize request argument(s)
-    request = admin_v1beta.UpdateCustomDimensionRequest(
-    )
+    request = admin_v1beta.UpdateCustomDimensionRequest()
 
     # Make the request
     response = client.update_custom_dimension(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END analyticsadmin_v1beta_generated_AnalyticsAdminService_UpdateCustomDimension_sync]

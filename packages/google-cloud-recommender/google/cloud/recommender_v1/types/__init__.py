@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .insight import Insight, InsightStateInfo
-from .insight_type_config import InsightTypeConfig, InsightTypeGenerationConfig
+from .insight import (
+    Insight,
+    InsightStateInfo,
+)
+from .insight_type_config import (
+    InsightTypeConfig,
+    InsightTypeGenerationConfig,
+)
 from .recommendation import (
     CostProjection,
     Impact,
@@ -28,7 +34,10 @@ from .recommendation import (
     SustainabilityProjection,
     ValueMatcher,
 )
-from .recommender_config import RecommenderConfig, RecommenderGenerationConfig
+from .recommender_config import (
+    RecommenderConfig,
+    RecommenderGenerationConfig,
+)
 from .recommender_service import (
     GetInsightRequest,
     GetInsightTypeConfigRequest,

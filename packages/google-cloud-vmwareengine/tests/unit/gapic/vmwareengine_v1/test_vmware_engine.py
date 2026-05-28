@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +37,14 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,23 +53,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.vmwareengine_v1.services.vmware_engine import (
     VmwareEngineAsyncClient,
@@ -132,6 +128,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert VmwareEngineClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -150,6 +147,10 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert VmwareEngineClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert (
+        VmwareEngineClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -164,12 +165,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            VmwareEngineClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                VmwareEngineClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert VmwareEngineClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert VmwareEngineClient._read_environment_variables() == (
@@ -202,6 +210,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert VmwareEngineClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert VmwareEngineClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert VmwareEngineClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                VmwareEngineClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert VmwareEngineClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert VmwareEngineClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -569,17 +676,6 @@ def test_vmware_engine_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -791,6 +887,117 @@ def test_vmware_engine_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -823,10 +1030,9 @@ def test_vmware_engine_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -839,18 +1045,6 @@ def test_vmware_engine_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1077,13 +1271,13 @@ def test_vmware_engine_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1204,9 +1398,9 @@ def test_list_private_clouds_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_private_clouds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_private_clouds] = (
+            mock_rpc
+        )
         request = {}
         client.list_private_clouds(request)
 
@@ -1650,11 +1844,7 @@ async def test_list_private_clouds_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_private_clouds(request={})
-        ).pages:
+        async for page_ in (await client.list_private_clouds(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1757,9 +1947,9 @@ def test_get_private_cloud_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_private_cloud] = (
+            mock_rpc
+        )
         request = {}
         client.get_private_cloud(request)
 
@@ -2107,9 +2297,9 @@ def test_create_private_cloud_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_private_cloud] = (
+            mock_rpc
+        )
         request = {}
         client.create_private_cloud(request)
 
@@ -2472,9 +2662,9 @@ def test_update_private_cloud_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_private_cloud] = (
+            mock_rpc
+        )
         request = {}
         client.update_private_cloud(request)
 
@@ -2829,9 +3019,9 @@ def test_delete_private_cloud_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_private_cloud] = (
+            mock_rpc
+        )
         request = {}
         client.delete_private_cloud(request)
 
@@ -3177,9 +3367,9 @@ def test_undelete_private_cloud_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.undelete_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.undelete_private_cloud] = (
+            mock_rpc
+        )
         request = {}
         client.undelete_private_cloud(request)
 
@@ -3952,11 +4142,7 @@ async def test_list_clusters_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_clusters(request={})
-        ).pages:
+        async for page_ in (await client.list_clusters(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5821,11 +6007,7 @@ async def test_list_nodes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_nodes(request={})
-        ).pages:
+        async for page_ in (await client.list_nodes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6725,11 +6907,7 @@ async def test_list_external_addresses_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_external_addresses(request={})
-        ).pages:
+        async for page_ in (await client.list_external_addresses(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7278,9 +7456,7 @@ async def test_fetch_network_policy_external_addresses_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.fetch_network_policy_external_addresses(request={})
         ).pages:
             pages.append(page_)
@@ -7389,9 +7565,9 @@ def test_get_external_address_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_external_address
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_external_address] = (
+            mock_rpc
+        )
         request = {}
         client.get_external_address(request)
 
@@ -9239,11 +9415,7 @@ async def test_list_subnets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_subnets(request={})
-        ).pages:
+        async for page_ in (await client.list_subnets(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -10474,11 +10646,7 @@ async def test_list_external_access_rules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_external_access_rules(request={})
-        ).pages:
+        async for page_ in (await client.list_external_access_rules(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -12051,9 +12219,9 @@ def test_list_logging_servers_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_logging_servers
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_logging_servers] = (
+            mock_rpc
+        )
         request = {}
         client.list_logging_servers(request)
 
@@ -12497,11 +12665,7 @@ async def test_list_logging_servers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_logging_servers(request={})
-        ).pages:
+        async for page_ in (await client.list_logging_servers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -12608,9 +12772,9 @@ def test_get_logging_server_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_logging_server] = (
+            mock_rpc
+        )
         request = {}
         client.get_logging_server(request)
 
@@ -12961,9 +13125,9 @@ def test_create_logging_server_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_logging_server] = (
+            mock_rpc
+        )
         request = {}
         client.create_logging_server(request)
 
@@ -13328,9 +13492,9 @@ def test_update_logging_server_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_logging_server] = (
+            mock_rpc
+        )
         request = {}
         client.update_logging_server(request)
 
@@ -13687,9 +13851,9 @@ def test_delete_logging_server_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_logging_server] = (
+            mock_rpc
+        )
         request = {}
         client.delete_logging_server(request)
 
@@ -14460,11 +14624,7 @@ async def test_list_node_types_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_node_types(request={})
-        ).pages:
+        async for page_ in (await client.list_node_types(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -14934,9 +15094,9 @@ def test_show_nsx_credentials_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.show_nsx_credentials
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.show_nsx_credentials] = (
+            mock_rpc
+        )
         request = {}
         client.show_nsx_credentials(request)
 
@@ -15626,9 +15786,9 @@ def test_reset_nsx_credentials_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.reset_nsx_credentials
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.reset_nsx_credentials] = (
+            mock_rpc
+        )
         request = {}
         client.reset_nsx_credentials(request)
 
@@ -16326,9 +16486,9 @@ def test_get_dns_forwarding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_dns_forwarding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_dns_forwarding] = (
+            mock_rpc
+        )
         request = {}
         client.get_dns_forwarding(request)
 
@@ -16665,9 +16825,9 @@ def test_update_dns_forwarding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_dns_forwarding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_dns_forwarding] = (
+            mock_rpc
+        )
         request = {}
         client.update_dns_forwarding(request)
 
@@ -17053,9 +17213,9 @@ def test_get_network_peering_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_network_peering] = (
+            mock_rpc
+        )
         request = {}
         client.get_network_peering(request)
 
@@ -17432,9 +17592,9 @@ def test_list_network_peerings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_network_peerings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_network_peerings] = (
+            mock_rpc
+        )
         request = {}
         client.list_network_peerings(request)
 
@@ -17881,11 +18041,7 @@ async def test_list_network_peerings_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_network_peerings(request={})
-        ).pages:
+        async for page_ in (await client.list_network_peerings(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -17984,9 +18140,9 @@ def test_create_network_peering_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_network_peering] = (
+            mock_rpc
+        )
         request = {}
         client.create_network_peering(request)
 
@@ -18353,9 +18509,9 @@ def test_delete_network_peering_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_network_peering] = (
+            mock_rpc
+        )
         request = {}
         client.delete_network_peering(request)
 
@@ -18700,9 +18856,9 @@ def test_update_network_peering_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_network_peering] = (
+            mock_rpc
+        )
         request = {}
         client.update_network_peering(request)
 
@@ -19063,9 +19219,9 @@ def test_list_peering_routes_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_peering_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_peering_routes] = (
+            mock_rpc
+        )
         request = {}
         client.list_peering_routes(request)
 
@@ -19507,11 +19663,7 @@ async def test_list_peering_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_peering_routes(request={})
-        ).pages:
+        async for page_ in (await client.list_peering_routes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -20443,11 +20595,7 @@ async def test_list_hcx_activation_keys_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_hcx_activation_keys(request={})
-        ).pages:
+        async for page_ in (await client.list_hcx_activation_keys(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -20551,9 +20699,9 @@ def test_get_hcx_activation_key_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_hcx_activation_key
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_hcx_activation_key] = (
+            mock_rpc
+        )
         request = {}
         client.get_hcx_activation_key(request)
 
@@ -20912,9 +21060,9 @@ def test_get_network_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_network_policy] = (
+            mock_rpc
+        )
         request = {}
         client.get_network_policy(request)
 
@@ -21275,9 +21423,9 @@ def test_list_network_policies_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_network_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_network_policies] = (
+            mock_rpc
+        )
         request = {}
         client.list_network_policies(request)
 
@@ -21722,11 +21870,7 @@ async def test_list_network_policies_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_network_policies(request={})
-        ).pages:
+        async for page_ in (await client.list_network_policies(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -21825,9 +21969,9 @@ def test_create_network_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_network_policy] = (
+            mock_rpc
+        )
         request = {}
         client.create_network_policy(request)
 
@@ -22192,9 +22336,9 @@ def test_update_network_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_network_policy] = (
+            mock_rpc
+        )
         request = {}
         client.update_network_policy(request)
 
@@ -22551,9 +22695,9 @@ def test_delete_network_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_network_policy] = (
+            mock_rpc
+        )
         request = {}
         client.delete_network_policy(request)
 
@@ -23362,9 +23506,7 @@ async def test_list_management_dns_zone_bindings_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_management_dns_zone_bindings(request={})
         ).pages:
             pages.append(page_)
@@ -27183,11 +27325,7 @@ async def test_list_vmware_engine_networks_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_vmware_engine_networks(request={})
-        ).pages:
+        async for page_ in (await client.list_vmware_engine_networks(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -27696,9 +27834,9 @@ def test_get_private_connection_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_private_connection
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_private_connection] = (
+            mock_rpc
+        )
         request = {}
         client.get_private_connection(request)
 
@@ -28530,11 +28668,7 @@ async def test_list_private_connections_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_private_connections(request={})
-        ).pages:
+        async for page_ in (await client.list_private_connections(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -29795,9 +29929,7 @@ async def test_list_private_connection_peering_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_private_connection_peering_routes(request={})
         ).pages:
             pages.append(page_)
@@ -30889,9 +31021,9 @@ def test_list_private_clouds_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_private_clouds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_private_clouds] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_private_clouds(request)
@@ -30987,7 +31119,7 @@ def test_list_private_clouds_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_private_clouds_rest_unset_required_fields():
@@ -31151,9 +31283,9 @@ def test_get_private_cloud_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_private_cloud] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_private_cloud(request)
@@ -31240,7 +31372,7 @@ def test_get_private_cloud_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_private_cloud_rest_unset_required_fields():
@@ -31335,9 +31467,9 @@ def test_create_private_cloud_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_private_cloud] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_private_cloud(request)
@@ -31447,7 +31579,7 @@ def test_create_private_cloud_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_private_cloud_rest_unset_required_fields():
@@ -31557,9 +31689,9 @@ def test_update_private_cloud_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_private_cloud] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_private_cloud(request)
@@ -31650,7 +31782,7 @@ def test_update_private_cloud_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_private_cloud_rest_unset_required_fields():
@@ -31760,9 +31892,9 @@ def test_delete_private_cloud_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_private_cloud] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_private_cloud(request)
@@ -31858,7 +31990,7 @@ def test_delete_private_cloud_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_private_cloud_rest_unset_required_fields():
@@ -31961,9 +32093,9 @@ def test_undelete_private_cloud_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.undelete_private_cloud
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.undelete_private_cloud] = (
+            mock_rpc
+        )
 
         request = {}
         client.undelete_private_cloud(request)
@@ -32052,7 +32184,7 @@ def test_undelete_private_cloud_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_undelete_private_cloud_rest_unset_required_fields():
@@ -32239,7 +32371,7 @@ def test_list_clusters_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_clusters_rest_unset_required_fields():
@@ -32490,7 +32622,7 @@ def test_get_cluster_rest_required_fields(request_type=vmwareengine.GetClusterRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_cluster_rest_unset_required_fields():
@@ -32693,7 +32825,7 @@ def test_create_cluster_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_cluster_rest_unset_required_fields():
@@ -32895,7 +33027,7 @@ def test_update_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_cluster_rest_unset_required_fields():
@@ -33094,7 +33226,7 @@ def test_delete_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_cluster_rest_unset_required_fields():
@@ -33277,7 +33409,7 @@ def test_list_nodes_rest_required_fields(request_type=vmwareengine.ListNodesRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_nodes_rest_unset_required_fields():
@@ -33526,7 +33658,7 @@ def test_get_node_rest_required_fields(request_type=vmwareengine.GetNodeRequest)
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_node_rest_unset_required_fields():
@@ -33720,7 +33852,7 @@ def test_list_external_addresses_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_external_addresses_rest_unset_required_fields():
@@ -33995,7 +34127,7 @@ def test_fetch_network_policy_external_addresses_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_fetch_network_policy_external_addresses_rest_unset_required_fields():
@@ -34174,9 +34306,9 @@ def test_get_external_address_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_external_address
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_external_address] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_external_address(request)
@@ -34263,7 +34395,7 @@ def test_get_external_address_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_external_address_rest_unset_required_fields():
@@ -34470,7 +34602,7 @@ def test_create_external_address_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_external_address_rest_unset_required_fields():
@@ -34675,7 +34807,7 @@ def test_update_external_address_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_external_address_rest_unset_required_fields():
@@ -34878,7 +35010,7 @@ def test_delete_external_address_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_external_address_rest_unset_required_fields():
@@ -35063,7 +35195,7 @@ def test_list_subnets_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_subnets_rest_unset_required_fields():
@@ -35312,7 +35444,7 @@ def test_get_subnet_rest_required_fields(request_type=vmwareengine.GetSubnetRequ
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_subnet_rest_unset_required_fields():
@@ -35491,7 +35623,7 @@ def test_update_subnet_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_subnet_rest_unset_required_fields():
@@ -35695,7 +35827,7 @@ def test_list_external_access_rules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_external_access_rules_rest_unset_required_fields():
@@ -35957,7 +36089,7 @@ def test_get_external_access_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_external_access_rule_rest_unset_required_fields():
@@ -36167,7 +36299,7 @@ def test_create_external_access_rule_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_external_access_rule_rest_unset_required_fields():
@@ -36376,7 +36508,7 @@ def test_update_external_access_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_external_access_rule_rest_unset_required_fields():
@@ -36583,7 +36715,7 @@ def test_delete_external_access_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_external_access_rule_rest_unset_required_fields():
@@ -36676,9 +36808,9 @@ def test_list_logging_servers_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_logging_servers
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_logging_servers] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_logging_servers(request)
@@ -36774,7 +36906,7 @@ def test_list_logging_servers_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_logging_servers_rest_unset_required_fields():
@@ -36944,9 +37076,9 @@ def test_get_logging_server_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_logging_server] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_logging_server(request)
@@ -37033,7 +37165,7 @@ def test_get_logging_server_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_logging_server_rest_unset_required_fields():
@@ -37129,9 +37261,9 @@ def test_create_logging_server_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_logging_server] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_logging_server(request)
@@ -37240,7 +37372,7 @@ def test_create_logging_server_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_logging_server_rest_unset_required_fields():
@@ -37352,9 +37484,9 @@ def test_update_logging_server_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_logging_server] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_logging_server(request)
@@ -37445,7 +37577,7 @@ def test_update_logging_server_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_logging_server_rest_unset_required_fields():
@@ -37556,9 +37688,9 @@ def test_delete_logging_server_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_logging_server
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_logging_server] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_logging_server(request)
@@ -37648,7 +37780,7 @@ def test_delete_logging_server_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_logging_server_rest_unset_required_fields():
@@ -37834,7 +37966,7 @@ def test_list_node_types_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_node_types_rest_unset_required_fields():
@@ -38083,7 +38215,7 @@ def test_get_node_type_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_node_type_rest_unset_required_fields():
@@ -38177,9 +38309,9 @@ def test_show_nsx_credentials_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.show_nsx_credentials
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.show_nsx_credentials] = (
+            mock_rpc
+        )
 
         request = {}
         client.show_nsx_credentials(request)
@@ -38266,7 +38398,7 @@ def test_show_nsx_credentials_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_show_nsx_credentials_rest_unset_required_fields():
@@ -38453,7 +38585,7 @@ def test_show_vcenter_credentials_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_show_vcenter_credentials_rest_unset_required_fields():
@@ -38549,9 +38681,9 @@ def test_reset_nsx_credentials_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.reset_nsx_credentials
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.reset_nsx_credentials] = (
+            mock_rpc
+        )
 
         request = {}
         client.reset_nsx_credentials(request)
@@ -38640,7 +38772,7 @@ def test_reset_nsx_credentials_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_reset_nsx_credentials_rest_unset_required_fields():
@@ -38825,7 +38957,7 @@ def test_reset_vcenter_credentials_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_reset_vcenter_credentials_rest_unset_required_fields():
@@ -38918,9 +39050,9 @@ def test_get_dns_forwarding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_dns_forwarding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_dns_forwarding] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_dns_forwarding(request)
@@ -39007,7 +39139,7 @@ def test_get_dns_forwarding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_dns_forwarding_rest_unset_required_fields():
@@ -39103,9 +39235,9 @@ def test_update_dns_forwarding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_dns_forwarding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_dns_forwarding] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_dns_forwarding(request)
@@ -39196,7 +39328,7 @@ def test_update_dns_forwarding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_dns_forwarding_rest_unset_required_fields():
@@ -39306,9 +39438,9 @@ def test_get_network_peering_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_network_peering] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_network_peering(request)
@@ -39395,7 +39527,7 @@ def test_get_network_peering_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_network_peering_rest_unset_required_fields():
@@ -39491,9 +39623,9 @@ def test_list_network_peerings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_network_peerings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_network_peerings] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_network_peerings(request)
@@ -39589,7 +39721,7 @@ def test_list_network_peerings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_network_peerings_rest_unset_required_fields():
@@ -39758,9 +39890,9 @@ def test_create_network_peering_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_network_peering] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_network_peering(request)
@@ -39869,7 +40001,7 @@ def test_create_network_peering_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_network_peering_rest_unset_required_fields():
@@ -39979,9 +40111,9 @@ def test_delete_network_peering_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_network_peering] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_network_peering(request)
@@ -40071,7 +40203,7 @@ def test_delete_network_peering_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_network_peering_rest_unset_required_fields():
@@ -40165,9 +40297,9 @@ def test_update_network_peering_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_network_peering
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_network_peering] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_network_peering(request)
@@ -40258,7 +40390,7 @@ def test_update_network_peering_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_network_peering_rest_unset_required_fields():
@@ -40368,9 +40500,9 @@ def test_list_peering_routes_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_peering_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_peering_routes] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_peering_routes(request)
@@ -40465,7 +40597,7 @@ def test_list_peering_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_peering_routes_rest_unset_required_fields():
@@ -40748,7 +40880,7 @@ def test_create_hcx_activation_key_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_hcx_activation_key_rest_unset_required_fields():
@@ -40960,7 +41092,7 @@ def test_list_hcx_activation_keys_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_hcx_activation_keys_rest_unset_required_fields():
@@ -41131,9 +41263,9 @@ def test_get_hcx_activation_key_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_hcx_activation_key
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_hcx_activation_key] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_hcx_activation_key(request)
@@ -41220,7 +41352,7 @@ def test_get_hcx_activation_key_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_hcx_activation_key_rest_unset_required_fields():
@@ -41315,9 +41447,9 @@ def test_get_network_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_network_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_network_policy(request)
@@ -41404,7 +41536,7 @@ def test_get_network_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_network_policy_rest_unset_required_fields():
@@ -41500,9 +41632,9 @@ def test_list_network_policies_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_network_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_network_policies] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_network_policies(request)
@@ -41598,7 +41730,7 @@ def test_list_network_policies_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_network_policies_rest_unset_required_fields():
@@ -41765,9 +41897,9 @@ def test_create_network_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_network_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_network_policy(request)
@@ -41876,7 +42008,7 @@ def test_create_network_policy_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_network_policy_rest_unset_required_fields():
@@ -41986,9 +42118,9 @@ def test_update_network_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_network_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_network_policy(request)
@@ -42079,7 +42211,7 @@ def test_update_network_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_network_policy_rest_unset_required_fields():
@@ -42190,9 +42322,9 @@ def test_delete_network_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_network_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_network_policy(request)
@@ -42282,7 +42414,7 @@ def test_delete_network_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_network_policy_rest_unset_required_fields():
@@ -42476,7 +42608,7 @@ def test_list_management_dns_zone_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_management_dns_zone_bindings_rest_unset_required_fields():
@@ -42750,7 +42882,7 @@ def test_get_management_dns_zone_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_management_dns_zone_binding_rest_unset_required_fields():
@@ -42899,9 +43031,9 @@ def test_create_management_dns_zone_binding_rest_required_fields(
     )
 
     jsonified_request["parent"] = "parent_value"
-    jsonified_request[
-        "managementDnsZoneBindingId"
-    ] = "management_dns_zone_binding_id_value"
+    jsonified_request["managementDnsZoneBindingId"] = (
+        "management_dns_zone_binding_id_value"
+    )
 
     unset_fields = transport_class(
         credentials=ga_credentials.AnonymousCredentials()
@@ -42967,7 +43099,7 @@ def test_create_management_dns_zone_binding_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_management_dns_zone_binding_rest_unset_required_fields():
@@ -43180,7 +43312,7 @@ def test_update_management_dns_zone_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_management_dns_zone_binding_rest_unset_required_fields():
@@ -43391,7 +43523,7 @@ def test_delete_management_dns_zone_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_management_dns_zone_binding_rest_unset_required_fields():
@@ -43580,7 +43712,7 @@ def test_repair_management_dns_zone_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_repair_management_dns_zone_binding_rest_unset_required_fields():
@@ -43794,7 +43926,7 @@ def test_create_vmware_engine_network_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_vmware_engine_network_rest_unset_required_fields():
@@ -44001,7 +44133,7 @@ def test_update_vmware_engine_network_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_vmware_engine_network_rest_unset_required_fields():
@@ -44213,7 +44345,7 @@ def test_delete_vmware_engine_network_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_vmware_engine_network_rest_unset_required_fields():
@@ -44404,7 +44536,7 @@ def test_get_vmware_engine_network_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_vmware_engine_network_rest_unset_required_fields():
@@ -44600,7 +44732,7 @@ def test_list_vmware_engine_networks_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_vmware_engine_networks_rest_unset_required_fields():
@@ -44883,7 +45015,7 @@ def test_create_private_connection_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_private_connection_rest_unset_required_fields():
@@ -44997,9 +45129,9 @@ def test_get_private_connection_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_private_connection
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_private_connection] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_private_connection(request)
@@ -45086,7 +45218,7 @@ def test_get_private_connection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_private_connection_rest_unset_required_fields():
@@ -45280,7 +45412,7 @@ def test_list_private_connections_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_private_connections_rest_unset_required_fields():
@@ -45542,7 +45674,7 @@ def test_update_private_connection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_private_connection_rest_unset_required_fields():
@@ -45749,7 +45881,7 @@ def test_delete_private_connection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_private_connection_rest_unset_required_fields():
@@ -45945,7 +46077,7 @@ def test_list_private_connection_peering_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_private_connection_peering_routes_rest_unset_required_fields():
@@ -46214,7 +46346,7 @@ def test_grant_dns_bind_permission_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_grant_dns_bind_permission_rest_unset_required_fields():
@@ -46407,7 +46539,7 @@ def test_get_dns_bind_permission_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_dns_bind_permission_rest_unset_required_fields():
@@ -46594,7 +46726,7 @@ def test_revoke_dns_bind_permission_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_revoke_dns_bind_permission_rest_unset_required_fields():
@@ -50636,8 +50768,9 @@ def test_list_private_clouds_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -50702,17 +50835,20 @@ def test_list_private_clouds_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_private_clouds"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_private_clouds_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_private_clouds"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_private_clouds"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_private_clouds_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_private_clouds"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -50770,8 +50906,9 @@ def test_get_private_cloud_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -50842,17 +50979,20 @@ def test_get_private_cloud_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_private_cloud"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_private_cloud_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_private_cloud"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_private_cloud"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_private_cloud_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_private_cloud"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -50910,8 +51050,9 @@ def test_create_private_cloud_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51079,20 +51220,21 @@ def test_create_private_cloud_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_private_cloud"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_private_cloud_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_private_cloud"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_private_cloud"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_private_cloud_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_private_cloud"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51149,8 +51291,9 @@ def test_update_private_cloud_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51322,20 +51465,21 @@ def test_update_private_cloud_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_private_cloud"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_private_cloud_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_private_cloud"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_private_cloud"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_private_cloud_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_private_cloud"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51388,8 +51532,9 @@ def test_delete_private_cloud_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51446,20 +51591,21 @@ def test_delete_private_cloud_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_private_cloud"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_private_cloud_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_private_cloud"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_private_cloud"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_private_cloud_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_private_cloud"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51512,8 +51658,9 @@ def test_undelete_private_cloud_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51570,20 +51717,21 @@ def test_undelete_private_cloud_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_undelete_private_cloud"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_undelete_private_cloud_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_undelete_private_cloud"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_undelete_private_cloud"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_undelete_private_cloud_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_undelete_private_cloud"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51636,8 +51784,9 @@ def test_list_clusters_rest_bad_request(request_type=vmwareengine.ListClustersRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51704,17 +51853,19 @@ def test_list_clusters_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_clusters"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_clusters_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_clusters"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_clusters"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_clusters_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_clusters"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51769,8 +51920,9 @@ def test_get_cluster_rest_bad_request(request_type=vmwareengine.GetClusterReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -51841,17 +51993,19 @@ def test_get_cluster_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_cluster"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -51906,8 +52060,9 @@ def test_create_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52052,19 +52207,20 @@ def test_create_cluster_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_cluster"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52121,8 +52277,9 @@ def test_update_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52269,19 +52426,20 @@ def test_update_cluster_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_cluster"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52336,8 +52494,9 @@ def test_delete_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52396,19 +52555,20 @@ def test_delete_cluster_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_cluster"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52461,8 +52621,9 @@ def test_list_nodes_rest_bad_request(request_type=vmwareengine.ListNodesRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52527,17 +52688,19 @@ def test_list_nodes_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_nodes"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_nodes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_nodes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_nodes"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_nodes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_nodes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52590,8 +52753,9 @@ def test_get_node_rest_bad_request(request_type=vmwareengine.GetNodeRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52668,17 +52832,19 @@ def test_get_node_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_node"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_node_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_node"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_node"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_node_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_node"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52733,8 +52899,9 @@ def test_list_external_addresses_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52801,18 +52968,20 @@ def test_list_external_addresses_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_external_addresses"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_external_addresses_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_external_addresses"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_external_addresses"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_external_addresses_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_external_addresses"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -52872,8 +53041,9 @@ def test_fetch_network_policy_external_addresses_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -52940,20 +53110,22 @@ def test_fetch_network_policy_external_addresses_rest_interceptors(null_intercep
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_fetch_network_policy_external_addresses",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_fetch_network_policy_external_addresses_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "pre_fetch_network_policy_external_addresses",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_fetch_network_policy_external_addresses",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_fetch_network_policy_external_addresses_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_fetch_network_policy_external_addresses",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53013,8 +53185,9 @@ def test_get_external_address_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53089,18 +53262,20 @@ def test_get_external_address_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_external_address"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_external_address_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_external_address"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_external_address"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_external_address_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_external_address"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53160,8 +53335,9 @@ def test_create_external_address_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53299,20 +53475,21 @@ def test_create_external_address_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_external_address"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_external_address_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_external_address"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_external_address"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_external_address_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_external_address"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53369,8 +53546,9 @@ def test_update_external_address_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53510,20 +53688,21 @@ def test_update_external_address_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_external_address"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_external_address_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_external_address"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_external_address"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_external_address_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_external_address"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53578,8 +53757,9 @@ def test_delete_external_address_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53638,20 +53818,21 @@ def test_delete_external_address_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_external_address"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_external_address_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_external_address"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_external_address"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_external_address_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_external_address"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53704,8 +53885,9 @@ def test_list_subnets_rest_bad_request(request_type=vmwareengine.ListSubnetsRequ
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53772,17 +53954,19 @@ def test_list_subnets_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_subnets"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_subnets_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_subnets"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_subnets"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_subnets_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_subnets"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53837,8 +54021,9 @@ def test_get_subnet_rest_bad_request(request_type=vmwareengine.GetSubnetRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -53913,17 +54098,19 @@ def test_get_subnet_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_subnet"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_subnet_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_subnet"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_subnet"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_subnet_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_subnet"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -53978,8 +54165,9 @@ def test_update_subnet_rest_bad_request(request_type=vmwareengine.UpdateSubnetRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54115,19 +54303,20 @@ def test_update_subnet_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_subnet"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_subnet_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_subnet"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_subnet"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_subnet_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_subnet"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -54182,8 +54371,9 @@ def test_list_external_access_rules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54250,18 +54440,20 @@ def test_list_external_access_rules_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_external_access_rules"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_external_access_rules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_external_access_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_external_access_rules"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_external_access_rules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_external_access_rules"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -54321,8 +54513,9 @@ def test_get_external_access_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54403,18 +54596,20 @@ def test_get_external_access_rule_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_external_access_rule"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_external_access_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_external_access_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_external_access_rule"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_external_access_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_external_access_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -54474,8 +54669,9 @@ def test_create_external_access_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54626,20 +54822,21 @@ def test_create_external_access_rule_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_external_access_rule"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_external_access_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_external_access_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_external_access_rule"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_external_access_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_external_access_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -54696,8 +54893,9 @@ def test_update_external_access_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54850,20 +55048,21 @@ def test_update_external_access_rule_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_external_access_rule"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_external_access_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_external_access_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_external_access_rule"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_external_access_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_external_access_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -54918,8 +55117,9 @@ def test_delete_external_access_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -54978,20 +55178,21 @@ def test_delete_external_access_rule_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_external_access_rule"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_external_access_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_external_access_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_external_access_rule"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_external_access_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_external_access_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55046,8 +55247,9 @@ def test_list_logging_servers_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55114,18 +55316,20 @@ def test_list_logging_servers_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_logging_servers"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_logging_servers_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_logging_servers"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_logging_servers"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_logging_servers_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_logging_servers"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55185,8 +55389,9 @@ def test_get_logging_server_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55261,17 +55466,20 @@ def test_get_logging_server_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_logging_server"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_logging_server_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_logging_server"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_logging_server"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_logging_server_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_logging_server"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55331,8 +55539,9 @@ def test_create_logging_server_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55468,20 +55677,21 @@ def test_create_logging_server_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_logging_server"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_logging_server_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_logging_server"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_logging_server"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_logging_server_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_logging_server"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55538,8 +55748,9 @@ def test_update_logging_server_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55677,20 +55888,21 @@ def test_update_logging_server_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_logging_server"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_logging_server_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_logging_server"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_logging_server"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_logging_server_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_logging_server"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55745,8 +55957,9 @@ def test_delete_logging_server_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55805,20 +56018,21 @@ def test_delete_logging_server_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_logging_server"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_logging_server_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_logging_server"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_logging_server"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_logging_server_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_logging_server"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -55871,8 +56085,9 @@ def test_list_node_types_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -55937,17 +56152,19 @@ def test_list_node_types_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_node_types"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_node_types_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_node_types"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_node_types"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_node_types_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_node_types"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56000,8 +56217,9 @@ def test_get_node_type_rest_bad_request(request_type=vmwareengine.GetNodeTypeReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56088,17 +56306,19 @@ def test_get_node_type_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_node_type"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_node_type_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_node_type"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_node_type"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_node_type_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_node_type"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56155,8 +56375,9 @@ def test_show_nsx_credentials_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56223,18 +56444,20 @@ def test_show_nsx_credentials_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_show_nsx_credentials"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_show_nsx_credentials_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_show_nsx_credentials"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_show_nsx_credentials"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_show_nsx_credentials_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_show_nsx_credentials"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56291,8 +56514,9 @@ def test_show_vcenter_credentials_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56359,18 +56583,20 @@ def test_show_vcenter_credentials_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_show_vcenter_credentials"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_show_vcenter_credentials_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_show_vcenter_credentials"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_show_vcenter_credentials"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_show_vcenter_credentials_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_show_vcenter_credentials"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56427,8 +56653,9 @@ def test_reset_nsx_credentials_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56487,20 +56714,21 @@ def test_reset_nsx_credentials_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_reset_nsx_credentials"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_reset_nsx_credentials_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_reset_nsx_credentials"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_reset_nsx_credentials"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_reset_nsx_credentials_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_reset_nsx_credentials"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56555,8 +56783,9 @@ def test_reset_vcenter_credentials_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56615,20 +56844,21 @@ def test_reset_vcenter_credentials_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_reset_vcenter_credentials"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_reset_vcenter_credentials_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_reset_vcenter_credentials"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_reset_vcenter_credentials"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_reset_vcenter_credentials_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_reset_vcenter_credentials"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56683,8 +56913,9 @@ def test_get_dns_forwarding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56749,17 +56980,20 @@ def test_get_dns_forwarding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_dns_forwarding"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_dns_forwarding_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_dns_forwarding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_dns_forwarding"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_dns_forwarding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_dns_forwarding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -56821,8 +57055,9 @@ def test_update_dns_forwarding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -56961,20 +57196,21 @@ def test_update_dns_forwarding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_dns_forwarding"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_dns_forwarding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_dns_forwarding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_dns_forwarding"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_dns_forwarding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_dns_forwarding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57029,8 +57265,9 @@ def test_get_network_peering_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57124,17 +57361,20 @@ def test_get_network_peering_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_network_peering"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_network_peering_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_network_peering"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_network_peering"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_network_peering_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_network_peering"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57192,8 +57432,9 @@ def test_list_network_peerings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57258,18 +57499,20 @@ def test_list_network_peerings_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_network_peerings"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_network_peerings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_network_peerings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_network_peerings"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_network_peerings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_network_peerings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57327,8 +57570,9 @@ def test_create_network_peering_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57470,20 +57714,21 @@ def test_create_network_peering_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_network_peering"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_network_peering_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_network_peering"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_network_peering"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_network_peering_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_network_peering"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57538,8 +57783,9 @@ def test_delete_network_peering_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57598,20 +57844,21 @@ def test_delete_network_peering_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_network_peering"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_network_peering_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_network_peering"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_network_peering"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_network_peering_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_network_peering"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57668,8 +57915,9 @@ def test_update_network_peering_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57815,20 +58063,21 @@ def test_update_network_peering_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_network_peering"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_network_peering_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_network_peering"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_network_peering"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_network_peering_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_network_peering"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -57883,8 +58132,9 @@ def test_list_peering_routes_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -57949,17 +58199,20 @@ def test_list_peering_routes_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_peering_routes"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_peering_routes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_peering_routes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_peering_routes"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_peering_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_peering_routes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58019,8 +58272,9 @@ def test_create_hcx_activation_key_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58155,20 +58409,21 @@ def test_create_hcx_activation_key_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_hcx_activation_key"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_hcx_activation_key_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_hcx_activation_key"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_hcx_activation_key"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_hcx_activation_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_hcx_activation_key"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58223,8 +58478,9 @@ def test_list_hcx_activation_keys_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58291,18 +58547,20 @@ def test_list_hcx_activation_keys_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_hcx_activation_keys"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_hcx_activation_keys_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_hcx_activation_keys"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_hcx_activation_keys"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_hcx_activation_keys_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_hcx_activation_keys"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58362,8 +58620,9 @@ def test_get_hcx_activation_key_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58434,18 +58693,20 @@ def test_get_hcx_activation_key_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_hcx_activation_key"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_hcx_activation_key_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_hcx_activation_key"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_hcx_activation_key"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_hcx_activation_key_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_hcx_activation_key"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58505,8 +58766,9 @@ def test_get_network_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58584,17 +58846,20 @@ def test_get_network_policy_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_network_policy"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_network_policy_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_network_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_network_policy"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_network_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_network_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58652,8 +58917,9 @@ def test_list_network_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58718,18 +58984,20 @@ def test_list_network_policies_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_network_policies"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_network_policies_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_network_policies"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_network_policies"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_network_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_network_policies"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58787,8 +59055,9 @@ def test_create_network_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -58924,20 +59193,21 @@ def test_create_network_policy_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_network_policy"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_network_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_network_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_network_policy"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_network_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_network_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -58994,8 +59264,9 @@ def test_update_network_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59135,20 +59406,21 @@ def test_update_network_policy_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_network_policy"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_network_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_network_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_network_policy"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_network_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_network_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -59203,8 +59475,9 @@ def test_delete_network_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59263,20 +59536,21 @@ def test_delete_network_policy_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_network_policy"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_network_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_network_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_network_policy"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_network_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_network_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -59331,8 +59605,9 @@ def test_list_management_dns_zone_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59401,18 +59676,22 @@ def test_list_management_dns_zone_bindings_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_management_dns_zone_bindings"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_management_dns_zone_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_management_dns_zone_bindings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_management_dns_zone_bindings",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_management_dns_zone_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_list_management_dns_zone_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -59472,8 +59751,9 @@ def test_get_management_dns_zone_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59547,18 +59827,22 @@ def test_get_management_dns_zone_binding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_management_dns_zone_binding"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_management_dns_zone_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_management_dns_zone_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_management_dns_zone_binding",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_management_dns_zone_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_get_management_dns_zone_binding",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -59618,8 +59902,9 @@ def test_create_management_dns_zone_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59761,21 +60046,23 @@ def test_create_management_dns_zone_binding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_management_dns_zone_binding",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_management_dns_zone_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_management_dns_zone_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_management_dns_zone_binding",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_management_dns_zone_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_create_management_dns_zone_binding",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -59832,8 +60119,9 @@ def test_update_management_dns_zone_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -59977,21 +60265,23 @@ def test_update_management_dns_zone_binding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_management_dns_zone_binding",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_management_dns_zone_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_management_dns_zone_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_management_dns_zone_binding",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_management_dns_zone_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_update_management_dns_zone_binding",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60046,8 +60336,9 @@ def test_delete_management_dns_zone_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60106,21 +60397,23 @@ def test_delete_management_dns_zone_binding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_management_dns_zone_binding",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_management_dns_zone_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_management_dns_zone_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_management_dns_zone_binding",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_management_dns_zone_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_delete_management_dns_zone_binding",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60175,8 +60468,9 @@ def test_repair_management_dns_zone_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60235,21 +60529,23 @@ def test_repair_management_dns_zone_binding_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_repair_management_dns_zone_binding",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_repair_management_dns_zone_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_repair_management_dns_zone_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_repair_management_dns_zone_binding",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_repair_management_dns_zone_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_repair_management_dns_zone_binding",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60302,8 +60598,9 @@ def test_create_vmware_engine_network_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60442,20 +60739,21 @@ def test_create_vmware_engine_network_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_vmware_engine_network"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_vmware_engine_network_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_vmware_engine_network"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_vmware_engine_network"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_vmware_engine_network_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_vmware_engine_network"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60512,8 +60810,9 @@ def test_update_vmware_engine_network_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60656,20 +60955,21 @@ def test_update_vmware_engine_network_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_vmware_engine_network"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_vmware_engine_network_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_vmware_engine_network"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_vmware_engine_network"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_vmware_engine_network_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_vmware_engine_network"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60724,8 +61024,9 @@ def test_delete_vmware_engine_network_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60784,20 +61085,21 @@ def test_delete_vmware_engine_network_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_vmware_engine_network"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_vmware_engine_network_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_vmware_engine_network"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_vmware_engine_network"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_vmware_engine_network_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_vmware_engine_network"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60852,8 +61154,9 @@ def test_get_vmware_engine_network_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -60928,18 +61231,20 @@ def test_get_vmware_engine_network_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_vmware_engine_network"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_vmware_engine_network_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_vmware_engine_network"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_vmware_engine_network"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_vmware_engine_network_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_vmware_engine_network"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -60997,8 +61302,9 @@ def test_list_vmware_engine_networks_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61063,18 +61369,20 @@ def test_list_vmware_engine_networks_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_vmware_engine_networks"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_vmware_engine_networks_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_vmware_engine_networks"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_vmware_engine_networks"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_vmware_engine_networks_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_vmware_engine_networks"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61132,8 +61440,9 @@ def test_create_private_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61274,20 +61583,21 @@ def test_create_private_connection_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_create_private_connection"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_create_private_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_create_private_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_create_private_connection"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_create_private_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_create_private_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61342,8 +61652,9 @@ def test_get_private_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61440,18 +61751,20 @@ def test_get_private_connection_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_private_connection"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_private_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_private_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_private_connection"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_private_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_private_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61509,8 +61822,9 @@ def test_list_private_connections_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61575,18 +61889,20 @@ def test_list_private_connections_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_list_private_connections"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_private_connections_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_list_private_connections"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_list_private_connections"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_private_connections_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_list_private_connections"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61648,8 +61964,9 @@ def test_update_private_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61794,20 +62111,21 @@ def test_update_private_connection_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_update_private_connection"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_update_private_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_update_private_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_update_private_connection"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_update_private_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_update_private_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61862,8 +62180,9 @@ def test_delete_private_connection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -61922,20 +62241,21 @@ def test_delete_private_connection_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_delete_private_connection"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_delete_private_connection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_delete_private_connection"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_delete_private_connection"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_delete_private_connection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_delete_private_connection"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -61990,8 +62310,9 @@ def test_list_private_connection_peering_routes_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -62058,20 +62379,22 @@ def test_list_private_connection_peering_routes_rest_interceptors(null_intercept
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_private_connection_peering_routes",
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_list_private_connection_peering_routes_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "pre_list_private_connection_peering_routes",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_private_connection_peering_routes",
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_list_private_connection_peering_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "pre_list_private_connection_peering_routes",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -62129,8 +62452,9 @@ def test_grant_dns_bind_permission_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -62187,20 +62511,21 @@ def test_grant_dns_bind_permission_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_grant_dns_bind_permission"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_grant_dns_bind_permission_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_grant_dns_bind_permission"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_grant_dns_bind_permission"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_grant_dns_bind_permission_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_grant_dns_bind_permission"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -62253,8 +62578,9 @@ def test_get_dns_bind_permission_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -62317,18 +62643,20 @@ def test_get_dns_bind_permission_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_get_dns_bind_permission"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_get_dns_bind_permission_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_get_dns_bind_permission"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_get_dns_bind_permission"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_get_dns_bind_permission_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_get_dns_bind_permission"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -62386,8 +62714,9 @@ def test_revoke_dns_bind_permission_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -62444,20 +62773,21 @@ def test_revoke_dns_bind_permission_rest_interceptors(null_interceptor):
     )
     client = VmwareEngineClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "post_revoke_dns_bind_permission"
-    ) as post, mock.patch.object(
-        transports.VmwareEngineRestInterceptor,
-        "post_revoke_dns_bind_permission_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.VmwareEngineRestInterceptor, "pre_revoke_dns_bind_permission"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "post_revoke_dns_bind_permission"
+        ) as post,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor,
+            "post_revoke_dns_bind_permission_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.VmwareEngineRestInterceptor, "pre_revoke_dns_bind_permission"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -62510,8 +62840,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62570,8 +62901,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62633,8 +62965,9 @@ def test_get_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62698,8 +63031,9 @@ def test_set_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62763,8 +63097,9 @@ def test_test_iam_permissions_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62827,8 +63162,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62889,8 +63225,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -62951,8 +63288,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -64767,11 +65105,14 @@ def test_vmware_engine_base_transport():
 
 def test_vmware_engine_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.vmwareengine_v1.services.vmware_engine.transports.VmwareEngineTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.vmwareengine_v1.services.vmware_engine.transports.VmwareEngineTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.VmwareEngineTransport(
@@ -64788,9 +65129,12 @@ def test_vmware_engine_base_transport_with_credentials_file():
 
 def test_vmware_engine_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.vmwareengine_v1.services.vmware_engine.transports.VmwareEngineTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.vmwareengine_v1.services.vmware_engine.transports.VmwareEngineTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.VmwareEngineTransport()
@@ -64862,11 +65206,12 @@ def test_vmware_engine_transport_auth_gdch_credentials(transport_class):
 def test_vmware_engine_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -65255,6 +65600,7 @@ def test_vmware_engine_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.VmwareEngineGrpcTransport, transports.VmwareEngineGrpcAsyncIOTransport],
@@ -66125,6 +66471,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_get_operation(transport: str = "grpc"):
     client = VmwareEngineClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -66268,6 +66646,40 @@ async def test_get_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_operation_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
 
 
 def test_list_operations(transport: str = "grpc"):
@@ -66415,6 +66827,40 @@ async def test_list_operations_from_dict_async():
         call.assert_called()
 
 
+def test_list_operations_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
 def test_list_locations(transport: str = "grpc"):
     client = VmwareEngineClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -66560,6 +67006,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = VmwareEngineClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -66699,6 +67179,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_set_iam_policy(transport: str = "grpc"):
@@ -66863,6 +67377,41 @@ async def test_set_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
 
 
 def test_get_iam_policy(transport: str = "grpc"):
@@ -67030,6 +67579,41 @@ async def test_get_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
 
 
 def test_test_iam_permissions(transport: str = "grpc"):
@@ -67207,6 +67791,47 @@ async def test_test_iam_permissions_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = VmwareEngineClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = VmwareEngineAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

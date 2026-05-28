@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,10 +44,13 @@ async def sample_search_principal_access_boundary_policy_bindings():
     )
 
     # Make the request
-    page_result = client.search_principal_access_boundary_policy_bindings(request=request)
+    page_result = client.search_principal_access_boundary_policy_bindings(
+        request=request
+    )
 
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END iam_v3beta_generated_PrincipalAccessBoundaryPolicies_SearchPrincipalAccessBoundaryPolicyBindings_async]

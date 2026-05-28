@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -115,6 +115,7 @@ class CleanupPolicyCondition(proto.Message):
             ANY (3):
                 Applies to all versions.
         """
+
         TAG_STATE_UNSPECIFIED = 0
         TAGGED = 1
         UNTAGGED = 2
@@ -219,6 +220,7 @@ class CleanupPolicy(proto.Message):
             KEEP (2):
                 Keep action.
         """
+
         ACTION_UNSPECIFIED = 0
         DELETE = 1
         KEEP = 2
@@ -395,6 +397,7 @@ class RemoteRepositoryConfig(proto.Message):
                 DOCKER_HUB (1):
                     Docker Hub.
             """
+
             PUBLIC_REPOSITORY_UNSPECIFIED = 0
             DOCKER_HUB = 1
 
@@ -458,6 +461,7 @@ class RemoteRepositoryConfig(proto.Message):
                 MAVEN_CENTRAL (1):
                     Maven Central.
             """
+
             PUBLIC_REPOSITORY_UNSPECIFIED = 0
             MAVEN_CENTRAL = 1
 
@@ -525,6 +529,7 @@ class RemoteRepositoryConfig(proto.Message):
                 NPMJS (1):
                     npmjs.
             """
+
             PUBLIC_REPOSITORY_UNSPECIFIED = 0
             NPMJS = 1
 
@@ -592,6 +597,7 @@ class RemoteRepositoryConfig(proto.Message):
                 PYPI (1):
                     PyPI.
             """
+
             PUBLIC_REPOSITORY_UNSPECIFIED = 0
             PYPI = 1
 
@@ -671,6 +677,7 @@ class RemoteRepositoryConfig(proto.Message):
                     DEBIAN_SNAPSHOT (3):
                         Archived Debian.
                 """
+
                 REPOSITORY_BASE_UNSPECIFIED = 0
                 DEBIAN = 1
                 UBUNTU = 2
@@ -773,6 +780,7 @@ class RemoteRepositoryConfig(proto.Message):
                         Fedora Extra Packages for Enterprise Linux
                         (EPEL).
                 """
+
                 REPOSITORY_BASE_UNSPECIFIED = 0
                 CENTOS = 1
                 CENTOS_DEBUG = 2
@@ -976,8 +984,8 @@ class Repository(proto.Message):
             public preview  use this to calculate storage
             costs.
         satisfies_pzs (bool):
-            Output only. If set, the repository satisfies
-            physical zone separation.
+            Output only. Whether or not this repository
+            satisfies PZS.
         cleanup_policy_dry_run (bool):
             Optional. If true, the cleanup pipeline is
             prevented from deleting versions in this
@@ -990,8 +998,8 @@ class Repository(proto.Message):
             repo type will be treated as error rather than
             defaulting to standard.
         satisfies_pzi (bool):
-            Output only. If set, the repository satisfies
-            physical zone isolation.
+            Output only. Whether or not this repository
+            satisfies PZI.
         registry_uri (str):
             Output only. The repository endpoint, for example:
             ``us-docker.pkg.dev/my-proj/my-repo``.
@@ -1021,7 +1029,10 @@ class Repository(proto.Message):
                 Go package format.
             GENERIC (11):
                 Generic package format.
+            RUBY (12):
+                Ruby package format.
         """
+
         FORMAT_UNSPECIFIED = 0
         DOCKER = 1
         MAVEN = 2
@@ -1032,6 +1043,7 @@ class Repository(proto.Message):
         KFP = 9
         GO = 10
         GENERIC = 11
+        RUBY = 12
 
     class Mode(proto.Enum):
         r"""The mode configures the repository to serve artifacts from
@@ -1049,6 +1061,7 @@ class Repository(proto.Message):
                 A remote repository to serve artifacts from a
                 remote source.
         """
+
         MODE_UNSPECIFIED = 0
         STANDARD_REPOSITORY = 1
         VIRTUAL_REPOSITORY = 2
@@ -1083,6 +1096,7 @@ class Repository(proto.Message):
                     SNAPSHOT - repository will accept only
                     Snapshot versions.
             """
+
             VERSION_POLICY_UNSPECIFIED = 0
             RELEASE = 1
             SNAPSHOT = 2
@@ -1141,7 +1155,9 @@ class Repository(proto.Message):
 
             Values:
                 ENABLEMENT_CONFIG_UNSPECIFIED (0):
-                    Not set. This will be treated as INHERITED.
+                    Not set. This will be treated as INHERITED
+                    for Docker repositories and DISABLED for
+                    non-Docker repositories.
                 INHERITED (1):
                     Scanning is Enabled, but dependent on API
                     enablement.
@@ -1149,6 +1165,7 @@ class Repository(proto.Message):
                     No automatic vulnerability scanning will be
                     performed for this repository.
             """
+
             ENABLEMENT_CONFIG_UNSPECIFIED = 0
             INHERITED = 1
             DISABLED = 2
@@ -1171,6 +1188,7 @@ class Repository(proto.Message):
                     Vulnerability scanning is active for this
                     repository.
             """
+
             ENABLEMENT_STATE_UNSPECIFIED = 0
             SCANNING_UNSUPPORTED = 1
             SCANNING_DISABLED = 2
@@ -1316,7 +1334,7 @@ class ListRepositoriesRequest(proto.Message):
             request. Filter rules are case insensitive. The fields
             eligible for filtering are:
 
-            -  ``name``
+            - ``name``
 
             Examples of using a filter:
 
@@ -1325,14 +1343,14 @@ class ListRepositoriesRequest(proto.Message):
             ``us-central`` region, append the following filter
             expression to your request:
 
-            -  ``name="projects/my-project/locations/us-central1/repositories/my-repo"``
+            - ``name="projects/my-project/locations/us-central1/repositories/my-repo"``
 
             You can also use wildcards to match any number of characters
             before or after the value:
 
-            -  ``name="projects/my-project/locations/us-central1/repositories/my-*"``
-            -  ``name="projects/my-project/locations/us-central1/repositories/*repo"``
-            -  ``name="projects/my-project/locations/us-central1/repositories/*repo*"``
+            - ``name="projects/my-project/locations/us-central1/repositories/my-*"``
+            - ``name="projects/my-project/locations/us-central1/repositories/*repo"``
+            - ``name="projects/my-project/locations/us-central1/repositories/*repo*"``
         order_by (str):
             Optional. The field to order the results by.
     """

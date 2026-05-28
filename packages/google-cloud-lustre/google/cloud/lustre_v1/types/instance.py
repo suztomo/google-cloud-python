@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -50,7 +50,7 @@ class Instance(proto.Message):
             contain letters and numbers.
         capacity_gib (int):
             Required. The storage capacity of the instance in gibibytes
-            (GiB). Allowed values are from ``18000`` to ``936000``, in
+            (GiB). Allowed values are from ``18000`` to ``954000``, in
             increments of 9000.
         network (str):
             Required. Immutable. The full name of the VPC network to
@@ -73,13 +73,13 @@ class Instance(proto.Message):
         labels (MutableMapping[str, str]):
             Optional. Labels as key value pairs.
         per_unit_storage_throughput (int):
-            Optional. The throughput of the instance in
-            MB/s/TiB. Valid values are 250, 500, 1000.
-            Default value is 1000.
+            Required. The throughput of the instance in
+            MB/s/TiB. Valid values are 125, 250, 500, 1000.
         gke_support_enabled (bool):
             Optional. Indicates whether you want to
             enable support for GKE clients. By default, GKE
-            clients are not supported.
+            clients are not supported. Deprecated. No longer
+            required for GKE instance creation.
     """
 
     class State(proto.Enum):
@@ -101,7 +101,10 @@ class Instance(proto.Message):
                 The instance is being repaired.
             STOPPED (6):
                 The instance is stopped.
+            UPDATING (7):
+                The instance is being updated.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -109,6 +112,7 @@ class Instance(proto.Message):
         UPGRADING = 4
         REPAIRING = 5
         STOPPED = 6
+        UPDATING = 7
 
     name: str = proto.Field(
         proto.STRING,
@@ -271,11 +275,10 @@ class CreateInstanceRequest(proto.Message):
         instance_id (str):
             Required. The name of the Managed Lustre instance.
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
         instance (google.cloud.lustre_v1.types.Instance):
             Required. The resource being created
         request_id (str):

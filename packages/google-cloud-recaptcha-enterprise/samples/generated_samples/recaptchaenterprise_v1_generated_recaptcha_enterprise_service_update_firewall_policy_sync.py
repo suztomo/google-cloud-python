@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_firewall_policy():
     client = recaptchaenterprise_v1.RecaptchaEnterpriseServiceClient()
 
     # Initialize request argument(s)
-    request = recaptchaenterprise_v1.UpdateFirewallPolicyRequest(
-    )
+    request = recaptchaenterprise_v1.UpdateFirewallPolicyRequest()
 
     # Make the request
     response = client.update_firewall_policy(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END recaptchaenterprise_v1_generated_RecaptchaEnterpriseService_UpdateFirewallPolicy_sync]

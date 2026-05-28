@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.backupdr_v1 import gapic_version as package_version
 
@@ -61,17 +61,19 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
 
 from google.cloud.backupdr_v1.services.backup_dr import pagers
 from google.cloud.backupdr_v1.types import (
@@ -79,8 +81,12 @@ from google.cloud.backupdr_v1.types import (
     backupplan,
     backupplanassociation,
     backupvault,
+    backupvault_alloydb,
     backupvault_ba,
+    backupvault_cloudsql,
+    backupvault_disk,
     backupvault_gce,
+    datasourcereference,
 )
 
 from .transports.base import DEFAULT_CLIENT_INFO, BackupDRTransport
@@ -128,7 +134,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
     """The BackupDR Service"""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -136,7 +142,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -146,6 +152,10 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -165,6 +175,34 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "backupdr.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -286,6 +324,30 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def backup_plan_revision_path(
+        project: str,
+        location: str,
+        backup_plan: str,
+        revision: str,
+    ) -> str:
+        """Returns a fully-qualified backup_plan_revision string."""
+        return "projects/{project}/locations/{location}/backupPlans/{backup_plan}/revisions/{revision}".format(
+            project=project,
+            location=location,
+            backup_plan=backup_plan,
+            revision=revision,
+        )
+
+    @staticmethod
+    def parse_backup_plan_revision_path(path: str) -> Dict[str, str]:
+        """Parses a backup_plan_revision path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/backupPlans/(?P<backup_plan>.+?)/revisions/(?P<revision>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def backup_vault_path(
         project: str,
         location: str,
@@ -305,6 +367,78 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         """Parses a backup_vault path into its component segments."""
         m = re.match(
             r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/backupVaults/(?P<backupvault>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def cluster_path(
+        project: str,
+        location: str,
+        cluster: str,
+    ) -> str:
+        """Returns a fully-qualified cluster string."""
+        return "projects/{project}/locations/{location}/clusters/{cluster}".format(
+            project=project,
+            location=location,
+            cluster=cluster,
+        )
+
+    @staticmethod
+    def parse_cluster_path(path: str) -> Dict[str, str]:
+        """Parses a cluster path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/clusters/(?P<cluster>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def crypto_key_path(
+        project: str,
+        location: str,
+        ring: str,
+        key: str,
+    ) -> str:
+        """Returns a fully-qualified crypto_key string."""
+        return "projects/{project}/locations/{location}/keyRings/{ring}/cryptoKeys/{key}".format(
+            project=project,
+            location=location,
+            ring=ring,
+            key=key,
+        )
+
+    @staticmethod
+    def parse_crypto_key_path(path: str) -> Dict[str, str]:
+        """Parses a crypto_key path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/keyRings/(?P<ring>.+?)/cryptoKeys/(?P<key>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def crypto_key_version_path(
+        project: str,
+        location: str,
+        key_ring: str,
+        crypto_key: str,
+        crypto_key_version: str,
+    ) -> str:
+        """Returns a fully-qualified crypto_key_version string."""
+        return "projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}/cryptoKeyVersions/{crypto_key_version}".format(
+            project=project,
+            location=location,
+            key_ring=key_ring,
+            crypto_key=crypto_key,
+            crypto_key_version=crypto_key_version,
+        )
+
+    @staticmethod
+    def parse_crypto_key_version_path(path: str) -> Dict[str, str]:
+        """Parses a crypto_key_version path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/keyRings/(?P<key_ring>.+?)/cryptoKeys/(?P<crypto_key>.+?)/cryptoKeyVersions/(?P<crypto_key_version>.+?)$",
             path,
         )
         return m.groupdict() if m else {}
@@ -334,6 +468,45 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def data_source_reference_path(
+        project: str,
+        location: str,
+        data_source_reference: str,
+    ) -> str:
+        """Returns a fully-qualified data_source_reference string."""
+        return "projects/{project}/locations/{location}/dataSourceReferences/{data_source_reference}".format(
+            project=project,
+            location=location,
+            data_source_reference=data_source_reference,
+        )
+
+    @staticmethod
+    def parse_data_source_reference_path(path: str) -> Dict[str, str]:
+        """Parses a data_source_reference path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/dataSourceReferences/(?P<data_source_reference>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def instance_path(
+        project: str,
+        instance: str,
+    ) -> str:
+        """Returns a fully-qualified instance string."""
+        return "projects/{project}/instances/{instance}".format(
+            project=project,
+            instance=instance,
+        )
+
+    @staticmethod
+    def parse_instance_path(path: str) -> Dict[str, str]:
+        """Parses a instance path into its component segments."""
+        m = re.match(r"^projects/(?P<project>.+?)/instances/(?P<instance>.+?)$", path)
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def management_server_path(
         project: str,
         location: str,
@@ -351,6 +524,28 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         """Parses a management_server path into its component segments."""
         m = re.match(
             r"^projects/(?P<project>.+?)/locations/(?P<location>.+?)/managementServers/(?P<managementserver>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def storage_pool_path(
+        project: str,
+        zone: str,
+        storage_pool: str,
+    ) -> str:
+        """Returns a fully-qualified storage_pool string."""
+        return "projects/{project}/zones/{zone}/storagePools/{storage_pool}".format(
+            project=project,
+            zone=zone,
+            storage_pool=storage_pool,
+        )
+
+    @staticmethod
+    def parse_storage_pool_path(path: str) -> Dict[str, str]:
+        """Parses a storage_pool path into its component segments."""
+        m = re.match(
+            r"^projects/(?P<project>.+?)/zones/(?P<zone>.+?)/storagePools/(?P<storage_pool>.+?)$",
             path,
         )
         return m.groupdict() if m else {}
@@ -473,12 +668,8 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = BackupDRClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -486,7 +677,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -518,20 +709,14 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = BackupDRClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -555,7 +740,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -652,7 +837,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -739,18 +924,16 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = BackupDRClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            BackupDRClient._read_environment_variables()
+        )
         self._client_cert_source = BackupDRClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = BackupDRClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -778,8 +961,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(BackupDRTransport, transport)
             self._api_endpoint = self._transport.host
@@ -2634,6 +2816,147 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Done; return the response.
         return response
 
+    def fetch_backups_for_resource_type(
+        self,
+        request: Optional[
+            Union[backupvault.FetchBackupsForResourceTypeRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FetchBackupsForResourceTypePager:
+        r"""Fetch Backups for a given resource type.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_fetch_backups_for_resource_type():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.FetchBackupsForResourceTypeRequest(
+                    parent="parent_value",
+                    resource_type="resource_type_value",
+                )
+
+                # Make the request
+                page_result = client.fetch_backups_for_resource_type(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.FetchBackupsForResourceTypeRequest, dict]):
+                The request object. Request for the
+                FetchBackupsForResourceType method.
+            parent (str):
+                Required. Datasources are the parent
+                resource for the backups. Format:
+
+                projects/{project}/locations/{location}/backupVaults/{backupVaultId}/dataSources/{datasourceId}
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource_type (str):
+                Required. The type of the GCP
+                resource. Ex:
+                sqladmin.googleapis.com/Instance
+
+                This corresponds to the ``resource_type`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.services.backup_dr.pagers.FetchBackupsForResourceTypePager:
+                Response for the
+                FetchBackupsForResourceType method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, resource_type]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, backupvault.FetchBackupsForResourceTypeRequest):
+            request = backupvault.FetchBackupsForResourceTypeRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if resource_type is not None:
+                request.resource_type = resource_type
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.fetch_backups_for_resource_type
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.FetchBackupsForResourceTypePager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def get_backup(
         self,
         request: Optional[Union[backupvault.GetBackupRequest, dict]] = None,
@@ -3283,6 +3606,157 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Done; return the response.
         return response
 
+    def update_backup_plan(
+        self,
+        request: Optional[Union[backupplan.UpdateBackupPlanRequest, dict]] = None,
+        *,
+        backup_plan: Optional[backupplan.BackupPlan] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Update a BackupPlan.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_update_backup_plan():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                backup_plan = backupdr_v1.BackupPlan()
+                backup_plan.backup_rules.standard_schedule.recurrence_type = "YEARLY"
+                backup_plan.backup_rules.standard_schedule.backup_window.start_hour_of_day = 1820
+                backup_plan.backup_rules.standard_schedule.backup_window.end_hour_of_day = 1573
+                backup_plan.backup_rules.standard_schedule.time_zone = "time_zone_value"
+                backup_plan.backup_rules.rule_id = "rule_id_value"
+                backup_plan.backup_rules.backup_retention_days = 2237
+                backup_plan.resource_type = "resource_type_value"
+                backup_plan.backup_vault = "backup_vault_value"
+
+                request = backupdr_v1.UpdateBackupPlanRequest(
+                    backup_plan=backup_plan,
+                )
+
+                # Make the request
+                operation = client.update_backup_plan(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.UpdateBackupPlanRequest, dict]):
+                The request object. Request message for updating a backup
+                plan.
+            backup_plan (google.cloud.backupdr_v1.types.BackupPlan):
+                Required. The resource being updated
+                This corresponds to the ``backup_plan`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Required. The list of fields to update. Field mask is
+                used to specify the fields to be overwritten in the
+                BackupPlan resource by the update. The fields specified
+                in the update_mask are relative to the resource, not the
+                full request. A field will be overwritten if it is in
+                the mask. If the user does not provide a mask then the
+                request will fail. Currently, these fields are supported
+                in update: description, schedules, retention period,
+                adding and removing Backup Rules.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.backupdr_v1.types.BackupPlan` A BackupPlan specifies some common fields, such as description as well
+                   as one or more BackupRule messages. Each BackupRule
+                   has a retention policy and defines a schedule by
+                   which the system is to perform backup workloads.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [backup_plan, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, backupplan.UpdateBackupPlanRequest):
+            request = backupplan.UpdateBackupPlanRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if backup_plan is not None:
+                request.backup_plan = backup_plan
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.update_backup_plan]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("backup_plan.name", request.backup_plan.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            backupplan.BackupPlan,
+            metadata_type=backupdr.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def get_backup_plan(
         self,
         request: Optional[Union[backupplan.GetBackupPlanRequest, dict]] = None,
@@ -3652,6 +4126,248 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Done; return the response.
         return response
 
+    def get_backup_plan_revision(
+        self,
+        request: Optional[Union[backupplan.GetBackupPlanRevisionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> backupplan.BackupPlanRevision:
+        r"""Gets details of a single BackupPlanRevision.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_get_backup_plan_revision():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.GetBackupPlanRevisionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_backup_plan_revision(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.GetBackupPlanRevisionRequest, dict]):
+                The request object. The request message for getting a
+                ``BackupPlanRevision``.
+            name (str):
+                Required. The resource name of the
+                ``BackupPlanRevision`` to retrieve.
+
+                Format:
+                ``projects/{project}/locations/{location}/backupPlans/{backup_plan}/revisions/{revision}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.types.BackupPlanRevision:
+                BackupPlanRevision represents a snapshot of a BackupPlan at a point in
+                   time.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, backupplan.GetBackupPlanRevisionRequest):
+            request = backupplan.GetBackupPlanRevisionRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_backup_plan_revision]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_backup_plan_revisions(
+        self,
+        request: Optional[
+            Union[backupplan.ListBackupPlanRevisionsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListBackupPlanRevisionsPager:
+        r"""Lists BackupPlanRevisions in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_list_backup_plan_revisions():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.ListBackupPlanRevisionsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_backup_plan_revisions(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.ListBackupPlanRevisionsRequest, dict]):
+                The request object. The request message for getting a list of
+                ``BackupPlanRevision``.
+            parent (str):
+                Required. The project and location for which to retrieve
+                ``BackupPlanRevisions`` information. Format:
+                ``projects/{project}/locations/{location}/backupPlans/{backup_plan}``.
+                In Cloud BackupDR, locations map to GCP regions, for
+                e.g. **us-central1**.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.services.backup_dr.pagers.ListBackupPlanRevisionsPager:
+                The response message for getting a list of
+                BackupPlanRevision.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, backupplan.ListBackupPlanRevisionsRequest):
+            request = backupplan.ListBackupPlanRevisionsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_backup_plan_revisions
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListBackupPlanRevisionsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def create_backup_plan_association(
         self,
         request: Optional[
@@ -3788,6 +4504,163 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # add these here.
         metadata = tuple(metadata) + (
             gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation.from_gapic(
+            response,
+            self._transport.operations_client,
+            backupplanassociation.BackupPlanAssociation,
+            metadata_type=backupdr.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_backup_plan_association(
+        self,
+        request: Optional[
+            Union[backupplanassociation.UpdateBackupPlanAssociationRequest, dict]
+        ] = None,
+        *,
+        backup_plan_association: Optional[
+            backupplanassociation.BackupPlanAssociation
+        ] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation.Operation:
+        r"""Update a BackupPlanAssociation.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_update_backup_plan_association():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                backup_plan_association = backupdr_v1.BackupPlanAssociation()
+                backup_plan_association.resource_type = "resource_type_value"
+                backup_plan_association.resource = "resource_value"
+                backup_plan_association.backup_plan = "backup_plan_value"
+
+                request = backupdr_v1.UpdateBackupPlanAssociationRequest(
+                    backup_plan_association=backup_plan_association,
+                )
+
+                # Make the request
+                operation = client.update_backup_plan_association(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.UpdateBackupPlanAssociationRequest, dict]):
+                The request object. Request message for updating a backup
+                plan association.
+            backup_plan_association (google.cloud.backupdr_v1.types.BackupPlanAssociation):
+                Required. The resource being updated
+                This corresponds to the ``backup_plan_association`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Required. The list of fields to update. Field mask is
+                used to specify the fields to be overwritten in the
+                BackupPlanAssociation resource by the update. The fields
+                specified in the update_mask are relative to the
+                resource, not the full request. A field will be
+                overwritten if it is in the mask. If the user does not
+                provide a mask then the request will fail. Currently
+                backup_plan_association.backup_plan is the only
+                supported field.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation.Operation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.backupdr_v1.types.BackupPlanAssociation` A BackupPlanAssociation represents a single BackupPlanAssociation which
+                   contains details like workload, backup plan etc
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [backup_plan_association, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, backupplanassociation.UpdateBackupPlanAssociationRequest
+        ):
+            request = backupplanassociation.UpdateBackupPlanAssociationRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if backup_plan_association is not None:
+                request.backup_plan_association = backup_plan_association
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_backup_plan_association
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    (
+                        "backup_plan_association.name",
+                        request.backup_plan_association.name,
+                    ),
+                )
+            ),
         )
 
         # Validate the universe domain.
@@ -4052,6 +4925,158 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # This method is paged; wrap the response in a pager, which provides
         # an `__iter__` convenience method.
         response = pagers.ListBackupPlanAssociationsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def fetch_backup_plan_associations_for_resource_type(
+        self,
+        request: Optional[
+            Union[
+                backupplanassociation.FetchBackupPlanAssociationsForResourceTypeRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FetchBackupPlanAssociationsForResourceTypePager:
+        r"""List BackupPlanAssociations for a given resource
+        type.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_fetch_backup_plan_associations_for_resource_type():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.FetchBackupPlanAssociationsForResourceTypeRequest(
+                    parent="parent_value",
+                    resource_type="resource_type_value",
+                )
+
+                # Make the request
+                page_result = client.fetch_backup_plan_associations_for_resource_type(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.FetchBackupPlanAssociationsForResourceTypeRequest, dict]):
+                The request object. Request for the
+                FetchBackupPlanAssociationsForResourceType
+                method.
+            parent (str):
+                Required. The parent resource name.
+                Format:
+                projects/{project}/locations/{location}
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource_type (str):
+                Required. The type of the GCP
+                resource. Ex:
+                sql.googleapis.com/Instance
+
+                This corresponds to the ``resource_type`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.services.backup_dr.pagers.FetchBackupPlanAssociationsForResourceTypePager:
+                Response for the
+                FetchBackupPlanAssociationsForResourceType
+                method.  Iterating over this object will
+                yield results and resolve additional
+                pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, resource_type]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request,
+            backupplanassociation.FetchBackupPlanAssociationsForResourceTypeRequest,
+        ):
+            request = (
+                backupplanassociation.FetchBackupPlanAssociationsForResourceTypeRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if resource_type is not None:
+                request.resource_type = resource_type
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.fetch_backup_plan_associations_for_resource_type
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.FetchBackupPlanAssociationsForResourceTypePager(
             method=rpc,
             request=request,
             response=response,
@@ -4336,6 +5361,399 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Done; return the response.
         return response
 
+    def get_data_source_reference(
+        self,
+        request: Optional[
+            Union[datasourcereference.GetDataSourceReferenceRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> datasourcereference.DataSourceReference:
+        r"""Gets details of a single DataSourceReference.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_get_data_source_reference():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.GetDataSourceReferenceRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = client.get_data_source_reference(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.GetDataSourceReferenceRequest, dict]):
+                The request object. Request for the
+                GetDataSourceReference method.
+            name (str):
+                Required. The name of the DataSourceReference to
+                retrieve. Format:
+                projects/{project}/locations/{location}/dataSourceReferences/{data_source_reference}
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.types.DataSourceReference:
+                DataSourceReference is a reference to
+                a DataSource resource.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, datasourcereference.GetDataSourceReferenceRequest):
+            request = datasourcereference.GetDataSourceReferenceRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_data_source_reference
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_data_source_references(
+        self,
+        request: Optional[
+            Union[datasourcereference.ListDataSourceReferencesRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListDataSourceReferencesPager:
+        r"""Lists DataSourceReferences for a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_list_data_source_references():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.ListDataSourceReferencesRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_data_source_references(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.ListDataSourceReferencesRequest, dict]):
+                The request object. Request for the
+                ListDataSourceReferences method.
+            parent (str):
+                Required. The parent resource name.
+                Format:
+                projects/{project}/locations/{location}
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.services.backup_dr.pagers.ListDataSourceReferencesPager:
+                Response for the
+                ListDataSourceReferences method.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, datasourcereference.ListDataSourceReferencesRequest):
+            request = datasourcereference.ListDataSourceReferencesRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_data_source_references
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListDataSourceReferencesPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def fetch_data_source_references_for_resource_type(
+        self,
+        request: Optional[
+            Union[
+                datasourcereference.FetchDataSourceReferencesForResourceTypeRequest,
+                dict,
+            ]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FetchDataSourceReferencesForResourceTypePager:
+        r"""Fetch DataSourceReferences for a given project,
+        location and resource type.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import backupdr_v1
+
+            def sample_fetch_data_source_references_for_resource_type():
+                # Create a client
+                client = backupdr_v1.BackupDRClient()
+
+                # Initialize request argument(s)
+                request = backupdr_v1.FetchDataSourceReferencesForResourceTypeRequest(
+                    parent="parent_value",
+                    resource_type="resource_type_value",
+                )
+
+                # Make the request
+                page_result = client.fetch_data_source_references_for_resource_type(request=request)
+
+                # Handle the response
+                for response in page_result:
+                    print(response)
+
+        Args:
+            request (Union[google.cloud.backupdr_v1.types.FetchDataSourceReferencesForResourceTypeRequest, dict]):
+                The request object. Request for the
+                FetchDataSourceReferencesForResourceType
+                method.
+            parent (str):
+                Required. The parent resource name.
+                Format:
+                projects/{project}/locations/{location}
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource_type (str):
+                Required. The type of the GCP
+                resource. Ex:
+                sql.googleapis.com/Instance
+
+                This corresponds to the ``resource_type`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.backupdr_v1.services.backup_dr.pagers.FetchDataSourceReferencesForResourceTypePager:
+                Response for the
+                FetchDataSourceReferencesForResourceType
+                method.  Iterating over this object will
+                yield results and resolve additional
+                pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, resource_type]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(
+            request, datasourcereference.FetchDataSourceReferencesForResourceTypeRequest
+        ):
+            request = (
+                datasourcereference.FetchDataSourceReferencesForResourceTypeRequest(
+                    request
+                )
+            )
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+            if resource_type is not None:
+                request.resource_type = resource_type
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.fetch_data_source_references_for_resource_type
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.FetchDataSourceReferencesForResourceTypePager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def initialize_service(
         self,
         request: Optional[Union[backupdr.InitializeServiceRequest, dict]] = None,
@@ -4362,7 +5780,11 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
                 client = backupdr_v1.BackupDRClient()
 
                 # Initialize request argument(s)
+                cloud_sql_instance_initialization_config = backupdr_v1.CloudSqlInstanceInitializationConfig()
+                cloud_sql_instance_initialization_config.edition = "ENTERPRISE_PLUS"
+
                 request = backupdr_v1.InitializeServiceRequest(
+                    cloud_sql_instance_initialization_config=cloud_sql_instance_initialization_config,
                     name="name_value",
                     resource_type="resource_type_value",
                 )
@@ -4451,7 +5873,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4477,8 +5899,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4487,7 +5913,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4496,7 +5922,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -4510,7 +5936,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4536,8 +5962,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4546,7 +5976,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4555,7 +5985,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -4569,7 +5999,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4599,8 +6029,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4609,7 +6043,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4617,7 +6051,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4625,7 +6059,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4654,8 +6088,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4664,7 +6102,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4672,7 +6110,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4680,7 +6118,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4772,8 +6210,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4782,7 +6224,9 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -4791,7 +6235,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -4805,7 +6249,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4898,8 +6342,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4908,7 +6356,9 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -4917,7 +6367,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -4931,7 +6381,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4962,8 +6412,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4972,7 +6426,9 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -4981,7 +6437,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -4995,7 +6451,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5021,8 +6477,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5031,7 +6491,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5040,7 +6500,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -5054,7 +6514,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5080,8 +6540,12 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5090,7 +6554,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5099,7 +6563,7 @@ class BackupDRClient(metaclass=BackupDRClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

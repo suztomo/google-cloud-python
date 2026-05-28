@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -129,6 +129,7 @@ class ConversationModel(proto.Message):
                 until there is enough capacity to start
                 training.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         UNDEPLOYED = 2
@@ -150,6 +151,7 @@ class ConversationModel(proto.Message):
             SMART_REPLY_BERT_MODEL (6):
                 ModelType smart reply bert model.
         """
+
         MODEL_TYPE_UNSPECIFIED = 0
         SMART_REPLY_DUAL_ENCODER_MODEL = 2
         SMART_REPLY_BERT_MODEL = 6
@@ -684,12 +686,12 @@ class ListConversationModelEvaluationsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    conversation_model_evaluations: MutableSequence[
-        "ConversationModelEvaluation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="ConversationModelEvaluation",
+    conversation_model_evaluations: MutableSequence["ConversationModelEvaluation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="ConversationModelEvaluation",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -736,6 +738,8 @@ class CreateConversationModelOperationMetadata(proto.Message):
             Timestamp when the request to create
             conversation model is submitted. The time is
             measured on server side.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     class State(proto.Enum):
@@ -760,6 +764,7 @@ class CreateConversationModelOperationMetadata(proto.Message):
             TRAINING (6):
                 Custom model is training.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         SUCCEEDED = 2
@@ -782,6 +787,11 @@ class CreateConversationModelOperationMetadata(proto.Message):
         number=3,
         message=timestamp_pb2.Timestamp,
     )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message=timestamp_pb2.Timestamp,
+    )
 
 
 class DeployConversationModelOperationMetadata(proto.Message):
@@ -797,6 +807,8 @@ class DeployConversationModelOperationMetadata(proto.Message):
             Timestamp when request to deploy conversation
             model was submitted. The time is measured on
             server side.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     conversation_model: str = proto.Field(
@@ -806,6 +818,11 @@ class DeployConversationModelOperationMetadata(proto.Message):
     create_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
         number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=4,
         message=timestamp_pb2.Timestamp,
     )
 
@@ -823,6 +840,8 @@ class UndeployConversationModelOperationMetadata(proto.Message):
             Timestamp when the request to undeploy
             conversation model was submitted. The time is
             measured on server side.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     conversation_model: str = proto.Field(
@@ -832,6 +851,11 @@ class UndeployConversationModelOperationMetadata(proto.Message):
     create_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
         number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=4,
         message=timestamp_pb2.Timestamp,
     )
 
@@ -849,6 +873,8 @@ class DeleteConversationModelOperationMetadata(proto.Message):
             Timestamp when delete conversation model
             request was created. The time is measured on
             server side.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     conversation_model: str = proto.Field(
@@ -858,6 +884,11 @@ class DeleteConversationModelOperationMetadata(proto.Message):
     create_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
         number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=4,
         message=timestamp_pb2.Timestamp,
     )
 
@@ -899,6 +930,7 @@ class CreateConversationModelEvaluationOperationMetadata(proto.Message):
             FAILED (5):
                 The operation has failed.
         """
+
         STATE_UNSPECIFIED = 0
         INITIALIZING = 1
         RUNNING = 2

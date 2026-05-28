@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.shopping.type.types import types
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
+from google.shopping.type.types import types
 
 __protobuf__ = proto.module(
     package="google.shopping.merchant.reviews.v1beta",
@@ -104,7 +104,9 @@ class ProductReviewAttributes(proto.Message):
 
             This field is a member of `oneof`_ ``_title``.
         content (str):
-            Required. The content of the review.
+            Optional. The content of the review. If
+            empty, the content might still get populated
+            from pros and cons.
 
             This field is a member of `oneof`_ ``_content``.
         pros (MutableSequence[str]):
@@ -171,6 +173,16 @@ class ProductReviewAttributes(proto.Message):
             marked as spam in the publisher's system.
 
             This field is a member of `oneof`_ ``_is_spam``.
+        is_verified_purchase (bool):
+            Optional. Indicates whether the reviewer's
+            purchase is verified.
+
+            This field is a member of `oneof`_ ``_is_verified_purchase``.
+        is_incentivized_review (bool):
+            Optional. Indicates whether the review is
+            incentivized.
+
+            This field is a member of `oneof`_ ``_is_incentivized_review``.
         collection_method (google.shopping.merchant_reviews_v1beta.types.ProductReviewAttributes.CollectionMethod):
             Optional. The method used to collect the
             review.
@@ -196,6 +208,7 @@ class ProductReviewAttributes(proto.Message):
                 a solicitation after fulfillment of the user's
                 order.
         """
+
         COLLECTION_METHOD_UNSPECIFIED = 0
         UNSOLICITED = 1
         POST_FULFILLMENT = 2
@@ -224,6 +237,7 @@ class ProductReviewAttributes(proto.Message):
                     The review page contains a group of reviews
                     including this review.
             """
+
             TYPE_UNSPECIFIED = 0
             SINGLETON = 1
             GROUP = 2
@@ -363,6 +377,16 @@ class ProductReviewAttributes(proto.Message):
         number=27,
         optional=True,
     )
+    is_verified_purchase: bool = proto.Field(
+        proto.BOOL,
+        number=30,
+        optional=True,
+    )
+    is_incentivized_review: bool = proto.Field(
+        proto.BOOL,
+        number=31,
+        optional=True,
+    )
     collection_method: CollectionMethod = proto.Field(
         proto.ENUM,
         number=28,
@@ -449,6 +473,7 @@ class ProductReviewStatus(proto.Message):
                 DISAPPROVED (2):
                     Issue disapproves the product review.
             """
+
             SEVERITY_UNSPECIFIED = 0
             NOT_IMPACTED = 1
             DISAPPROVED = 2
@@ -490,19 +515,19 @@ class ProductReviewStatus(proto.Message):
             number=8,
         )
 
-    destination_statuses: MutableSequence[
-        ProductReviewDestinationStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ProductReviewDestinationStatus,
+    destination_statuses: MutableSequence[ProductReviewDestinationStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ProductReviewDestinationStatus,
+        )
     )
-    item_level_issues: MutableSequence[
-        ProductReviewItemLevelIssue
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=ProductReviewItemLevelIssue,
+    item_level_issues: MutableSequence[ProductReviewItemLevelIssue] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=ProductReviewItemLevelIssue,
+        )
     )
     create_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,

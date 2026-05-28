@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -57,6 +57,8 @@ class ChannelConnection(proto.Message):
             ChannelConnection to bind the channel with the
             provider project. This field will not be stored
             in the provider resource.
+        labels (MutableMapping[str, str]):
+            Optional. Resource labels.
     """
 
     name: str = proto.Field(
@@ -84,6 +86,11 @@ class ChannelConnection(proto.Message):
     activation_token: str = proto.Field(
         proto.STRING,
         number=8,
+    )
+    labels: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=9,
     )
 
 

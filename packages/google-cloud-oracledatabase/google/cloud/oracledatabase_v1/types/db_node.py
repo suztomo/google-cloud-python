@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,6 +74,9 @@ class DbNodeProperties(proto.Message):
             Output only. State of the database node.
         total_cpu_core_count (int):
             Total CPU core count of the database node.
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The date and time that the
+            database node was created.
     """
 
     class State(proto.Enum):
@@ -109,6 +113,7 @@ class DbNodeProperties(proto.Message):
                 Indicates that the resource is in failed
                 state.
         """
+
         STATE_UNSPECIFIED = 0
         PROVISIONING = 1
         AVAILABLE = 2
@@ -152,6 +157,11 @@ class DbNodeProperties(proto.Message):
     total_cpu_core_count: int = proto.Field(
         proto.INT32,
         number=10,
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=11,
+        message=timestamp_pb2.Timestamp,
     )
 
 

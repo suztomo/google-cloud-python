@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_job():
     client = batch_v1alpha.BatchServiceClient()
 
     # Initialize request argument(s)
-    request = batch_v1alpha.UpdateJobRequest(
-    )
+    request = batch_v1alpha.UpdateJobRequest()
 
     # Make the request
     response = client.update_job(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END batch_v1alpha_generated_BatchService_UpdateJob_sync]

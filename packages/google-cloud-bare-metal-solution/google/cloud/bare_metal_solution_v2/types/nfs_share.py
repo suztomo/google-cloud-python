@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -82,6 +82,7 @@ class NfsShare(proto.Message):
                 The NFS Share has been requested to be
                 deleted.
         """
+
         STATE_UNSPECIFIED = 0
         PROVISIONED = 1
         CREATING = 2
@@ -101,6 +102,7 @@ class NfsShare(proto.Message):
                 NFS share can be mount with read-write
                 permissions.
         """
+
         MOUNT_PERMISSIONS_UNSPECIFIED = 0
         READ = 1
         READ_WRITE = 2
@@ -116,6 +118,7 @@ class NfsShare(proto.Message):
             HDD (2):
                 This storage type for this volume is HDD.
         """
+
         STORAGE_TYPE_UNSPECIFIED = 0
         SSD = 1
         HDD = 2

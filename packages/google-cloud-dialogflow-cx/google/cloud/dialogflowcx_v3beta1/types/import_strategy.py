@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ class ImportStrategy(proto.Enum):
         IMPORT_STRATEGY_THROW_ERROR (5):
             Throw error if a conflict is encountered.
     """
+
     IMPORT_STRATEGY_UNSPECIFIED = 0
     IMPORT_STRATEGY_CREATE_NEW = 1
     IMPORT_STRATEGY_REPLACE = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from .artifact import (
     GetMavenArtifactRequest,
     GetNpmPackageRequest,
     GetPythonPackageRequest,
+    ImageManifest,
     ListDockerImagesRequest,
     ListDockerImagesResponse,
     ListMavenArtifactsRequest,
@@ -47,6 +48,11 @@ from .attachment import (
     ListAttachmentsRequest,
     ListAttachmentsResponse,
 )
+from .export import (
+    ExportArtifactMetadata,
+    ExportArtifactRequest,
+    ExportArtifactResponse,
+)
 from .file import (
     DeleteFileRequest,
     File,
@@ -56,9 +62,15 @@ from .file import (
     ListFilesResponse,
     UpdateFileRequest,
 )
-from .generic import GenericArtifact
-from .go import GoModule
-from .kfp_artifact import KfpArtifact
+from .generic import (
+    GenericArtifact,
+)
+from .go import (
+    GoModule,
+)
+from .kfp_artifact import (
+    KfpArtifact,
+)
 from .package import (
     DeletePackageRequest,
     GetPackageRequest,
@@ -91,7 +103,9 @@ from .rule import (
     Rule,
     UpdateRuleRequest,
 )
-from .service import OperationMetadata
+from .service import (
+    OperationMetadata,
+)
 from .settings import (
     GetProjectSettingsRequest,
     ProjectSettings,
@@ -117,7 +131,11 @@ from .version import (
     Version,
     VersionView,
 )
-from .vpcsc_config import GetVPCSCConfigRequest, UpdateVPCSCConfigRequest, VPCSCConfig
+from .vpcsc_config import (
+    GetVPCSCConfigRequest,
+    UpdateVPCSCConfigRequest,
+    VPCSCConfig,
+)
 from .yum_artifact import (
     ImportYumArtifactsErrorInfo,
     ImportYumArtifactsGcsSource,
@@ -139,6 +157,7 @@ __all__ = (
     "GetMavenArtifactRequest",
     "GetNpmPackageRequest",
     "GetPythonPackageRequest",
+    "ImageManifest",
     "ListDockerImagesRequest",
     "ListDockerImagesResponse",
     "ListMavenArtifactsRequest",
@@ -156,6 +175,9 @@ __all__ = (
     "GetAttachmentRequest",
     "ListAttachmentsRequest",
     "ListAttachmentsResponse",
+    "ExportArtifactMetadata",
+    "ExportArtifactRequest",
+    "ExportArtifactResponse",
     "DeleteFileRequest",
     "File",
     "GetFileRequest",

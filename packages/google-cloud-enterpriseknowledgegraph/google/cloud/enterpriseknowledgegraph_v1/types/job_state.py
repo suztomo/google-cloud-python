@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ class JobState(proto.Enum):
             Entity Recon API: The exporting clusters job
             is running.
     """
+
     JOB_STATE_UNSPECIFIED = 0
     JOB_STATE_PENDING = 9
     JOB_STATE_RUNNING = 1

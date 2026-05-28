@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -124,10 +124,10 @@ class Instance(proto.Message):
             latest supported version will be used. Currently, the
             supported values are:
 
-            -  ``REDIS_3_2`` for Redis 3.2 compatibility
-            -  ``REDIS_4_0`` for Redis 4.0 compatibility (default)
-            -  ``REDIS_5_0`` for Redis 5.0 compatibility
-            -  ``REDIS_6_X`` for Redis 6.x compatibility
+            - ``REDIS_3_2`` for Redis 3.2 compatibility
+            - ``REDIS_4_0`` for Redis 4.0 compatibility (default)
+            - ``REDIS_5_0`` for Redis 5.0 compatibility
+            - ``REDIS_6_X`` for Redis 6.x compatibility
         reserved_ip_range (str):
             Optional. For DIRECT_PEERING mode, the CIDR range of
             internal addresses that are reserved for this instance.
@@ -173,20 +173,20 @@ class Instance(proto.Message):
 
             Redis version 3.2 and newer:
 
-            -  maxmemory-policy
-            -  notify-keyspace-events
+            - maxmemory-policy
+            - notify-keyspace-events
 
             Redis version 4.0 and newer:
 
-            -  activedefrag
-            -  lfu-decay-time
-            -  lfu-log-factor
-            -  maxmemory-gb
+            - activedefrag
+            - lfu-decay-time
+            - lfu-log-factor
+            - maxmemory-gb
 
             Redis version 5.0 and newer:
 
-            -  stream-node-max-bytes
-            -  stream-node-max-entries
+            - stream-node-max-bytes
+            - stream-node-max-entries
         tier (google.cloud.redis_v1.types.Instance.Tier):
             Required. The service tier of the instance.
         memory_size_gb (int):
@@ -296,6 +296,7 @@ class Instance(proto.Message):
                 Redis instance is failing over (availability
                 may be affected).
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -317,6 +318,7 @@ class Instance(proto.Message):
             STANDARD_HA (3):
                 STANDARD_HA tier: highly available primary/replica instances
         """
+
         TIER_UNSPECIFIED = 0
         BASIC = 1
         STANDARD_HA = 3
@@ -336,6 +338,7 @@ class Instance(proto.Message):
                 access provides an IP address range for multiple
                 Google Cloud services, including Memorystore.
         """
+
         CONNECT_MODE_UNSPECIFIED = 0
         DIRECT_PEERING = 1
         PRIVATE_SERVICE_ACCESS = 2
@@ -352,6 +355,7 @@ class Instance(proto.Message):
             DISABLED (2):
                 TLS is disabled for the instance.
         """
+
         TRANSIT_ENCRYPTION_MODE_UNSPECIFIED = 0
         SERVER_AUTHENTICATION = 1
         DISABLED = 2
@@ -372,6 +376,7 @@ class Instance(proto.Message):
                 and the instance can scale up and down the
                 number of replicas. Not valid for basic tier.
         """
+
         READ_REPLICAS_MODE_UNSPECIFIED = 0
         READ_REPLICAS_DISABLED = 1
         READ_REPLICAS_ENABLED = 2
@@ -387,6 +392,7 @@ class Instance(proto.Message):
                 Something wrong with the CMEK key provided by
                 customer.
         """
+
         SUSPENSION_REASON_UNSPECIFIED = 0
         CUSTOMER_MANAGED_KEY_ISSUE = 1
 
@@ -584,6 +590,7 @@ class PersistenceConfig(proto.Message):
             RDB (2):
                 RDB based Persistence is enabled.
         """
+
         PERSISTENCE_MODE_UNSPECIFIED = 0
         DISABLED = 1
         RDB = 2
@@ -603,6 +610,7 @@ class PersistenceConfig(proto.Message):
             TWENTY_FOUR_HOURS (6):
                 Snapshot every 24 hours.
         """
+
         SNAPSHOT_PERIOD_UNSPECIFIED = 0
         ONE_HOUR = 3
         SIX_HOURS = 4
@@ -666,6 +674,7 @@ class RescheduleMaintenanceRequest(proto.Message):
                 If the user wants to reschedule the
                 maintenance to a specific time.
         """
+
         RESCHEDULE_TYPE_UNSPECIFIED = 0
         IMMEDIATE = 1
         NEXT_AVAILABLE_WINDOW = 2
@@ -721,12 +730,12 @@ class MaintenancePolicy(proto.Message):
         proto.STRING,
         number=3,
     )
-    weekly_maintenance_window: MutableSequence[
-        "WeeklyMaintenanceWindow"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="WeeklyMaintenanceWindow",
+    weekly_maintenance_window: MutableSequence["WeeklyMaintenanceWindow"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="WeeklyMaintenanceWindow",
+        )
     )
 
 
@@ -948,12 +957,11 @@ class CreateInstanceRequest(proto.Message):
             Required. The logical name of the Redis instance in the
             customer project with the following restrictions:
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-40 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the customer project / location
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-40 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the customer project / location
         instance (google.cloud.redis_v1.types.Instance):
             Required. A Redis [Instance] resource
     """
@@ -984,11 +992,11 @@ class UpdateInstanceRequest(proto.Message):
             paths field may only include these fields from
             [Instance][google.cloud.redis.v1.Instance]:
 
-            -  ``displayName``
-            -  ``labels``
-            -  ``memorySizeGb``
-            -  ``redisConfig``
-            -  ``replica_count``
+            - ``displayName``
+            - ``labels``
+            - ``memorySizeGb``
+            - ``redisConfig``
+            - ``replica_count``
         instance (google.cloud.redis_v1.types.Instance):
             Required. Update description. Only fields specified in
             update_mask are updated.
@@ -1201,6 +1209,7 @@ class FailoverInstanceRequest(proto.Message):
                 Instance failover will be performed without
                 data loss control.
         """
+
         DATA_PROTECTION_MODE_UNSPECIFIED = 0
         LIMITED_DATA_LOSS = 1
         FORCE_DATA_LOSS = 2

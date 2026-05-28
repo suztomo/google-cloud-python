@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_dashboard_v1.types import metrics
@@ -57,6 +57,7 @@ class PieChart(proto.Message):
                 Similar to PIE, but the DONUT type PieChart
                 has a hole in the middle.
         """
+
         PIE_CHART_TYPE_UNSPECIFIED = 0
         PIE = 1
         DONUT = 2

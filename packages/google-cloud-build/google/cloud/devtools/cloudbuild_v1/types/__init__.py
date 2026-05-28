@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,12 @@ from .cloudbuild import (
     BuildTrigger,
     BuiltImage,
     CancelBuildRequest,
+    ConnectedRepository,
     CreateBuildRequest,
     CreateBuildTriggerRequest,
     CreateWorkerPoolOperationMetadata,
     CreateWorkerPoolRequest,
+    DefaultServiceAccount,
     DeleteBuildTriggerRequest,
     DeleteWorkerPoolOperationMetadata,
     DeleteWorkerPoolRequest,
@@ -38,6 +40,7 @@ from .cloudbuild import (
     FileHashes,
     GetBuildRequest,
     GetBuildTriggerRequest,
+    GetDefaultServiceAccountRequest,
     GetWorkerPoolRequest,
     GitConfig,
     GitFileSource,
@@ -99,10 +102,12 @@ __all__ = (
     "BuildTrigger",
     "BuiltImage",
     "CancelBuildRequest",
+    "ConnectedRepository",
     "CreateBuildRequest",
     "CreateBuildTriggerRequest",
     "CreateWorkerPoolOperationMetadata",
     "CreateWorkerPoolRequest",
+    "DefaultServiceAccount",
     "DeleteBuildTriggerRequest",
     "DeleteWorkerPoolOperationMetadata",
     "DeleteWorkerPoolRequest",
@@ -110,6 +115,7 @@ __all__ = (
     "FileHashes",
     "GetBuildRequest",
     "GetBuildTriggerRequest",
+    "GetDefaultServiceAccountRequest",
     "GetWorkerPoolRequest",
     "GitConfig",
     "GitFileSource",

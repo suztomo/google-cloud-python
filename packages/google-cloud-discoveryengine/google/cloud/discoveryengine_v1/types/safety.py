@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ class HarmCategory(proto.Enum):
         HARM_CATEGORY_CIVIC_INTEGRITY (5):
             The harm category is civic integrity.
     """
+
     HARM_CATEGORY_UNSPECIFIED = 0
     HARM_CATEGORY_HATE_SPEECH = 1
     HARM_CATEGORY_DANGEROUS_CONTENT = 2
@@ -90,6 +91,7 @@ class SafetyRating(proto.Message):
             HIGH (4):
                 High level of harm.
         """
+
         HARM_PROBABILITY_UNSPECIFIED = 0
         NEGLIGIBLE = 1
         LOW = 2
@@ -111,6 +113,7 @@ class SafetyRating(proto.Message):
             HARM_SEVERITY_HIGH (4):
                 High level of harm severity.
         """
+
         HARM_SEVERITY_UNSPECIFIED = 0
         HARM_SEVERITY_NEGLIGIBLE = 1
         HARM_SEVERITY_LOW = 2

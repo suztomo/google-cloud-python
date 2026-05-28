@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,6 +93,7 @@ class SubpropertyEventFilterCondition(proto.Message):
                     Partial regular expression matches with the
                     string value.
             """
+
             MATCH_TYPE_UNSPECIFIED = 0
             EXACT = 1
             BEGINS_WITH = 2
@@ -194,12 +195,12 @@ class SubpropertyEventFilterExpressionList(proto.Message):
             Subproperty event filter expressions
     """
 
-    filter_expressions: MutableSequence[
-        "SubpropertyEventFilterExpression"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="SubpropertyEventFilterExpression",
+    filter_expressions: MutableSequence["SubpropertyEventFilterExpression"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SubpropertyEventFilterExpression",
+        )
     )
 
 
@@ -231,6 +232,7 @@ class SubpropertyEventFilterClause(proto.Message):
                 Events will be excluded from the Sub property
                 if the filter clause is met.
         """
+
         FILTER_CLAUSE_TYPE_UNSPECIFIED = 0
         INCLUDE = 1
         EXCLUDE = 2
@@ -280,12 +282,12 @@ class SubpropertyEventFilter(proto.Message):
         number=2,
         optional=True,
     )
-    filter_clauses: MutableSequence[
-        "SubpropertyEventFilterClause"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message="SubpropertyEventFilterClause",
+    filter_clauses: MutableSequence["SubpropertyEventFilterClause"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message="SubpropertyEventFilterClause",
+        )
     )
 
 

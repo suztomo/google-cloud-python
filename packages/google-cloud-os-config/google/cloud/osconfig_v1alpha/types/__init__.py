@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,9 @@ from .inventory import (
     ListInventoriesRequest,
     ListInventoriesResponse,
 )
-from .os_policy import OSPolicy
+from .os_policy import (
+    OSPolicy,
+)
 from .os_policy_assignment_reports import (
     GetOSPolicyAssignmentReportRequest,
     ListOSPolicyAssignmentReportsRequest,
@@ -50,7 +52,9 @@ from .os_policy_assignments import (
     OSPolicyAssignmentOperationMetadata,
     UpdateOSPolicyAssignmentRequest,
 )
-from .osconfig_common import FixedOrPercent
+from .osconfig_common import (
+    FixedOrPercent,
+)
 from .vulnerability import (
     CVSSv3,
     GetVulnerabilityReportRequest,

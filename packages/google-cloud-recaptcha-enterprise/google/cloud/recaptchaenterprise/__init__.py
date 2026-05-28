@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from google.cloud.recaptchaenterprise_v1.types.recaptchaenterprise import (
     AppleDeveloperId,
     Assessment,
     AssessmentEnvironment,
+    Bot,
     ChallengeMetrics,
     CreateAssessmentRequest,
     CreateFirewallPolicyRequest,
@@ -67,6 +68,7 @@ from google.cloud.recaptchaenterprise_v1.types.recaptchaenterprise import (
     ListRelatedAccountGroupsResponse,
     Metrics,
     MigrateKeyRequest,
+    PhoneAuthenticationEvent,
     PhoneFraudAssessment,
     PrivatePasswordLeakVerification,
     RelatedAccountGroup,
@@ -108,6 +110,7 @@ __all__ = (
     "AppleDeveloperId",
     "Assessment",
     "AssessmentEnvironment",
+    "Bot",
     "ChallengeMetrics",
     "CreateAssessmentRequest",
     "CreateFirewallPolicyRequest",
@@ -140,6 +143,7 @@ __all__ = (
     "ListRelatedAccountGroupsResponse",
     "Metrics",
     "MigrateKeyRequest",
+    "PhoneAuthenticationEvent",
     "PhoneFraudAssessment",
     "PrivatePasswordLeakVerification",
     "RelatedAccountGroup",

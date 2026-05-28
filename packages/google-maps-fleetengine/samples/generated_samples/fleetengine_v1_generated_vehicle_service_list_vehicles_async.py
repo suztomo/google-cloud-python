@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_list_vehicles():
     # Initialize request argument(s)
     request = fleetengine_v1.ListVehiclesRequest(
         parent="parent_value",
-        vehicle_type_categories=['PEDESTRIAN'],
+        vehicle_type_categories=["PEDESTRIAN"],
     )
 
     # Make the request
@@ -50,5 +50,6 @@ async def sample_list_vehicles():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END fleetengine_v1_generated_VehicleService_ListVehicles_async]

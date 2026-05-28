@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.shopping.merchant_products_v1beta import gapic_version as package_version
 
@@ -44,7 +44,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.shopping.type.types import types
 
 from google.shopping.merchant_products_v1beta.types import (
@@ -124,7 +124,10 @@ class ProductInputsServiceAsyncClient:
         Returns:
             ProductInputsServiceAsyncClient: The constructed client.
         """
-        return ProductInputsServiceClient.from_service_account_info.__func__(ProductInputsServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ProductInputsServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ProductInputsServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +143,10 @@ class ProductInputsServiceAsyncClient:
         Returns:
             ProductInputsServiceAsyncClient: The constructed client.
         """
-        return ProductInputsServiceClient.from_service_account_file.__func__(ProductInputsServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ProductInputsServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ProductInputsServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -178,7 +184,9 @@ class ProductInputsServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return ProductInputsServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return ProductInputsServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> ProductInputsServiceTransport:
@@ -190,7 +198,7 @@ class ProductInputsServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -310,14 +318,18 @@ class ProductInputsServiceAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> productinputs.ProductInput:
-        r"""Uploads a product input to your Merchant Center
-        account. If an input with the same contentLanguage,
-        offerId, and dataSource already exists, this method
-        replaces that entry.
+        r"""`Uploads a product input to your Merchant Center
+        account </merchant/api/guides/products/overview#upload-product-input>`__.
+        You must have a products data source to be able to insert a
+        product. The unique identifier of the data source is passed as a
+        query parameter in the request URL.
 
-        After inserting, updating, or deleting a product input,
-        it may take several minutes before the processed product
-        can be retrieved.
+        If an input with the same contentLanguage, offerId, and
+        dataSource already exists, this method replaces that entry.
+
+        After inserting, updating, or deleting a product input, it may
+        take several minutes before the processed product can be
+        retrieved.
 
         .. code-block:: python
 
@@ -372,11 +384,13 @@ class ProductInputsServiceAsyncClient:
                    inputs, rules and supplemental data source data are
                    combined to create the processed
                    [Product][google.shopping.merchant.products.v1beta.Product].
+                   For more information, see [Manage
+                   products](/merchant/api/guides/products/overview).
 
                    Required product input attributes to pass data
                    validation checks are primarily defined in the
                    [Products Data
-                   Specification](\ https://support.google.com/merchants/answer/188494).
+                   Specification](https://support.google.com/merchants/answer/188494).
 
                    The following attributes are required:
                    [feedLabel][google.shopping.merchant.products.v1beta.Product.feed_label],
@@ -390,8 +404,14 @@ class ProductInputsServiceAsyncClient:
 
                    All fields in the product input and its sub-messages
                    match the English name of their corresponding
-                   attribute in the vertical spec with [some
-                   exceptions](\ https://support.google.com/merchants/answer/7052112).
+                   attribute in the [Products Data
+                   Specification](https://support.google.com/merchants/answer/188494)
+                   with [some
+                   exceptions](https://support.google.com/merchants/answer/7052112).
+                   The following reference documentation lists the field
+                   names in the **camelCase** casing style while the
+                   Products Data Specification lists the names in the
+                   **snake_case** casing style.
 
         """
         # Create or coerce a protobuf request object.
@@ -508,8 +528,8 @@ class ProductInputsServiceAsyncClient:
                 To specify the update mask for custom attributes you
                 need to add the ``custom_attribute.`` prefix.
 
-                Providing special "*" value for full product replacement
-                is not supported.
+                Providing special "\*" value for full product
+                replacement is not supported.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -530,11 +550,13 @@ class ProductInputsServiceAsyncClient:
                    inputs, rules and supplemental data source data are
                    combined to create the processed
                    [Product][google.shopping.merchant.products.v1beta.Product].
+                   For more information, see [Manage
+                   products](/merchant/api/guides/products/overview).
 
                    Required product input attributes to pass data
                    validation checks are primarily defined in the
                    [Products Data
-                   Specification](\ https://support.google.com/merchants/answer/188494).
+                   Specification](https://support.google.com/merchants/answer/188494).
 
                    The following attributes are required:
                    [feedLabel][google.shopping.merchant.products.v1beta.Product.feed_label],
@@ -548,8 +570,14 @@ class ProductInputsServiceAsyncClient:
 
                    All fields in the product input and its sub-messages
                    match the English name of their corresponding
-                   attribute in the vertical spec with [some
-                   exceptions](\ https://support.google.com/merchants/answer/7052112).
+                   attribute in the [Products Data
+                   Specification](https://support.google.com/merchants/answer/188494)
+                   with [some
+                   exceptions](https://support.google.com/merchants/answer/7052112).
+                   The following reference documentation lists the field
+                   names in the **camelCase** casing style while the
+                   Products Data Specification lists the names in the
+                   **snake_case** casing style.
 
         """
         # Create or coerce a protobuf request object.
@@ -651,11 +679,11 @@ class ProductInputsServiceAsyncClient:
             name (:class:`str`):
                 Required. The name of the product input resource to
                 delete. Format:
-                accounts/{account}/productInputs/{product} where the
+                ``accounts/{account}/productInputs/{product}`` where the
                 last section ``product`` consists of 4 parts:
-                channel~content_language~feed_label~offer_id example for
-                product name is
-                "accounts/123/productInputs/online~en~US~sku123"
+                ``channel~content_language~feed_label~offer_id`` example
+                for product name is
+                ``accounts/123/productInputs/online~en~US~sku123``.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this

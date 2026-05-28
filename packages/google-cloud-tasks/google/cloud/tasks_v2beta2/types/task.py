@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.tasks_v2beta2.types import target
@@ -53,22 +53,22 @@ class Task(proto.Message):
             The task name must have the following format:
             ``projects/PROJECT_ID/locations/LOCATION_ID/queues/QUEUE_ID/tasks/TASK_ID``
 
-            -  ``PROJECT_ID`` can contain letters ([A-Za-z]), numbers
-               ([0-9]), hyphens (-), colons (:), or periods (.). For
-               more information, see `Identifying
-               projects <https://cloud.google.com/resource-manager/docs/creating-managing-projects#identifying_projects>`__
-            -  ``LOCATION_ID`` is the canonical ID for the task's
-               location. The list of available locations can be obtained
-               by calling
-               [ListLocations][google.cloud.location.Locations.ListLocations].
-               For more information, see
-               https://cloud.google.com/about/locations/.
-            -  ``QUEUE_ID`` can contain letters ([A-Za-z]), numbers
-               ([0-9]), or hyphens (-). The maximum length is 100
-               characters.
-            -  ``TASK_ID`` can contain only letters ([A-Za-z]), numbers
-               ([0-9]), hyphens (-), or underscores (_). The maximum
-               length is 500 characters.
+            - ``PROJECT_ID`` can contain letters ([A-Za-z]), numbers
+              ([0-9]), hyphens (-), colons (:), or periods (.). For more
+              information, see `Identifying
+              projects <https://cloud.google.com/resource-manager/docs/creating-managing-projects#identifying_projects>`__
+            - ``LOCATION_ID`` is the canonical ID for the task's
+              location. The list of available locations can be obtained
+              by calling
+              [ListLocations][google.cloud.location.Locations.ListLocations].
+              For more information, see
+              https://cloud.google.com/about/locations/.
+            - ``QUEUE_ID`` can contain letters ([A-Za-z]), numbers
+              ([0-9]), or hyphens (-). The maximum length is 100
+              characters.
+            - ``TASK_ID`` can contain only letters ([A-Za-z]), numbers
+              ([0-9]), hyphens (-), or underscores (\_). The maximum
+              length is 500 characters.
         app_engine_http_request (google.cloud.tasks_v2beta2.types.AppEngineHttpRequest):
             App Engine HTTP request that is sent to the task's target.
             Can be set only if
@@ -154,6 +154,7 @@ class Task(proto.Message):
                 IAM <https://cloud.google.com/iam/>`__ permission on the
                 [Queue][google.cloud.tasks.v2beta2.Queue] resource.
         """
+
         VIEW_UNSPECIFIED = 0
         BASIC = 1
         FULL = 2

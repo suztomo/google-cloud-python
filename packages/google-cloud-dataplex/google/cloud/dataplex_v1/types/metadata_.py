@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -57,6 +57,7 @@ class StorageSystem(proto.Enum):
             The entity data is contained within a
             BigQuery dataset.
     """
+
     STORAGE_SYSTEM_UNSPECIFIED = 0
     CLOUD_STORAGE = 1
     BIGQUERY = 2
@@ -165,12 +166,11 @@ class ListEntitiesRequest(proto.Message):
             Optional. The following filter parameters can be added to
             the URL to limit the entities returned by the API:
 
-            -  Entity ID: ?filter="id=entityID"
-            -  Asset ID: ?filter="asset=assetID"
-            -  Data path ?filter="data_path=gs://my-bucket"
-            -  Is HIVE compatible: ?filter="hive_compatible=true"
-            -  Is BigQuery compatible:
-               ?filter="bigquery_compatible=true".
+            - Entity ID: ?filter="id=entityID"
+            - Asset ID: ?filter="asset=assetID"
+            - Data path ?filter="data_path=gs://my-bucket"
+            - Is HIVE compatible: ?filter="hive_compatible=true"
+            - Is BigQuery compatible: ?filter="bigquery_compatible=true".
     """
 
     class EntityView(proto.Enum):
@@ -185,6 +185,7 @@ class ListEntitiesRequest(proto.Message):
             FILESETS (2):
                 Only list fileset entities.
         """
+
         ENTITY_VIEW_UNSPECIFIED = 0
         TABLES = 1
         FILESETS = 2
@@ -266,6 +267,7 @@ class GetEntityRequest(proto.Message):
                 Include everything. Currently, this is the
                 same as the SCHEMA view.
         """
+
         ENTITY_VIEW_UNSPECIFIED = 0
         BASIC = 1
         SCHEMA = 2
@@ -306,27 +308,27 @@ class ListPartitionsRequest(proto.Message):
             Optional. Filter the partitions returned to the caller using
             a key value pair expression. Supported operators and syntax:
 
-            -  logic operators: AND, OR
-            -  comparison operators: <, >, >=, <= ,=, !=
-            -  LIKE operators:
+            - logic operators: AND, OR
+            - comparison operators: <, >, >=, <= ,=, !=
+            - LIKE operators:
 
-               -  The right hand of a LIKE operator supports "." and "*"
-                  for wildcard searches, for example "value1 LIKE
-                  ".*oo.*"
+              - The right hand of a LIKE operator supports "." and "\*"
+                for wildcard searches, for example "value1 LIKE
+                ".\ *oo.*"
 
-            -  parenthetical grouping: ( )
+            - parenthetical grouping: ( )
 
             Sample filter expression: \`?filter="key1 < value1 OR key2 >
             value2"
 
             **Notes:**
 
-            -  Keys to the left of operators are case insensitive.
-            -  Partition results are sorted first by creation time, then
-               by lexicographic order.
-            -  Up to 20 key value filter pairs are allowed, but due to
-               performance considerations, only the first 10 will be
-               used as a filter.
+            - Keys to the left of operators are case insensitive.
+            - Partition results are sorted first by creation time, then
+              by lexicographic order.
+            - Up to 20 key value filter pairs are allowed, but due to
+              performance considerations, only the first 10 will be used
+              as a filter.
     """
 
     parent: str = proto.Field(
@@ -536,6 +538,7 @@ class Entity(proto.Message):
             FILESET (2):
                 Unstructured data.
         """
+
         TYPE_UNSPECIFIED = 0
         TABLE = 1
         FILESET = 2
@@ -720,20 +723,21 @@ class Schema(proto.Message):
     Attributes:
         user_managed (bool):
             Required. Set to ``true`` if user-managed or ``false`` if
-            managed by Dataplex. The default is ``false`` (managed by
-            Dataplex).
+            managed by Dataplex Universal Catalog. The default is
+            ``false`` (managed by Dataplex Universal Catalog).
 
-            -  Set to ``false``\ to enable Dataplex discovery to update
-               the schema. including new data discovery, schema
-               inference, and schema evolution. Users retain the ability
-               to input and edit the schema. Dataplex treats schema
-               input by the user as though produced by a previous
-               Dataplex discovery operation, and it will evolve the
-               schema and take action based on that treatment.
+            - Set to ``false``\ to enable Dataplex Universal Catalog
+              discovery to update the schema. including new data
+              discovery, schema inference, and schema evolution. Users
+              retain the ability to input and edit the schema. Dataplex
+              Universal Catalog treats schema input by the user as
+              though produced by a previous Dataplex Universal Catalog
+              discovery operation, and it will evolve the schema and
+              take action based on that treatment.
 
-            -  Set to ``true`` to fully manage the entity schema. This
-               setting guarantees that Dataplex will not change schema
-               fields.
+            - Set to ``true`` to fully manage the entity schema. This
+              setting guarantees that Dataplex Universal Catalog will
+              not change schema fields.
         fields (MutableSequence[google.cloud.dataplex_v1.types.Schema.SchemaField]):
             Optional. The sequence of fields describing data in table
             entities. **Note:** BigQuery SchemaFields are immutable.
@@ -786,6 +790,7 @@ class Schema(proto.Message):
             NULL (100):
                 Null field that does not have values.
         """
+
         TYPE_UNSPECIFIED = 0
         BOOLEAN = 1
         BYTE = 2
@@ -818,6 +823,7 @@ class Schema(proto.Message):
                 The field has repeated (0 or more) semantics,
                 and is a list of values.
         """
+
         MODE_UNSPECIFIED = 0
         REQUIRED = 1
         NULLABLE = 2
@@ -835,6 +841,7 @@ class Schema(proto.Message):
                 ``gs://bucket/path/to/table/dt=2019-10-31/lang=en``,
                 ``gs://bucket/path/to/table/dt=2019-10-31/lang=en/late``.
         """
+
         PARTITION_STYLE_UNSPECIFIED = 0
         HIVE_COMPATIBLE = 1
 
@@ -1015,6 +1022,7 @@ class StorageFormat(proto.Message):
             UNKNOWN (1001):
                 Data of an unknown format.
         """
+
         FORMAT_UNSPECIFIED = 0
         PARQUET = 1
         AVRO = 2
@@ -1041,6 +1049,7 @@ class StorageFormat(proto.Message):
             BZIP2 (3):
                 BZip2 compressed set of files.
         """
+
         COMPRESSION_FORMAT_UNSPECIFIED = 0
         GZIP = 2
         BZIP2 = 3
@@ -1172,6 +1181,7 @@ class StorageAccess(proto.Message):
                 Data is accessed through a managed interface
                 using BigQuery APIs.
         """
+
         ACCESS_MODE_UNSPECIFIED = 0
         DIRECT = 1
         MANAGED = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.analytics.admin_v1beta.types import access_report, resources
@@ -296,19 +296,19 @@ class RunAccessReportResponse(proto.Message):
             with account-level requests.
     """
 
-    dimension_headers: MutableSequence[
-        access_report.AccessDimensionHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=access_report.AccessDimensionHeader,
+    dimension_headers: MutableSequence[access_report.AccessDimensionHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=access_report.AccessDimensionHeader,
+        )
     )
-    metric_headers: MutableSequence[
-        access_report.AccessMetricHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=access_report.AccessMetricHeader,
+    metric_headers: MutableSequence[access_report.AccessMetricHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=access_report.AccessMetricHeader,
+        )
     )
     rows: MutableSequence[access_report.AccessRow] = proto.RepeatedField(
         proto.MESSAGE,
@@ -434,7 +434,7 @@ class UpdateAccountRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (for example, "field_to_update"). Omitted
             fields will not be updated. To replace the entire entity,
-            use one path with the string "*" to match all fields.
+            use one path with the string "\*" to match all fields.
     """
 
     account: resources.Account = proto.Field(
@@ -600,7 +600,7 @@ class UpdatePropertyRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     property: resources.Property = proto.Field(
@@ -784,7 +784,7 @@ class UpdateGoogleAdsLinkRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     google_ads_link: resources.GoogleAdsLink = proto.Field(
@@ -1046,12 +1046,12 @@ class SearchChangeHistoryEventsRequest(proto.Message):
         proto.STRING,
         number=2,
     )
-    resource_type: MutableSequence[
-        resources.ChangeHistoryResourceType
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=3,
-        enum=resources.ChangeHistoryResourceType,
+    resource_type: MutableSequence[resources.ChangeHistoryResourceType] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=3,
+            enum=resources.ChangeHistoryResourceType,
+        )
     )
     action: MutableSequence[resources.ActionType] = proto.RepeatedField(
         proto.ENUM,
@@ -1098,12 +1098,12 @@ class SearchChangeHistoryEventsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    change_history_events: MutableSequence[
-        resources.ChangeHistoryEvent
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.ChangeHistoryEvent,
+    change_history_events: MutableSequence[resources.ChangeHistoryEvent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.ChangeHistoryEvent,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1293,7 +1293,7 @@ class UpdateConversionEventRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     conversion_event: resources.ConversionEvent = proto.Field(
@@ -1437,7 +1437,7 @@ class UpdateKeyEventRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     key_event: resources.KeyEvent = proto.Field(
@@ -1575,7 +1575,7 @@ class UpdateCustomDimensionRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     custom_dimension: resources.CustomDimension = proto.Field(
@@ -1714,7 +1714,7 @@ class UpdateCustomMetricRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     custom_metric: resources.CustomMetric = proto.Field(
@@ -1851,7 +1851,7 @@ class UpdateDataRetentionSettingsRequest(proto.Message):
             Required. The list of fields to be updated. Field names must
             be in snake case (e.g., "field_to_update"). Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     data_retention_settings: resources.DataRetentionSettings = proto.Field(
@@ -1912,7 +1912,7 @@ class UpdateDataStreamRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The list of fields to be updated. Omitted fields
             will not be updated. To replace the entire entity, use one
-            path with the string "*" to match all fields.
+            path with the string "\*" to match all fields.
     """
 
     data_stream: resources.DataStream = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_versions():
     client = appengine_admin_v1.VersionsAsyncClient()
 
     # Initialize request argument(s)
-    request = appengine_admin_v1.ListVersionsRequest(
-    )
+    request = appengine_admin_v1.ListVersionsRequest()
 
     # Make the request
     page_result = client.list_versions(request=request)
@@ -48,5 +47,6 @@ async def sample_list_versions():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END appengine_v1_generated_Versions_ListVersions_async]

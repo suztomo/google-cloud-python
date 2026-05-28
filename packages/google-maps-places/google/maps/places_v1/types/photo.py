@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,12 +63,12 @@ class Photo(proto.Message):
         proto.INT32,
         number=3,
     )
-    author_attributions: MutableSequence[
-        attribution.AuthorAttribution
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=attribution.AuthorAttribution,
+    author_attributions: MutableSequence[attribution.AuthorAttribution] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=attribution.AuthorAttribution,
+        )
     )
     flag_content_uri: str = proto.Field(
         proto.STRING,

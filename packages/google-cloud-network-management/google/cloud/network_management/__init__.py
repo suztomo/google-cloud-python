@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@ from google.cloud.network_management import gapic_version as package_version
 __version__ = package_version.__version__
 
 
+from google.cloud.network_management_v1.services.organization_vpc_flow_logs_service.async_client import (
+    OrganizationVpcFlowLogsServiceAsyncClient,
+)
+from google.cloud.network_management_v1.services.organization_vpc_flow_logs_service.client import (
+    OrganizationVpcFlowLogsServiceClient,
+)
 from google.cloud.network_management_v1.services.reachability_service.async_client import (
     ReachabilityServiceAsyncClient,
 )
@@ -62,14 +68,21 @@ from google.cloud.network_management_v1.types.trace import (
     ForwardInfo,
     ForwardingRuleInfo,
     GKEMasterInfo,
+    GkeNetworkPolicyInfo,
+    GkeNetworkPolicySkippedInfo,
+    GkePodInfo,
     GoogleServiceInfo,
+    HybridSubnetInfo,
     InstanceInfo,
+    InterconnectAttachmentInfo,
+    IpMasqueradingSkippedInfo,
     LoadBalancerBackend,
     LoadBalancerBackendInfo,
     LoadBalancerInfo,
     LoadBalancerType,
     NatInfo,
     NetworkInfo,
+    NgfwPacketInspectionInfo,
     ProxyConnectionInfo,
     RedisClusterInfo,
     RedisInstanceInfo,
@@ -89,13 +102,20 @@ from google.cloud.network_management_v1.types.vpc_flow_logs import (
     GetVpcFlowLogsConfigRequest,
     ListVpcFlowLogsConfigsRequest,
     ListVpcFlowLogsConfigsResponse,
+    QueryOrgVpcFlowLogsConfigsRequest,
+    QueryOrgVpcFlowLogsConfigsResponse,
+    ShowEffectiveFlowLogsConfigsRequest,
+    ShowEffectiveFlowLogsConfigsResponse,
     UpdateVpcFlowLogsConfigRequest,
 )
 from google.cloud.network_management_v1.types.vpc_flow_logs_config import (
+    EffectiveVpcFlowLogsConfig,
     VpcFlowLogsConfig,
 )
 
 __all__ = (
+    "OrganizationVpcFlowLogsServiceClient",
+    "OrganizationVpcFlowLogsServiceAsyncClient",
     "ReachabilityServiceClient",
     "ReachabilityServiceAsyncClient",
     "VpcFlowLogsServiceClient",
@@ -127,13 +147,20 @@ __all__ = (
     "ForwardInfo",
     "ForwardingRuleInfo",
     "GKEMasterInfo",
+    "GkeNetworkPolicyInfo",
+    "GkeNetworkPolicySkippedInfo",
+    "GkePodInfo",
     "GoogleServiceInfo",
+    "HybridSubnetInfo",
     "InstanceInfo",
+    "InterconnectAttachmentInfo",
+    "IpMasqueradingSkippedInfo",
     "LoadBalancerBackend",
     "LoadBalancerBackendInfo",
     "LoadBalancerInfo",
     "NatInfo",
     "NetworkInfo",
+    "NgfwPacketInspectionInfo",
     "ProxyConnectionInfo",
     "RedisClusterInfo",
     "RedisInstanceInfo",
@@ -152,6 +179,11 @@ __all__ = (
     "GetVpcFlowLogsConfigRequest",
     "ListVpcFlowLogsConfigsRequest",
     "ListVpcFlowLogsConfigsResponse",
+    "QueryOrgVpcFlowLogsConfigsRequest",
+    "QueryOrgVpcFlowLogsConfigsResponse",
+    "ShowEffectiveFlowLogsConfigsRequest",
+    "ShowEffectiveFlowLogsConfigsResponse",
     "UpdateVpcFlowLogsConfigRequest",
+    "EffectiveVpcFlowLogsConfig",
     "VpcFlowLogsConfig",
 )

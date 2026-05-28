@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -43,7 +43,7 @@ class Federation(proto.Message):
         name (str):
             Immutable. The relative resource name of the federation, of
             the form:
-            projects/{project_number}/locations/{location_id}/federations/{federation_id}`.
+            projects/{project_number}/locations/{location_id}/federations/{federation_id}\`.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time when the metastore
             federation was created.
@@ -106,6 +106,7 @@ class Federation(proto.Message):
                 error and cannot be used. The metastore
                 federation should be deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -170,13 +171,13 @@ class BackendMetastore(proto.Message):
             federated. The formats of the relative resource names for
             the currently supported metastores are listed below:
 
-            -  BigQuery
+            - BigQuery
 
-               -  ``projects/{project_id}``
+              - ``projects/{project_id}``
 
-            -  Dataproc Metastore
+            - Dataproc Metastore
 
-               -  ``projects/{project_id}/locations/{location}/services/{service_id}``
+              - ``projects/{project_id}/locations/{location}/services/{service_id}``
         metastore_type (google.cloud.metastore_v1.types.BackendMetastore.MetastoreType):
             The type of the backend metastore.
     """
@@ -192,6 +193,7 @@ class BackendMetastore(proto.Message):
             DATAPROC_METASTORE (3):
                 The backend metastore is Dataproc Metastore.
         """
+
         METASTORE_TYPE_UNSPECIFIED = 0
         BIGQUERY = 2
         DATAPROC_METASTORE = 3

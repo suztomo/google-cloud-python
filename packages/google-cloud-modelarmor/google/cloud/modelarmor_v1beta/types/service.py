@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -30,8 +30,11 @@ __protobuf__ = proto.module(
         "DetectionConfidenceLevel",
         "SdpFindingLikelihood",
         "InvocationResult",
+        "StreamingMode",
         "Template",
         "FloorSetting",
+        "McpServerFloorSetting",
+        "AiPlatformFloorSetting",
         "ListTemplatesRequest",
         "ListTemplatesResponse",
         "GetTemplateRequest",
@@ -84,6 +87,7 @@ class FilterMatchState(proto.Enum):
         MATCH_FOUND (2):
             Matching criteria is achieved for the filter.
     """
+
     FILTER_MATCH_STATE_UNSPECIFIED = 0
     NO_MATCH_FOUND = 1
     MATCH_FOUND = 2
@@ -102,6 +106,7 @@ class FilterExecutionState(proto.Enum):
             Filter execution was skipped. This can happen
             due to server-side error or permission issue.
     """
+
     FILTER_EXECUTION_STATE_UNSPECIFIED = 0
     EXECUTION_SUCCESS = 1
     EXECUTION_SKIPPED = 2
@@ -122,6 +127,7 @@ class RaiFilterType(proto.Enum):
         DANGEROUS (17):
             Danger
     """
+
     RAI_FILTER_TYPE_UNSPECIFIED = 0
     SEXUALLY_EXPLICIT = 2
     HATE_SPEECH = 3
@@ -144,6 +150,7 @@ class DetectionConfidenceLevel(proto.Enum):
         HIGH (3):
             Low chance of false positives.
     """
+
     DETECTION_CONFIDENCE_LEVEL_UNSPECIFIED = 0
     LOW_AND_ABOVE = 1
     MEDIUM_AND_ABOVE = 2
@@ -170,6 +177,7 @@ class SdpFindingLikelihood(proto.Enum):
             Confidence level is high. Lowest chance of a
             false positive.
     """
+
     SDP_FINDING_LIKELIHOOD_UNSPECIFIED = 0
     VERY_UNLIKELY = 1
     UNLIKELY = 2
@@ -192,10 +200,28 @@ class InvocationResult(proto.Enum):
         FAILURE (3):
             All filters were skipped or failed.
     """
+
     INVOCATION_RESULT_UNSPECIFIED = 0
     SUCCESS = 1
     PARTIAL = 2
     FAILURE = 3
+
+
+class StreamingMode(proto.Enum):
+    r"""Streaming Mode for Sanitize\* API.
+
+    Values:
+        STREAMING_MODE_UNSPECIFIED (0):
+            Default value.
+        STREAMING_MODE_BUFFERED (1):
+            Buffered Streaming mode.
+        STREAMING_MODE_REALTIME (2):
+            Real Time Streaming mode.
+    """
+
+    STREAMING_MODE_UNSPECIFIED = 0
+    STREAMING_MODE_BUFFERED = 1
+    STREAMING_MODE_REALTIME = 2
 
 
 class Template(proto.Message):
@@ -246,7 +272,46 @@ class Template(proto.Message):
                 operations.
             log_sanitize_operations (bool):
                 Optional. If true, log sanitize operations.
+            enforcement_type (google.cloud.modelarmor_v1beta.types.Template.TemplateMetadata.EnforcementType):
+                Optional. Enforcement type for Model Armor
+                filters.
+            multi_language_detection (google.cloud.modelarmor_v1beta.types.Template.TemplateMetadata.MultiLanguageDetection):
+                Optional. Metadata for multi language
+                detection.
         """
+
+        class EnforcementType(proto.Enum):
+            r"""Enforcement type for Model Armor filters.
+
+            Values:
+                ENFORCEMENT_TYPE_UNSPECIFIED (0):
+                    Default value. Same as INSPECT_AND_BLOCK.
+                INSPECT_ONLY (1):
+                    Model Armor filters will run in inspect only
+                    mode. No action will be taken on the request.
+                INSPECT_AND_BLOCK (2):
+                    Model Armor filters will run in inspect and
+                    block mode. Requests that trip Model Armor
+                    filters will be blocked.
+            """
+
+            ENFORCEMENT_TYPE_UNSPECIFIED = 0
+            INSPECT_ONLY = 1
+            INSPECT_AND_BLOCK = 2
+
+        class MultiLanguageDetection(proto.Message):
+            r"""Metadata to enable multi language detection via template.
+
+            Attributes:
+                enable_multi_language_detection (bool):
+                    Required. If true, multi language detection
+                    will be enabled.
+            """
+
+            enable_multi_language_detection: bool = proto.Field(
+                proto.BOOL,
+                number=1,
+            )
 
         ignore_partial_invocation_failures: bool = proto.Field(
             proto.BOOL,
@@ -275,6 +340,18 @@ class Template(proto.Message):
         log_sanitize_operations: bool = proto.Field(
             proto.BOOL,
             number=7,
+        )
+        enforcement_type: "Template.TemplateMetadata.EnforcementType" = proto.Field(
+            proto.ENUM,
+            number=8,
+            enum="Template.TemplateMetadata.EnforcementType",
+        )
+        multi_language_detection: "Template.TemplateMetadata.MultiLanguageDetection" = (
+            proto.Field(
+                proto.MESSAGE,
+                number=9,
+                message="Template.TemplateMetadata.MultiLanguageDetection",
+            )
         )
 
     name: str = proto.Field(
@@ -326,7 +403,67 @@ class FloorSetting(proto.Message):
             Optional. Floor Settings enforcement status.
 
             This field is a member of `oneof`_ ``_enable_floor_setting_enforcement``.
+        integrated_services (MutableSequence[google.cloud.modelarmor_v1beta.types.FloorSetting.IntegratedService]):
+            Optional. List of integrated services for
+            which the floor setting is applicable.
+        ai_platform_floor_setting (google.cloud.modelarmor_v1beta.types.AiPlatformFloorSetting):
+            Optional. AI Platform floor setting.
+
+            This field is a member of `oneof`_ ``_ai_platform_floor_setting``.
+        floor_setting_metadata (google.cloud.modelarmor_v1beta.types.FloorSetting.FloorSettingMetadata):
+            Optional. Metadata for FloorSetting
+        google_mcp_server_floor_setting (google.cloud.modelarmor_v1beta.types.McpServerFloorSetting):
+            Optional. Google MCP Server floor setting.
+
+            This field is a member of `oneof`_ ``_google_mcp_server_floor_setting``.
     """
+
+    class IntegratedService(proto.Enum):
+        r"""Integrated service for which the floor setting is applicable.
+
+        Values:
+            INTEGRATED_SERVICE_UNSPECIFIED (0):
+                Unspecified integrated service.
+            AI_PLATFORM (1):
+                AI Platform.
+            GOOGLE_MCP_SERVER (2):
+                Google MCP Server (via Shim Service
+                Extension)
+        """
+
+        INTEGRATED_SERVICE_UNSPECIFIED = 0
+        AI_PLATFORM = 1
+        GOOGLE_MCP_SERVER = 2
+
+    class FloorSettingMetadata(proto.Message):
+        r"""message describing FloorSetting Metadata
+
+        Attributes:
+            multi_language_detection (google.cloud.modelarmor_v1beta.types.FloorSetting.FloorSettingMetadata.MultiLanguageDetection):
+                Optional. Metadata for multi language
+                detection.
+        """
+
+        class MultiLanguageDetection(proto.Message):
+            r"""Metadata to enable multi language detection via floor
+            setting.
+
+            Attributes:
+                enable_multi_language_detection (bool):
+                    Required. If true, multi language detection
+                    will be enabled.
+            """
+
+            enable_multi_language_detection: bool = proto.Field(
+                proto.BOOL,
+                number=1,
+            )
+
+        multi_language_detection: "FloorSetting.FloorSettingMetadata.MultiLanguageDetection" = proto.Field(
+            proto.MESSAGE,
+            number=1,
+            message="FloorSetting.FloorSettingMetadata.MultiLanguageDetection",
+        )
 
     name: str = proto.Field(
         proto.STRING,
@@ -351,6 +488,127 @@ class FloorSetting(proto.Message):
         proto.BOOL,
         number=5,
         optional=True,
+    )
+    integrated_services: MutableSequence[IntegratedService] = proto.RepeatedField(
+        proto.ENUM,
+        number=6,
+        enum=IntegratedService,
+    )
+    ai_platform_floor_setting: "AiPlatformFloorSetting" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        optional=True,
+        message="AiPlatformFloorSetting",
+    )
+    floor_setting_metadata: FloorSettingMetadata = proto.Field(
+        proto.MESSAGE,
+        number=8,
+        message=FloorSettingMetadata,
+    )
+    google_mcp_server_floor_setting: "McpServerFloorSetting" = proto.Field(
+        proto.MESSAGE,
+        number=9,
+        optional=True,
+        message="McpServerFloorSetting",
+    )
+
+
+class McpServerFloorSetting(proto.Message):
+    r"""Message describing MCP Server Floor Setting.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        inspect_only (bool):
+            Optional. If true, Model Armor filters will
+            be run in inspect only mode. No action will be
+            taken on the request.
+
+            This field is a member of `oneof`_ ``enforcement_type``.
+        inspect_and_block (bool):
+            Optional. If true, Model Armor filters will
+            be run in inspect and block mode. Requests that
+            trip Model Armor filters will be blocked.
+
+            This field is a member of `oneof`_ ``enforcement_type``.
+        enable_cloud_logging (bool):
+            Optional. If true, log Model Armor filter
+            results to Cloud Logging.
+        apis (MutableSequence[str]):
+            Optional. List of MCP servers for which the
+            MCP floor setting is applicable. Examples:
+            "bigquery.googleapis.com/mcp",
+            "run.googleapis.com/mcp" Empty list denotes that
+            the floor setting is applicable to all MCP
+            servers.
+    """
+
+    inspect_only: bool = proto.Field(
+        proto.BOOL,
+        number=1,
+        oneof="enforcement_type",
+    )
+    inspect_and_block: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+        oneof="enforcement_type",
+    )
+    enable_cloud_logging: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+    apis: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+
+
+class AiPlatformFloorSetting(proto.Message):
+    r"""message describing AiPlatformFloorSetting
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        inspect_only (bool):
+            Optional. If true, Model Armor filters will
+            be run in inspect only mode. No action will be
+            taken on the request.
+
+            This field is a member of `oneof`_ ``enforcement_type``.
+        inspect_and_block (bool):
+            Optional. If true, Model Armor filters will
+            be run in inspect and block mode. Requests that
+            trip Model Armor filters will be blocked.
+
+            This field is a member of `oneof`_ ``enforcement_type``.
+        enable_cloud_logging (bool):
+            Optional. If true, log Model Armor filter
+            results to Cloud Logging.
+    """
+
+    inspect_only: bool = proto.Field(
+        proto.BOOL,
+        number=1,
+        oneof="enforcement_type",
+    )
+    inspect_and_block: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+        oneof="enforcement_type",
+    )
+    enable_cloud_logging: bool = proto.Field(
+        proto.BOOL,
+        number=3,
     )
 
 
@@ -691,8 +949,9 @@ class PiAndJailbreakFilterSettings(proto.Message):
             ENABLED (1):
                 Enabled
             DISABLED (2):
-                Enabled
+                Disabled
         """
+
         PI_AND_JAILBREAK_FILTER_ENFORCEMENT_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -730,6 +989,7 @@ class MaliciousUriFilterSettings(proto.Message):
             DISABLED (2):
                 Disabled
         """
+
         MALICIOUS_URI_FILTER_ENFORCEMENT_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -849,6 +1109,7 @@ class SdpBasicConfig(proto.Message):
             DISABLED (2):
                 Disabled
         """
+
         SDP_BASIC_CONFIG_ENFORCEMENT_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -903,6 +1164,8 @@ class SdpAdvancedConfig(proto.Message):
 class SanitizeUserPromptRequest(proto.Message):
     r"""Sanitize User Prompt request.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         name (str):
             Required. Represents resource name of
@@ -910,6 +1173,13 @@ class SanitizeUserPromptRequest(proto.Message):
             name=projects/sample-project/locations/us-central1/templates/templ01
         user_prompt_data (google.cloud.modelarmor_v1beta.types.DataItem):
             Required. User prompt data to sanitize.
+        multi_language_detection_metadata (google.cloud.modelarmor_v1beta.types.MultiLanguageDetectionMetadata):
+            Optional. Metadata related to Multi Language
+            Detection.
+        streaming_mode (google.cloud.modelarmor_v1beta.types.StreamingMode):
+            Optional. Streaming Mode for StreamSanitize\* API.
+
+            This field is a member of `oneof`_ ``_streaming_mode``.
     """
 
     name: str = proto.Field(
@@ -921,10 +1191,23 @@ class SanitizeUserPromptRequest(proto.Message):
         number=2,
         message="DataItem",
     )
+    multi_language_detection_metadata: "MultiLanguageDetectionMetadata" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="MultiLanguageDetectionMetadata",
+    )
+    streaming_mode: "StreamingMode" = proto.Field(
+        proto.ENUM,
+        number=7,
+        optional=True,
+        enum="StreamingMode",
+    )
 
 
 class SanitizeModelResponseRequest(proto.Message):
     r"""Sanitize Model Response request.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         name (str):
@@ -937,7 +1220,12 @@ class SanitizeModelResponseRequest(proto.Message):
             Optional. User Prompt associated with Model
             response.
         multi_language_detection_metadata (google.cloud.modelarmor_v1beta.types.MultiLanguageDetectionMetadata):
-            Optional. Metadata related for Translations.
+            Optional. Metadata related for multi language
+            detection.
+        streaming_mode (google.cloud.modelarmor_v1beta.types.StreamingMode):
+            Optional. Streaming Mode for StreamSanitize\* API.
+
+            This field is a member of `oneof`_ ``_streaming_mode``.
     """
 
     name: str = proto.Field(
@@ -957,6 +1245,12 @@ class SanitizeModelResponseRequest(proto.Message):
         proto.MESSAGE,
         number=7,
         message="MultiLanguageDetectionMetadata",
+    )
+    streaming_mode: "StreamingMode" = proto.Field(
+        proto.ENUM,
+        number=8,
+        optional=True,
+        enum="StreamingMode",
     )
 
 
@@ -1074,7 +1368,37 @@ class SanitizationResult(proto.Message):
 
 
 class MultiLanguageDetectionMetadata(proto.Message):
-    r"""Message for Translation Support."""
+    r"""Message for Enabling Multi Language Detection.
+
+    Attributes:
+        source_language (str):
+            Optional. Optional Source language of the user prompt.
+
+            If multi-language detection is enabled and this field is not
+            set, the source language will be automatically detected.
+            When a source language is provided, Model Armor uses it to
+            sanitize the input. In that case the system does not perform
+            auto-detection and relies solely on the specified language.
+
+            This string field accepts a language code from the ISO-639
+            standard. For a list of languages supported by Model Armor,
+            see [Model Armor supported languages]
+            (https://cloud.google.com/security-command-center/docs/model-armor-overview#languages-supported).
+            For a comprehensive list of language codes, see
+            `ISO-639 <https://cloud.google.com/translate/docs/languages#nmt>`__.
+        enable_multi_language_detection (bool):
+            Optional. Enable detection of multi-language
+            prompts and responses.
+    """
+
+    source_language: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    enable_multi_language_detection: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+    )
 
 
 class FilterResult(proto.Message):
@@ -1174,7 +1498,7 @@ class RaiFilterResult(proto.Message):
         rai_filter_type_results (MutableMapping[str, google.cloud.modelarmor_v1beta.types.RaiFilterResult.RaiFilterTypeResult]):
             The map of RAI filter results where key is RAI filter type -
             either of "sexually_explicit", "hate_speech", "harassment",
-            "dangerous".
+            "dangerous", "violence", "sexually_suggestive".
     """
 
     class RaiFilterTypeResult(proto.Message):
@@ -1365,6 +1689,9 @@ class ByteDataItem(proto.Message):
             Required. The type of byte data
         byte_data (bytes):
             Required. Bytes Data
+        file_label (str):
+            Optional. Label of the file. This is used to
+            identify the file in the response.
     """
 
     class ByteItemType(proto.Enum):
@@ -1387,7 +1714,10 @@ class ByteDataItem(proto.Message):
                 TXT
             CSV (7):
                 CSV
+            ZIP (9):
+                ZIP
         """
+
         BYTE_ITEM_TYPE_UNSPECIFIED = 0
         PLAINTEXT_UTF8 = 1
         PDF = 2
@@ -1396,6 +1726,7 @@ class ByteDataItem(proto.Message):
         POWERPOINT_DOCUMENT = 5
         TXT = 6
         CSV = 7
+        ZIP = 9
 
     byte_data_type: ByteItemType = proto.Field(
         proto.ENUM,
@@ -1405,6 +1736,10 @@ class ByteDataItem(proto.Message):
     byte_data: bytes = proto.Field(
         proto.BYTES,
         number=2,
+    )
+    file_label: str = proto.Field(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -1490,11 +1825,13 @@ class SdpFinding(proto.Message):
                 containing element. Note that when the content
                 is not textual, this references the UTF-8
                 encoded textual representation of the content.
+                Note: Omitted if content is an image.
             codepoint_range (google.cloud.modelarmor_v1beta.types.RangeInfo):
                 Unicode character offsets delimiting the
                 finding. These are relative to the finding's
                 containing element. Provided when the content is
                 text.
+                Note: Omitted if content is an image.
         """
 
         byte_range: "RangeInfo" = proto.Field(
@@ -1626,12 +1963,12 @@ class MaliciousUriFilterResult(proto.Message):
         number=3,
         enum="FilterMatchState",
     )
-    malicious_uri_matched_items: MutableSequence[
-        MaliciousUriMatchedItem
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=MaliciousUriMatchedItem,
+    malicious_uri_matched_items: MutableSequence[MaliciousUriMatchedItem] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=MaliciousUriMatchedItem,
+        )
     )
 
 
@@ -1679,6 +2016,7 @@ class VirusScanFilterResult(proto.Message):
                 PDF
                 Scanning for only PDF is supported.
         """
+
         SCANNED_CONTENT_TYPE_UNSPECIFIED = 0
         UNKNOWN = 1
         PLAINTEXT = 2
@@ -1747,6 +2085,7 @@ class VirusDetail(proto.Message):
             POTENTIALLY_UNWANTED_CONTENT (5):
                 Potentially unwanted content. E.g. Adware.
         """
+
         THREAT_TYPE_UNSPECIFIED = 0
         UNKNOWN = 1
         VIRUS_OR_WORM = 2
@@ -1827,6 +2166,7 @@ class MessageItem(proto.Message):
             ERROR (3):
                 Error message.
         """
+
         MESSAGE_TYPE_UNSPECIFIED = 0
         INFO = 1
         WARNING = 2

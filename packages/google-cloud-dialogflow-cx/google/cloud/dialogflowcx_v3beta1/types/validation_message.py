@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ class ValidationMessage(proto.Message):
             AGENT_TRANSITION_ROUTE_GROUP (14):
                 Agent transition route group.
         """
+
         RESOURCE_TYPE_UNSPECIFIED = 0
         AGENT = 1
         INTENT = 2
@@ -112,6 +113,7 @@ class ValidationMessage(proto.Message):
             ERROR (3):
                 The agent may experience failures.
         """
+
         SEVERITY_UNSPECIFIED = 0
         INFO = 1
         WARNING = 2

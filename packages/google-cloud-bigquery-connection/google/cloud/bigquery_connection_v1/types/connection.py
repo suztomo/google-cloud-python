@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -359,6 +359,7 @@ class CloudSqlProperties(proto.Message):
             MYSQL (2):
                 Cloud SQL for MySQL.
         """
+
         DATABASE_TYPE_UNSPECIFIED = 0
         POSTGRES = 1
         MYSQL = 2
@@ -672,7 +673,7 @@ class MetastoreServiceConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/locations/[region]/services/[service_id]``
+            - ``projects/[project_id]/locations/[region]/services/[service_id]``
     """
 
     metastore_service: str = proto.Field(
@@ -691,7 +692,7 @@ class SparkHistoryServerConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
+            - ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
     """
 
     dataproc_cluster: str = proto.Field(

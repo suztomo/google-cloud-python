@@ -15,6 +15,11 @@
                 "create_deployment"
               ]
             },
+            "CreateDeploymentGroup": {
+              "methods": [
+                "create_deployment_group"
+              ]
+            },
             "CreatePreview": {
               "methods": [
                 "create_preview"
@@ -25,6 +30,11 @@
                 "delete_deployment"
               ]
             },
+            "DeleteDeploymentGroup": {
+              "methods": [
+                "delete_deployment_group"
+              ]
+            },
             "DeletePreview": {
               "methods": [
                 "delete_preview"
@@ -33,6 +43,11 @@
             "DeleteStatefile": {
               "methods": [
                 "delete_statefile"
+              ]
+            },
+            "DeprovisionDeploymentGroup": {
+              "methods": [
+                "deprovision_deployment_group"
               ]
             },
             "ExportDeploymentStatefile": {
@@ -55,9 +70,24 @@
                 "export_revision_statefile"
               ]
             },
+            "GetAutoMigrationConfig": {
+              "methods": [
+                "get_auto_migration_config"
+              ]
+            },
             "GetDeployment": {
               "methods": [
                 "get_deployment"
+              ]
+            },
+            "GetDeploymentGroup": {
+              "methods": [
+                "get_deployment_group"
+              ]
+            },
+            "GetDeploymentGroupRevision": {
+              "methods": [
+                "get_deployment_group_revision"
               ]
             },
             "GetPreview": {
@@ -68,6 +98,16 @@
             "GetResource": {
               "methods": [
                 "get_resource"
+              ]
+            },
+            "GetResourceChange": {
+              "methods": [
+                "get_resource_change"
+              ]
+            },
+            "GetResourceDrift": {
+              "methods": [
+                "get_resource_drift"
               ]
             },
             "GetRevision": {
@@ -85,6 +125,16 @@
                 "import_statefile"
               ]
             },
+            "ListDeploymentGroupRevisions": {
+              "methods": [
+                "list_deployment_group_revisions"
+              ]
+            },
+            "ListDeploymentGroups": {
+              "methods": [
+                "list_deployment_groups"
+              ]
+            },
             "ListDeployments": {
               "methods": [
                 "list_deployments"
@@ -93,6 +143,16 @@
             "ListPreviews": {
               "methods": [
                 "list_previews"
+              ]
+            },
+            "ListResourceChanges": {
+              "methods": [
+                "list_resource_changes"
+              ]
+            },
+            "ListResourceDrifts": {
+              "methods": [
+                "list_resource_drifts"
               ]
             },
             "ListResources": {
@@ -115,14 +175,29 @@
                 "lock_deployment"
               ]
             },
+            "ProvisionDeploymentGroup": {
+              "methods": [
+                "provision_deployment_group"
+              ]
+            },
             "UnlockDeployment": {
               "methods": [
                 "unlock_deployment"
               ]
             },
+            "UpdateAutoMigrationConfig": {
+              "methods": [
+                "update_auto_migration_config"
+              ]
+            },
             "UpdateDeployment": {
               "methods": [
                 "update_deployment"
+              ]
+            },
+            "UpdateDeploymentGroup": {
+              "methods": [
+                "update_deployment_group"
               ]
             }
           }
@@ -135,6 +210,11 @@
                 "create_deployment"
               ]
             },
+            "CreateDeploymentGroup": {
+              "methods": [
+                "create_deployment_group"
+              ]
+            },
             "CreatePreview": {
               "methods": [
                 "create_preview"
@@ -145,6 +225,11 @@
                 "delete_deployment"
               ]
             },
+            "DeleteDeploymentGroup": {
+              "methods": [
+                "delete_deployment_group"
+              ]
+            },
             "DeletePreview": {
               "methods": [
                 "delete_preview"
@@ -153,6 +238,11 @@
             "DeleteStatefile": {
               "methods": [
                 "delete_statefile"
+              ]
+            },
+            "DeprovisionDeploymentGroup": {
+              "methods": [
+                "deprovision_deployment_group"
               ]
             },
             "ExportDeploymentStatefile": {
@@ -175,9 +265,24 @@
                 "export_revision_statefile"
               ]
             },
+            "GetAutoMigrationConfig": {
+              "methods": [
+                "get_auto_migration_config"
+              ]
+            },
             "GetDeployment": {
               "methods": [
                 "get_deployment"
+              ]
+            },
+            "GetDeploymentGroup": {
+              "methods": [
+                "get_deployment_group"
+              ]
+            },
+            "GetDeploymentGroupRevision": {
+              "methods": [
+                "get_deployment_group_revision"
               ]
             },
             "GetPreview": {
@@ -188,6 +293,16 @@
             "GetResource": {
               "methods": [
                 "get_resource"
+              ]
+            },
+            "GetResourceChange": {
+              "methods": [
+                "get_resource_change"
+              ]
+            },
+            "GetResourceDrift": {
+              "methods": [
+                "get_resource_drift"
               ]
             },
             "GetRevision": {
@@ -205,6 +320,16 @@
                 "import_statefile"
               ]
             },
+            "ListDeploymentGroupRevisions": {
+              "methods": [
+                "list_deployment_group_revisions"
+              ]
+            },
+            "ListDeploymentGroups": {
+              "methods": [
+                "list_deployment_groups"
+              ]
+            },
             "ListDeployments": {
               "methods": [
                 "list_deployments"
@@ -213,6 +338,16 @@
             "ListPreviews": {
               "methods": [
                 "list_previews"
+              ]
+            },
+            "ListResourceChanges": {
+              "methods": [
+                "list_resource_changes"
+              ]
+            },
+            "ListResourceDrifts": {
+              "methods": [
+                "list_resource_drifts"
               ]
             },
             "ListResources": {
@@ -235,14 +370,29 @@
                 "lock_deployment"
               ]
             },
+            "ProvisionDeploymentGroup": {
+              "methods": [
+                "provision_deployment_group"
+              ]
+            },
             "UnlockDeployment": {
               "methods": [
                 "unlock_deployment"
               ]
             },
+            "UpdateAutoMigrationConfig": {
+              "methods": [
+                "update_auto_migration_config"
+              ]
+            },
             "UpdateDeployment": {
               "methods": [
                 "update_deployment"
+              ]
+            },
+            "UpdateDeploymentGroup": {
+              "methods": [
+                "update_deployment_group"
               ]
             }
           }
@@ -255,6 +405,11 @@
                 "create_deployment"
               ]
             },
+            "CreateDeploymentGroup": {
+              "methods": [
+                "create_deployment_group"
+              ]
+            },
             "CreatePreview": {
               "methods": [
                 "create_preview"
@@ -265,6 +420,11 @@
                 "delete_deployment"
               ]
             },
+            "DeleteDeploymentGroup": {
+              "methods": [
+                "delete_deployment_group"
+              ]
+            },
             "DeletePreview": {
               "methods": [
                 "delete_preview"
@@ -273,6 +433,11 @@
             "DeleteStatefile": {
               "methods": [
                 "delete_statefile"
+              ]
+            },
+            "DeprovisionDeploymentGroup": {
+              "methods": [
+                "deprovision_deployment_group"
               ]
             },
             "ExportDeploymentStatefile": {
@@ -295,9 +460,24 @@
                 "export_revision_statefile"
               ]
             },
+            "GetAutoMigrationConfig": {
+              "methods": [
+                "get_auto_migration_config"
+              ]
+            },
             "GetDeployment": {
               "methods": [
                 "get_deployment"
+              ]
+            },
+            "GetDeploymentGroup": {
+              "methods": [
+                "get_deployment_group"
+              ]
+            },
+            "GetDeploymentGroupRevision": {
+              "methods": [
+                "get_deployment_group_revision"
               ]
             },
             "GetPreview": {
@@ -308,6 +488,16 @@
             "GetResource": {
               "methods": [
                 "get_resource"
+              ]
+            },
+            "GetResourceChange": {
+              "methods": [
+                "get_resource_change"
+              ]
+            },
+            "GetResourceDrift": {
+              "methods": [
+                "get_resource_drift"
               ]
             },
             "GetRevision": {
@@ -325,6 +515,16 @@
                 "import_statefile"
               ]
             },
+            "ListDeploymentGroupRevisions": {
+              "methods": [
+                "list_deployment_group_revisions"
+              ]
+            },
+            "ListDeploymentGroups": {
+              "methods": [
+                "list_deployment_groups"
+              ]
+            },
             "ListDeployments": {
               "methods": [
                 "list_deployments"
@@ -333,6 +533,16 @@
             "ListPreviews": {
               "methods": [
                 "list_previews"
+              ]
+            },
+            "ListResourceChanges": {
+              "methods": [
+                "list_resource_changes"
+              ]
+            },
+            "ListResourceDrifts": {
+              "methods": [
+                "list_resource_drifts"
               ]
             },
             "ListResources": {
@@ -355,14 +565,29 @@
                 "lock_deployment"
               ]
             },
+            "ProvisionDeploymentGroup": {
+              "methods": [
+                "provision_deployment_group"
+              ]
+            },
             "UnlockDeployment": {
               "methods": [
                 "unlock_deployment"
               ]
             },
+            "UpdateAutoMigrationConfig": {
+              "methods": [
+                "update_auto_migration_config"
+              ]
+            },
             "UpdateDeployment": {
               "methods": [
                 "update_deployment"
+              ]
+            },
+            "UpdateDeploymentGroup": {
+              "methods": [
+                "update_deployment_group"
               ]
             }
           }

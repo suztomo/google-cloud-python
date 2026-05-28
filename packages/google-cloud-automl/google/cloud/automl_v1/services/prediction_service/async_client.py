@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.automl_v1 import gapic_version as package_version
 
@@ -44,8 +44,8 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
 
 from google.cloud.automl_v1.types import (
     annotation_payload,
@@ -125,7 +125,10 @@ class PredictionServiceAsyncClient:
         Returns:
             PredictionServiceAsyncClient: The constructed client.
         """
-        return PredictionServiceClient.from_service_account_info.__func__(PredictionServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            PredictionServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(PredictionServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -141,7 +144,10 @@ class PredictionServiceAsyncClient:
         Returns:
             PredictionServiceAsyncClient: The constructed client.
         """
-        return PredictionServiceClient.from_service_account_file.__func__(PredictionServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            PredictionServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(PredictionServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -191,7 +197,7 @@ class PredictionServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -320,37 +326,37 @@ class PredictionServiceAsyncClient:
 
         AutoML Vision Classification
 
-        -  An image in .JPEG, .GIF or .PNG format, image_bytes up to
-           30MB.
+        - An image in .JPEG, .GIF or .PNG format, image_bytes up to
+          30MB.
 
         AutoML Vision Object Detection
 
-        -  An image in .JPEG, .GIF or .PNG format, image_bytes up to
-           30MB.
+        - An image in .JPEG, .GIF or .PNG format, image_bytes up to
+          30MB.
 
         AutoML Natural Language Classification
 
-        -  A TextSnippet up to 60,000 characters, UTF-8 encoded or a
-           document in .PDF, .TIF or .TIFF format with size upto 2MB.
+        - A TextSnippet up to 60,000 characters, UTF-8 encoded or a
+          document in .PDF, .TIF or .TIFF format with size upto 2MB.
 
         AutoML Natural Language Entity Extraction
 
-        -  A TextSnippet up to 10,000 characters, UTF-8 NFC encoded or a
-           document in .PDF, .TIF or .TIFF format with size upto 20MB.
+        - A TextSnippet up to 10,000 characters, UTF-8 NFC encoded or a
+          document in .PDF, .TIF or .TIFF format with size upto 20MB.
 
         AutoML Natural Language Sentiment Analysis
 
-        -  A TextSnippet up to 60,000 characters, UTF-8 encoded or a
-           document in .PDF, .TIF or .TIFF format with size upto 2MB.
+        - A TextSnippet up to 60,000 characters, UTF-8 encoded or a
+          document in .PDF, .TIF or .TIFF format with size upto 2MB.
 
         AutoML Translation
 
-        -  A TextSnippet up to 25,000 characters, UTF-8 encoded.
+        - A TextSnippet up to 25,000 characters, UTF-8 encoded.
 
         AutoML Tables
 
-        -  A row with column values matching the columns of the model,
-           up to 5MB. Not available for FORECASTING ``prediction_type``.
+        - A row with column values matching the columns of the model, up
+          to 5MB. Not available for FORECASTING ``prediction_type``.
 
         .. code-block:: python
 
@@ -526,14 +532,14 @@ class PredictionServiceAsyncClient:
         [response][google.longrunning.Operation.response] field.
         Available for following ML scenarios:
 
-        -  AutoML Vision Classification
-        -  AutoML Vision Object Detection
-        -  AutoML Video Intelligence Classification
-        -  AutoML Video Intelligence Object Tracking \* AutoML Natural
-           Language Classification
-        -  AutoML Natural Language Entity Extraction
-        -  AutoML Natural Language Sentiment Analysis
-        -  AutoML Tables
+        - AutoML Vision Classification
+        - AutoML Vision Object Detection
+        - AutoML Video Intelligence Classification
+        - AutoML Video Intelligence Object Tracking \* AutoML Natural
+          Language Classification
+        - AutoML Natural Language Entity Extraction
+        - AutoML Natural Language Sentiment Analysis
+        - AutoML Tables
 
         .. code-block:: python
 
@@ -564,11 +570,11 @@ class PredictionServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.batch_predict(request=request)
+                operation = await client.batch_predict(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

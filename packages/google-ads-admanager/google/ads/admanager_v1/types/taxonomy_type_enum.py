@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@ class TaxonomyTypeEnum(proto.Message):
                 Unspecified/not present
             TAXONOMY_IAB_AUDIENCE_1_1 (3):
                 The IAB Audience Taxonomy v1.1.
+            TAXONOMY_IAB_CONTENT_1_0 (8):
+                The IAB Content Taxonomy v1.0.
             TAXONOMY_IAB_CONTENT_2_1 (4):
                 The IAB Content Taxonomy v2.1.
             TAXONOMY_IAB_CONTENT_2_2 (6):
@@ -51,8 +53,10 @@ class TaxonomyTypeEnum(proto.Message):
             TAXONOMY_GOOGLE_STRUCTURED_VIDEO_1_0 (7):
                 The PPS structured video signals taxonomy.
         """
+
         TAXONOMY_TYPE_UNSPECIFIED = 0
         TAXONOMY_IAB_AUDIENCE_1_1 = 3
+        TAXONOMY_IAB_CONTENT_1_0 = 8
         TAXONOMY_IAB_CONTENT_2_1 = 4
         TAXONOMY_IAB_CONTENT_2_2 = 6
         TAXONOMY_IAB_CONTENT_3_0 = 5

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.visionai_v1alpha1.types import annotations as gcv_annotations
@@ -125,6 +125,7 @@ class ModelType(proto.Enum):
         VERTEX_CUSTOM (8):
             Model Type Vertex Custom.
     """
+
     MODEL_TYPE_UNSPECIFIED = 0
     IMAGE_CLASSIFICATION = 1
     OBJECT_DETECTION = 2
@@ -160,6 +161,7 @@ class AcceleratorType(proto.Enum):
         TPU_V3 (7):
             TPU v3.
     """
+
     ACCELERATOR_TYPE_UNSPECIFIED = 0
     NVIDIA_TESLA_K80 = 1
     NVIDIA_TESLA_P100 = 2
@@ -689,12 +691,12 @@ class AddApplicationStreamInputRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    application_stream_inputs: MutableSequence[
-        "ApplicationStreamInput"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="ApplicationStreamInput",
+    application_stream_inputs: MutableSequence["ApplicationStreamInput"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="ApplicationStreamInput",
+        )
     )
     request_id: str = proto.Field(
         proto.STRING,
@@ -746,12 +748,12 @@ class UpdateApplicationStreamInputRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    application_stream_inputs: MutableSequence[
-        "ApplicationStreamInput"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="ApplicationStreamInput",
+    application_stream_inputs: MutableSequence["ApplicationStreamInput"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="ApplicationStreamInput",
+        )
     )
     request_id: str = proto.Field(
         proto.STRING,
@@ -1182,12 +1184,12 @@ class UpdateApplicationInstancesRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    application_instances: MutableSequence[
-        UpdateApplicationInstance
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=UpdateApplicationInstance,
+    application_instances: MutableSequence[UpdateApplicationInstance] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=UpdateApplicationInstance,
+        )
     )
     request_id: str = proto.Field(
         proto.STRING,
@@ -1549,6 +1551,7 @@ class Application(proto.Message):
             FIXING (10):
                 State Fixing.
         """
+
         STATE_UNSPECIFIED = 0
         CREATED = 1
         DEPLOYING = 2
@@ -1950,6 +1953,7 @@ class Instance(proto.Message):
             FIXING (10):
                 State Fixing.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         CREATED = 2
@@ -2203,6 +2207,7 @@ class Processor(proto.Message):
                 data to other processors or receive data from
                 other processors.
         """
+
         PROCESSOR_TYPE_UNSPECIFIED = 0
         PRETRAINED = 1
         CUSTOM = 2
@@ -2225,6 +2230,7 @@ class Processor(proto.Message):
             FAILED (4):
                 Processor deleted or creation failed .
         """
+
         PROCESSOR_STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -2335,6 +2341,7 @@ class ProcessorIOSpec(proto.Message):
                 Protobuf data type, usually used for general
                 data blob.
         """
+
         DATA_TYPE_UNSPECIFIED = 0
         VIDEO = 1
         PROTO = 2
@@ -2494,19 +2501,19 @@ class ProcessorIOSpec(proto.Message):
             number=3,
         )
 
-    graph_input_channel_specs: MutableSequence[
-        GraphInputChannelSpec
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=GraphInputChannelSpec,
+    graph_input_channel_specs: MutableSequence[GraphInputChannelSpec] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=GraphInputChannelSpec,
+        )
     )
-    graph_output_channel_specs: MutableSequence[
-        GraphOutputChannelSpec
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=GraphOutputChannelSpec,
+    graph_output_channel_specs: MutableSequence[GraphOutputChannelSpec] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=GraphOutputChannelSpec,
+        )
     )
     instance_resource_input_binding_specs: MutableSequence[
         InstanceResourceInputBindingSpec
@@ -2563,6 +2570,7 @@ class CustomProcessorSourceInfo(proto.Message):
                 Custom processors coming from general custom
                 models from Vertex.
         """
+
         SOURCE_TYPE_UNSPECIFIED = 0
         VERTEX_AUTOML = 1
         VERTEX_CUSTOM = 2
@@ -2800,24 +2808,24 @@ class StreamWithAnnotation(proto.Message):
             proto.STRING,
             number=1,
         )
-        annotations: MutableSequence[
-            gcv_annotations.StreamAnnotation
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message=gcv_annotations.StreamAnnotation,
+        annotations: MutableSequence[gcv_annotations.StreamAnnotation] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message=gcv_annotations.StreamAnnotation,
+            )
         )
 
     stream: str = proto.Field(
         proto.STRING,
         number=1,
     )
-    application_annotations: MutableSequence[
-        gcv_annotations.StreamAnnotation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=gcv_annotations.StreamAnnotation,
+    application_annotations: MutableSequence[gcv_annotations.StreamAnnotation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=gcv_annotations.StreamAnnotation,
+        )
     )
     node_annotations: MutableSequence[NodeAnnotation] = proto.RepeatedField(
         proto.MESSAGE,
@@ -2842,12 +2850,12 @@ class ApplicationNodeAnnotation(proto.Message):
         proto.STRING,
         number=1,
     )
-    annotations: MutableSequence[
-        gcv_annotations.StreamAnnotation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=gcv_annotations.StreamAnnotation,
+    annotations: MutableSequence[gcv_annotations.StreamAnnotation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=gcv_annotations.StreamAnnotation,
+        )
     )
 
 
@@ -2872,19 +2880,19 @@ class ResourceAnnotations(proto.Message):
             processor will have two active zones defined.
     """
 
-    application_annotations: MutableSequence[
-        gcv_annotations.StreamAnnotation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcv_annotations.StreamAnnotation,
+    application_annotations: MutableSequence[gcv_annotations.StreamAnnotation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcv_annotations.StreamAnnotation,
+        )
     )
-    node_annotations: MutableSequence[
-        "ApplicationNodeAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="ApplicationNodeAnnotation",
+    node_annotations: MutableSequence["ApplicationNodeAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="ApplicationNodeAnnotation",
+        )
     )
 
 
@@ -2905,12 +2913,12 @@ class VideoStreamInputConfig(proto.Message):
         proto.STRING,
         number=1,
     )
-    streams_with_annotation: MutableSequence[
-        "StreamWithAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="StreamWithAnnotation",
+    streams_with_annotation: MutableSequence["StreamWithAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="StreamWithAnnotation",
+        )
     )
 
 
@@ -2970,6 +2978,7 @@ class PersonBlurConfig(proto.Message):
             BLUR_FILTER (2):
                 FaceBlur Type blur filter.
         """
+
         PERSON_BLUR_TYPE_UNSPECIFIED = 0
         FULL_OCCULUSION = 1
         BLUR_FILTER = 2
@@ -3117,14 +3126,14 @@ class BigQueryConfig(proto.Message):
             transform the annotation output from Vision AI Application
             to arbitrary BigQuery table schema with CloudFunction.
 
-            -  The cloud function will receive
-               AppPlatformCloudFunctionRequest where the annotations
-               field will be the json format of Vision AI annotation.
-            -  The cloud function should return
-               AppPlatformCloudFunctionResponse with AppendRowsRequest
-               stored in the annotations field.
-            -  To drop the annotation, simply clear the annotations
-               field in the returned AppPlatformCloudFunctionResponse.
+            - The cloud function will receive
+              AppPlatformCloudFunctionRequest where the annotations
+              field will be the json format of Vision AI annotation.
+            - The cloud function should return
+              AppPlatformCloudFunctionResponse with AppendRowsRequest
+              stored in the annotations field.
+            - To drop the annotation, simply clear the annotations field
+              in the returned AppPlatformCloudFunctionResponse.
         create_default_table_if_not_exists (bool):
             If true, App Platform will create the
             BigQuery DataSet and the BigQuery Table with
@@ -3234,14 +3243,14 @@ class VertexCustomConfig(proto.Message):
             If not empty, the prediction result will be sent to the
             specified cloud function for post processing.
 
-            -  The cloud function will receive
-               AppPlatformCloudFunctionRequest where the annotations
-               field will be the json format of proto PredictResponse.
-            -  The cloud function should return
-               AppPlatformCloudFunctionResponse with PredictResponse
-               stored in the annotations field.
-            -  To drop the prediction output, simply clear the payload
-               field in the returned AppPlatformCloudFunctionResponse.
+            - The cloud function will receive
+              AppPlatformCloudFunctionRequest where the annotations
+              field will be the json format of proto PredictResponse.
+            - The cloud function should return
+              AppPlatformCloudFunctionResponse with PredictResponse
+              stored in the annotations field.
+            - To drop the prediction output, simply clear the payload
+              field in the returned AppPlatformCloudFunctionResponse.
         attach_application_metadata (bool):
             If true, the prediction request received by
             custom model will also contain metadata with the
@@ -3249,13 +3258,11 @@ class VertexCustomConfig(proto.Message):
 
             'appPlatformMetadata': {
                   'ingestionTime': DOUBLE; (UNIX timestamp)
-                  'application': STRING;
+            'application': STRING;
                   'instanceId': STRING;
                   'node': STRING;
                   'processor': STRING;
-
              }
-
     """
 
     max_prediction_fps: int = proto.Field(
@@ -3327,9 +3334,9 @@ class AutoscalingMetricSpec(proto.Message):
         metric_name (str):
             Required. The resource metric name. Supported metrics:
 
-            -  For Online Prediction:
-            -  ``aiplatform.googleapis.com/prediction/online/accelerator/duty_cycle``
-            -  ``aiplatform.googleapis.com/prediction/online/cpu/utilization``
+            - For Online Prediction:
+            - ``aiplatform.googleapis.com/prediction/online/accelerator/duty_cycle``
+            - ``aiplatform.googleapis.com/prediction/online/cpu/utilization``
         target (int):
             The target resource utilization in percentage
             (1% - 100%) for the given metric; once the real
@@ -3429,12 +3436,12 @@ class DedicatedResources(proto.Message):
         proto.INT32,
         number=3,
     )
-    autoscaling_metric_specs: MutableSequence[
-        "AutoscalingMetricSpec"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="AutoscalingMetricSpec",
+    autoscaling_metric_specs: MutableSequence["AutoscalingMetricSpec"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="AutoscalingMetricSpec",
+        )
     )
 
 

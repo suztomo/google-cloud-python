@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.edgecontainer_v1.types import resources
@@ -100,6 +100,7 @@ class OperationMetadata(proto.Message):
             UPGRADE_PAUSED (1):
                 The cluster upgrade is currently paused.
         """
+
         STATUS_REASON_UNSPECIFIED = 0
         UPGRADE_PAUSED = 1
 
@@ -334,6 +335,7 @@ class UpgradeClusterRequest(proto.Message):
                 The cluster is going to be upgraded
                 immediately after receiving the request.
         """
+
         SCHEDULE_UNSPECIFIED = 0
         IMMEDIATELY = 1
 

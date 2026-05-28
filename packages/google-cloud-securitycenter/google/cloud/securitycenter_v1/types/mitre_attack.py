@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,6 +92,7 @@ class MitreAttack(proto.Message):
             IMPACT (14):
                 TA0040
         """
+
         TACTIC_UNSPECIFIED = 0
         RECONNAISSANCE = 1
         RESOURCE_DEVELOPMENT = 2
@@ -245,6 +246,7 @@ class MitreAttack(proto.Message):
             STEAL_OR_FORGE_AUTHENTICATION_CERTIFICATES (62):
                 T1649
         """
+
         TECHNIQUE_UNSPECIFIED = 0
         MASQUERADING = 49
         MATCH_LEGITIMATE_NAME_OR_LOCATION = 50

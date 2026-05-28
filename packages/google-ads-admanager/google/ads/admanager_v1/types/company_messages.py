@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.ads.admanager_v1.types import (
-    applied_label,
-    company_credit_status_enum,
-    company_type_enum,
-)
+from google.ads.admanager_v1.types import applied_label, company_enums
 
 __protobuf__ = proto.module(
     package="google.ads.admanager.v1",
@@ -35,69 +31,110 @@ __protobuf__ = proto.module(
 
 
 class Company(proto.Message):
-    r"""The ``Company`` resource.
+    r"""The [Company][google.ads.admanager.v1.Company] resource.
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         name (str):
-            Identifier. The resource name of the ``Company``. Format:
+            Identifier. The resource name of the
+            [Company][google.ads.admanager.v1.Company]. Format:
             ``networks/{network_code}/companies/{company_id}``
         company_id (int):
-            Output only. ``Company`` ID.
+            Output only. Deprecated:
+            [Company][google.ads.admanager.v1.Company] ID.
+
+            This field is a member of `oneof`_ ``_company_id``.
         display_name (str):
-            Required. The display name of the ``Company``.
+            Required. The display name of the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 127 characters.
+
+            This field is a member of `oneof`_ ``_display_name``.
         type_ (google.ads.admanager_v1.types.CompanyTypeEnum.CompanyType):
-            Required. The type of the ``Company``.
+            Required. The type of the
+            [Company][google.ads.admanager.v1.Company].
+
+            This field is a member of `oneof`_ ``_type``.
         address (str):
-            Optional. The address for the ``Company``.
+            Optional. The address for the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 1024 characters.
+
+            This field is a member of `oneof`_ ``_address``.
         email (str):
-            Optional. The email for the ``Company``.
+            Optional. The email for the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 128 characters.
+
+            This field is a member of `oneof`_ ``_email``.
         fax (str):
-            Optional. The fax number for the ``Company``.
+            Optional. The fax number for the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 63 characters.
+
+            This field is a member of `oneof`_ ``_fax``.
         phone (str):
-            Optional. The phone number for the ``Company``.
+            Optional. The phone number for the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 63 characters.
+
+            This field is a member of `oneof`_ ``_phone``.
         external_id (str):
-            Optional. The external ID for the ``Company``.
+            Optional. The external ID for the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 255 characters.
+
+            This field is a member of `oneof`_ ``_external_id``.
         comment (str):
-            Optional. Comments about the ``Company``.
+            Optional. Comments about the
+            [Company][google.ads.admanager.v1.Company].
 
             This value has a maximum length of 1024 characters.
-        credit_status (google.ads.admanager_v1.types.CompanyCreditStatusEnum.CompanyCreditStatus):
-            Optional. The credit status of the ``Company``.
 
-            This attribute defaults to ``ACTIVE`` if basic settings are
-            enabled and ``ON_HOLD`` if advance settings are enabled.
+            This field is a member of `oneof`_ ``_comment``.
+        credit_status (google.ads.admanager_v1.types.CompanyCreditStatusEnum.CompanyCreditStatus):
+            Optional. The credit status of the
+            [Company][google.ads.admanager.v1.Company].
+
+            This attribute defaults to [CompanyCreditStatus.ACTIVE][] if
+            basic settings are enabled and
+            [CompanyCreditStatus.ON_HOLD][] if advance settings are
+            enabled.
+
+            This field is a member of `oneof`_ ``_credit_status``.
         applied_labels (MutableSequence[google.ads.admanager_v1.types.AppliedLabel]):
             Optional. The labels that are directly applied to the
-            ``Company``.
+            [Company][google.ads.admanager.v1.Company].
         primary_contact (str):
-            Optional. The resource names of primary Contact of the
-            ``Company``. Format:
+            Optional. The resource names of primary
+            [Contact][google.ads.admanager.v1.Contact] of the
+            [Company][google.ads.admanager.v1.Company]. Format:
             "networks/{network_code}/contacts/{contact_id}".
 
             This field is a member of `oneof`_ ``_primary_contact``.
         applied_teams (MutableSequence[str]):
             Optional. The resource names of Teams that are directly
-            associated with the ``Company``. Format:
+            associated with the
+            [Company][google.ads.admanager.v1.Company]. Format:
             "networks/{network_code}/teams/{team_id}".
-        update_time (google.protobuf.timestamp_pb2.Timestamp):
-            Output only. The time the ``Company`` was last modified.
         third_party_company_id (int):
             Optional. The ID of the Google-recognized canonicalized form
-            of the ``Company``.
+            of the [Company][google.ads.admanager.v1.Company].
+
+            This field is a member of `oneof`_ ``_third_party_company_id``.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time the
+            [Company][google.ads.admanager.v1.Company] was last
+            modified.
+
+            This field is a member of `oneof`_ ``_update_time``.
     """
 
     name: str = proto.Field(
@@ -107,44 +144,56 @@ class Company(proto.Message):
     company_id: int = proto.Field(
         proto.INT64,
         number=2,
+        optional=True,
     )
     display_name: str = proto.Field(
         proto.STRING,
         number=3,
+        optional=True,
     )
-    type_: company_type_enum.CompanyTypeEnum.CompanyType = proto.Field(
+    type_: company_enums.CompanyTypeEnum.CompanyType = proto.Field(
         proto.ENUM,
         number=4,
-        enum=company_type_enum.CompanyTypeEnum.CompanyType,
+        optional=True,
+        enum=company_enums.CompanyTypeEnum.CompanyType,
     )
     address: str = proto.Field(
         proto.STRING,
         number=5,
+        optional=True,
     )
     email: str = proto.Field(
         proto.STRING,
         number=6,
+        optional=True,
     )
     fax: str = proto.Field(
         proto.STRING,
         number=7,
+        optional=True,
     )
     phone: str = proto.Field(
         proto.STRING,
         number=8,
+        optional=True,
     )
     external_id: str = proto.Field(
         proto.STRING,
         number=9,
+        optional=True,
     )
     comment: str = proto.Field(
         proto.STRING,
         number=10,
+        optional=True,
     )
-    credit_status: company_credit_status_enum.CompanyCreditStatusEnum.CompanyCreditStatus = proto.Field(
-        proto.ENUM,
-        number=11,
-        enum=company_credit_status_enum.CompanyCreditStatusEnum.CompanyCreditStatus,
+    credit_status: company_enums.CompanyCreditStatusEnum.CompanyCreditStatus = (
+        proto.Field(
+            proto.ENUM,
+            number=11,
+            optional=True,
+            enum=company_enums.CompanyCreditStatusEnum.CompanyCreditStatus,
+        )
     )
     applied_labels: MutableSequence[applied_label.AppliedLabel] = proto.RepeatedField(
         proto.MESSAGE,
@@ -160,14 +209,16 @@ class Company(proto.Message):
         proto.STRING,
         number=14,
     )
-    update_time: timestamp_pb2.Timestamp = proto.Field(
-        proto.MESSAGE,
-        number=15,
-        message=timestamp_pb2.Timestamp,
-    )
     third_party_company_id: int = proto.Field(
         proto.INT64,
         number=16,
+        optional=True,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=15,
+        optional=True,
+        message=timestamp_pb2.Timestamp,
     )
 
 

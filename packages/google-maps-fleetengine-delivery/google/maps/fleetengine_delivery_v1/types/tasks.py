@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.fleetengine_delivery_v1.types import common, delivery_vehicles
@@ -78,23 +78,23 @@ class Task(proto.Message):
             ``SCHEDULED_STOP``. These IDs are subject to the following
             restrictions:
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         delivery_vehicle_id (str):
             Output only. The ID of the vehicle that is executing this
             Task. Delivery Vehicle IDs are subject to the following
             restrictions:
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         planned_location (google.maps.fleetengine_delivery_v1.types.LocationInfo):
             Immutable. The location where the Task will be completed.
             Optional for ``UNAVAILABLE`` Tasks, but required for all
@@ -144,6 +144,7 @@ class Task(proto.Message):
                 happen when the driver takes a break, or when
                 the vehicle is being refueled.
         """
+
         TYPE_UNSPECIFIED = 0
         PICKUP = 1
         DELIVERY = 2
@@ -165,6 +166,7 @@ class Task(proto.Message):
                 When the vehicle passes the vehicle stop for
                 this Task.
         """
+
         STATE_UNSPECIFIED = 0
         OPEN = 1
         CLOSED = 2
@@ -183,6 +185,7 @@ class Task(proto.Message):
                 Either the Task couldn't be completed, or it
                 was cancelled.
         """
+
         TASK_OUTCOME_UNSPECIFIED = 0
         SUCCEEDED = 1
         FAILED = 2
@@ -200,6 +203,7 @@ class Task(proto.Message):
                 The provider didn't specify the ``task_outcome_location``,
                 so Fleet Engine used the last known vehicle location.
         """
+
         TASK_OUTCOME_LOCATION_SOURCE_UNSPECIFIED = 0
         PROVIDER = 2
         LAST_VEHICLE_LOCATION = 3

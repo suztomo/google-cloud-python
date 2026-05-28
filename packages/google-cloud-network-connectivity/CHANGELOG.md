@@ -1,5 +1,83 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-network-connectivity/#history
+
+## [2.15.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.14.0...google-cloud-network-connectivity-v2.15.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.13.0...google-cloud-network-connectivity-v2.14.0) (2026-03-23)
+
+
+### Features
+
+* onboard a new library ([2647414d77cd75ce9db5db9052a0a072d39c52c4](https://github.com/googleapis/google-cloud-python/commit/2647414d77cd75ce9db5db9052a0a072d39c52c4))
+
+
+### Bug Fixes
+
+* add warehouse package name to v1beta ([370172157701421448e899016df5e808bc3c11a1](https://github.com/googleapis/google-cloud-python/commit/370172157701421448e899016df5e808bc3c11a1))
+
+## [2.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.12.0...google-cloud-network-connectivity-v2.13.0) (2026-01-22)
+
+
+### Features
+
+* Added OUTPUT_ONLY annotations to create_time and update_time in InternalRange to reflect existing service behavior ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+## [2.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.11.0...google-cloud-network-connectivity-v2.12.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [2.11.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.10.0...google-cloud-network-connectivity-v2.11.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [2.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.9.0...google-cloud-network-connectivity-v2.10.0) (2025-09-08)
+
+
+### Features
+
+* [google-cloud-network-connectivity] introduce DataTransfer APIs ([#14364](https://github.com/googleapis/google-cloud-python/issues/14364)) ([61eb9fa](https://github.com/googleapis/google-cloud-python/commit/61eb9fa706f71a919ecff3a95365a01648a20f1b))
+
+## [2.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.8.1...google-cloud-network-connectivity-v2.9.0) (2025-07-23)
+
+
+### Features
+
+* add Network Connectivity Center APIs for Internal Range service ([62da15d](https://github.com/googleapis/google-cloud-python/commit/62da15d782de5294d641de8b562acefd99c025a4))
+
+## [2.8.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.8.0...google-cloud-network-connectivity-v2.8.1) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([868b006](https://github.com/googleapis/google-cloud-python/commit/868b0069baf1a4bf6705986e0b6885419b35cdcc))
+
 ## [2.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-connectivity-v2.7.2...google-cloud-network-connectivity-v2.8.0) (2025-03-21)
 
 

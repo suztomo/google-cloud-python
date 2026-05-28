@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_create_tuned_model():
     client = generativelanguage_v1beta.ModelServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = generativelanguage_v1beta.CreateTunedModelRequest(
-    )
+    request = generativelanguage_v1beta.CreateTunedModelRequest()
 
     # Make the request
-    operation = client.create_tuned_model(request=request)
+    operation = await client.create_tuned_model(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END generativelanguage_v1beta_generated_ModelService_CreateTunedModel_async]

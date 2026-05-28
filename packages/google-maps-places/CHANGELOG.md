@@ -1,5 +1,92 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-maps-places/#history
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.7.0...google-maps-places-v0.8.0) (2026-03-26)
+
+
+### Features
+
+* add a new `include_future_opening_businesses` flag to Nearby Search, Text Search, and AutocompletPlaces. When true, businesses opening in the future are included in the results. ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* add a new business status `FUTURE_OPENING` for places, along with an `opening_date` field to indicate when the establishment will open in the future ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.6.0...google-maps-places-v0.7.0) (2026-02-19)
+
+
+### Documentation
+
+* A comment for field `photos` in message `.google.maps.places.v1.ContextualContent` is changed ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* A comment for field `reviews` in message `.google.maps.places.v1.ContextualContent` is changed ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+
+### Features
+
+* Add `googleMapsLinks` field for links to different actions on Google Maps ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* Add `googleMapsTypeLabel` field to show type information on Google Maps ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+
+### Bug Fixes
+
+* An existing field `topic` is removed from message `.google.maps.places.v1.ContentBlock` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* An existing field `references` is removed from message `.google.maps.places.v1.ContentBlock` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.5.0...google-maps-places-v0.6.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.4.0...google-maps-places-v0.5.0) (2025-10-28)
+
+
+### Features
+
+* Add Review.visitDate field to indicate when the review author visited  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+* Add Place.consumerAlert field for suspicious review activity  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.3.0...google-maps-places-v0.4.0) (2025-10-23)
+
+
+### Documentation
+
+* Change comments in some fields in Places API  ([c0fe20b3ce3aaedadf7bcb0b9a5d279bbdad7103](https://github.com/googleapis/google-cloud-python/commit/c0fe20b3ce3aaedadf7bcb0b9a5d279bbdad7103))
+
+
+### Features
+
+* Add moved_place and moved_place_id to Place  ([c0fe20b3ce3aaedadf7bcb0b9a5d279bbdad7103](https://github.com/googleapis/google-cloud-python/commit/c0fe20b3ce3aaedadf7bcb0b9a5d279bbdad7103))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.2.2...google-maps-places-v0.3.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.2.2](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.2.1...google-maps-places-v0.2.2) (2025-07-02)
+
+
+### Documentation
+
+* [google-maps-places] clarify behavior of primary types and weekday text ([#14050](https://github.com/googleapis/google-cloud-python/issues/14050)) ([cf3183e](https://github.com/googleapis/google-cloud-python/commit/cf3183ec0774fb22afedea6e03716c31a9004b3a))
+
 ## [0.2.1](https://github.com/googleapis/google-cloud-python/compare/google-maps-places-v0.2.0...google-maps-places-v0.2.1) (2025-05-29)
 
 

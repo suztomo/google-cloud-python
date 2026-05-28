@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.shopping.type.types import types
-from google.type import datetime_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
 import proto  # type: ignore
+from google.shopping.type.types import types
 
 __protobuf__ = proto.module(
     package="google.shopping.merchant.ordertracking.v1beta",
@@ -180,6 +180,7 @@ class OrderTrackingSignal(proto.Message):
                 DELIVERED (2):
                     The shipment is already delivered.
             """
+
             SHIPPING_STATE_UNSPECIFIED = 0
             SHIPPED = 1
             DELIVERED = 2
@@ -350,12 +351,12 @@ class OrderTrackingSignal(proto.Message):
         number=4,
         message=LineItemDetails,
     )
-    shipment_line_item_mapping: MutableSequence[
-        ShipmentLineItemMapping
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=ShipmentLineItemMapping,
+    shipment_line_item_mapping: MutableSequence[ShipmentLineItemMapping] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=ShipmentLineItemMapping,
+        )
     )
     customer_shipping_fee: types.Price = proto.Field(
         proto.MESSAGE,

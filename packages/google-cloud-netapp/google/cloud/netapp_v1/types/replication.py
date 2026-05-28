@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.netapp_v1.types import volume
+from google.cloud.netapp_v1.types import common, volume
 
 __protobuf__ = proto.module(
     package="google.cloud.netapp.v1",
@@ -206,6 +206,10 @@ class Replication(proto.Message):
             Optional. Location of the user cluster.
         hybrid_replication_type (google.cloud.netapp_v1.types.Replication.HybridReplicationType):
             Output only. Type of the hybrid replication.
+        hybrid_replication_user_commands (google.cloud.netapp_v1.types.UserCommands):
+            Output only. Copy pastable snapmirror
+            commands to be executed on onprem cluster by the
+            customer.
     """
 
     class State(proto.Enum):
@@ -232,7 +236,14 @@ class Replication(proto.Message):
             PENDING_SVM_PEERING (9):
                 Replication is waiting for SVM peering to be
                 established.
+            PENDING_REMOTE_RESYNC (10):
+                Replication is waiting for Commands to be
+                executed on Onprem ONTAP.
+            EXTERNALLY_MANAGED_REPLICATION (11):
+                Onprem ONTAP is destination and Replication
+                can only be managed from Onprem.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -241,6 +252,8 @@ class Replication(proto.Message):
         ERROR = 6
         PENDING_CLUSTER_PEERING = 8
         PENDING_SVM_PEERING = 9
+        PENDING_REMOTE_RESYNC = 10
+        EXTERNALLY_MANAGED_REPLICATION = 11
 
     class ReplicationRole(proto.Enum):
         r"""New enum values may be added in future to support different
@@ -254,6 +267,7 @@ class Replication(proto.Message):
             DESTINATION (2):
                 Indicates Destination volume.
         """
+
         REPLICATION_ROLE_UNSPECIFIED = 0
         SOURCE = 1
         DESTINATION = 2
@@ -273,6 +287,7 @@ class Replication(proto.Message):
             DAILY (3):
                 Replication happens once every day.
         """
+
         REPLICATION_SCHEDULE_UNSPECIFIED = 0
         EVERY_10_MINUTES = 1
         HOURLY = 2
@@ -299,7 +314,13 @@ class Replication(proto.Message):
                 Baseline replication is in progress.
             ABORTED (6):
                 Replication is aborted.
+            EXTERNALLY_MANAGED (7):
+                Replication is being managed from Onprem
+                ONTAP.
+            PENDING_PEERING (8):
+                Peering is yet to be established.
         """
+
         MIRROR_STATE_UNSPECIFIED = 0
         PREPARING = 1
         MIRRORED = 2
@@ -307,6 +328,8 @@ class Replication(proto.Message):
         TRANSFERRING = 4
         BASELINE_TRANSFERRING = 5
         ABORTED = 6
+        EXTERNALLY_MANAGED = 7
+        PENDING_PEERING = 8
 
     class HybridReplicationType(proto.Enum):
         r"""Hybrid replication type.
@@ -319,10 +342,20 @@ class Replication(proto.Message):
             CONTINUOUS_REPLICATION (2):
                 Hybrid replication type for continuous
                 replication.
+            ONPREM_REPLICATION (3):
+                New field for reversible OnPrem replication,
+                to be used for data protection.
+            REVERSE_ONPREM_REPLICATION (4):
+                Hybrid replication type for incremental
+                Transfer in the reverse direction (GCNV is
+                source and Onprem is destination)
         """
+
         HYBRID_REPLICATION_TYPE_UNSPECIFIED = 0
         MIGRATION = 1
         CONTINUOUS_REPLICATION = 2
+        ONPREM_REPLICATION = 3
+        REVERSE_ONPREM_REPLICATION = 4
 
     name: str = proto.Field(
         proto.STRING,
@@ -404,6 +437,11 @@ class Replication(proto.Message):
         number=19,
         enum=HybridReplicationType,
     )
+    hybrid_replication_user_commands: common.UserCommands = proto.Field(
+        proto.MESSAGE,
+        number=20,
+        message=common.UserCommands,
+    )
 
 
 class HybridPeeringDetails(proto.Message):
@@ -412,25 +450,25 @@ class HybridPeeringDetails(proto.Message):
 
     Attributes:
         subnet_ip (str):
-            Optional. IP address of the subnet.
+            Output only. IP address of the subnet.
         command (str):
-            Optional. Copy-paste-able commands to be used
-            on user's ONTAP to accept peering requests.
+            Output only. Copy-paste-able commands to be
+            used on user's ONTAP to accept peering requests.
         command_expiry_time (google.protobuf.timestamp_pb2.Timestamp):
-            Optional. Expiration time for the peering
+            Output only. Expiration time for the peering
             command to be executed on user's ONTAP.
         passphrase (str):
-            Optional. Temporary passphrase generated to
-            accept cluster peering command.
+            Output only. Temporary passphrase generated
+            to accept cluster peering command.
         peer_volume_name (str):
-            Optional. Name of the user's local source
+            Output only. Name of the user's local source
             volume to be peered with the destination volume.
         peer_cluster_name (str):
-            Optional. Name of the user's local source
+            Output only. Name of the user's local source
             cluster to be peered with the destination
             cluster.
         peer_svm_name (str):
-            Optional. Name of the user's local source
+            Output only. Name of the user's local source
             vserver svm to be peered with the destination
             vserver svm.
     """

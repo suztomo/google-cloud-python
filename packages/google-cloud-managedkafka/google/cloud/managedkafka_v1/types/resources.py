@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -30,6 +30,8 @@ __protobuf__ = proto.module(
         "NetworkConfig",
         "AccessConfig",
         "GcpConfig",
+        "TlsConfig",
+        "TrustConfig",
         "Topic",
         "ConsumerTopicMetadata",
         "ConsumerPartitionMetadata",
@@ -86,6 +88,9 @@ class Cluster(proto.Message):
             Output only. Reserved for future use.
 
             This field is a member of `oneof`_ ``_satisfies_pzs``.
+        tls_config (google.cloud.managedkafka_v1.types.TlsConfig):
+            Optional. TLS configuration for the Kafka
+            cluster.
     """
 
     class State(proto.Enum):
@@ -101,6 +106,7 @@ class Cluster(proto.Message):
             DELETING (3):
                 The cluster is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -156,6 +162,11 @@ class Cluster(proto.Message):
         number=12,
         optional=True,
     )
+    tls_config: "TlsConfig" = proto.Field(
+        proto.MESSAGE,
+        number=13,
+        message="TlsConfig",
+    )
 
 
 class CapacityConfig(proto.Message):
@@ -203,6 +214,7 @@ class RebalanceConfig(proto.Message):
                 Automatically rebalance topic partitions
                 among brokers when the cluster is scaled up.
         """
+
         MODE_UNSPECIFIED = 0
         NO_REBALANCE = 1
         AUTO_REBALANCE_ON_SCALE_UP = 2
@@ -277,6 +289,75 @@ class GcpConfig(proto.Message):
     kms_key: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+
+
+class TlsConfig(proto.Message):
+    r"""The TLS configuration for the Kafka cluster.
+
+    Attributes:
+        trust_config (google.cloud.managedkafka_v1.types.TrustConfig):
+            Optional. The configuration of the broker
+            truststore. If specified, clients can use mTLS
+            for authentication.
+        ssl_principal_mapping_rules (str):
+            Optional. A list of rules for mapping from SSL principal
+            names to short names. These are applied in order by Kafka.
+            Refer to the Apache Kafka documentation for
+            ``ssl.principal.mapping.rules`` for the precise formatting
+            details and syntax. Example:
+            "RULE:^CN=(.\ *?),OU=ServiceUsers.*\ $/$1@example.com/,DEFAULT"
+
+            This is a static Kafka broker configuration. Setting or
+            modifying this field will trigger a rolling restart of the
+            Kafka brokers to apply the change. An empty string means no
+            rules are applied (Kafka default).
+    """
+
+    trust_config: "TrustConfig" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message="TrustConfig",
+    )
+    ssl_principal_mapping_rules: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class TrustConfig(proto.Message):
+    r"""Sources of CA certificates to install in the broker's
+    truststore.
+
+    Attributes:
+        cas_configs (MutableSequence[google.cloud.managedkafka_v1.types.TrustConfig.CertificateAuthorityServiceConfig]):
+            Optional. Configuration for the Google
+            Certificate Authority Service. Maximum 10.
+    """
+
+    class CertificateAuthorityServiceConfig(proto.Message):
+        r"""A configuration for the Google Certificate Authority Service.
+
+        Attributes:
+            ca_pool (str):
+                Required. The name of the CA pool to pull CA certificates
+                from. Structured like:
+                projects/{project}/locations/{location}/caPools/{ca_pool}.
+                The CA pool does not need to be in the same project or
+                location as the Kafka cluster.
+        """
+
+        ca_pool: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+
+    cas_configs: MutableSequence[CertificateAuthorityServiceConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=CertificateAuthorityServiceConfig,
+        )
     )
 
 
@@ -515,6 +596,7 @@ class ConnectCluster(proto.Message):
             DELETING (3):
                 The cluster is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -705,6 +787,7 @@ class Connector(proto.Message):
             STOPPED (6):
                 The connector has been stopped.
         """
+
         STATE_UNSPECIFIED = 0
         UNASSIGNED = 1
         RUNNING = 2
@@ -794,7 +877,7 @@ class Acl(proto.Message):
             ``transactionalIdPrefixed/{resource_name}``
 
             For acls on all resources of a given type (i.e. the wildcard
-            literal "*"): ``allTopics`` (represents ``topic/*``)
+            literal "\*"): ``allTopics`` (represents ``topic/*``)
             ``allConsumerGroups`` (represents ``consumerGroup/*``)
             ``allTransactionalIds`` (represents ``transactionalId/*``)
         acl_entries (MutableSequence[google.cloud.managedkafka_v1.types.AclEntry]):
@@ -819,7 +902,7 @@ class Acl(proto.Message):
         resource_name (str):
             Output only. The ACL resource name derived from the name.
             For cluster resource_type, this is always "kafka-cluster".
-            Can be the wildcard literal "*".
+            Can be the wildcard literal "\*".
         pattern_type (str):
             Output only. The ACL pattern type derived
             from the name. One of: LITERAL, PREFIXED.
@@ -862,7 +945,7 @@ class AclEntry(proto.Message):
             with the Kafka StandardAuthorizer prefix "User:". For
             example:
             "User:test-kafka-client@test-project.iam.gserviceaccount.com".
-            Can be the wildcard `User:*` to refer to all users.
+            Can be the wildcard "User:\*" to refer to all users.
         permission_type (str):
             Required. The permission type. Accepted
             values are (case insensitive): ALLOW, DENY.
@@ -875,7 +958,7 @@ class AclEntry(proto.Message):
             for valid combinations of resource_type and operation for
             different Kafka API requests.
         host (str):
-            Required. The host. Must be set to "*" for Managed Service
+            Required. The host. Must be set to "\*" for Managed Service
             for Apache Kafka.
     """
 

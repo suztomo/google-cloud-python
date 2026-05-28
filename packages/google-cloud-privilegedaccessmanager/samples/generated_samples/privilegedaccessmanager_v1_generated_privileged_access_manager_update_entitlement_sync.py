@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_entitlement():
     client = privilegedaccessmanager_v1.PrivilegedAccessManagerClient()
 
     # Initialize request argument(s)
-    request = privilegedaccessmanager_v1.UpdateEntitlementRequest(
-    )
+    request = privilegedaccessmanager_v1.UpdateEntitlementRequest()
 
     # Make the request
     operation = client.update_entitlement(request=request)
@@ -51,5 +50,6 @@ def sample_update_entitlement():
 
     # Handle the response
     print(response)
+
 
 # [END privilegedaccessmanager_v1_generated_PrivilegedAccessManager_UpdateEntitlement_sync]

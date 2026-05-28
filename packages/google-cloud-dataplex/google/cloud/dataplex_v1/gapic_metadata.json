@@ -5,6 +5,250 @@
   "protoPackage": "google.cloud.dataplex.v1",
   "schema": "1.0",
   "services": {
+    "BusinessGlossaryService": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "BusinessGlossaryServiceClient",
+          "rpcs": {
+            "CreateGlossary": {
+              "methods": [
+                "create_glossary"
+              ]
+            },
+            "CreateGlossaryCategory": {
+              "methods": [
+                "create_glossary_category"
+              ]
+            },
+            "CreateGlossaryTerm": {
+              "methods": [
+                "create_glossary_term"
+              ]
+            },
+            "DeleteGlossary": {
+              "methods": [
+                "delete_glossary"
+              ]
+            },
+            "DeleteGlossaryCategory": {
+              "methods": [
+                "delete_glossary_category"
+              ]
+            },
+            "DeleteGlossaryTerm": {
+              "methods": [
+                "delete_glossary_term"
+              ]
+            },
+            "GetGlossary": {
+              "methods": [
+                "get_glossary"
+              ]
+            },
+            "GetGlossaryCategory": {
+              "methods": [
+                "get_glossary_category"
+              ]
+            },
+            "GetGlossaryTerm": {
+              "methods": [
+                "get_glossary_term"
+              ]
+            },
+            "ListGlossaries": {
+              "methods": [
+                "list_glossaries"
+              ]
+            },
+            "ListGlossaryCategories": {
+              "methods": [
+                "list_glossary_categories"
+              ]
+            },
+            "ListGlossaryTerms": {
+              "methods": [
+                "list_glossary_terms"
+              ]
+            },
+            "UpdateGlossary": {
+              "methods": [
+                "update_glossary"
+              ]
+            },
+            "UpdateGlossaryCategory": {
+              "methods": [
+                "update_glossary_category"
+              ]
+            },
+            "UpdateGlossaryTerm": {
+              "methods": [
+                "update_glossary_term"
+              ]
+            }
+          }
+        },
+        "grpc-async": {
+          "libraryClient": "BusinessGlossaryServiceAsyncClient",
+          "rpcs": {
+            "CreateGlossary": {
+              "methods": [
+                "create_glossary"
+              ]
+            },
+            "CreateGlossaryCategory": {
+              "methods": [
+                "create_glossary_category"
+              ]
+            },
+            "CreateGlossaryTerm": {
+              "methods": [
+                "create_glossary_term"
+              ]
+            },
+            "DeleteGlossary": {
+              "methods": [
+                "delete_glossary"
+              ]
+            },
+            "DeleteGlossaryCategory": {
+              "methods": [
+                "delete_glossary_category"
+              ]
+            },
+            "DeleteGlossaryTerm": {
+              "methods": [
+                "delete_glossary_term"
+              ]
+            },
+            "GetGlossary": {
+              "methods": [
+                "get_glossary"
+              ]
+            },
+            "GetGlossaryCategory": {
+              "methods": [
+                "get_glossary_category"
+              ]
+            },
+            "GetGlossaryTerm": {
+              "methods": [
+                "get_glossary_term"
+              ]
+            },
+            "ListGlossaries": {
+              "methods": [
+                "list_glossaries"
+              ]
+            },
+            "ListGlossaryCategories": {
+              "methods": [
+                "list_glossary_categories"
+              ]
+            },
+            "ListGlossaryTerms": {
+              "methods": [
+                "list_glossary_terms"
+              ]
+            },
+            "UpdateGlossary": {
+              "methods": [
+                "update_glossary"
+              ]
+            },
+            "UpdateGlossaryCategory": {
+              "methods": [
+                "update_glossary_category"
+              ]
+            },
+            "UpdateGlossaryTerm": {
+              "methods": [
+                "update_glossary_term"
+              ]
+            }
+          }
+        },
+        "rest": {
+          "libraryClient": "BusinessGlossaryServiceClient",
+          "rpcs": {
+            "CreateGlossary": {
+              "methods": [
+                "create_glossary"
+              ]
+            },
+            "CreateGlossaryCategory": {
+              "methods": [
+                "create_glossary_category"
+              ]
+            },
+            "CreateGlossaryTerm": {
+              "methods": [
+                "create_glossary_term"
+              ]
+            },
+            "DeleteGlossary": {
+              "methods": [
+                "delete_glossary"
+              ]
+            },
+            "DeleteGlossaryCategory": {
+              "methods": [
+                "delete_glossary_category"
+              ]
+            },
+            "DeleteGlossaryTerm": {
+              "methods": [
+                "delete_glossary_term"
+              ]
+            },
+            "GetGlossary": {
+              "methods": [
+                "get_glossary"
+              ]
+            },
+            "GetGlossaryCategory": {
+              "methods": [
+                "get_glossary_category"
+              ]
+            },
+            "GetGlossaryTerm": {
+              "methods": [
+                "get_glossary_term"
+              ]
+            },
+            "ListGlossaries": {
+              "methods": [
+                "list_glossaries"
+              ]
+            },
+            "ListGlossaryCategories": {
+              "methods": [
+                "list_glossary_categories"
+              ]
+            },
+            "ListGlossaryTerms": {
+              "methods": [
+                "list_glossary_terms"
+              ]
+            },
+            "UpdateGlossary": {
+              "methods": [
+                "update_glossary"
+              ]
+            },
+            "UpdateGlossaryCategory": {
+              "methods": [
+                "update_glossary_category"
+              ]
+            },
+            "UpdateGlossaryTerm": {
+              "methods": [
+                "update_glossary_term"
+              ]
+            }
+          }
+        }
+      }
+    },
     "CatalogService": {
       "clients": {
         "grpc": {
@@ -30,9 +274,19 @@
                 "create_entry_group"
               ]
             },
+            "CreateEntryLink": {
+              "methods": [
+                "create_entry_link"
+              ]
+            },
             "CreateEntryType": {
               "methods": [
                 "create_entry_type"
+              ]
+            },
+            "CreateMetadataFeed": {
+              "methods": [
+                "create_metadata_feed"
               ]
             },
             "CreateMetadataJob": {
@@ -55,9 +309,19 @@
                 "delete_entry_group"
               ]
             },
+            "DeleteEntryLink": {
+              "methods": [
+                "delete_entry_link"
+              ]
+            },
             "DeleteEntryType": {
               "methods": [
                 "delete_entry_type"
+              ]
+            },
+            "DeleteMetadataFeed": {
+              "methods": [
+                "delete_metadata_feed"
               ]
             },
             "GetAspectType": {
@@ -75,9 +339,19 @@
                 "get_entry_group"
               ]
             },
+            "GetEntryLink": {
+              "methods": [
+                "get_entry_link"
+              ]
+            },
             "GetEntryType": {
               "methods": [
                 "get_entry_type"
+              ]
+            },
+            "GetMetadataFeed": {
+              "methods": [
+                "get_metadata_feed"
               ]
             },
             "GetMetadataJob": {
@@ -105,14 +379,29 @@
                 "list_entry_types"
               ]
             },
+            "ListMetadataFeeds": {
+              "methods": [
+                "list_metadata_feeds"
+              ]
+            },
             "ListMetadataJobs": {
               "methods": [
                 "list_metadata_jobs"
               ]
             },
+            "LookupContext": {
+              "methods": [
+                "lookup_context"
+              ]
+            },
             "LookupEntry": {
               "methods": [
                 "lookup_entry"
+              ]
+            },
+            "LookupEntryLinks": {
+              "methods": [
+                "lookup_entry_links"
               ]
             },
             "SearchEntries": {
@@ -135,9 +424,19 @@
                 "update_entry_group"
               ]
             },
+            "UpdateEntryLink": {
+              "methods": [
+                "update_entry_link"
+              ]
+            },
             "UpdateEntryType": {
               "methods": [
                 "update_entry_type"
+              ]
+            },
+            "UpdateMetadataFeed": {
+              "methods": [
+                "update_metadata_feed"
               ]
             }
           }
@@ -165,9 +464,19 @@
                 "create_entry_group"
               ]
             },
+            "CreateEntryLink": {
+              "methods": [
+                "create_entry_link"
+              ]
+            },
             "CreateEntryType": {
               "methods": [
                 "create_entry_type"
+              ]
+            },
+            "CreateMetadataFeed": {
+              "methods": [
+                "create_metadata_feed"
               ]
             },
             "CreateMetadataJob": {
@@ -190,9 +499,19 @@
                 "delete_entry_group"
               ]
             },
+            "DeleteEntryLink": {
+              "methods": [
+                "delete_entry_link"
+              ]
+            },
             "DeleteEntryType": {
               "methods": [
                 "delete_entry_type"
+              ]
+            },
+            "DeleteMetadataFeed": {
+              "methods": [
+                "delete_metadata_feed"
               ]
             },
             "GetAspectType": {
@@ -210,9 +529,19 @@
                 "get_entry_group"
               ]
             },
+            "GetEntryLink": {
+              "methods": [
+                "get_entry_link"
+              ]
+            },
             "GetEntryType": {
               "methods": [
                 "get_entry_type"
+              ]
+            },
+            "GetMetadataFeed": {
+              "methods": [
+                "get_metadata_feed"
               ]
             },
             "GetMetadataJob": {
@@ -240,14 +569,29 @@
                 "list_entry_types"
               ]
             },
+            "ListMetadataFeeds": {
+              "methods": [
+                "list_metadata_feeds"
+              ]
+            },
             "ListMetadataJobs": {
               "methods": [
                 "list_metadata_jobs"
               ]
             },
+            "LookupContext": {
+              "methods": [
+                "lookup_context"
+              ]
+            },
             "LookupEntry": {
               "methods": [
                 "lookup_entry"
+              ]
+            },
+            "LookupEntryLinks": {
+              "methods": [
+                "lookup_entry_links"
               ]
             },
             "SearchEntries": {
@@ -270,9 +614,19 @@
                 "update_entry_group"
               ]
             },
+            "UpdateEntryLink": {
+              "methods": [
+                "update_entry_link"
+              ]
+            },
             "UpdateEntryType": {
               "methods": [
                 "update_entry_type"
+              ]
+            },
+            "UpdateMetadataFeed": {
+              "methods": [
+                "update_metadata_feed"
               ]
             }
           }
@@ -300,9 +654,19 @@
                 "create_entry_group"
               ]
             },
+            "CreateEntryLink": {
+              "methods": [
+                "create_entry_link"
+              ]
+            },
             "CreateEntryType": {
               "methods": [
                 "create_entry_type"
+              ]
+            },
+            "CreateMetadataFeed": {
+              "methods": [
+                "create_metadata_feed"
               ]
             },
             "CreateMetadataJob": {
@@ -325,9 +689,19 @@
                 "delete_entry_group"
               ]
             },
+            "DeleteEntryLink": {
+              "methods": [
+                "delete_entry_link"
+              ]
+            },
             "DeleteEntryType": {
               "methods": [
                 "delete_entry_type"
+              ]
+            },
+            "DeleteMetadataFeed": {
+              "methods": [
+                "delete_metadata_feed"
               ]
             },
             "GetAspectType": {
@@ -345,9 +719,19 @@
                 "get_entry_group"
               ]
             },
+            "GetEntryLink": {
+              "methods": [
+                "get_entry_link"
+              ]
+            },
             "GetEntryType": {
               "methods": [
                 "get_entry_type"
+              ]
+            },
+            "GetMetadataFeed": {
+              "methods": [
+                "get_metadata_feed"
               ]
             },
             "GetMetadataJob": {
@@ -375,14 +759,29 @@
                 "list_entry_types"
               ]
             },
+            "ListMetadataFeeds": {
+              "methods": [
+                "list_metadata_feeds"
+              ]
+            },
             "ListMetadataJobs": {
               "methods": [
                 "list_metadata_jobs"
               ]
             },
+            "LookupContext": {
+              "methods": [
+                "lookup_context"
+              ]
+            },
             "LookupEntry": {
               "methods": [
                 "lookup_entry"
+              ]
+            },
+            "LookupEntryLinks": {
+              "methods": [
+                "lookup_entry_links"
               ]
             },
             "SearchEntries": {
@@ -405,9 +804,19 @@
                 "update_entry_group"
               ]
             },
+            "UpdateEntryLink": {
+              "methods": [
+                "update_entry_link"
+              ]
+            },
             "UpdateEntryType": {
               "methods": [
                 "update_entry_type"
+              ]
+            },
+            "UpdateMetadataFeed": {
+              "methods": [
+                "update_metadata_feed"
               ]
             }
           }
@@ -511,136 +920,179 @@
     "ContentService": {
       "clients": {
         "grpc": {
-          "libraryClient": "ContentServiceClient",
+          "libraryClient": "ContentServiceClient"
+        },
+        "grpc-async": {
+          "libraryClient": "ContentServiceAsyncClient"
+        },
+        "rest": {
+          "libraryClient": "ContentServiceClient"
+        }
+      }
+    },
+    "DataProductService": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "DataProductServiceClient",
           "rpcs": {
-            "CreateContent": {
+            "CreateDataAsset": {
               "methods": [
-                "create_content"
+                "create_data_asset"
               ]
             },
-            "DeleteContent": {
+            "CreateDataProduct": {
               "methods": [
-                "delete_content"
+                "create_data_product"
               ]
             },
-            "GetContent": {
+            "DeleteDataAsset": {
               "methods": [
-                "get_content"
+                "delete_data_asset"
               ]
             },
-            "GetIamPolicy": {
+            "DeleteDataProduct": {
               "methods": [
-                "get_iam_policy"
+                "delete_data_product"
               ]
             },
-            "ListContent": {
+            "GetDataAsset": {
               "methods": [
-                "list_content"
+                "get_data_asset"
               ]
             },
-            "SetIamPolicy": {
+            "GetDataProduct": {
               "methods": [
-                "set_iam_policy"
+                "get_data_product"
               ]
             },
-            "TestIamPermissions": {
+            "ListDataAssets": {
               "methods": [
-                "test_iam_permissions"
+                "list_data_assets"
               ]
             },
-            "UpdateContent": {
+            "ListDataProducts": {
               "methods": [
-                "update_content"
+                "list_data_products"
+              ]
+            },
+            "UpdateDataAsset": {
+              "methods": [
+                "update_data_asset"
+              ]
+            },
+            "UpdateDataProduct": {
+              "methods": [
+                "update_data_product"
               ]
             }
           }
         },
         "grpc-async": {
-          "libraryClient": "ContentServiceAsyncClient",
+          "libraryClient": "DataProductServiceAsyncClient",
           "rpcs": {
-            "CreateContent": {
+            "CreateDataAsset": {
               "methods": [
-                "create_content"
+                "create_data_asset"
               ]
             },
-            "DeleteContent": {
+            "CreateDataProduct": {
               "methods": [
-                "delete_content"
+                "create_data_product"
               ]
             },
-            "GetContent": {
+            "DeleteDataAsset": {
               "methods": [
-                "get_content"
+                "delete_data_asset"
               ]
             },
-            "GetIamPolicy": {
+            "DeleteDataProduct": {
               "methods": [
-                "get_iam_policy"
+                "delete_data_product"
               ]
             },
-            "ListContent": {
+            "GetDataAsset": {
               "methods": [
-                "list_content"
+                "get_data_asset"
               ]
             },
-            "SetIamPolicy": {
+            "GetDataProduct": {
               "methods": [
-                "set_iam_policy"
+                "get_data_product"
               ]
             },
-            "TestIamPermissions": {
+            "ListDataAssets": {
               "methods": [
-                "test_iam_permissions"
+                "list_data_assets"
               ]
             },
-            "UpdateContent": {
+            "ListDataProducts": {
               "methods": [
-                "update_content"
+                "list_data_products"
+              ]
+            },
+            "UpdateDataAsset": {
+              "methods": [
+                "update_data_asset"
+              ]
+            },
+            "UpdateDataProduct": {
+              "methods": [
+                "update_data_product"
               ]
             }
           }
         },
         "rest": {
-          "libraryClient": "ContentServiceClient",
+          "libraryClient": "DataProductServiceClient",
           "rpcs": {
-            "CreateContent": {
+            "CreateDataAsset": {
               "methods": [
-                "create_content"
+                "create_data_asset"
               ]
             },
-            "DeleteContent": {
+            "CreateDataProduct": {
               "methods": [
-                "delete_content"
+                "create_data_product"
               ]
             },
-            "GetContent": {
+            "DeleteDataAsset": {
               "methods": [
-                "get_content"
+                "delete_data_asset"
               ]
             },
-            "GetIamPolicy": {
+            "DeleteDataProduct": {
               "methods": [
-                "get_iam_policy"
+                "delete_data_product"
               ]
             },
-            "ListContent": {
+            "GetDataAsset": {
               "methods": [
-                "list_content"
+                "get_data_asset"
               ]
             },
-            "SetIamPolicy": {
+            "GetDataProduct": {
               "methods": [
-                "set_iam_policy"
+                "get_data_product"
               ]
             },
-            "TestIamPermissions": {
+            "ListDataAssets": {
               "methods": [
-                "test_iam_permissions"
+                "list_data_assets"
               ]
             },
-            "UpdateContent": {
+            "ListDataProducts": {
               "methods": [
-                "update_content"
+                "list_data_products"
+              ]
+            },
+            "UpdateDataAsset": {
+              "methods": [
+                "update_data_asset"
+              ]
+            },
+            "UpdateDataProduct": {
+              "methods": [
+                "update_data_product"
               ]
             }
           }
@@ -1060,11 +1512,6 @@
                 "create_asset"
               ]
             },
-            "CreateEnvironment": {
-              "methods": [
-                "create_environment"
-              ]
-            },
             "CreateLake": {
               "methods": [
                 "create_lake"
@@ -1085,11 +1532,6 @@
                 "delete_asset"
               ]
             },
-            "DeleteEnvironment": {
-              "methods": [
-                "delete_environment"
-              ]
-            },
             "DeleteLake": {
               "methods": [
                 "delete_lake"
@@ -1108,11 +1550,6 @@
             "GetAsset": {
               "methods": [
                 "get_asset"
-              ]
-            },
-            "GetEnvironment": {
-              "methods": [
-                "get_environment"
               ]
             },
             "GetJob": {
@@ -1145,11 +1582,6 @@
                 "list_assets"
               ]
             },
-            "ListEnvironments": {
-              "methods": [
-                "list_environments"
-              ]
-            },
             "ListJobs": {
               "methods": [
                 "list_jobs"
@@ -1163,11 +1595,6 @@
             "ListLakes": {
               "methods": [
                 "list_lakes"
-              ]
-            },
-            "ListSessions": {
-              "methods": [
-                "list_sessions"
               ]
             },
             "ListTasks": {
@@ -1193,11 +1620,6 @@
             "UpdateAsset": {
               "methods": [
                 "update_asset"
-              ]
-            },
-            "UpdateEnvironment": {
-              "methods": [
-                "update_environment"
               ]
             },
             "UpdateLake": {
@@ -1230,11 +1652,6 @@
                 "create_asset"
               ]
             },
-            "CreateEnvironment": {
-              "methods": [
-                "create_environment"
-              ]
-            },
             "CreateLake": {
               "methods": [
                 "create_lake"
@@ -1255,11 +1672,6 @@
                 "delete_asset"
               ]
             },
-            "DeleteEnvironment": {
-              "methods": [
-                "delete_environment"
-              ]
-            },
             "DeleteLake": {
               "methods": [
                 "delete_lake"
@@ -1278,11 +1690,6 @@
             "GetAsset": {
               "methods": [
                 "get_asset"
-              ]
-            },
-            "GetEnvironment": {
-              "methods": [
-                "get_environment"
               ]
             },
             "GetJob": {
@@ -1315,11 +1722,6 @@
                 "list_assets"
               ]
             },
-            "ListEnvironments": {
-              "methods": [
-                "list_environments"
-              ]
-            },
             "ListJobs": {
               "methods": [
                 "list_jobs"
@@ -1333,11 +1735,6 @@
             "ListLakes": {
               "methods": [
                 "list_lakes"
-              ]
-            },
-            "ListSessions": {
-              "methods": [
-                "list_sessions"
               ]
             },
             "ListTasks": {
@@ -1363,11 +1760,6 @@
             "UpdateAsset": {
               "methods": [
                 "update_asset"
-              ]
-            },
-            "UpdateEnvironment": {
-              "methods": [
-                "update_environment"
               ]
             },
             "UpdateLake": {
@@ -1400,11 +1792,6 @@
                 "create_asset"
               ]
             },
-            "CreateEnvironment": {
-              "methods": [
-                "create_environment"
-              ]
-            },
             "CreateLake": {
               "methods": [
                 "create_lake"
@@ -1425,11 +1812,6 @@
                 "delete_asset"
               ]
             },
-            "DeleteEnvironment": {
-              "methods": [
-                "delete_environment"
-              ]
-            },
             "DeleteLake": {
               "methods": [
                 "delete_lake"
@@ -1448,11 +1830,6 @@
             "GetAsset": {
               "methods": [
                 "get_asset"
-              ]
-            },
-            "GetEnvironment": {
-              "methods": [
-                "get_environment"
               ]
             },
             "GetJob": {
@@ -1485,11 +1862,6 @@
                 "list_assets"
               ]
             },
-            "ListEnvironments": {
-              "methods": [
-                "list_environments"
-              ]
-            },
             "ListJobs": {
               "methods": [
                 "list_jobs"
@@ -1503,11 +1875,6 @@
             "ListLakes": {
               "methods": [
                 "list_lakes"
-              ]
-            },
-            "ListSessions": {
-              "methods": [
-                "list_sessions"
               ]
             },
             "ListTasks": {
@@ -1533,11 +1900,6 @@
             "UpdateAsset": {
               "methods": [
                 "update_asset"
-              ]
-            },
-            "UpdateEnvironment": {
-              "methods": [
-                "update_environment"
               ]
             },
             "UpdateLake": {

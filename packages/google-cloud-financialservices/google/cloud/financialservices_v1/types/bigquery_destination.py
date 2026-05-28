@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ class BigQueryDestination(proto.Message):
                 If the table already exists, the data will be
                 overwritten.
         """
+
         WRITE_DISPOSITION_UNSPECIFIED = 0
         WRITE_EMPTY = 1
         WRITE_TRUNCATE = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,16 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.cloud.video.live_stream_v1 import gapic_version as package_version
 from google.cloud.video.live_stream_v1.types import resources, service
@@ -69,9 +69,10 @@ class LivestreamServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -82,9 +83,11 @@ class LivestreamServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -100,11 +103,16 @@ class LivestreamServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -127,6 +135,8 @@ class LivestreamServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -188,6 +198,16 @@ class LivestreamServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
+            self.start_distribution: gapic_v1.method.wrap_method(
+                self.start_distribution,
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.stop_distribution: gapic_v1.method.wrap_method(
+                self.stop_distribution,
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
             self.create_input: gapic_v1.method.wrap_method(
                 self.create_input,
                 default_timeout=60.0,
@@ -228,6 +248,11 @@ class LivestreamServiceTransport(abc.ABC):
             ),
             self.update_input: gapic_v1.method.wrap_method(
                 self.update_input,
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.preview_input: gapic_v1.method.wrap_method(
+                self.preview_input,
                 default_timeout=60.0,
                 client_info=client_info,
             ),
@@ -299,47 +324,65 @@ class LivestreamServiceTransport(abc.ABC):
             ),
             self.create_clip: gapic_v1.method.wrap_method(
                 self.create_clip,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.delete_clip: gapic_v1.method.wrap_method(
                 self.delete_clip,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.create_dvr_session: gapic_v1.method.wrap_method(
                 self.create_dvr_session,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.list_dvr_sessions: gapic_v1.method.wrap_method(
                 self.list_dvr_sessions,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.get_dvr_session: gapic_v1.method.wrap_method(
                 self.get_dvr_session,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=1.0,
+                    maximum=10.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.delete_dvr_session: gapic_v1.method.wrap_method(
                 self.delete_dvr_session,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.update_dvr_session: gapic_v1.method.wrap_method(
                 self.update_dvr_session,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.create_asset: gapic_v1.method.wrap_method(
                 self.create_asset,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.delete_asset: gapic_v1.method.wrap_method(
                 self.delete_asset,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.get_asset: gapic_v1.method.wrap_method(
@@ -386,7 +429,7 @@ class LivestreamServiceTransport(abc.ABC):
             ),
             self.update_pool: gapic_v1.method.wrap_method(
                 self.update_pool,
-                default_timeout=None,
+                default_timeout=60.0,
                 client_info=client_info,
             ),
             self.get_location: gapic_v1.method.wrap_method(
@@ -499,6 +542,24 @@ class LivestreamServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def start_distribution(
+        self,
+    ) -> Callable[
+        [service.StartDistributionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def stop_distribution(
+        self,
+    ) -> Callable[
+        [service.StopDistributionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def create_input(
         self,
     ) -> Callable[
@@ -539,6 +600,15 @@ class LivestreamServiceTransport(abc.ABC):
     ) -> Callable[
         [service.UpdateInputRequest],
         Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def preview_input(
+        self,
+    ) -> Callable[
+        [service.PreviewInputRequest],
+        Union[service.PreviewInputResponse, Awaitable[service.PreviewInputResponse]],
     ]:
         raise NotImplementedError()
 
@@ -733,13 +803,19 @@ class LivestreamServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

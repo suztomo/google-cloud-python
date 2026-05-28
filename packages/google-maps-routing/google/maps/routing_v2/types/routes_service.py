@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,20 +17,19 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import localized_text_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.localized_text_pb2 as localized_text_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.maps.routing_v2.types import geocoding_results as gmr_geocoding_results
-from google.maps.routing_v2.types import routing_preference as gmr_routing_preference
-from google.maps.routing_v2.types import transit_preferences as gmr_transit_preferences
 from google.maps.routing_v2.types import fallback_info as gmr_fallback_info
-from google.maps.routing_v2.types import polyline, route
+from google.maps.routing_v2.types import geocoding_results as gmr_geocoding_results
+from google.maps.routing_v2.types import polyline, route, route_travel_mode
 from google.maps.routing_v2.types import route_modifiers as gmr_route_modifiers
-from google.maps.routing_v2.types import route_travel_mode
+from google.maps.routing_v2.types import routing_preference as gmr_routing_preference
 from google.maps.routing_v2.types import traffic_model as gmr_traffic_model
+from google.maps.routing_v2.types import transit_preferences as gmr_transit_preferences
 from google.maps.routing_v2.types import units as gmr_units
 from google.maps.routing_v2.types import waypoint as gmr_waypoint
 
@@ -62,6 +61,7 @@ class RouteMatrixElementCondition(proto.Enum):
             information, such as ``distance_meters`` or ``duration``,
             will not be filled out in the element.
     """
+
     ROUTE_MATRIX_ELEMENT_CONDITION_UNSPECIFIED = 0
     ROUTE_EXISTS = 1
     ROUTE_NOT_FOUND = 2
@@ -105,9 +105,10 @@ class ComputeRoutesRequest(proto.Message):
             is set to ``TRANSIT``. Transit trips are available for up to
             7 days in the past or 100 days in the future.
         arrival_time (google.protobuf.timestamp_pb2.Timestamp):
-            Optional. The arrival time. NOTE: Can only be set when
-            [RouteTravelMode][google.maps.routing.v2.RouteTravelMode] is
-            set to ``TRANSIT``. You can specify either
+            Optional. The arrival time. NOTE: This field is ignored when
+            requests specify a
+            [RouteTravelMode][google.maps.routing.v2.RouteTravelMode]
+            other than ``TRANSIT``. You can specify either
             ``departure_time`` or ``arrival_time``, but not both.
             Transit trips are available for up to 7 days in the past or
             100 days in the future.
@@ -221,6 +222,7 @@ class ComputeRoutesRequest(proto.Message):
                 such requests will fail. However, you can use it with any
                 ``routing_preference``.
         """
+
         REFERENCE_ROUTE_UNSPECIFIED = 0
         FUEL_EFFICIENT = 1
         SHORTER_DISTANCE = 2
@@ -258,6 +260,7 @@ class ComputeRoutesRequest(proto.Message):
                 feature is experimental, and the SKU/charge is subject to
                 change.
         """
+
         EXTRA_COMPUTATION_UNSPECIFIED = 0
         TOLLS = 1
         FUEL_CONSUMPTION = 2
@@ -408,17 +411,17 @@ class ComputeRouteMatrixRequest(proto.Message):
             response matrix. Several size restrictions apply to the
             cardinality of origins and destinations:
 
-            -  The sum of the number of origins + the number of
-               destinations specified as either ``place_id`` or
-               ``address`` must be no greater than 50.
-            -  The product of number of origins × number of destinations
-               must be no greater than 625 in any case.
-            -  The product of the number of origins × number of
-               destinations must be no greater than 100 if
-               routing_preference is set to ``TRAFFIC_AWARE_OPTIMAL``.
-            -  The product of the number of origins × number of
-               destinations must be no greater than 100 if travel_mode
-               is set to ``TRANSIT``.
+            - The sum of the number of origins + the number of
+              destinations specified as either ``place_id`` or
+              ``address`` must be no greater than 50.
+            - The product of number of origins × number of destinations
+              must be no greater than 625 in any case.
+            - The product of the number of origins × number of
+              destinations must be no greater than 100 if
+              routing_preference is set to ``TRAFFIC_AWARE_OPTIMAL``.
+            - The product of the number of origins × number of
+              destinations must be no greater than 100 if travel_mode is
+              set to ``TRANSIT``.
         destinations (MutableSequence[google.maps.routing_v2.types.RouteMatrixDestination]):
             Required. Array of destinations, which
             determines the columns of the response matrix.
@@ -474,7 +477,8 @@ class ComputeRouteMatrixRequest(proto.Message):
             the duration field in the
             [RouteMatrixElement][google.maps.routing.v2.RouteMatrixElement]
             which contains the predicted time in traffic based on
-            historical averages.
+            historical averages. ``TrafficModel`` is only available for
+            requests that have set
             [RoutingPreference][google.maps.routing.v2.RoutingPreference]
             to ``TRAFFIC_AWARE_OPTIMAL`` and
             [RouteTravelMode][google.maps.routing.v2.RouteTravelMode] to
@@ -498,6 +502,7 @@ class ComputeRouteMatrixRequest(proto.Message):
             TOLLS (1):
                 Toll information for the matrix element(s).
         """
+
         EXTRA_COMPUTATION_UNSPECIFIED = 0
         TOLLS = 1
 

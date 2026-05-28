@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.batch_v1alpha.types import task
@@ -108,6 +108,7 @@ class Job(proto.Message):
             AS_SOON_AS_POSSIBLE (1):
                 Run all TaskGroups as soon as possible.
         """
+
         SCHEDULING_POLICY_UNSPECIFIED = 0
         AS_SOON_AS_POSSIBLE = 1
 
@@ -220,6 +221,7 @@ class LogsPolicy(proto.Message):
                 Logs are saved to the file path specified in the
                 ``logsPath`` field.
         """
+
         DESTINATION_UNSPECIFIED = 0
         CLOUD_LOGGING = 1
         PATH = 2
@@ -290,6 +292,7 @@ class JobDependency(proto.Message):
             FINISHED (3):
                 SUCCEEDED or FAILED.
         """
+
         TYPE_UNSPECIFIED = 0
         SUCCEEDED = 1
         FAILED = 2
@@ -356,6 +359,7 @@ class JobStatus(proto.Message):
                 executions were stopped and the resources were
                 cleaned up.
         """
+
         STATE_UNSPECIFIED = 0
         QUEUED = 1
         SCHEDULED = 2
@@ -500,6 +504,7 @@ class JobNotification(proto.Message):
             TASK_STATE_CHANGED (2):
                 Notify users that the task state has changed.
         """
+
         TYPE_UNSPECIFIED = 0
         JOB_STATE_CHANGED = 1
         TASK_STATE_CHANGED = 2
@@ -577,11 +582,11 @@ class AllocationPolicy(proto.Message):
 
             Includes the following fields:
 
-            -  email: The service account's email address. If not set,
-               the default Compute Engine service account is used.
-            -  scopes: Additional OAuth scopes to grant the service
-               account, beyond the default cloud-platform scope. (list
-               of strings)
+            - email: The service account's email address. If not set,
+              the default Compute Engine service account is used.
+            - scopes: Additional OAuth scopes to grant the service
+              account, beyond the default cloud-platform scope. (list of
+              strings)
         labels (MutableMapping[str, str]):
             Custom labels to apply to the job and all the Compute Engine
             resources that both are created by this allocation policy
@@ -631,11 +636,20 @@ class AllocationPolicy(proto.Message):
                 model, and has been migrated to use the SPOT
                 model as the underlying technology. This old
                 model will still be supported.
+            RESERVATION_BOUND (4):
+                Bound to the lifecycle of the reservation in
+                which it is provisioned.
+            FLEX_START (5):
+                Instance is provisioned with DWS Flex Start
+                and has limited max run duration.
         """
+
         PROVISIONING_MODEL_UNSPECIFIED = 0
         STANDARD = 1
         SPOT = 2
         PREEMPTIBLE = 3
+        RESERVATION_BOUND = 4
+        FLEX_START = 5
 
     class LocationPolicy(proto.Message):
         r"""
@@ -690,17 +704,17 @@ class AllocationPolicy(proto.Message):
                 URL for a VM image to use as the data source for this disk.
                 For example, the following are all valid URLs:
 
-                -  Specify the image by its family name:
-                   projects/{project}/global/images/family/{image_family}
-                -  Specify the image version:
-                   projects/{project}/global/images/{image_version}
+                - Specify the image by its family name:
+                  projects/{project}/global/images/family/{image_family}
+                - Specify the image version:
+                  projects/{project}/global/images/{image_version}
 
                 You can also use Batch customized image in short names. The
                 following image values are supported for a boot disk:
 
-                -  ``batch-debian``: use Batch Debian images.
-                -  ``batch-cos``: use Batch Container-Optimized images.
-                -  ``batch-hpc-rocky``: use Batch HPC Rocky Linux images.
+                - ``batch-debian``: use Batch Debian images.
+                - ``batch-cos``: use Batch Container-Optimized images.
+                - ``batch-hpc-rocky``: use Batch HPC Rocky Linux images.
 
                 This field is a member of `oneof`_ ``data_source``.
             snapshot (str):
@@ -904,12 +918,12 @@ class AllocationPolicy(proto.Message):
             number=4,
             enum="AllocationPolicy.ProvisioningModel",
         )
-        accelerators: MutableSequence[
-            "AllocationPolicy.Accelerator"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="AllocationPolicy.Accelerator",
+        accelerators: MutableSequence["AllocationPolicy.Accelerator"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="AllocationPolicy.Accelerator",
+            )
         )
         boot_disk: "AllocationPolicy.Disk" = proto.Field(
             proto.MESSAGE,
@@ -981,9 +995,9 @@ class AllocationPolicy(proto.Message):
                 Batch allows project-level SSH keys for a job's VMs only if
                 all the following are true:
 
-                -  This field is undefined or set to ``false``.
-                -  The job's VM instance template (if any) doesn't block
-                   project-level SSH keys.
+                - This field is undefined or set to ``false``.
+                - The job's VM instance template (if any) doesn't block
+                  project-level SSH keys.
 
                 Notably, you can override this behavior by manually updating
                 a VM to block or allow project-level SSH keys. For more
@@ -1026,18 +1040,18 @@ class AllocationPolicy(proto.Message):
 
                 For example, the following are all valid URLs:
 
-                -  https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
-                -  projects/{project}/global/networks/{network}
-                -  global/networks/{network}
+                - https://www.googleapis.com/compute/v1/projects/{project}/global/networks/{network}
+                - projects/{project}/global/networks/{network}
+                - global/networks/{network}
             subnetwork (str):
                 The URL of an existing subnetwork resource in the network.
                 You can specify the subnetwork as a full or partial URL.
 
                 For example, the following are all valid URLs:
 
-                -  https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetwork}
-                -  projects/{project}/regions/{region}/subnetworks/{subnetwork}
-                -  regions/{region}/subnetworks/{subnetwork}
+                - https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/subnetworks/{subnetwork}
+                - projects/{project}/regions/{region}/subnetworks/{subnetwork}
+                - regions/{region}/subnetworks/{subnetwork}
             no_external_ip_address (bool):
                 Default is false (with an external IP
                 address). Required if no external public IP
@@ -1072,12 +1086,12 @@ class AllocationPolicy(proto.Message):
                 Network configurations.
         """
 
-        network_interfaces: MutableSequence[
-            "AllocationPolicy.NetworkInterface"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="AllocationPolicy.NetworkInterface",
+        network_interfaces: MutableSequence["AllocationPolicy.NetworkInterface"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="AllocationPolicy.NetworkInterface",
+            )
         )
 
     class PlacementPolicy(proto.Message):
@@ -1264,6 +1278,7 @@ class TaskGroup(proto.Message):
                 Run Tasks sequentially with increased task
                 index.
         """
+
         SCHEDULING_POLICY_UNSPECIFIED = 0
         AS_SOON_AS_POSSIBLE = 1
         IN_ORDER = 2

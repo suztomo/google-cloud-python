@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.automl_v1 import gapic_version as package_version
 
@@ -44,14 +44,21 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.automl_v1.services.auto_ml import pagers
 from google.cloud.automl_v1.types import (
+    annotation_spec,
+    classification,
+    dataset,
+    detection,
+    image,
+    io,
+    model,
     model_evaluation,
     operations,
     service,
@@ -60,11 +67,7 @@ from google.cloud.automl_v1.types import (
     text_sentiment,
     translation,
 )
-from google.cloud.automl_v1.types import annotation_spec, classification
-from google.cloud.automl_v1.types import dataset
 from google.cloud.automl_v1.types import dataset as gca_dataset
-from google.cloud.automl_v1.types import detection, image, io
-from google.cloud.automl_v1.types import model
 from google.cloud.automl_v1.types import model as gca_model
 
 from .client import AutoMlClient
@@ -144,7 +147,10 @@ class AutoMlAsyncClient:
         Returns:
             AutoMlAsyncClient: The constructed client.
         """
-        return AutoMlClient.from_service_account_info.__func__(AutoMlAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            AutoMlClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(AutoMlAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -160,7 +166,10 @@ class AutoMlAsyncClient:
         Returns:
             AutoMlAsyncClient: The constructed client.
         """
-        return AutoMlClient.from_service_account_file.__func__(AutoMlAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            AutoMlClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(AutoMlAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -210,7 +219,7 @@ class AutoMlAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -356,11 +365,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_dataset(request=request)
+                operation = await client.create_dataset(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -860,11 +869,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_dataset(request=request)
+                operation = await client.delete_dataset(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -976,11 +985,11 @@ class AutoMlAsyncClient:
 
         For Tables:
 
-        -  A
-           [schema_inference_version][google.cloud.automl.v1.InputConfig.params]
-           parameter must be explicitly set. Returns an empty response
-           in the [response][google.longrunning.Operation.response]
-           field when it completes.
+        - A
+          [schema_inference_version][google.cloud.automl.v1.InputConfig.params]
+          parameter must be explicitly set. Returns an empty response in
+          the [response][google.longrunning.Operation.response] field
+          when it completes.
 
         .. code-block:: python
 
@@ -1007,11 +1016,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_data(request=request)
+                operation = await client.import_data(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1159,11 +1168,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.export_data(request=request)
+                operation = await client.export_data(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1415,11 +1424,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_model(request=request)
+                operation = await client.create_model(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1787,11 +1796,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_model(request=request)
+                operation = await client.delete_model(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2055,11 +2064,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.deploy_model(request=request)
+                operation = await client.deploy_model(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2196,11 +2205,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.undeploy_model(request=request)
+                operation = await client.undeploy_model(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2341,11 +2350,11 @@ class AutoMlAsyncClient:
                 )
 
                 # Make the request
-                operation = client.export_model(request=request)
+                operation = await client.export_model(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2620,16 +2629,15 @@ class AutoMlAsyncClient:
                 Required. An expression for filtering the results of the
                 request.
 
-                -  ``annotation_spec_id`` - for =, != or existence. See
-                   example below for the last.
+                - ``annotation_spec_id`` - for =, != or existence. See
+                  example below for the last.
 
                 Some examples of using the filter are:
 
-                -  ``annotation_spec_id!=4`` --> The model evaluation
-                   was done for annotation spec with ID different than
-                   4.
-                -  ``NOT annotation_spec_id:*`` --> The model evaluation
-                   was done for aggregate of all annotation specs.
+                - ``annotation_spec_id!=4`` --> The model evaluation was
+                  done for annotation spec with ID different than 4.
+                - ``NOT annotation_spec_id:*`` --> The model evaluation
+                  was done for aggregate of all annotation specs.
 
                 This corresponds to the ``filter`` field
                 on the ``request`` instance; if ``request`` is provided, this

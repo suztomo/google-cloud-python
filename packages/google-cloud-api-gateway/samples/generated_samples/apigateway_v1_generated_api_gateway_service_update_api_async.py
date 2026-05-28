@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_update_api():
     client = apigateway_v1.ApiGatewayServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = apigateway_v1.UpdateApiRequest(
-    )
+    request = apigateway_v1.UpdateApiRequest()
 
     # Make the request
-    operation = client.update_api(request=request)
+    operation = await client.update_api(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END apigateway_v1_generated_ApiGatewayService_UpdateApi_async]

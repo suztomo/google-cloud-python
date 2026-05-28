@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.cloud.iam_v2 import Policy  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 import proto  # type: ignore
+from google.cloud.iam_v2 import Policy  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.cloud.policytroubleshooter.iam.v3",
@@ -74,6 +74,7 @@ class AllowAccessState(proto.Enum):
             Troubleshooter needs to evaluate the principal's
             access.
     """
+
     ALLOW_ACCESS_STATE_UNSPECIFIED = 0
     ALLOW_ACCESS_STATE_GRANTED = 1
     ALLOW_ACCESS_STATE_NOT_GRANTED = 2
@@ -104,6 +105,7 @@ class DenyAccessState(proto.Enum):
             Troubleshooter needs to evaluate the principal's
             access.
     """
+
     DENY_ACCESS_STATE_UNSPECIFIED = 0
     DENY_ACCESS_STATE_DENIED = 1
     DENY_ACCESS_STATE_NOT_DENIED = 2
@@ -125,6 +127,7 @@ class RolePermissionInclusionState(proto.Enum):
             The sender of the request is not allowed to
             access the role definition.
     """
+
     ROLE_PERMISSION_INCLUSION_STATE_UNSPECIFIED = 0
     ROLE_PERMISSION_INCLUDED = 1
     ROLE_PERMISSION_NOT_INCLUDED = 2
@@ -145,6 +148,7 @@ class PermissionPatternMatchingState(proto.Enum):
             The permission in the request matches the
             permission in the policy.
     """
+
     PERMISSION_PATTERN_MATCHING_STATE_UNSPECIFIED = 0
     PERMISSION_PATTERN_MATCHED = 1
     PERMISSION_PATTERN_NOT_MATCHED = 2
@@ -162,11 +166,11 @@ class MembershipMatchingState(proto.Enum):
             policy. The principal can be included directly or
             indirectly:
 
-            -  A principal is included directly if that principal is
-               listed in the role binding.
-            -  A principal is included indirectly if that principal is
-               in a Google group, Google Workspace account, or Cloud
-               Identity domain that is listed in the policy.
+            - A principal is included directly if that principal is
+              listed in the role binding.
+            - A principal is included indirectly if that principal is in
+              a Google group, Google Workspace account, or Cloud
+              Identity domain that is listed in the policy.
         MEMBERSHIP_NOT_MATCHED (2):
             The principal in the request doesn't match
             the principal in the policy.
@@ -178,6 +182,7 @@ class MembershipMatchingState(proto.Enum):
         MEMBERSHIP_UNKNOWN_UNSUPPORTED (4):
             The principal is an unsupported type.
     """
+
     MEMBERSHIP_MATCHING_STATE_UNSPECIFIED = 0
     MEMBERSHIP_MATCHED = 1
     MEMBERSHIP_NOT_MATCHED = 2
@@ -201,6 +206,7 @@ class HeuristicRelevance(proto.Enum):
             result. Changing the data point is likely to
             affect the overall determination.
     """
+
     HEURISTIC_RELEVANCE_UNSPECIFIED = 0
     HEURISTIC_RELEVANCE_NORMAL = 1
     HEURISTIC_RELEVANCE_HIGH = 2
@@ -266,6 +272,7 @@ class TroubleshootIamPolicyResponse(proto.Message):
                 provide the required context to evaluate the
                 condition.
         """
+
         OVERALL_ACCESS_STATE_UNSPECIFIED = 0
         CAN_ACCESS = 1
         CANNOT_ACCESS = 2
@@ -660,12 +667,12 @@ class ExplainedAllowPolicy(proto.Message):
         proto.STRING,
         number=2,
     )
-    binding_explanations: MutableSequence[
-        "AllowBindingExplanation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message="AllowBindingExplanation",
+    binding_explanations: MutableSequence["AllowBindingExplanation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message="AllowBindingExplanation",
+        )
     )
     relevance: "HeuristicRelevance" = proto.Field(
         proto.ENUM,
@@ -723,8 +730,8 @@ class AllowBindingExplanation(proto.Message):
             For example, suppose that a role binding includes the
             following principals:
 
-            -  ``user:alice@example.com``
-            -  ``group:product-eng@example.com``
+            - ``user:alice@example.com``
+            - ``group:product-eng@example.com``
 
             You want to troubleshoot access for
             ``user:bob@example.com``. This user is a member of the group
@@ -1147,52 +1154,52 @@ class DenyRuleExplanation(proto.Message):
         number=2,
         message=AnnotatedPermissionMatching,
     )
-    denied_permissions: MutableMapping[
-        str, AnnotatedPermissionMatching
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=3,
-        message=AnnotatedPermissionMatching,
+    denied_permissions: MutableMapping[str, AnnotatedPermissionMatching] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=3,
+            message=AnnotatedPermissionMatching,
+        )
     )
     combined_exception_permission: AnnotatedPermissionMatching = proto.Field(
         proto.MESSAGE,
         number=4,
         message=AnnotatedPermissionMatching,
     )
-    exception_permissions: MutableMapping[
-        str, AnnotatedPermissionMatching
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=5,
-        message=AnnotatedPermissionMatching,
+    exception_permissions: MutableMapping[str, AnnotatedPermissionMatching] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=5,
+            message=AnnotatedPermissionMatching,
+        )
     )
     combined_denied_principal: AnnotatedDenyPrincipalMatching = proto.Field(
         proto.MESSAGE,
         number=6,
         message=AnnotatedDenyPrincipalMatching,
     )
-    denied_principals: MutableMapping[
-        str, AnnotatedDenyPrincipalMatching
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=7,
-        message=AnnotatedDenyPrincipalMatching,
+    denied_principals: MutableMapping[str, AnnotatedDenyPrincipalMatching] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=7,
+            message=AnnotatedDenyPrincipalMatching,
+        )
     )
     combined_exception_principal: AnnotatedDenyPrincipalMatching = proto.Field(
         proto.MESSAGE,
         number=8,
         message=AnnotatedDenyPrincipalMatching,
     )
-    exception_principals: MutableMapping[
-        str, AnnotatedDenyPrincipalMatching
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=9,
-        message=AnnotatedDenyPrincipalMatching,
+    exception_principals: MutableMapping[str, AnnotatedDenyPrincipalMatching] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=9,
+            message=AnnotatedDenyPrincipalMatching,
+        )
     )
     relevance: "HeuristicRelevance" = proto.Field(
         proto.ENUM,

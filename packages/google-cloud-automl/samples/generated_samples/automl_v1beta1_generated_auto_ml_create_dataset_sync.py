@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,12 @@ def sample_create_dataset():
 
     # Initialize request argument(s)
     dataset = automl_v1beta1.Dataset()
-    dataset.translation_dataset_metadata.source_language_code = "source_language_code_value"
-    dataset.translation_dataset_metadata.target_language_code = "target_language_code_value"
+    dataset.translation_dataset_metadata.source_language_code = (
+        "source_language_code_value"
+    )
+    dataset.translation_dataset_metadata.target_language_code = (
+        "target_language_code_value"
+    )
 
     request = automl_v1beta1.CreateDatasetRequest(
         parent="parent_value",
@@ -53,5 +57,6 @@ def sample_create_dataset():
 
     # Handle the response
     print(response)
+
 
 # [END automl_v1beta1_generated_AutoMl_CreateDataset_sync]

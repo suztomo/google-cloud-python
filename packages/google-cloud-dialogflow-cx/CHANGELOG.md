@@ -1,5 +1,146 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-dialogflow-cx/#history
+
+## [2.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v2.4.0...google-cloud-dialogflow-cx-v2.5.0) (2026-03-26)
+
+
+### Features
+
+* updated v3 dialogflow client libraries with `dtmf_pattern` and `trace_blocks` ([64582e886c1ae040afa8bf23b29bd1b8e81cebbe](https://github.com/googleapis/google-cloud-python/commit/64582e886c1ae040afa8bf23b29bd1b8e81cebbe))
+* updated v3beta1 dialogflow client libraries with `dtmf_pattern` and `trace_blocks` ([64582e886c1ae040afa8bf23b29bd1b8e81cebbe](https://github.com/googleapis/google-cloud-python/commit/64582e886c1ae040afa8bf23b29bd1b8e81cebbe))
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v2.3.0...google-cloud-dialogflow-cx-v2.4.0) (2026-02-19)
+
+
+### Documentation
+
+* Add comment for enum value `DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED` in enum `DetectIntentResponseView` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+
+### Features
+
+* Add new value `DETECT_INTENT_RESPONSE_VIEW_DEFAULT` to enum `DetectIntentResponseView` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+## [2.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v2.2.0...google-cloud-dialogflow-cx-v2.3.0) (2026-01-22)
+
+
+### Features
+
+* updated v3 dialogflow client libraries ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+
+### Bug Fixes
+
+* An existing field `webhook_latencies` is removed from message `.google.cloud.dialogflow.cx.v3.QueryResult` ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* An existing field `webhook_display_names` is removed from message `.google.cloud.dialogflow.cx.v3.QueryResult` ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* An existing field `start_flow` is moved in to oneof in message `.google.cloud.dialogflow.cx.v3.Agent` ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* An existing field `webhook_ids` is removed from message `.google.cloud.dialogflow.cx.v3.QueryResult` ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+* An existing field `webhook_tags` is removed from message `.google.cloud.dialogflow.cx.v3.QueryResult` ([13f6df001f44f652e84e787f2d67d0f894ed57c4](https://github.com/googleapis/google-cloud-python/commit/13f6df001f44f652e84e787f2d67d0f894ed57c4))
+
+## [2.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v2.1.0...google-cloud-dialogflow-cx-v2.2.0) (2026-01-08)
+
+
+### Features
+
+* updated v3beta1 dialogflow client libraries ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [2.1.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v2.0.0...google-cloud-dialogflow-cx-v2.1.0) (2025-12-04)
+
+
+### Features
+
+* Service Account Auth in Tools and Webhooks ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+* add support for defining custom actions in code. See https://cloud.google.com/dialogflow/cx/docs/concept/playbook/code-block for more information ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+
+## [2.0.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v1.43.0...google-cloud-dialogflow-cx-v2.0.0) (2025-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* An existing message `PlaybookInput` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `PlaybookOutput` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `Action` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `UserUtterance` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `AgentUtterance` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `ToolUse` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `PlaybookInvocation` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing message `FlowInvocation` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto`
+* An existing value `JSON` is removed from enum `DataFormat`
+
+### Features
+
+* add Event action to Examples ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* Add generators in fulfillment for v3beta and v3 ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* add Import/Export playbook functionality to client lib ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* add input and output parameters for Flows ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* Add parameters to adjust LLM input and output token limit and temperature in v3beta1 API ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* add prompt security settings to the SDK ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* add RestorePlaybookVersion functionality to client lib ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* add routine and task (existing) playbook types ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* Add ToolVersion APIs ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* enable unified tracing API ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* Return Vertex search document metadata with a datastore response ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* support using secret manager to manage tool/webhook credentials ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+
+
+### Bug Fixes
+
+* An existing message `Action` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `AgentUtterance` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `FlowInvocation` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `PlaybookInput` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `PlaybookInvocation` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `PlaybookOutput` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `ToolUse` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing message `UserUtterance` is moved from `google/cloud/dialogflow/cx/v3beta1/example.proto` to `google/cloud/dialogflow/cx/v3beta1/trace.proto` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* An existing value `JSON` is removed from enum `DataFormat` ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+
+
+### Documentation
+
+* A comment for field `flow` in message `.google.cloud.dialogflow.cx.v3beta1.FlowInvocation` is changed ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* A comment for message `FlowInvocation` is changed ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* A comment for message `PlaybookInvocation` is changed ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+* Update environment documentation to add support for ToolVersions ([273fed1](https://github.com/googleapis/google-cloud-python/commit/273fed198591e948c995294868d73d34bf593302))
+
+## [1.43.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v1.42.0...google-cloud-dialogflow-cx-v1.43.0) (2025-10-14)
+
+
+### Features
+
+* Add support for Python 3.14 ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+## [1.42.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v1.41.1...google-cloud-dialogflow-cx-v1.42.0) (2025-07-04)
+
+
+### Features
+
+* **v3:** Add support for generator settings on fulfillment ([#14054](https://github.com/googleapis/google-cloud-python/issues/14054)) ([806bd71](https://github.com/googleapis/google-cloud-python/commit/806bd717a84957789c0596a9ac4de32fdd38fbb3))
+
+## [1.41.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v1.41.0...google-cloud-dialogflow-cx-v1.41.1) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([3d5bc37](https://github.com/googleapis/google-cloud-python/commit/3d5bc3782da6b37742ae83802de8a8b6db96fe29))
 
 ## [1.41.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dialogflow-cx-v1.40.0...google-cloud-dialogflow-cx-v1.41.0) (2025-03-15)
 

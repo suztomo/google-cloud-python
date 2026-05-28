@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.network_management_v1.types import connectivity_test
@@ -63,14 +63,14 @@ class ListConnectivityTestsRequest(proto.Message):
 
             Examples:
 
-            -  Filter by name: name =
-               "projects/proj-1/locations/global/connectivityTests/test-1
+            - Filter by name: name =
+              "projects/proj-1/locations/global/connectivityTests/test-1
 
-            -  Filter by labels:
+            - Filter by labels:
 
-               -  Resources that have a key called ``foo`` labels.foo:\*
-               -  Resources that have a key called ``foo`` whose value
-                  is ``bar`` labels.foo = bar
+              - Resources that have a key called ``foo`` labels.foo:\*
+              - Resources that have a key called ``foo`` whose value is
+                ``bar`` labels.foo = bar
         order_by (str):
             Field to use to sort the list.
     """
@@ -115,12 +115,12 @@ class ListConnectivityTestsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    resources: MutableSequence[
-        connectivity_test.ConnectivityTest
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=connectivity_test.ConnectivityTest,
+    resources: MutableSequence[connectivity_test.ConnectivityTest] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=connectivity_test.ConnectivityTest,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -158,12 +158,11 @@ class CreateConnectivityTestRequest(proto.Message):
             Required. The logical name of the Connectivity Test in your
             project with the following restrictions:
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-40 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the customer project
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-40 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the customer project
         resource (google.cloud.network_management_v1.types.ConnectivityTest):
             Required. A ``ConnectivityTest`` resource
     """

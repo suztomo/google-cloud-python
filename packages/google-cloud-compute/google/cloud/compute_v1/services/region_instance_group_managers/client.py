@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import functools
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -33,8 +34,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import extended_operation, gapic_v1
@@ -44,7 +45,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.compute_v1 import gapic_version as package_version
 
@@ -62,7 +62,7 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import extended_operation  # type: ignore
+import google.api_core.extended_operation as extended_operation  # type: ignore
 
 from google.cloud.compute_v1.services.region_instance_group_managers import pagers
 from google.cloud.compute_v1.types import compute
@@ -79,9 +79,7 @@ class RegionInstanceGroupManagersClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[RegionInstanceGroupManagersTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[RegionInstanceGroupManagersTransport]]
     _transport_registry["rest"] = RegionInstanceGroupManagersRestTransport
 
     def get_transport_class(
@@ -112,7 +110,7 @@ class RegionInstanceGroupManagersClient(
     """The RegionInstanceGroupManagers API."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -120,7 +118,7 @@ class RegionInstanceGroupManagersClient(
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -130,6 +128,10 @@ class RegionInstanceGroupManagersClient(
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -149,6 +151,34 @@ class RegionInstanceGroupManagersClient(
 
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -315,12 +345,8 @@ class RegionInstanceGroupManagersClient(
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = RegionInstanceGroupManagersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -328,7 +354,7 @@ class RegionInstanceGroupManagersClient(
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -360,20 +386,14 @@ class RegionInstanceGroupManagersClient(
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = RegionInstanceGroupManagersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -397,7 +417,7 @@ class RegionInstanceGroupManagersClient(
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -496,7 +516,7 @@ class RegionInstanceGroupManagersClient(
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -590,11 +610,9 @@ class RegionInstanceGroupManagersClient(
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = RegionInstanceGroupManagersClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            RegionInstanceGroupManagersClient._read_environment_variables()
+        )
         self._client_cert_source = (
             RegionInstanceGroupManagersClient._get_client_cert_source(
                 self._client_options.client_cert_source, self._use_client_cert
@@ -603,7 +621,7 @@ class RegionInstanceGroupManagersClient(
         self._universe_domain = RegionInstanceGroupManagersClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -631,8 +649,7 @@ class RegionInstanceGroupManagersClient(
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(RegionInstanceGroupManagersTransport, transport)
             self._api_endpoint = self._transport.host
@@ -724,17 +741,21 @@ class RegionInstanceGroupManagersClient(
         instance does not delete the instance, but it does
         remove the instance from any target pools that are
         applied by the managed instance group. This method
-        reduces the targetSize of the managed instance group by
+        reduces thetargetSize of the managed instance group by
         the number of instances that you abandon. This operation
-        is marked as DONE when the action is scheduled even if
+        is marked asDONE when the action is scheduled even if
         the instances have not yet been removed from the group.
         You must separately verify the status of the abandoning
-        action with the listmanagedinstances method. If the
-        group is part of a backend service that has enabled
+        action with thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
         connection draining, it can take up to 60 seconds after
         the connection draining duration has elapsed before the
-        VM instance is removed or deleted. You can specify a
-        maximum of 1000 instances with this method per request.
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -841,9 +862,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_abandon_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_abandon_instances_request_resource = (
-                    region_instance_group_managers_abandon_instances_request_resource
-                )
+                request.region_instance_group_managers_abandon_instances_request_resource = region_instance_group_managers_abandon_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -896,17 +915,21 @@ class RegionInstanceGroupManagersClient(
         instance does not delete the instance, but it does
         remove the instance from any target pools that are
         applied by the managed instance group. This method
-        reduces the targetSize of the managed instance group by
+        reduces thetargetSize of the managed instance group by
         the number of instances that you abandon. This operation
-        is marked as DONE when the action is scheduled even if
+        is marked asDONE when the action is scheduled even if
         the instances have not yet been removed from the group.
         You must separately verify the status of the abandoning
-        action with the listmanagedinstances method. If the
-        group is part of a backend service that has enabled
+        action with thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
         connection draining, it can take up to 60 seconds after
         the connection draining duration has elapsed before the
-        VM instance is removed or deleted. You can specify a
-        maximum of 1000 instances with this method per request.
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -1013,9 +1036,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_abandon_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_abandon_instances_request_resource = (
-                    region_instance_group_managers_abandon_instances_request_resource
-                )
+                request.region_instance_group_managers_abandon_instances_request_resource = region_instance_group_managers_abandon_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1202,9 +1223,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_apply_updates_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_apply_updates_request_resource = (
-                    region_instance_group_managers_apply_updates_request_resource
-                )
+                request.region_instance_group_managers_apply_updates_request_resource = region_instance_group_managers_apply_updates_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1368,9 +1387,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_apply_updates_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_apply_updates_request_resource = (
-                    region_instance_group_managers_apply_updates_request_resource
-                )
+                request.region_instance_group_managers_apply_updates_request_resource = region_instance_group_managers_apply_updates_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1451,7 +1468,7 @@ class RegionInstanceGroupManagersClient(
         instances operation is marked DONE if the
         createInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the creating or actions with the
+        the status of thecreating or actions with the
         listmanagedinstances method.
 
         .. code-block:: python
@@ -1493,9 +1510,9 @@ class RegionInstanceGroupManagersClient(
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             region (str):
-                The name of the region where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of theregion
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``region`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1562,9 +1579,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_create_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_create_instances_request_resource = (
-                    region_instance_group_managers_create_instances_request_resource
-                )
+                request.region_instance_group_managers_create_instances_request_resource = region_instance_group_managers_create_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1618,7 +1633,7 @@ class RegionInstanceGroupManagersClient(
         instances operation is marked DONE if the
         createInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the creating or actions with the
+        the status of thecreating or actions with the
         listmanagedinstances method.
 
         .. code-block:: python
@@ -1660,9 +1675,9 @@ class RegionInstanceGroupManagersClient(
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             region (str):
-                The name of the region where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of theregion
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``region`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1729,9 +1744,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_create_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_create_instances_request_resource = (
-                    region_instance_group_managers_create_instances_request_resource
-                )
+                request.region_instance_group_managers_create_instances_request_resource = region_instance_group_managers_create_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2108,18 +2121,23 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately deleted. The instances are also
         removed from any target pools of which they were a
-        member. This method reduces the targetSize of the
-        managed instance group by the number of instances that
-        you delete. The deleteInstances operation is marked DONE
-        if the deleteInstances request is successful. The
+        member. This method reduces thetargetSize of the managed
+        instance group by the number of instances that you
+        delete.
+        The deleteInstances operation is marked DONE if
+        the deleteInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the deleting action with
-        the listmanagedinstances method. If the group is part of
-        a backend service that has enabled connection draining,
-        it can take up to 60 seconds after the connection
-        draining duration has elapsed before the VM instance is
-        removed or deleted. You can specify a maximum of 1000
-        instances with this method per request.
+        separately verify the status of thedeleting action with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -2226,9 +2244,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_delete_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_delete_instances_request_resource = (
-                    region_instance_group_managers_delete_instances_request_resource
-                )
+                request.region_instance_group_managers_delete_instances_request_resource = region_instance_group_managers_delete_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2279,18 +2295,23 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately deleted. The instances are also
         removed from any target pools of which they were a
-        member. This method reduces the targetSize of the
-        managed instance group by the number of instances that
-        you delete. The deleteInstances operation is marked DONE
-        if the deleteInstances request is successful. The
+        member. This method reduces thetargetSize of the managed
+        instance group by the number of instances that you
+        delete.
+        The deleteInstances operation is marked DONE if
+        the deleteInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the deleting action with
-        the listmanagedinstances method. If the group is part of
-        a backend service that has enabled connection draining,
-        it can take up to 60 seconds after the connection
-        draining duration has elapsed before the VM instance is
-        removed or deleted. You can specify a maximum of 1000
-        instances with this method per request.
+        separately verify the status of thedeleting action with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -2397,9 +2418,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_delete_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_delete_instances_request_resource = (
-                    region_instance_group_managers_delete_instances_request_resource
-                )
+                request.region_instance_group_managers_delete_instances_request_resource = region_instance_group_managers_delete_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2586,9 +2605,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_delete_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_delete_instance_config_req_resource = (
-                    region_instance_group_manager_delete_instance_config_req_resource
-                )
+                request.region_instance_group_manager_delete_instance_config_req_resource = region_instance_group_manager_delete_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2752,9 +2769,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_delete_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_delete_instance_config_req_resource = (
-                    region_instance_group_manager_delete_instance_config_req_resource
-                )
+                request.region_instance_group_manager_delete_instance_config_req_resource = region_instance_group_manager_delete_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2892,14 +2907,17 @@ class RegionInstanceGroupManagersClient(
         Returns:
             google.cloud.compute_v1.types.InstanceGroupManager:
                 Represents a Managed Instance Group
-                resource. An instance group is a
-                collection of VM instances that you can
-                manage as a single entity. For more
-                information, read Instance groups. For
-                zonal Managed Instance Group, use the
-                instanceGroupManagers resource. For
-                regional Managed Instance Group, use the
-                regionInstanceGroupManagers resource.
+                resource.
+                An instance group is a collection of VM
+                instances that you can manage as a
+                single entity. For more information,
+                readInstance groups.
+
+                For zonal Managed Instance Group, use
+                the instanceGroupManagers resource.
+
+                For regional Managed Instance Group, use
+                theregionInstanceGroupManagers resource.
 
         """
         # Create or coerce a protobuf request object.
@@ -2974,12 +2992,14 @@ class RegionInstanceGroupManagersClient(
         r"""Creates a managed instance group using the
         information that you specify in the request. After the
         group is created, instances in the group are created
-        using the specified instance template. This operation is
-        marked as DONE when the group is created even if the
-        instances in the group have not yet been created. You
-        must separately verify the status of the individual
-        instances with the listmanagedinstances method. A
-        regional managed instance group can contain up to 2000
+        using the specified instance template.
+        This operation is marked as DONE when the group is
+        created even if the instances in the group have not yet
+        been created. You must separately verify the status of
+        the individual instances with thelistmanagedinstances
+        method.
+
+        A regional managed instance group can contain up to 2000
         instances.
 
         .. code-block:: python
@@ -3118,12 +3138,14 @@ class RegionInstanceGroupManagersClient(
         r"""Creates a managed instance group using the
         information that you specify in the request. After the
         group is created, instances in the group are created
-        using the specified instance template. This operation is
-        marked as DONE when the group is created even if the
-        instances in the group have not yet been created. You
-        must separately verify the status of the individual
-        instances with the listmanagedinstances method. A
-        regional managed instance group can contain up to 2000
+        using the specified instance template.
+        This operation is marked as DONE when the group is
+        created even if the instances in the group have not yet
+        been created. You must separately verify the status of
+        the individual instances with thelistmanagedinstances
+        method.
+
+        A regional managed instance group can contain up to 2000
         instances.
 
         .. code-block:: python
@@ -3426,8 +3448,8 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListErrorsPager:
         r"""Lists all errors thrown by actions on instances for a
-        given regional managed instance group. The filter and
-        orderBy query parameters are not supported.
+        given regional managed instance group. The filter
+        andorderBy query parameters are not supported.
 
         .. code-block:: python
 
@@ -3902,19 +3924,22 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Updates a managed instance group using the
-        information that you specify in the request. This
-        operation is marked as DONE when the group is patched
-        even if the instances in the group are still in the
-        process of being patched. You must separately verify the
-        status of the individual instances with the
-        listmanagedinstances method. This method supports PATCH
-        semantics and uses the JSON merge patch format and
-        processing rules. If you update your group to specify a
-        new template or instance configuration, it's possible
-        that your intended specification for each VM in the
-        group is different from the current state of that VM. To
-        learn how to apply an updated configuration to the VMs
-        in a MIG, see Updating instances in a MIG.
+        information that you specify in the request.
+        This operation is marked as DONE when the group is
+        patched even if the instances in the group are still in
+        the process of being patched. You must separately verify
+        the status of the individual instances with the
+        listmanagedinstances
+        method. This method supportsPATCH
+        semantics and uses theJSON merge
+        patch format and processing rules.
+
+        If you update your group to specify a new template or
+        instance configuration, it's possible that your intended
+        specification for each VM in the group is different from
+        the current state of that VM. To learn how to apply an
+        updated configuration to the VMs in a MIG, seeUpdating
+        instances in a MIG.
 
         .. code-block:: python
 
@@ -4067,19 +4092,22 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Updates a managed instance group using the
-        information that you specify in the request. This
-        operation is marked as DONE when the group is patched
-        even if the instances in the group are still in the
-        process of being patched. You must separately verify the
-        status of the individual instances with the
-        listmanagedinstances method. This method supports PATCH
-        semantics and uses the JSON merge patch format and
-        processing rules. If you update your group to specify a
-        new template or instance configuration, it's possible
-        that your intended specification for each VM in the
-        group is different from the current state of that VM. To
-        learn how to apply an updated configuration to the VMs
-        in a MIG, see Updating instances in a MIG.
+        information that you specify in the request.
+        This operation is marked as DONE when the group is
+        patched even if the instances in the group are still in
+        the process of being patched. You must separately verify
+        the status of the individual instances with the
+        listmanagedinstances
+        method. This method supportsPATCH
+        semantics and uses theJSON merge
+        patch format and processing rules.
+
+        If you update your group to specify a new template or
+        instance configuration, it's possible that your intended
+        specification for each VM in the group is different from
+        the current state of that VM. To learn how to apply an
+        updated configuration to the VMs in a MIG, seeUpdating
+        instances in a MIG.
 
         .. code-block:: python
 
@@ -4374,9 +4402,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_patch_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_patch_instance_config_req_resource = (
-                    region_instance_group_manager_patch_instance_config_req_resource
-                )
+                request.region_instance_group_manager_patch_instance_config_req_resource = region_instance_group_manager_patch_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4542,9 +4568,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_patch_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_patch_instance_config_req_resource = (
-                    region_instance_group_manager_patch_instance_config_req_resource
-                )
+                request.region_instance_group_manager_patch_instance_config_req_resource = region_instance_group_manager_patch_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4625,12 +4649,16 @@ class RegionInstanceGroupManagersClient(
         configuration. This operation is marked as DONE when the
         flag is set even if the instances have not yet been
         recreated. You must separately verify the status of each
-        instance by checking its currentAction field; for more
+        instance by checking itscurrentAction field; for more
         information, see Checking the status of managed
-        instances. If the group is part of a backend service
-        that has enabled connection draining, it can take up to
-        60 seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        instances.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -4794,12 +4822,16 @@ class RegionInstanceGroupManagersClient(
         configuration. This operation is marked as DONE when the
         flag is set even if the instances have not yet been
         recreated. You must separately verify the status of each
-        instance by checking its currentAction field; for more
+        instance by checking itscurrentAction field; for more
         information, see Checking the status of managed
-        instances. If the group is part of a backend service
-        that has enabled connection draining, it can take up to
-        60 seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        instances.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -4984,15 +5016,19 @@ class RegionInstanceGroupManagersClient(
         group. If you increase the size, the group creates new
         instances using the current instance template. If you
         decrease the size, the group deletes one or more
-        instances. The resize operation is marked DONE if the
-        resize request is successful. The underlying actions
-        take additional time. You must separately verify the
-        status of the creating or deleting actions with the
-        listmanagedinstances method. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted.
+        instances.
+
+        The resize operation is marked DONE if theresize request
+        is successful. The underlying actions take additional
+        time. You must separately verify the status of
+        thecreating or deleting actions with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
 
         .. code-block:: python
 
@@ -5142,15 +5178,19 @@ class RegionInstanceGroupManagersClient(
         group. If you increase the size, the group creates new
         instances using the current instance template. If you
         decrease the size, the group deletes one or more
-        instances. The resize operation is marked DONE if the
-        resize request is successful. The underlying actions
-        take additional time. You must separately verify the
-        status of the creating or deleting actions with the
-        listmanagedinstances method. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted.
+        instances.
+
+        The resize operation is marked DONE if theresize request
+        is successful. The underlying actions take additional
+        time. You must separately verify the status of
+        thecreating or deleting actions with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
 
         .. code-block:: python
 
@@ -5324,22 +5364,26 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Flags the specified instances in the managed instance
-        group to be resumed. This method increases the
-        targetSize and decreases the targetSuspendedSize of the
-        managed instance group by the number of instances that
-        you resume. The resumeInstances operation is marked DONE
-        if the resumeInstances request is successful. The
+        group to be resumed. This method increases thetargetSize
+        and decreases the targetSuspendedSize of the managed
+        instance group by the number of instances that you
+        resume. The resumeInstances operation is marked DONE if
+        the resumeInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the RESUMING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are suspended. For
-        example, if an instance was previously suspended using
-        the suspendInstances method, it can be resumed using the
-        resumeInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are resumed. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        separately verify the status of theRESUMING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        suspended. For example, if an instance was previously
+        suspended using the suspendInstances method, it can be
+        resumed using the resumeInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are resumed.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -5446,9 +5490,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_resume_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_resume_instances_request_resource = (
-                    region_instance_group_managers_resume_instances_request_resource
-                )
+                request.region_instance_group_managers_resume_instances_request_resource = region_instance_group_managers_resume_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5497,22 +5539,26 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Flags the specified instances in the managed instance
-        group to be resumed. This method increases the
-        targetSize and decreases the targetSuspendedSize of the
-        managed instance group by the number of instances that
-        you resume. The resumeInstances operation is marked DONE
-        if the resumeInstances request is successful. The
+        group to be resumed. This method increases thetargetSize
+        and decreases the targetSuspendedSize of the managed
+        instance group by the number of instances that you
+        resume. The resumeInstances operation is marked DONE if
+        the resumeInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the RESUMING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are suspended. For
-        example, if an instance was previously suspended using
-        the suspendInstances method, it can be resumed using the
-        resumeInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are resumed. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        separately verify the status of theRESUMING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        suspended. For example, if an instance was previously
+        suspended using the suspendInstances method, it can be
+        resumed using the resumeInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are resumed.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -5619,9 +5665,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_resume_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_resume_instances_request_resource = (
-                    region_instance_group_managers_resume_instances_request_resource
-                )
+                request.region_instance_group_managers_resume_instances_request_resource = region_instance_group_managers_resume_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6148,9 +6192,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_set_target_pools_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_set_target_pools_request_resource = (
-                    region_instance_group_managers_set_target_pools_request_resource
-                )
+                request.region_instance_group_managers_set_target_pools_request_resource = region_instance_group_managers_set_target_pools_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6307,9 +6349,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_set_target_pools_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_set_target_pools_request_resource = (
-                    region_instance_group_managers_set_target_pools_request_resource
-                )
+                request.region_instance_group_managers_set_target_pools_request_resource = region_instance_group_managers_set_target_pools_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6383,22 +6423,26 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Flags the specified instances in the managed instance
-        group to be started. This method increases the
-        targetSize and decreases the targetStoppedSize of the
-        managed instance group by the number of instances that
-        you start. The startInstances operation is marked DONE
-        if the startInstances request is successful. The
-        underlying actions take additional time. You must
-        separately verify the status of the STARTING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are stopped. For
-        example, if an instance was previously stopped using the
-        stopInstances method, it can be started using the
-        startInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are started. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        group to be started. This method increases thetargetSize
+        and decreases the targetStoppedSize of the managed
+        instance group by the number of instances that you
+        start. The startInstances operation is marked DONE if
+        the startInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTARTING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        stopped. For example, if an instance was previously
+        stopped using the stopInstances method, it can be
+        started using the startInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are started.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6505,9 +6549,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_start_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_start_instances_request_resource = (
-                    region_instance_group_managers_start_instances_request_resource
-                )
+                request.region_instance_group_managers_start_instances_request_resource = region_instance_group_managers_start_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6556,22 +6598,26 @@ class RegionInstanceGroupManagersClient(
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Flags the specified instances in the managed instance
-        group to be started. This method increases the
-        targetSize and decreases the targetStoppedSize of the
-        managed instance group by the number of instances that
-        you start. The startInstances operation is marked DONE
-        if the startInstances request is successful. The
-        underlying actions take additional time. You must
-        separately verify the status of the STARTING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are stopped. For
-        example, if an instance was previously stopped using the
-        stopInstances method, it can be started using the
-        startInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are started. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        group to be started. This method increases thetargetSize
+        and decreases the targetStoppedSize of the managed
+        instance group by the number of instances that you
+        start. The startInstances operation is marked DONE if
+        the startInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTARTING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        stopped. For example, if an instance was previously
+        stopped using the stopInstances method, it can be
+        started using the startInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are started.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6678,9 +6724,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_start_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_start_instances_request_resource = (
-                    region_instance_group_managers_start_instances_request_resource
-                )
+                request.region_instance_group_managers_start_instances_request_resource = region_instance_group_managers_start_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6756,27 +6800,36 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately stopped. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetStoppedSize of the managed instance group by the
         number of instances that you stop. The stopInstances
-        operation is marked DONE if the stopInstances request is
-        successful. The underlying actions take additional time.
-        You must separately verify the status of the STOPPING
-        action with the listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays stopping the instances until initialDelaySec have
-        passed from instance.creationTimestamp (that is, when
-        the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is stopped. Stopped instances can be started
-        using the startInstances method. You can specify a
-        maximum of 1000 instances with this method per request.
+        operation is marked DONE if
+        the stopInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTOPPING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays stopping the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is stopped.
+
+        Stopped instances can be started using the
+        startInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6885,9 +6938,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_stop_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_stop_instances_request_resource = (
-                    region_instance_group_managers_stop_instances_request_resource
-                )
+                request.region_instance_group_managers_stop_instances_request_resource = region_instance_group_managers_stop_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6938,27 +6989,36 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately stopped. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetStoppedSize of the managed instance group by the
         number of instances that you stop. The stopInstances
-        operation is marked DONE if the stopInstances request is
-        successful. The underlying actions take additional time.
-        You must separately verify the status of the STOPPING
-        action with the listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays stopping the instances until initialDelaySec have
-        passed from instance.creationTimestamp (that is, when
-        the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is stopped. Stopped instances can be started
-        using the startInstances method. You can specify a
-        maximum of 1000 instances with this method per request.
+        operation is marked DONE if
+        the stopInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTOPPING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays stopping the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is stopped.
+
+        Stopped instances can be started using the
+        startInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7067,9 +7127,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_stop_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_stop_instances_request_resource = (
-                    region_instance_group_managers_stop_instances_request_resource
-                )
+                request.region_instance_group_managers_stop_instances_request_resource = region_instance_group_managers_stop_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -7145,29 +7203,36 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately suspended. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetSuspendedSize of the managed instance group by the
         number of instances that you suspend. The
         suspendInstances operation is marked DONE if the
         suspendInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the SUSPENDING action with the
-        listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays suspension of the instances until initialDelaySec
-        have passed from instance.creationTimestamp (that is,
-        when the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is suspended. Suspended instances can be
-        resumed using the resumeInstances method. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        the status of theSUSPENDING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays suspension of the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is suspended.
+
+        Suspended instances can be resumed using the
+        resumeInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7274,9 +7339,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_suspend_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_suspend_instances_request_resource = (
-                    region_instance_group_managers_suspend_instances_request_resource
-                )
+                request.region_instance_group_managers_suspend_instances_request_resource = region_instance_group_managers_suspend_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -7327,29 +7390,36 @@ class RegionInstanceGroupManagersClient(
         r"""Flags the specified instances in the managed instance
         group to be immediately suspended. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetSuspendedSize of the managed instance group by the
         number of instances that you suspend. The
         suspendInstances operation is marked DONE if the
         suspendInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the SUSPENDING action with the
-        listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays suspension of the instances until initialDelaySec
-        have passed from instance.creationTimestamp (that is,
-        when the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is suspended. Suspended instances can be
-        resumed using the resumeInstances method. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        the status of theSUSPENDING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays suspension of the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is suspended.
+
+        Suspended instances can be resumed using the
+        resumeInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7456,9 +7526,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_managers_suspend_instances_request_resource
                 is not None
             ):
-                request.region_instance_group_managers_suspend_instances_request_resource = (
-                    region_instance_group_managers_suspend_instances_request_resource
-                )
+                request.region_instance_group_managers_suspend_instances_request_resource = region_instance_group_managers_suspend_instances_request_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -7647,9 +7715,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_update_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_update_instance_config_req_resource = (
-                    region_instance_group_manager_update_instance_config_req_resource
-                )
+                request.region_instance_group_manager_update_instance_config_req_resource = region_instance_group_manager_update_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -7815,9 +7881,7 @@ class RegionInstanceGroupManagersClient(
                 region_instance_group_manager_update_instance_config_req_resource
                 is not None
             ):
-                request.region_instance_group_manager_update_instance_config_req_resource = (
-                    region_instance_group_manager_update_instance_config_req_resource
-                )
+                request.region_instance_group_manager_update_instance_config_req_resource = region_instance_group_manager_update_instance_config_req_resource
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.

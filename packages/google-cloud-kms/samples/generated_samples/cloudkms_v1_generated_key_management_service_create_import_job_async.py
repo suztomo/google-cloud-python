@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_create_import_job():
     # Initialize request argument(s)
     import_job = kms_v1.ImportJob()
     import_job.import_method = "RSA_OAEP_4096_SHA256"
-    import_job.protection_level = "EXTERNAL_VPC"
+    import_job.protection_level = "HSM_SINGLE_TENANT"
 
     request = kms_v1.CreateImportJobRequest(
         parent="parent_value",
@@ -54,5 +54,6 @@ async def sample_create_import_job():
 
     # Handle the response
     print(response)
+
 
 # [END cloudkms_v1_generated_KeyManagementService_CreateImportJob_async]

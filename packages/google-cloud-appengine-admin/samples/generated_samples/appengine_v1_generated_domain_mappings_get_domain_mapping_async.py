@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_get_domain_mapping():
     client = appengine_admin_v1.DomainMappingsAsyncClient()
 
     # Initialize request argument(s)
-    request = appengine_admin_v1.GetDomainMappingRequest(
-    )
+    request = appengine_admin_v1.GetDomainMappingRequest()
 
     # Make the request
     response = await client.get_domain_mapping(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END appengine_v1_generated_DomainMappings_GetDomainMapping_async]

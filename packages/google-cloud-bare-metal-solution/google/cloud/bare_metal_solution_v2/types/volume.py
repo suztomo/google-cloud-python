@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.bare_metal_solution_v2.types import common
@@ -130,6 +130,7 @@ class Volume(proto.Message):
             HDD (2):
                 This storage type for this volume is HDD.
         """
+
         STORAGE_TYPE_UNSPECIFIED = 0
         SSD = 1
         HDD = 2
@@ -153,6 +154,7 @@ class Volume(proto.Message):
                 The storage volume is in cool off state. It will be deleted
                 after ``expire_time``.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -176,6 +178,7 @@ class Volume(proto.Message):
             NEWEST_FIRST (3):
                 Delete the newest snapshots first.
         """
+
         SNAPSHOT_AUTO_DELETE_BEHAVIOR_UNSPECIFIED = 0
         DISABLED = 1
         OLDEST_FIRST = 2
@@ -194,6 +197,7 @@ class Volume(proto.Message):
                 volume. Such volumes cannot be manipulated via
                 Volumes API.
         """
+
         PROTOCOL_UNSPECIFIED = 0
         FIBRE_CHANNEL = 1
         NFS = 2
@@ -209,6 +213,7 @@ class Volume(proto.Message):
             HANA (2):
                 The workload profile is hana.
         """
+
         WORKLOAD_PROFILE_UNSPECIFIED = 0
         GENERIC = 1
         HANA = 2

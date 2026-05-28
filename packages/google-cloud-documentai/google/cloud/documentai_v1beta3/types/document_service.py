@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.documentai_v1beta3.types import document_io, operation_metadata
 from google.cloud.documentai_v1beta3.types import dataset as gcd_dataset
 from google.cloud.documentai_v1beta3.types import document as gcd_document
+from google.cloud.documentai_v1beta3.types import document_io, operation_metadata
 
 __protobuf__ = proto.module(
     package="google.cloud.documentai.v1beta3",
@@ -64,6 +64,7 @@ class DatasetSplitType(proto.Enum):
         DATASET_SPLIT_UNASSIGNED (3):
             Identifies the unassigned documents.
     """
+
     DATASET_SPLIT_TYPE_UNSPECIFIED = 0
     DATASET_SPLIT_TRAIN = 1
     DATASET_SPLIT_TEST = 2
@@ -83,6 +84,7 @@ class DocumentLabelingState(proto.Enum):
         DOCUMENT_AUTO_LABELED (3):
             Document has been auto-labeled.
     """
+
     DOCUMENT_LABELING_STATE_UNSPECIFIED = 0
     DOCUMENT_LABELED = 1
     DOCUMENT_UNLABELED = 2
@@ -168,6 +170,13 @@ class ImportDocumentsRequest(proto.Message):
             batch_input_config (google.cloud.documentai_v1beta3.types.BatchDocumentsInputConfig):
                 The common config to specify a set of
                 documents used as input.
+            document_type (str):
+                Optional. If set, determines the type of the documents to be
+                imported in this batch. It can be used to auto-label the
+                documents with a single entity of the provided type. This
+                field can only be used with a classifier or splitter
+                processor. Providing this field is mutually exclusive with
+                ``entities`` and ``auto_labeling_config``.
         """
 
         class AutoSplitConfig(proto.Message):
@@ -200,17 +209,21 @@ class ImportDocumentsRequest(proto.Message):
             number=1,
             message=document_io.BatchDocumentsInputConfig,
         )
+        document_type: str = proto.Field(
+            proto.STRING,
+            number=6,
+        )
 
     dataset: str = proto.Field(
         proto.STRING,
         number=1,
     )
-    batch_documents_import_configs: MutableSequence[
-        BatchDocumentsImportConfig
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=BatchDocumentsImportConfig,
+    batch_documents_import_configs: MutableSequence[BatchDocumentsImportConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=BatchDocumentsImportConfig,
+        )
     )
 
 
@@ -293,19 +306,19 @@ class ImportDocumentsMetadata(proto.Message):
         number=1,
         message=operation_metadata.CommonOperationMetadata,
     )
-    individual_import_statuses: MutableSequence[
-        IndividualImportStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=IndividualImportStatus,
+    individual_import_statuses: MutableSequence[IndividualImportStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=IndividualImportStatus,
+        )
     )
-    import_config_validation_results: MutableSequence[
-        ImportConfigValidationResult
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=ImportConfigValidationResult,
+    import_config_validation_results: MutableSequence[ImportConfigValidationResult] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=ImportConfigValidationResult,
+        )
     )
     total_document_count: int = proto.Field(
         proto.INT32,
@@ -396,24 +409,25 @@ class ListDocumentsRequest(proto.Message):
             https://google.aip.dev/160.
 
             Currently support query strings are:
+            ------------------------------------
 
-            - ``SplitType=DATASET_SPLIT_TEST|DATASET_SPLIT_TRAIN|DATASET_SPLIT_UNASSIGNED``
-            -  ``LabelingState=DOCUMENT_LABELED|DOCUMENT_UNLABELED|DOCUMENT_AUTO_LABELED``
-            -  ``DisplayName=\"file_name.pdf\"``
-            -  ``EntityType=abc/def``
-            -  ``TagName=\"auto-labeling-running\"|\"sampled\"``
+            ``SplitType=DATASET_SPLIT_TEST|DATASET_SPLIT_TRAIN|DATASET_SPLIT_UNASSIGNED``
+
+            - ``LabelingState=DOCUMENT_LABELED|DOCUMENT_UNLABELED|DOCUMENT_AUTO_LABELED``
+            - ``DisplayName=\"file_name.pdf\"``
+            - ``EntityType=abc/def``
+            - ``TagName=\"auto-labeling-running\"|\"sampled\"``
 
             Note:
 
-            -  Only ``AND``, ``=`` and ``!=`` are supported. e.g.
-               ``DisplayName=file_name AND EntityType!=abc`` IS
-               supported.
-            -  Wildcard ``*`` is supported only in ``DisplayName``
-               filter
-            -  No duplicate filter keys are allowed, e.g.
-               ``EntityType=a AND EntityType=b`` is NOT supported.
-            -  String match is case sensitive (for filter
-               ``DisplayName`` & ``EntityType``).
+            - Only ``AND``, ``=`` and ``!=`` are supported. e.g.
+              ``DisplayName=file_name AND EntityType!=abc`` IS
+              supported.
+            - Wildcard ``*`` is supported only in ``DisplayName`` filter
+            - No duplicate filter keys are allowed, e.g.
+              ``EntityType=a AND EntityType=b`` is NOT supported.
+            - String match is case sensitive (for filter ``DisplayName``
+              & ``EntityType``).
         return_total_size (bool):
             Optional. Controls if the request requires a total size of
             matched documents. See
@@ -574,12 +588,12 @@ class BatchDeleteDocumentsMetadata(proto.Message):
         number=1,
         message=operation_metadata.CommonOperationMetadata,
     )
-    individual_batch_delete_statuses: MutableSequence[
-        IndividualBatchDeleteStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=IndividualBatchDeleteStatus,
+    individual_batch_delete_statuses: MutableSequence[IndividualBatchDeleteStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=IndividualBatchDeleteStatus,
+        )
     )
     total_document_count: int = proto.Field(
         proto.INT32,

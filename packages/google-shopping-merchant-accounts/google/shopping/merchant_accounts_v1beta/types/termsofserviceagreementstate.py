@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import date_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.shopping.merchant_accounts_v1beta.types import termsofservicekind
@@ -38,12 +38,12 @@ class TermsOfServiceAgreementState(proto.Message):
     r"""This resource represents the agreement state for a given account and
     terms of service kind. The state is as follows:
 
-    -  If the merchant has accepted a terms of service:
-       `accepted <TermsOfServiceAggrementState.accepted>`__ will be
-       populated, otherwise it will be empty
-    -  If the merchant must sign a terms of service:
-       `required <TermsOfServiceAggrementState.required>`__ will be
-       populated, otherwise it will be empty.
+    - If the merchant has accepted a terms of service:
+      `accepted <TermsOfServiceAggrementState.accepted>`__ will be
+      populated, otherwise it will be empty
+    - If the merchant must sign a terms of service:
+      `required <TermsOfServiceAggrementState.required>`__ will be
+      populated, otherwise it will be empty.
 
     Note that both `required <TermsOfServiceAggrementState.required>`__
     and `accepted <TermsOfServiceAggrementState.accepted>`__ can be

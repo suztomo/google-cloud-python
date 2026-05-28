@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,9 @@ from .common import (
     TimestampRange,
     Visibility,
 )
-from .company import Company
+from .company import (
+    Company,
+)
 from .company_service import (
     CreateCompanyRequest,
     DeleteCompanyRequest,
@@ -43,12 +45,30 @@ from .company_service import (
     ListCompaniesResponse,
     UpdateCompanyRequest,
 )
-from .completion_service import CompleteQueryRequest, CompleteQueryResponse
-from .event import ClientEvent, JobEvent
-from .event_service import CreateClientEventRequest
-from .filters import CommuteFilter, CompensationFilter, JobQuery, LocationFilter
-from .histogram import HistogramQuery, HistogramQueryResult
-from .job import Job
+from .completion_service import (
+    CompleteQueryRequest,
+    CompleteQueryResponse,
+)
+from .event import (
+    ClientEvent,
+    JobEvent,
+)
+from .event_service import (
+    CreateClientEventRequest,
+)
+from .filters import (
+    CommuteFilter,
+    CompensationFilter,
+    JobQuery,
+    LocationFilter,
+)
+from .histogram import (
+    HistogramQuery,
+    HistogramQueryResult,
+)
+from .job import (
+    Job,
+)
 from .job_service import (
     BatchCreateJobsRequest,
     BatchDeleteJobsRequest,
@@ -64,7 +84,9 @@ from .job_service import (
     SearchJobsResponse,
     UpdateJobRequest,
 )
-from .tenant import Tenant
+from .tenant import (
+    Tenant,
+)
 from .tenant_service import (
     CreateTenantRequest,
     DeleteTenantRequest,

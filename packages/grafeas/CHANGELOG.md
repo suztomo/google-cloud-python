@@ -4,6 +4,112 @@
 
 [1]: https://pypi.org/project/grafeas/#history
 
+## [1.22.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.21.0...grafeas-v1.22.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.21.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.20.0...grafeas-v1.21.0) (2026-03-23)
+
+
+### Features
+
+* Added line_number to FileLocation ([ee7dd7dc168ecf943440cef38efff348e8eff095](https://github.com/googleapis/google-cloud-python/commit/ee7dd7dc168ecf943440cef38efff348e8eff095))
+
+## [1.20.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.19.1...grafeas-v1.20.0) (2026-02-19)
+
+
+### Features
+
+* A new field `advisory_publish_time` is added to message `.grafeas.v1.VulnerabilityNote` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+* A new field `registry` is added to message `.grafeas.v1.BaseImage` ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+## [1.19.1](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.19.0...grafeas-v1.19.1) (2026-02-05)
+
+
+### Bug Fixes
+
+* fix mypy (#15496) ([4daf9cc283e66f49904b74c1067d245ba43e833a](https://github.com/googleapis/google-cloud-python/commit/4daf9cc283e66f49904b74c1067d245ba43e833a))
+
+## [1.19.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.18.0...grafeas-v1.19.0) (2026-01-29)
+
+
+### Features
+
+* A new field `last_vulnerability_update_time` is added to message `.grafeas.v1.DiscoveryOccurrence` ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.17.0...grafeas-v1.18.0) (2026-01-15)
+
+
+### Documentation
+
+* A comment for enum value `SECRET_KIND_GCP_SERVICE_ACCOUNT_KEY` in enum `SecretKind` is changed ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+
+### Features
+
+* A new value `SECRET_KIND_GCP_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_OPENAI_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_STRIPE_RESTRICTED_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `File` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `ExploitPredictionScoringSystem` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `files` is added to message `.grafeas.v1.DiscoveryOccurrence` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `unreachable` is added to message `.grafeas.v1.ListOccurrencesResponse` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `CISAKnownExploitedVulnerabilities` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_AZURE_IDENTITY_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_ANTHROPIC_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_ANTHROPIC_ADMIN_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `data` is added to message `.grafeas.v1.SecretOccurrence` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GCP_OAUTH2_CLIENT_CREDENTIALS` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GCP_OAUTH2_ACCESS_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_OAUTH_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `risk` is added to message `.grafeas.v1.VulnerabilityOccurrence` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `return_partial_success` is added to message `.grafeas.v1.ListOccurrencesRequest` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `return_partial_success` is added to message `.grafeas.v1.ListNotesRequest` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `digest` is added to message `.grafeas.v1.SecretOccurrence` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_DOCKER_HUB_PERSONAL_ACCESS_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_STRIPE_SECRET_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_CLASSIC_PERSONAL_ACCESS_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_APP_USER_TO_SERVER_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_PERPLEXITY_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_AZURE_ACCESS_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_APP_REFRESH_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_APP_SERVER_TO_SERVER_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_GITHUB_FINE_GRAINED_PERSONAL_ACCESS_TOKEN` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `Risk` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_STRIPE_WEBHOOK_SECRET` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new value `SECRET_KIND_HUGGINGFACE_API_KEY` is added to enum `SecretKind` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new field `unreachable` is added to message `.grafeas.v1.ListNotesResponse` ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+## [1.17.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.16.0...grafeas-v1.17.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.16.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.15.0...grafeas-v1.16.0) (2025-10-14)
+
+
+### Features
+
+* Add support for Python 3.14 ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
 ## [1.15.0](https://github.com/googleapis/google-cloud-python/compare/grafeas-v1.14.1...grafeas-v1.15.0) (2025-05-08)
 
 

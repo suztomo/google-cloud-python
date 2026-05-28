@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,28 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.securitycenter_v2.types import (
+    attack_path,
+    bigquery_export,
+    valued_resource,
+)
 from google.cloud.securitycenter_v2.types import external_system as gcs_external_system
+from google.cloud.securitycenter_v2.types import finding as gcs_finding
+from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
 from google.cloud.securitycenter_v2.types import (
     notification_config as gcs_notification_config,
 )
+from google.cloud.securitycenter_v2.types import resource as gcs_resource
 from google.cloud.securitycenter_v2.types import (
     resource_value_config as gcs_resource_value_config,
 )
 from google.cloud.securitycenter_v2.types import security_marks as gcs_security_marks
-from google.cloud.securitycenter_v2.types import attack_path, bigquery_export
-from google.cloud.securitycenter_v2.types import finding as gcs_finding
-from google.cloud.securitycenter_v2.types import mute_config as gcs_mute_config
-from google.cloud.securitycenter_v2.types import resource as gcs_resource
 from google.cloud.securitycenter_v2.types import source as gcs_source
-from google.cloud.securitycenter_v2.types import valued_resource
 
 __protobuf__ = proto.module(
     package="google.cloud.securitycenter.v2",
@@ -53,6 +57,9 @@ __protobuf__ = proto.module(
         "DeleteMuteConfigRequest",
         "DeleteNotificationConfigRequest",
         "DeleteResourceValueConfigRequest",
+        "BigQueryDestination",
+        "ExportFindingsMetadata",
+        "ExportFindingsResponse",
         "GetBigQueryExportRequest",
         "GetMuteConfigRequest",
         "GetNotificationConfigRequest",
@@ -150,12 +157,12 @@ class BulkMuteFindingsRequest(proto.Message):
             applied. If no location is specified, findings are updated
             in global. The following list shows some examples:
 
-            -  ``organizations/[organization_id]``
-            -  ``organizations/[organization_id]/locations/[location_id]``
-            -  ``folders/[folder_id]``
-            -  ``folders/[folder_id]/locations/[location_id]``
-            -  ``projects/[project_id]``
-            -  ``projects/[project_id]/locations/[location_id]``
+            - ``organizations/[organization_id]``
+            - ``organizations/[organization_id]/locations/[location_id]``
+            - ``folders/[folder_id]``
+            - ``folders/[folder_id]/locations/[location_id]``
+            - ``projects/[project_id]``
+            - ``projects/[project_id]/locations/[location_id]``
         filter (str):
             Expression that identifies findings that should be updated.
             The expression is a list of zero or more restrictions
@@ -170,15 +177,15 @@ class BulkMuteFindingsRequest(proto.Message):
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
         mute_state (google.cloud.securitycenter_v2.types.BulkMuteFindingsRequest.MuteState):
             Optional. All findings matching the given filter will have
             their mute state set to this value. The default value is
@@ -198,6 +205,7 @@ class BulkMuteFindingsRequest(proto.Message):
                 Matching findings will have their mute state
                 cleared.
         """
+
         MUTE_STATE_UNSPECIFIED = 0
         MUTED = 1
         UNDEFINED = 2
@@ -429,8 +437,8 @@ class DeleteBigQueryExportRequest(proto.Message):
 
             ``organizations/{organization}/locations/{location}/bigQueryExports/{export_id}``
 
-            -  ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
-            -  ``projects/{project}/locations/{location}/bigQueryExports/{export_id}``
+            - ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
+            - ``projects/{project}/locations/{location}/bigQueryExports/{export_id}``
     """
 
     name: str = proto.Field(
@@ -448,15 +456,15 @@ class DeleteMuteConfigRequest(proto.Message):
             Required. Name of the mute config to delete. The following
             list shows some examples of the format:
 
-            -  ``organizations/{organization}/muteConfigs/{config_id}``
+            - ``organizations/{organization}/muteConfigs/{config_id}``
             -
 
             ``organizations/{organization}/locations/{location}/muteConfigs/{config_id}``
 
-            -  ``folders/{folder}/muteConfigs/{config_id}``
-            -  ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
-            -  ``projects/{project}/muteConfigs/{config_id}``
-            -  ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
+            - ``folders/{folder}/muteConfigs/{config_id}``
+            - ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
+            - ``projects/{project}/muteConfigs/{config_id}``
+            - ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
     """
 
     name: str = proto.Field(
@@ -503,6 +511,58 @@ class DeleteResourceValueConfigRequest(proto.Message):
     )
 
 
+class BigQueryDestination(proto.Message):
+    r"""The destination big query dataset to export findings to.
+
+    Attributes:
+        dataset (str):
+            Required. The relative resource name of the
+            destination dataset, in the form
+            projects/{projectId}/datasets/{datasetId}.
+    """
+
+    dataset: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ExportFindingsMetadata(proto.Message):
+    r"""The LRO metadata for a ExportFindings request.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        export_start_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. Timestamp at which export was
+            started
+        big_query_destination (google.cloud.securitycenter_v2.types.BigQueryDestination):
+            Required. The destination big query dataset
+            to export findings to.
+
+            This field is a member of `oneof`_ ``destination``.
+    """
+
+    export_start_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=timestamp_pb2.Timestamp,
+    )
+    big_query_destination: "BigQueryDestination" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="destination",
+        message="BigQueryDestination",
+    )
+
+
+class ExportFindingsResponse(proto.Message):
+    r"""The response to a ExportFindings request. Contains the LRO
+    information.
+
+    """
+
+
 class GetBigQueryExportRequest(proto.Message):
     r"""Request message for retrieving a BigQuery export.
 
@@ -515,8 +575,8 @@ class GetBigQueryExportRequest(proto.Message):
 
             ``organizations/{organization}/locations/{location}/bigQueryExports/{export_id}``
 
-            -  ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
-            -  ``projects/{project}locations/{location}//bigQueryExports/{export_id}``
+            - ``folders/{folder}/locations/{location}/bigQueryExports/{export_id}``
+            - ``projects/{project}locations/{location}//bigQueryExports/{export_id}``
     """
 
     name: str = proto.Field(
@@ -534,15 +594,15 @@ class GetMuteConfigRequest(proto.Message):
             Required. Name of the mute config to retrieve. The following
             list shows some examples of the format:
 
-            -  ``organizations/{organization}/muteConfigs/{config_id}``
+            - ``organizations/{organization}/muteConfigs/{config_id}``
             -
 
             ``organizations/{organization}/locations/{location}/muteConfigs/{config_id}``
 
-            -  ``folders/{folder}/muteConfigs/{config_id}``
-            -  ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
-            -  ``projects/{project}/muteConfigs/{config_id}``
-            -  ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
+            - ``folders/{folder}/muteConfigs/{config_id}``
+            - ``folders/{folder}/locations/{location}/muteConfigs/{config_id}``
+            - ``projects/{project}/muteConfigs/{config_id}``
+            - ``projects/{project}/locations/{location}/muteConfigs/{config_id}``
     """
 
     name: str = proto.Field(
@@ -614,25 +674,25 @@ class GroupFindingsRequest(proto.Message):
             specified, finding is assumed to be in global. The following
             list shows some examples:
 
-            -  ``organizations/[organization_id]/sources/[source_id]``
+            - ``organizations/[organization_id]/sources/[source_id]``
             -
 
             ``organizations/[organization_id]/sources/[source_id]/locations/[location_id]``
 
-            -  ``folders/[folder_id]/sources/[source_id]``
-            -  ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
-            -  ``projects/[project_id]/sources/[source_id]``
-            -  ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
+            - ``folders/[folder_id]/sources/[source_id]``
+            - ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
+            - ``projects/[project_id]/sources/[source_id]``
+            - ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
 
             To groupBy across all sources provide a source_id of ``-``.
             The following list shows some examples:
 
-            -  ``organizations/{organization_id}/sources/-``
-            -  ``organizations/{organization_id}/sources/-/locations/[location_id]``
-            -  ``folders/{folder_id}/sources/-``
-            -  ``folders/{folder_id}/sources/-/locations/[location_id]``
-            -  ``projects/{project_id}/sources/-``
-            -  ``projects/{project_id}/sources/-/locations/[location_id]``
+            - ``organizations/{organization_id}/sources/-``
+            - ``organizations/{organization_id}/sources/-/locations/[location_id]``
+            - ``folders/{folder_id}/sources/-``
+            - ``folders/{folder_id}/sources/-/locations/[location_id]``
+            - ``projects/{project_id}/sources/-``
+            - ``projects/{project_id}/sources/-/locations/[location_id]``
         filter (str):
             Expression that defines the filter to apply across findings.
             The expression is a list of one or more restrictions
@@ -644,54 +704,54 @@ class GroupFindingsRequest(proto.Message):
             and may have a ``-`` character in front of them to indicate
             negation. Examples include:
 
-            -  name
-            -  security_marks.marks.marka
+            - name
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             The following field and operator combinations are supported:
 
-            -  name: ``=``
+            - name: ``=``
 
-            -  parent: ``=``, ``:``
+            - parent: ``=``, ``:``
 
-            -  resource_name: ``=``, ``:``
+            - resource_name: ``=``, ``:``
 
-            -  state: ``=``, ``:``
+            - state: ``=``, ``:``
 
-            -  category: ``=``, ``:``
+            - category: ``=``, ``:``
 
-            -  external_uri: ``=``, ``:``
+            - external_uri: ``=``, ``:``
 
-            -  event_time: ``=``, ``>``, ``<``, ``>=``, ``<=``
+            - event_time: ``=``, ``>``, ``<``, ``>=``, ``<=``
 
-               Usage: This should be milliseconds since epoch or an
-               RFC3339 string. Examples:
-               ``event_time = "2019-06-10T16:07:18-07:00"``
-               ``event_time = 1560208038000``
+              Usage: This should be milliseconds since epoch or an
+              RFC3339 string. Examples:
+              ``event_time = "2019-06-10T16:07:18-07:00"``
+              ``event_time = 1560208038000``
 
-            -  severity: ``=``, ``:``
+            - severity: ``=``, ``:``
 
-            -  security_marks.marks: ``=``, ``:``
+            - security_marks.marks: ``=``, ``:``
 
-            -  resource:
+            - resource:
 
-               -  resource.name: ``=``, ``:``
-               -  resource.parent_name: ``=``, ``:``
-               -  resource.parent_display_name: ``=``, ``:``
-               -  resource.project_name: ``=``, ``:``
-               -  resource.project_display_name: ``=``, ``:``
-               -  resource.type: ``=``, ``:``
+              - resource.name: ``=``, ``:``
+              - resource.parent_name: ``=``, ``:``
+              - resource.parent_display_name: ``=``, ``:``
+              - resource.project_name: ``=``, ``:``
+              - resource.project_display_name: ``=``, ``:``
+              - resource.type: ``=``, ``:``
         group_by (str):
             Required. Expression that defines what assets fields to use
             for grouping. The string value should follow SQL syntax:
@@ -808,7 +868,7 @@ class ListAttackPathsRequest(proto.Message):
             The filter expression that filters the attack path in the
             response. Supported fields:
 
-            -  ``valued_resources`` supports =
+            - ``valued_resources`` supports =
         page_token (str):
             The value returned by the last ``ListAttackPathsResponse``;
             indicates that this is a continuation of a prior
@@ -960,12 +1020,12 @@ class ListBigQueryExportsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    big_query_exports: MutableSequence[
-        bigquery_export.BigQueryExport
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=bigquery_export.BigQueryExport,
+    big_query_exports: MutableSequence[bigquery_export.BigQueryExport] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=bigquery_export.BigQueryExport,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -982,25 +1042,25 @@ class ListFindingsRequest(proto.Message):
             location is specified, the default is global. The following
             list shows some examples:
 
-            -  ``organizations/[organization_id]/sources/[source_id]``
+            - ``organizations/[organization_id]/sources/[source_id]``
             -
 
             ``organizations/[organization_id]/sources/[source_id]/locations/[location_id]``
 
-            -  ``folders/[folder_id]/sources/[source_id]``
-            -  ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
-            -  ``projects/[project_id]/sources/[source_id]``
-            -  ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
+            - ``folders/[folder_id]/sources/[source_id]``
+            - ``folders/[folder_id]/sources/[source_id]/locations/[location_id]``
+            - ``projects/[project_id]/sources/[source_id]``
+            - ``projects/[project_id]/sources/[source_id]/locations/[location_id]``
 
             To list across all sources provide a source_id of ``-``. The
             following list shows some examples:
 
-            -  ``organizations/{organization_id}/sources/-``
-            -  ``organizations/{organization_id}/sources/-/locations/{location_id}``
-            -  ``folders/{folder_id}/sources/-``
-            -  ``folders/{folder_id}/sources/-locations/{location_id}``
-            -  ``projects/{projects_id}/sources/-``
-            -  ``projects/{projects_id}/sources/-/locations/{location_id}``
+            - ``organizations/{organization_id}/sources/-``
+            - ``organizations/{organization_id}/sources/-/locations/{location_id}``
+            - ``folders/{folder_id}/sources/-``
+            - ``folders/{folder_id}/sources/-locations/{location_id}``
+            - ``projects/{projects_id}/sources/-``
+            - ``projects/{projects_id}/sources/-/locations/{location_id}``
         filter (str):
             Expression that defines the filter to apply across findings.
             The expression is a list of one or more restrictions
@@ -1012,56 +1072,56 @@ class ListFindingsRequest(proto.Message):
             and may have a ``-`` character in front of them to indicate
             negation. Examples include:
 
-            -  name
-            -  security_marks.marks.marka
+            - name
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             The following field and operator combinations are supported:
 
-            -  name: ``=``
+            - name: ``=``
 
-            -  parent: ``=``, ``:``
+            - parent: ``=``, ``:``
 
-            -  resource_name: ``=``, ``:``
+            - resource_name: ``=``, ``:``
 
-            -  state: ``=``, ``:``
+            - state: ``=``, ``:``
 
-            -  category: ``=``, ``:``
+            - category: ``=``, ``:``
 
-            -  external_uri: ``=``, ``:``
+            - external_uri: ``=``, ``:``
 
-            -  event_time: ``=``, ``>``, ``<``, ``>=``, ``<=``
+            - event_time: ``=``, ``>``, ``<``, ``>=``, ``<=``
 
-               Usage: This should be milliseconds since epoch or an
-               RFC3339 string. Examples:
-               ``event_time = "2019-06-10T16:07:18-07:00"``
-               ``event_time = 1560208038000``
+              Usage: This should be milliseconds since epoch or an
+              RFC3339 string. Examples:
+              ``event_time = "2019-06-10T16:07:18-07:00"``
+              ``event_time = 1560208038000``
 
-            -  severity: ``=``, ``:``
+            - severity: ``=``, ``:``
 
-            -  security_marks.marks: ``=``, ``:``
+            - security_marks.marks: ``=``, ``:``
 
-            -  resource:
+            - resource:
 
-               -  resource.name: ``=``, ``:``
-               -  resource.parent_name: ``=``, ``:``
-               -  resource.parent_display_name: ``=``, ``:``
-               -  resource.project_name: ``=``, ``:``
-               -  resource.project_display_name: ``=``, ``:``
-               -  resource.type: ``=``, ``:``
-               -  resource.folders.resource_folder: ``=``, ``:``
-               -  resource.display_name: ``=``, ``:``
+              - resource.name: ``=``, ``:``
+              - resource.parent_name: ``=``, ``:``
+              - resource.parent_display_name: ``=``, ``:``
+              - resource.project_name: ``=``, ``:``
+              - resource.project_display_name: ``=``, ``:``
+              - resource.type: ``=``, ``:``
+              - resource.folders.resource_folder: ``=``, ``:``
+              - resource.display_name: ``=``, ``:``
         order_by (str):
             Expression that defines what fields and order to use for
             sorting. The string value should follow SQL syntax: comma
@@ -1560,8 +1620,8 @@ class ListValuedResourcesRequest(proto.Message):
             The filter expression that filters the valued resources in
             the response. Supported fields:
 
-            -  ``resource_value`` supports =
-            -  ``resource_type`` supports =
+            - ``resource_value`` supports =
+            - ``resource_type`` supports =
         page_token (str):
             The value returned by the last
             ``ListValuedResourcesResponse``; indicates that this is a
@@ -1577,11 +1637,11 @@ class ListValuedResourcesRequest(proto.Message):
 
             Supported fields:
 
-            -  ``exposed_score``
+            - ``exposed_score``
 
-            -  ``resource_value``
+            - ``resource_value``
 
-            -  ``resource_type``
+            - ``resource_type``
 
             Values should be a comma separated list of fields. For
             example: ``exposed_score,resource_value``.
@@ -1634,12 +1694,12 @@ class ListValuedResourcesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    valued_resources: MutableSequence[
-        valued_resource.ValuedResource
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=valued_resource.ValuedResource,
+    valued_resources: MutableSequence[valued_resource.ValuedResource] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=valued_resource.ValuedResource,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1668,12 +1728,12 @@ class SetFindingStateRequest(proto.Message):
             +
             ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+            - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+            - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
@@ -1709,12 +1769,12 @@ class SetMuteRequest(proto.Message):
             +
             ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+            - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+            - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``

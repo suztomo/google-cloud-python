@@ -1,5 +1,101 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-config/#history
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.5.0...google-cloud-config-v0.6.0) (2026-05-06)
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.4.0...google-cloud-config-v0.5.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.3.0...google-cloud-config-v0.4.0) (2026-01-15)
+
+
+### Features
+
+* add support for enabling automigration from deprecated Terraform versions ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* added error code when failing import values from an external source ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.2.0...google-cloud-config-v0.3.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.21...google-cloud-config-v0.2.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.21](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.20...google-cloud-config-v0.1.21) (2025-09-04)
+
+
+### Features
+
+* [google-cloud-config] added support for service maintained provider ([#14347](https://github.com/googleapis/google-cloud-python/issues/14347)) ([c7943db](https://github.com/googleapis/google-cloud-python/commit/c7943db754b37d49f7aa993e28f8cd6e6c1ea7e5))
+
+## [0.1.20](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.19...google-cloud-config-v0.1.20) (2025-08-06)
+
+
+### Features
+
+* add a FooBar API ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* add the VeoTuningSpec ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* Remove private preview label from Model Armor protos ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+
+### Documentation
+
+* update comments for rpc BatchCreatePullRequestComments, ResolvePullRequestComments and UnresolvePullRequestComments ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+## [0.1.19](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.18...google-cloud-config-v0.1.19) (2025-07-10)
+
+
+### Features
+
+* added resource change and drift details for the preview ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+
+
+### Documentation
+
+* A comment for field `annotations` in message `.google.cloud.config.v1.Preview` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `error` in message `.google.cloud.config.v1.TerraformError` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `input_value` in message `.google.cloud.config.v1.TerraformVariable` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `input_values` in message `.google.cloud.config.v1.TerraformBlueprint` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `labels` in message `.google.cloud.config.v1.Deployment` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `name` in message `.google.cloud.config.v1.Deployment` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `page_size` in message `.google.cloud.config.v1.ListTerraformVersionsRequest` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+* A comment for field `page_token` in message `.google.cloud.config.v1.ListTerraformVersionsRequest` is changed ([f5cd663](https://github.com/googleapis/google-cloud-python/commit/f5cd663a11af7ca0bd6b03dfff1a258401c78b0a))
+
+## [0.1.18](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.17...google-cloud-config-v0.1.18) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [0.1.17](https://github.com/googleapis/google-cloud-python/compare/google-cloud-config-v0.1.16...google-cloud-config-v0.1.17) (2025-03-15)
 
 

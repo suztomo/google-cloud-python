@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1.types import custom_tuning_model, import_config
@@ -65,12 +65,12 @@ class ListCustomModelsResponse(proto.Message):
             List of custom tuning models.
     """
 
-    models: MutableSequence[
-        custom_tuning_model.CustomTuningModel
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=custom_tuning_model.CustomTuningModel,
+    models: MutableSequence[custom_tuning_model.CustomTuningModel] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=custom_tuning_model.CustomTuningModel,
+        )
     )
 
 
@@ -95,8 +95,8 @@ class TrainCustomModelRequest(proto.Message):
         model_type (str):
             Model to be trained. Supported values are:
 
-            -  **search-tuning**: Fine tuning the search system based on
-               data provided.
+            - **search-tuning**: Fine tuning the search system based on
+              data provided.
         error_config (google.cloud.discoveryengine_v1.types.ImportErrorConfig):
             The desired location of errors incurred
             during the data ingestion and training.
@@ -124,7 +124,7 @@ class TrainCustomModelRequest(proto.Message):
                 delimited jsonl/ndjson file.
 
                 For search-tuning model, each line should have the \_id and
-                text. Example: {"_id": "query1", "text": "example query"}
+                text. Example: {"\_id": "query1", "text": "example query"}
             train_data_path (str):
                 Cloud Storage training data path whose format should be
                 ``gs://<bucket_to_data>/<tsv_file_name>``. The file should
@@ -136,8 +136,8 @@ class TrainCustomModelRequest(proto.Message):
                 number in ``[0, inf+)``. The larger the number is, the more
                 relevant the pair is. Example:
 
-                -  ``query-id\tcorpus-id\tscore``
-                -  ``query1\tdoc1\t1``
+                - ``query-id\tcorpus-id\tscore``
+                - ``query1\tdoc1\t1``
             test_data_path (str):
                 Cloud Storage test data. Same format as train_data_path. If
                 not provided, a random 80/20 train/test split will be
@@ -202,15 +202,15 @@ class TrainCustomModelResponse(proto.Message):
         model_status (str):
             The trained model status. Possible values are:
 
-            -  **bad-data**: The training data quality is bad.
-            -  **no-improvement**: Tuning didn't improve performance.
-               Won't deploy.
-            -  **in-progress**: Model training job creation is in
-               progress.
-            -  **training**: Model is actively training.
-            -  **evaluating**: The model is evaluating trained metrics.
-            -  **indexing**: The model trained metrics are indexing.
-            -  **ready**: The model is ready for serving.
+            - **bad-data**: The training data quality is bad.
+            - **no-improvement**: Tuning didn't improve performance.
+              Won't deploy.
+            - **in-progress**: Model training job creation is in
+              progress.
+            - **training**: Model is actively training.
+            - **evaluating**: The model is evaluating trained metrics.
+            - **indexing**: The model trained metrics are indexing.
+            - **ready**: The model is ready for serving.
         metrics (MutableMapping[str, float]):
             The metrics of the trained model.
         model_name (str):

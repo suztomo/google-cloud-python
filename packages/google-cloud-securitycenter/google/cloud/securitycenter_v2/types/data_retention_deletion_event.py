@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,6 +73,7 @@ class DataRetentionDeletionEvent(proto.Message):
             EVENT_TYPE_MAX_TTL_EXCEEDED (1):
                 The maximum retention time has been exceeded.
         """
+
         EVENT_TYPE_UNSPECIFIED = 0
         EVENT_TYPE_MAX_TTL_EXCEEDED = 1
 

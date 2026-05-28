@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.support_v2beta import gapic_version as package_version
 
@@ -44,8 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+
 from google.cloud.support_v2beta.services.case_attachment_service import pagers
-from google.cloud.support_v2beta.types import attachment, attachment_service
+from google.cloud.support_v2beta.types import actor, attachment, attachment_service
 
 from .client import CaseAttachmentServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, CaseAttachmentServiceTransport
@@ -121,7 +123,10 @@ class CaseAttachmentServiceAsyncClient:
         Returns:
             CaseAttachmentServiceAsyncClient: The constructed client.
         """
-        return CaseAttachmentServiceClient.from_service_account_info.__func__(CaseAttachmentServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            CaseAttachmentServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(CaseAttachmentServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -137,7 +142,10 @@ class CaseAttachmentServiceAsyncClient:
         Returns:
             CaseAttachmentServiceAsyncClient: The constructed client.
         """
-        return CaseAttachmentServiceClient.from_service_account_file.__func__(CaseAttachmentServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            CaseAttachmentServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(CaseAttachmentServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -175,7 +183,9 @@ class CaseAttachmentServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return CaseAttachmentServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return CaseAttachmentServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> CaseAttachmentServiceTransport:
@@ -187,7 +197,7 @@ class CaseAttachmentServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -420,6 +430,123 @@ class CaseAttachmentServiceAsyncClient:
             method=rpc,
             request=request,
             response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_attachment(
+        self,
+        request: Optional[Union[attachment_service.GetAttachmentRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> attachment.Attachment:
+        r"""Retrieve an attachment.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import support_v2beta
+
+            async def sample_get_attachment():
+                # Create a client
+                client = support_v2beta.CaseAttachmentServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = support_v2beta.GetAttachmentRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_attachment(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.support_v2beta.types.GetAttachmentRequest, dict]]):
+                The request object. Request for getting an attachment.
+            name (:class:`str`):
+                Required. The name of the attachment
+                to get.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.support_v2beta.types.Attachment:
+                An Attachment contains metadata about a file that was uploaded to a
+                   case - it is NOT a file itself. That being said, the
+                   name of an Attachment object can be used to download
+                   its accompanying file through the media.download
+                   endpoint.
+
+                   While attachments can be uploaded in the console at
+                   the same time as a comment, they're associated on a
+                   "case" level, not a "comment" level.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, attachment_service.GetAttachmentRequest):
+            request = attachment_service.GetAttachmentRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_attachment
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

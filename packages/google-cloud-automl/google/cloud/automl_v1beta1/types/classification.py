@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ class ClassificationType(proto.Enum):
         MULTILABEL (2):
             Multiple labels are allowed for one example.
     """
+
     CLASSIFICATION_TYPE_UNSPECIFIED = 0
     MULTICLASS = 1
     MULTILABEL = 2
@@ -76,30 +77,30 @@ class VideoClassificationAnnotation(proto.Message):
             Output only. Expresses the type of video classification.
             Possible values:
 
-            -  ``segment`` - Classification done on a specified by user
-               time segment of a video. AnnotationSpec is answered to be
-               present in that time segment, if it is present in any
-               part of it. The video ML model evaluations are done only
-               for this type of classification.
+            - ``segment`` - Classification done on a specified by user
+              time segment of a video. AnnotationSpec is answered to be
+              present in that time segment, if it is present in any part
+              of it. The video ML model evaluations are done only for
+              this type of classification.
 
-            -  ``shot``- Shot-level classification. AutoML Video
-               Intelligence determines the boundaries for each camera
-               shot in the entire segment of the video that user
-               specified in the request configuration. AutoML Video
-               Intelligence then returns labels and their confidence
-               scores for each detected shot, along with the start and
-               end time of the shot. WARNING: Model evaluation is not
-               done for this classification type, the quality of it
-               depends on training data, but there are no metrics
-               provided to describe that quality.
+            - ``shot``- Shot-level classification. AutoML Video
+              Intelligence determines the boundaries for each camera
+              shot in the entire segment of the video that user
+              specified in the request configuration. AutoML Video
+              Intelligence then returns labels and their confidence
+              scores for each detected shot, along with the start and
+              end time of the shot. WARNING: Model evaluation is not
+              done for this classification type, the quality of it
+              depends on training data, but there are no metrics
+              provided to describe that quality.
 
-            -  ``1s_interval`` - AutoML Video Intelligence returns
-               labels and their confidence scores for each second of the
-               entire segment of the video that user specified in the
-               request configuration. WARNING: Model evaluation is not
-               done for this classification type, the quality of it
-               depends on training data, but there are no metrics
-               provided to describe that quality.
+            - ``1s_interval`` - AutoML Video Intelligence returns labels
+              and their confidence scores for each second of the entire
+              segment of the video that user specified in the request
+              configuration. WARNING: Model evaluation is not done for
+              this classification type, the quality of it depends on
+              training data, but there are no metrics provided to
+              describe that quality.
         classification_annotation (google.cloud.automl_v1beta1.types.ClassificationAnnotation):
             Output only . The classification details of
             this annotation.
@@ -337,12 +338,12 @@ class ClassificationEvaluationMetrics(proto.Message):
             proto.STRING,
             number=3,
         )
-        row: MutableSequence[
-            "ClassificationEvaluationMetrics.ConfusionMatrix.Row"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="ClassificationEvaluationMetrics.ConfusionMatrix.Row",
+        row: MutableSequence["ClassificationEvaluationMetrics.ConfusionMatrix.Row"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="ClassificationEvaluationMetrics.ConfusionMatrix.Row",
+            )
         )
 
     au_prc: float = proto.Field(
@@ -361,12 +362,12 @@ class ClassificationEvaluationMetrics(proto.Message):
         proto.FLOAT,
         number=7,
     )
-    confidence_metrics_entry: MutableSequence[
-        ConfidenceMetricsEntry
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ConfidenceMetricsEntry,
+    confidence_metrics_entry: MutableSequence[ConfidenceMetricsEntry] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ConfidenceMetricsEntry,
+        )
     )
     confusion_matrix: ConfusionMatrix = proto.Field(
         proto.MESSAGE,

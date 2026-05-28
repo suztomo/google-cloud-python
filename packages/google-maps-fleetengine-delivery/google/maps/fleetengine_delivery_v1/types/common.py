@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -71,6 +71,7 @@ class DeliveryVehicleLocationSensor(proto.Enum):
             The location provider on Apple operating
             systems.
     """
+
     UNKNOWN_SENSOR = 0
     GPS = 1
     NETWORK = 2
@@ -99,6 +100,7 @@ class DeliveryVehicleNavigationStatus(proto.Enum):
             The vehicle is within approximately 50m of
             the destination.
     """
+
     UNKNOWN_NAVIGATION_STATUS = 0
     NO_GUIDANCE = 1
     ENROUTE_TO_DESTINATION = 2
@@ -235,6 +237,17 @@ class DeliveryVehicleLocation(proto.Message):
             Source of the raw location. Defaults to ``GPS``.
         raw_location_accuracy (google.protobuf.wrappers_pb2.DoubleValue):
             Accuracy of ``raw_location`` as a radius, in meters.
+        flp_location (google.type.latlng_pb2.LatLng):
+            The location from Android's Fused Location
+            Provider.
+        flp_update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Update timestamp of the ``flp_location``
+        flp_latlng_accuracy_meters (google.protobuf.wrappers_pb2.DoubleValue):
+            Accuracy of ``flp_location`` in meters as a radius.
+        flp_heading_degrees (google.protobuf.wrappers_pb2.Int32Value):
+            Direction the vehicle is moving in degrees, as determined by
+            the Fused Location Provider. 0 represents North. The valid
+            range is [0,360).
         supplemental_location (google.type.latlng_pb2.LatLng):
             Supplemental location provided by the
             integrating app.
@@ -365,6 +378,26 @@ class DeliveryVehicleLocation(proto.Message):
         proto.MESSAGE,
         number=25,
         message=wrappers_pb2.DoubleValue,
+    )
+    flp_location: latlng_pb2.LatLng = proto.Field(
+        proto.MESSAGE,
+        number=29,
+        message=latlng_pb2.LatLng,
+    )
+    flp_update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=30,
+        message=timestamp_pb2.Timestamp,
+    )
+    flp_latlng_accuracy_meters: wrappers_pb2.DoubleValue = proto.Field(
+        proto.MESSAGE,
+        number=31,
+        message=wrappers_pb2.DoubleValue,
+    )
+    flp_heading_degrees: wrappers_pb2.Int32Value = proto.Field(
+        proto.MESSAGE,
+        number=32,
+        message=wrappers_pb2.Int32Value,
     )
     supplemental_location: latlng_pb2.LatLng = proto.Field(
         proto.MESSAGE,

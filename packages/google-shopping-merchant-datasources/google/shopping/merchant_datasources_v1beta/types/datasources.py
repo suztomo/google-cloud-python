@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.shopping.merchant_datasources_v1beta.types import (
@@ -142,6 +142,7 @@ class DataSource(proto.Message):
                 data source can be enabled or disabled through the Accounts
                 bundle.
         """
+
         INPUT_UNSPECIFIED = 0
         API = 1
         FILE = 2
@@ -332,8 +333,8 @@ class UpdateDataSourceRequest(proto.Message):
             Fields specified in the update mask without a value
             specified in the body will be deleted from the data source.
 
-            Providing special "*" value for full data source replacement
-            is not supported.
+            Providing special "\*" value for full data source
+            replacement is not supported.
     """
 
     data_source: "DataSource" = proto.Field(

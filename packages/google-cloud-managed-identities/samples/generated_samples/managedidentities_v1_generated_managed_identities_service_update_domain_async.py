@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,20 +42,21 @@ async def sample_update_domain():
     domain = managedidentities_v1.Domain()
     domain.name = "name_value"
     domain.reserved_ip_range = "reserved_ip_range_value"
-    domain.locations = ['locations_value1', 'locations_value2']
+    domain.locations = ["locations_value1", "locations_value2"]
 
     request = managedidentities_v1.UpdateDomainRequest(
         domain=domain,
     )
 
     # Make the request
-    operation = client.update_domain(request=request)
+    operation = await client.update_domain(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END managedidentities_v1_generated_ManagedIdentitiesService_UpdateDomain_async]

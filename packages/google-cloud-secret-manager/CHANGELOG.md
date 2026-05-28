@@ -1,5 +1,53 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-secret-manager/#history
+
+## [2.28.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.27.0...google-cloud-secret-manager-v2.28.0) (2026-05-06)
+
+## [2.27.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.26.0...google-cloud-secret-manager-v2.27.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.26.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.25.0...google-cloud-secret-manager-v2.26.0) (2025-12-17)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+* check Python and dependency versions in generated GAPICs ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+
+## [2.25.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.24.0...google-cloud-secret-manager-v2.25.0) (2025-10-14)
+
+
+### Features
+
+* Add support for Python 3.14 ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+## [2.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.23.3...google-cloud-secret-manager-v2.24.0) (2025-06-05)
+
+
+### Features
+
+* [google-cloud-secret-manager] update secret manager protos for tags ([#13976](https://github.com/googleapis/google-cloud-python/issues/13976)) ([998c300](https://github.com/googleapis/google-cloud-python/commit/998c300dfb93942baf80fe5dbb21365a84ce45c5))
+
 ## [2.23.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-secret-manager-v2.23.2...google-cloud-secret-manager-v2.23.3) (2025-04-17)
 
 

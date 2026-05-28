@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ def sample_update_instance():
     instance.filesystem = "filesystem_value"
     instance.capacity_gib = 1247
     instance.network = "network_value"
+    instance.per_unit_storage_throughput = 2931
 
     request = lustre_v1.UpdateInstanceRequest(
         instance=instance,
@@ -57,5 +58,6 @@ def sample_update_instance():
 
     # Handle the response
     print(response)
+
 
 # [END lustre_v1_generated_Lustre_UpdateInstance_sync]

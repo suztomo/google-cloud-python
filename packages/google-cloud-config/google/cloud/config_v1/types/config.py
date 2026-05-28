@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -30,6 +30,8 @@ __protobuf__ = proto.module(
         "Deployment",
         "TerraformBlueprint",
         "TerraformVariable",
+        "ExternalValueSource",
+        "DeploymentSource",
         "ApplyResults",
         "TerraformOutput",
         "ListDeploymentsRequest",
@@ -39,6 +41,9 @@ __protobuf__ = proto.module(
         "ListRevisionsResponse",
         "GetRevisionRequest",
         "CreateDeploymentRequest",
+        "CreateDeploymentGroupRequest",
+        "UpdateDeploymentGroupRequest",
+        "DeleteDeploymentGroupRequest",
         "UpdateDeploymentRequest",
         "DeleteDeploymentRequest",
         "OperationMetadata",
@@ -76,6 +81,37 @@ __protobuf__ = proto.module(
         "ListTerraformVersionsRequest",
         "ListTerraformVersionsResponse",
         "TerraformVersion",
+        "ResourceChangeTerraformInfo",
+        "ResourceChange",
+        "PropertyChange",
+        "ListResourceChangesRequest",
+        "ListResourceChangesResponse",
+        "GetResourceChangeRequest",
+        "ResourceDriftTerraformInfo",
+        "ResourceDrift",
+        "PropertyDrift",
+        "ListResourceDriftsRequest",
+        "ListResourceDriftsResponse",
+        "GetResourceDriftRequest",
+        "ProviderConfig",
+        "GetAutoMigrationConfigRequest",
+        "AutoMigrationConfig",
+        "UpdateAutoMigrationConfigRequest",
+        "DeploymentGroup",
+        "DeploymentUnit",
+        "DeploymentSpec",
+        "GetDeploymentGroupRequest",
+        "ListDeploymentGroupsRequest",
+        "ListDeploymentGroupsResponse",
+        "ProvisionDeploymentGroupRequest",
+        "DeprovisionDeploymentGroupRequest",
+        "DeploymentOperationSummary",
+        "DeploymentUnitProgress",
+        "ProvisionDeploymentGroupOperationMetadata",
+        "DeploymentGroupRevision",
+        "GetDeploymentGroupRevisionRequest",
+        "ListDeploymentGroupRevisionsRequest",
+        "ListDeploymentGroupRevisionsResponse",
     },
 )
 
@@ -99,6 +135,7 @@ class QuotaValidation(proto.Enum):
             deploy resources in terraform configuration
             files.
     """
+
     QUOTA_VALIDATION_UNSPECIFIED = 0
     ENABLED = 1
     ENFORCED = 2
@@ -119,7 +156,7 @@ class Deployment(proto.Message):
 
             This field is a member of `oneof`_ ``blueprint``.
         name (str):
-            Resource name of the deployment. Format:
+            Identifier. Resource name of the deployment. Format:
             ``projects/{project}/locations/{location}/deployments/{deployment}``
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Time when the deployment was
@@ -128,7 +165,8 @@ class Deployment(proto.Message):
             Output only. Time when the deployment was
             last modified.
         labels (MutableMapping[str, str]):
-            User-defined metadata for the deployment.
+            Optional. User-defined metadata for the
+            deployment.
         state (google.cloud.config_v1.types.Deployment.State):
             Output only. Current state of the deployment.
         latest_revision (str):
@@ -168,11 +206,11 @@ class Deployment(proto.Message):
             ``gs://<project number>-<region>-blueprint-config``
             Constraints:
 
-            -  The bucket needs to be in the same project as the
-               deployment
-            -  The path cannot be within the path of ``gcs_source``
-            -  The field cannot be updated, including changing its
-               presence
+            - The bucket needs to be in the same project as the
+              deployment
+            - The path cannot be within the path of ``gcs_source``
+            - The field cannot be updated, including changing its
+              presence
 
             This field is a member of `oneof`_ ``_artifacts_gcs_bucket``.
         service_account (str):
@@ -225,6 +263,9 @@ class Deployment(proto.Message):
             deployments during automation. See
             https://google.aip.dev/148#annotations for
             details on format and size limitations.
+        provider_config (google.cloud.config_v1.types.ProviderConfig):
+            Optional. This field specifies the provider
+            configurations.
     """
 
     class State(proto.Enum):
@@ -252,6 +293,7 @@ class Deployment(proto.Message):
             DELETED (7):
                 The deployment has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -284,7 +326,11 @@ class Deployment(proto.Message):
             BUCKET_CREATION_FAILED (8):
                 Cloud Storage bucket creation failed due to
                 an issue unrelated to permissions.
+            EXTERNAL_VALUE_SOURCE_IMPORT_FAILED (10):
+                Failed to import values from an external
+                source.
         """
+
         ERROR_CODE_UNSPECIFIED = 0
         REVISION_FAILED = 1
         CLOUD_BUILD_PERMISSION_DENIED = 3
@@ -292,6 +338,7 @@ class Deployment(proto.Message):
         DELETE_BUILD_RUN_FAILED = 6
         BUCKET_CREATION_PERMISSION_DENIED = 7
         BUCKET_CREATION_FAILED = 8
+        EXTERNAL_VALUE_SOURCE_IMPORT_FAILED = 10
 
     class LockState(proto.Enum):
         r"""Possible lock states of a deployment.
@@ -313,6 +360,7 @@ class Deployment(proto.Message):
             UNLOCK_FAILED (6):
                 The deployment has failed to unlock.
         """
+
         LOCK_STATE_UNSPECIFIED = 0
         LOCKED = 1
         UNLOCKED = 2
@@ -430,6 +478,11 @@ class Deployment(proto.Message):
         proto.STRING,
         number=24,
     )
+    provider_config: "ProviderConfig" = proto.Field(
+        proto.MESSAGE,
+        number=25,
+        message="ProviderConfig",
+    )
 
 
 class TerraformBlueprint(proto.Message):
@@ -457,8 +510,12 @@ class TerraformBlueprint(proto.Message):
 
             This field is a member of `oneof`_ ``source``.
         input_values (MutableMapping[str, google.cloud.config_v1.types.TerraformVariable]):
-            Input variable values for the Terraform
-            blueprint.
+            Optional. Input variable values for the
+            Terraform blueprint.
+        external_values (MutableMapping[str, google.cloud.config_v1.types.ExternalValueSource]):
+            Optional. Map of input variable names in this
+            blueprint to configurations for importing values
+            from external sources.
     """
 
     gcs_source: str = proto.Field(
@@ -478,6 +535,12 @@ class TerraformBlueprint(proto.Message):
         number=4,
         message="TerraformVariable",
     )
+    external_values: MutableMapping[str, "ExternalValueSource"] = proto.MapField(
+        proto.STRING,
+        proto.MESSAGE,
+        number=5,
+        message="ExternalValueSource",
+    )
 
 
 class TerraformVariable(proto.Message):
@@ -485,13 +548,60 @@ class TerraformVariable(proto.Message):
 
     Attributes:
         input_value (google.protobuf.struct_pb2.Value):
-            Input variable value.
+            Optional. Input variable value.
     """
 
     input_value: struct_pb2.Value = proto.Field(
         proto.MESSAGE,
         number=5,
         message=struct_pb2.Value,
+    )
+
+
+class ExternalValueSource(proto.Message):
+    r"""Configuration for a source of an external value.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        deployment_source (google.cloud.config_v1.types.DeploymentSource):
+            A source from a Deployment.
+
+            This field is a member of `oneof`_ ``source``.
+    """
+
+    deployment_source: "DeploymentSource" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="source",
+        message="DeploymentSource",
+    )
+
+
+class DeploymentSource(proto.Message):
+    r"""Configuration for a value sourced from a Deployment.
+
+    Attributes:
+        deployment (str):
+            Required. The resource name of the source
+            Deployment to import the output from. Format:
+
+            projects/{project}/locations/{location}/deployments/{deployment}
+            The source deployment must be in the same
+            project and location.
+        output_name (str):
+            Required. The name of the output variable in
+            the source deployment's latest successfully
+            applied revision.
+    """
+
+    deployment: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    output_name: str = proto.Field(
+        proto.STRING,
+        number=2,
     )
 
 
@@ -576,18 +686,18 @@ class ListDeploymentsRequest(proto.Message):
 
             Examples:
 
-            -  Filter by name: name =
-               "projects/foo/locations/us-central1/deployments/bar
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/deployments/bar
 
-            -  Filter by labels:
+            - Filter by labels:
 
-               -  Resources that have a key called 'foo' labels.foo:\*
-               -  Resources that have a key called 'foo' whose value is
-                  'bar' labels.foo = bar
+              - Resources that have a key called 'foo' labels.foo:\*
+              - Resources that have a key called 'foo' whose value is
+                'bar' labels.foo = bar
 
-            -  Filter by state:
+            - Filter by state:
 
-               -  Deployments in CREATING state. state=CREATING
+              - Deployments in CREATING state. state=CREATING
         order_by (str):
             Field to use to sort the list.
     """
@@ -690,18 +800,18 @@ class ListRevisionsRequest(proto.Message):
 
             Examples:
 
-            -  Filter by name: name =
-               "projects/foo/locations/us-central1/deployments/dep/revisions/bar
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/deployments/dep/revisions/bar
 
-            -  Filter by labels:
+            - Filter by labels:
 
-               -  Resources that have a key called 'foo' labels.foo:\*
-               -  Resources that have a key called 'foo' whose value is
-                  'bar' labels.foo = bar
+              - Resources that have a key called 'foo' labels.foo:\*
+              - Resources that have a key called 'foo' whose value is
+                'bar' labels.foo = bar
 
-            -  Filter by state:
+            - Filter by state:
 
-               -  Revisions in CREATING state. state=CREATING
+              - Revisions in CREATING state. state=CREATING
         order_by (str):
             Field to use to sort the list.
     """
@@ -832,6 +942,205 @@ class CreateDeploymentRequest(proto.Message):
     )
 
 
+class CreateDeploymentGroupRequest(proto.Message):
+    r"""A request to create a deployment group
+
+    Attributes:
+        parent (str):
+            Required. The parent in whose context the Deployment Group
+            is created. The parent value is in the format:
+            'projects/{project_id}/locations/{location}'
+        deployment_group_id (str):
+            Required. The deployment group ID.
+        deployment_group (google.cloud.config_v1.types.DeploymentGroup):
+            Required. [Deployment Group][] resource to create
+        request_id (str):
+            Optional. An optional request ID to identify
+            requests. Specify a unique request ID so that if
+            you must retry your request, the server will
+            know to ignore the request if it has already
+            been completed. The server will guarantee that
+            for at least 60 minutes since the first request.
+
+            For example, consider a situation where you make
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
+            prevents clients from accidentally creating
+            duplicate commitments.
+
+            The request ID must be a valid UUID with the
+            exception that zero UUID is not supported
+            (00000000-0000-0000-0000-000000000000).
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    deployment_group_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    deployment_group: "DeploymentGroup" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message="DeploymentGroup",
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+
+
+class UpdateDeploymentGroupRequest(proto.Message):
+    r"""A request message for updating a deployment group
+
+    Attributes:
+        update_mask (google.protobuf.field_mask_pb2.FieldMask):
+            Optional. Field mask used to specify the fields to be
+            overwritten in the Deployment Group resource by the update.
+
+            The fields specified in the update_mask are relative to the
+            resource, not the full request. A field will be overwritten
+            if it is in the mask. If the user does not provide a mask
+            then all fields will be overwritten.
+        deployment_group (google.cloud.config_v1.types.DeploymentGroup):
+            Required.
+            [DeploymentGroup][google.cloud.config.v1.DeploymentGroup] to
+            update.
+
+            The deployment group's ``name`` field is used to identify
+            the resource to be updated. Format:
+            ``projects/{project}/locations/{location}/deploymentGroups/{deployment_group_id}``
+        request_id (str):
+            Optional. An optional request ID to identify
+            requests. Specify a unique request ID so that if
+            you must retry your request, the server will
+            know to ignore the request if it has already
+            been completed. The server will guarantee that
+            for at least 60 minutes since the first request.
+
+            For example, consider a situation where you make
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
+            prevents clients from accidentally creating
+            duplicate commitments.
+
+            The request ID must be a valid UUID with the
+            exception that zero UUID is not supported
+            (00000000-0000-0000-0000-000000000000).
+    """
+
+    update_mask: field_mask_pb2.FieldMask = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=field_mask_pb2.FieldMask,
+    )
+    deployment_group: "DeploymentGroup" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="DeploymentGroup",
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
+class DeleteDeploymentGroupRequest(proto.Message):
+    r"""Request message for Delete DeploymentGroup
+
+    Attributes:
+        name (str):
+            Required. The name of DeploymentGroup in the format
+            projects/{project_id}/locations/{location_id}/deploymentGroups/{deploymentGroup}
+        request_id (str):
+            Optional. An optional request ID to identify
+            requests. Specify a unique request ID so that if
+            you must retry your request, the server will
+            know to ignore the request if it has already
+            been completed. The server will guarantee that
+            for at least 60 minutes after the first request.
+
+            For example, consider a situation where you make
+            an initial request and the request times out. If
+            you make the request again with the same request
+            ID, the server can check if original operation
+            with the same request ID was received, and if
+            so, will ignore the second request. This
+            prevents clients from accidentally creating
+            duplicate commitments.
+
+            The request ID must be a valid UUID with the
+            exception that zero UUID is not supported
+            (00000000-0000-0000-0000-000000000000).
+        force (bool):
+            Optional. If set to true, any revisions for
+            this deployment group will also be deleted.
+            (Otherwise, the request will only work if the
+            deployment group has no revisions.)
+        deployment_reference_policy (google.cloud.config_v1.types.DeleteDeploymentGroupRequest.DeploymentReferencePolicy):
+            Optional. Policy on how to handle referenced deployments
+            when deleting the DeploymentGroup. If unspecified, the
+            default behavior is to fail the deletion if any deployments
+            currently referenced in the ``deployment_units`` of the
+            DeploymentGroup or in the latest revision are not deleted.
+    """
+
+    class DeploymentReferencePolicy(proto.Enum):
+        r"""Policy on how to handle referenced deployments when deleting
+        the DeploymentGroup.
+
+        Values:
+            DEPLOYMENT_REFERENCE_POLICY_UNSPECIFIED (0):
+                The default behavior. If unspecified, the system will act as
+                if ``FAIL_IF_ANY_REFERENCES_EXIST`` is specified.
+            FAIL_IF_ANY_REFERENCES_EXIST (1):
+                Fail the deletion if any deployments currently referenced in
+                the ``deployment_units`` of the DeploymentGroup or in the
+                latest revision are not deleted.
+            FAIL_IF_METADATA_REFERENCES_EXIST (2):
+                Fail the deletion only if any deployments currently
+                referenced in the ``deployment_units`` of the
+                DeploymentGroup are not deleted. The deletion will proceed
+                even if the deployments in the latest revision of the
+                DeploymentGroup are not deleted.
+            IGNORE_DEPLOYMENT_REFERENCES (3):
+                Ignore any deployments currently referenced in the
+                ``deployment_units`` of the DeploymentGroup or in the latest
+                revision.
+        """
+
+        DEPLOYMENT_REFERENCE_POLICY_UNSPECIFIED = 0
+        FAIL_IF_ANY_REFERENCES_EXIST = 1
+        FAIL_IF_METADATA_REFERENCES_EXIST = 2
+        IGNORE_DEPLOYMENT_REFERENCES = 3
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    force: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+    deployment_reference_policy: DeploymentReferencePolicy = proto.Field(
+        proto.ENUM,
+        number=4,
+        enum=DeploymentReferencePolicy,
+    )
+
+
 class UpdateDeploymentRequest(proto.Message):
     r"""
 
@@ -942,6 +1251,7 @@ class DeleteDeploymentRequest(proto.Message):
                 Abandons resources and only deletes the
                 deployment and its metadata.
         """
+
         DELETE_POLICY_UNSPECIFIED = 0
         DELETE = 1
         ABANDON = 2
@@ -986,6 +1296,11 @@ class OperationMetadata(proto.Message):
             operation state.
 
             This field is a member of `oneof`_ ``resource_metadata``.
+        provision_deployment_group_metadata (google.cloud.config_v1.types.ProvisionDeploymentGroupOperationMetadata):
+            Output only. Metadata about
+            ProvisionDeploymentGroup operation state.
+
+            This field is a member of `oneof`_ ``resource_metadata``.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Time when the operation was
             created.
@@ -1025,6 +1340,14 @@ class OperationMetadata(proto.Message):
         number=9,
         oneof="resource_metadata",
         message="PreviewOperationMetadata",
+    )
+    provision_deployment_group_metadata: "ProvisionDeploymentGroupOperationMetadata" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=10,
+            oneof="resource_metadata",
+            message="ProvisionDeploymentGroupOperationMetadata",
+        )
     )
     create_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
@@ -1148,6 +1471,9 @@ class Revision(proto.Message):
             resources in terraform configuration files.
             There are limited resources on which quota
             validation applies.
+        provider_config (google.cloud.config_v1.types.ProviderConfig):
+            Output only. This field specifies the
+            provider configurations.
     """
 
     class Action(proto.Enum):
@@ -1166,6 +1492,7 @@ class Revision(proto.Message):
             DELETE (3):
                 The revision was deleted.
         """
+
         ACTION_UNSPECIFIED = 0
         CREATE = 1
         UPDATE = 2
@@ -1186,6 +1513,7 @@ class Revision(proto.Message):
                 The revision could not be applied
                 successfully.
         """
+
         STATE_UNSPECIFIED = 0
         APPLYING = 1
         APPLIED = 2
@@ -1209,12 +1537,17 @@ class Revision(proto.Message):
             QUOTA_VALIDATION_FAILED (7):
                 quota validation failed for one or more
                 resources in terraform configuration files.
+            EXTERNAL_VALUE_SOURCE_IMPORT_FAILED (8):
+                Failed to import values from an external
+                source.
         """
+
         ERROR_CODE_UNSPECIFIED = 0
         CLOUD_BUILD_PERMISSION_DENIED = 1
         APPLY_BUILD_API_FAILED = 4
         APPLY_BUILD_RUN_FAILED = 5
         QUOTA_VALIDATION_FAILED = 7
+        EXTERNAL_VALUE_SOURCE_IMPORT_FAILED = 8
 
     terraform_blueprint: "TerraformBlueprint" = proto.Field(
         proto.MESSAGE,
@@ -1306,6 +1639,11 @@ class Revision(proto.Message):
         number=20,
         enum="QuotaValidation",
     )
+    provider_config: "ProviderConfig" = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message="ProviderConfig",
+    )
 
 
 class TerraformError(proto.Message):
@@ -1323,8 +1661,8 @@ class TerraformError(proto.Message):
         error_description (str):
             A human-readable error description.
         error (google.rpc.status_pb2.Status):
-            Original error response from underlying
-            Google API, if available.
+            Output only. Original error response from
+            underlying Google API, if available.
     """
 
     resource_address: str = proto.Field(
@@ -1442,6 +1780,7 @@ class DeploymentOperationMetadata(proto.Message):
             RUNNING_QUOTA_VALIDATION (12):
                 Running quota validation
         """
+
         DEPLOYMENT_STEP_UNSPECIFIED = 0
         PREPARING_STORAGE_BUCKET = 1
         DOWNLOADING_BLUEPRINT = 2
@@ -1518,6 +1857,7 @@ class Resource(proto.Message):
                 Infra Manager will leave this Resource
                 untouched.
         """
+
         INTENT_UNSPECIFIED = 0
         CREATE = 1
         UPDATE = 2
@@ -1542,6 +1882,7 @@ class Resource(proto.Message):
             FAILED (4):
                 Resource failed to reconcile.
         """
+
         STATE_UNSPECIFIED = 0
         PLANNED = 1
         IN_PROGRESS = 2
@@ -1661,8 +2002,8 @@ class ListResourcesRequest(proto.Message):
 
             Examples:
 
-            -  Filter by name: name =
-               "projects/foo/locations/us-central1/deployments/dep/revisions/bar/resources/baz
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/deployments/dep/revisions/bar/resources/baz
         order_by (str):
             Field to use to sort the list.
     """
@@ -1986,12 +2327,12 @@ class Preview(proto.Message):
             Format: ``gs://<project number>-<region>-blueprint-config``
             Constraints:
 
-            -  The bucket needs to be in the same project as the
-               deployment
-            -  The path cannot be within the path of ``gcs_source`` If
-               omitted and deployment resource ref provided has
-               artifacts_gcs_bucket defined, that artifact bucket is
-               used.
+            - The bucket needs to be in the same project as the
+              deployment
+            - The path cannot be within the path of ``gcs_source`` If
+              omitted and deployment resource ref provided has
+              artifacts_gcs_bucket defined, that artifact bucket is
+              used.
 
             This field is a member of `oneof`_ ``_artifacts_gcs_bucket``.
         worker_pool (str):
@@ -2037,10 +2378,13 @@ class Preview(proto.Message):
             This field is a member of `oneof`_ ``_tf_version_constraint``.
         annotations (MutableMapping[str, str]):
             Optional. Arbitrary key-value metadata
-            storage e.g. to help client tools identifiy
+            storage e.g. to help client tools identify
             preview during automation. See
             https://google.aip.dev/148#annotations for
             details on format and size limitations.
+        provider_config (google.cloud.config_v1.types.ProviderConfig):
+            Optional. This field specifies the provider
+            configurations.
     """
 
     class State(proto.Enum):
@@ -2068,6 +2412,7 @@ class Preview(proto.Message):
             DELETED (7):
                 The preview has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         SUCCEEDED = 2
@@ -2093,6 +2438,7 @@ class Preview(proto.Message):
                 DELETE mode generates as execution plan for
                 destroying current resources.
         """
+
         PREVIEW_MODE_UNSPECIFIED = 0
         DEFAULT = 1
         DELETE = 2
@@ -2121,7 +2467,11 @@ class Preview(proto.Message):
             PREVIEW_BUILD_RUN_FAILED (6):
                 Preview created a build but build failed and
                 logs were generated.
+            EXTERNAL_VALUE_SOURCE_IMPORT_FAILED (7):
+                Failed to import values from an external
+                source.
         """
+
         ERROR_CODE_UNSPECIFIED = 0
         CLOUD_BUILD_PERMISSION_DENIED = 1
         BUCKET_CREATION_PERMISSION_DENIED = 2
@@ -2129,6 +2479,7 @@ class Preview(proto.Message):
         DEPLOYMENT_LOCK_ACQUIRE_FAILED = 4
         PREVIEW_BUILD_API_FAILED = 5
         PREVIEW_BUILD_RUN_FAILED = 6
+        EXTERNAL_VALUE_SOURCE_IMPORT_FAILED = 7
 
     terraform_blueprint: "TerraformBlueprint" = proto.Field(
         proto.MESSAGE,
@@ -2224,6 +2575,11 @@ class Preview(proto.Message):
         proto.STRING,
         number=20,
     )
+    provider_config: "ProviderConfig" = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message="ProviderConfig",
+    )
 
 
 class PreviewOperationMetadata(proto.Message):
@@ -2274,6 +2630,7 @@ class PreviewOperationMetadata(proto.Message):
             VALIDATING_REPOSITORY (10):
                 Validating the provided repository.
         """
+
         PREVIEW_STEP_UNSPECIFIED = 0
         PREPARING_STORAGE_BUCKET = 1
         DOWNLOADING_BLUEPRINT = 2
@@ -2427,18 +2784,18 @@ class ListPreviewsRequest(proto.Message):
 
             Examples:
 
-            -  Filter by name: name =
-               "projects/foo/locations/us-central1/deployments/bar
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/deployments/bar
 
-            -  Filter by labels:
+            - Filter by labels:
 
-               -  Resources that have a key called 'foo' labels.foo:\*
-               -  Resources that have a key called 'foo' whose value is
-                  'bar' labels.foo = bar
+              - Resources that have a key called 'foo' labels.foo:\*
+              - Resources that have a key called 'foo' whose value is
+                'bar' labels.foo = bar
 
-            -  Filter by state:
+            - Filter by state:
 
-               -  Deployments in CREATING state. state=CREATING
+              - Deployments in CREATING state. state=CREATING
         order_by (str):
             Optional. Field to use to sort the list.
     """
@@ -2613,14 +2970,15 @@ class ListTerraformVersionsRequest(proto.Message):
             are listed. The parent value is in the format:
             'projects/{project_id}/locations/{location}'.
         page_size (int):
-            Optional. When requesting a page of resources, 'page_size'
-            specifies number of resources to return. If unspecified, at
-            most 500 will be returned. The maximum value is 1000.
+            Optional. When requesting a page of terraform versions,
+            'page_size' specifies number of terraform versions to
+            return. If unspecified, at most 500 will be returned. The
+            maximum value is 1000.
         page_token (str):
             Optional. Token returned by previous call to
             'ListTerraformVersions' which specifies the
             position in the list from where to continue
-            listing the resources.
+            listing the terraform versions.
         filter (str):
             Optional. Lists the TerraformVersions that match the filter
             expression. A filter expression filters the resources listed
@@ -2730,6 +3088,7 @@ class TerraformVersion(proto.Message):
             OBSOLETE (3):
                 The version is obsolete.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         DEPRECATED = 2
@@ -2760,6 +3119,1380 @@ class TerraformVersion(proto.Message):
         number=5,
         optional=True,
         message=timestamp_pb2.Timestamp,
+    )
+
+
+class ResourceChangeTerraformInfo(proto.Message):
+    r"""Terraform info of a ResourceChange.
+
+    Attributes:
+        address (str):
+            Output only. TF resource address that
+            uniquely identifies the resource.
+        type_ (str):
+            Output only. TF resource type.
+        resource_name (str):
+            Output only. TF resource name.
+        provider (str):
+            Output only. TF resource provider.
+        actions (MutableSequence[str]):
+            Output only. TF resource actions.
+    """
+
+    address: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    type_: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    resource_name: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    provider: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    actions: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=5,
+    )
+
+
+class ResourceChange(proto.Message):
+    r"""A resource change represents a change to a resource in the
+    state file.
+
+    Attributes:
+        name (str):
+            Identifier. The name of the resource change. Format:
+            'projects/{project_id}/locations/{location}/previews/{preview}/resourceChanges/{resource_change}'.
+        terraform_info (google.cloud.config_v1.types.ResourceChangeTerraformInfo):
+            Output only. Terraform info of the resource
+            change.
+        intent (google.cloud.config_v1.types.ResourceChange.Intent):
+            Output only. The intent of the resource
+            change.
+        property_changes (MutableSequence[google.cloud.config_v1.types.PropertyChange]):
+            Output only. The property changes of the
+            resource change.
+    """
+
+    class Intent(proto.Enum):
+        r"""Possible intent of the resource change.
+
+        Values:
+            INTENT_UNSPECIFIED (0):
+                The default value.
+            CREATE (1):
+                The resource will be created.
+            UPDATE (2):
+                The resource will be updated.
+            DELETE (3):
+                The resource will be deleted.
+            RECREATE (4):
+                The resource will be recreated.
+            UNCHANGED (5):
+                The resource will be untouched.
+        """
+
+        INTENT_UNSPECIFIED = 0
+        CREATE = 1
+        UPDATE = 2
+        DELETE = 3
+        RECREATE = 4
+        UNCHANGED = 5
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    terraform_info: "ResourceChangeTerraformInfo" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="ResourceChangeTerraformInfo",
+    )
+    intent: Intent = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=Intent,
+    )
+    property_changes: MutableSequence["PropertyChange"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=4,
+        message="PropertyChange",
+    )
+
+
+class PropertyChange(proto.Message):
+    r"""A property change represents a change to a property in the
+    state file.
+
+    Attributes:
+        path (str):
+            Output only. The path of the property change.
+        before_sensitive_paths (MutableSequence[str]):
+            Output only. The paths of sensitive fields in ``before``.
+            Paths are relative to ``path``.
+        before (google.protobuf.struct_pb2.Value):
+            Output only. Representations of the object
+            value before the actions.
+        after_sensitive_paths (MutableSequence[str]):
+            Output only. The paths of sensitive fields in ``after``.
+            Paths are relative to ``path``.
+        after (google.protobuf.struct_pb2.Value):
+            Output only. Representations of the object
+            value after the actions.
+    """
+
+    path: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    before_sensitive_paths: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    before: struct_pb2.Value = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=struct_pb2.Value,
+    )
+    after_sensitive_paths: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    after: struct_pb2.Value = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=struct_pb2.Value,
+    )
+
+
+class ListResourceChangesRequest(proto.Message):
+    r"""The request message for the ListResourceChanges method.
+
+    Attributes:
+        parent (str):
+            Required. The parent in whose context the ResourceChanges
+            are listed. The parent value is in the format:
+            'projects/{project_id}/locations/{location}/previews/{preview}'.
+        page_size (int):
+            Optional. When requesting a page of resource changes,
+            'page_size' specifies number of resource changes to return.
+            If unspecified, at most 500 will be returned. The maximum
+            value is 1000.
+        page_token (str):
+            Optional. Token returned by previous call to
+            'ListResourceChanges' which specifies the
+            position in the list from where to continue
+            listing the resource changes.
+        filter (str):
+            Optional. Lists the resource changes that match the filter
+            expression. A filter expression filters the resource changes
+            listed in the response. The expression must be of the form
+            '{field} {operator} {value}' where operators: '<', '>',
+            '<=', '>=', '!=', '=', ':' are supported (colon ':'
+            represents a HAS operator which is roughly synonymous with
+            equality). {field} can refer to a proto or JSON field, or a
+            synthetic field. Field names can be camelCase or snake_case.
+
+            Examples:
+
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/previews/dep/resourceChanges/baz
+        order_by (str):
+            Optional. Field to use to sort the list.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    filter: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    order_by: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
+
+
+class ListResourceChangesResponse(proto.Message):
+    r"""A response to a 'ListResourceChanges' call. Contains a list
+    of ResourceChanges.
+
+    Attributes:
+        resource_changes (MutableSequence[google.cloud.config_v1.types.ResourceChange]):
+            List of ResourceChanges.
+        next_page_token (str):
+            A token to request the next page of resources
+            from the 'ListResourceChanges' method. The value
+            of an empty string means that  there are no more
+            resources to return.
+        unreachable (MutableSequence[str]):
+            Unreachable resources, if any.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    resource_changes: MutableSequence["ResourceChange"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="ResourceChange",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+
+
+class GetResourceChangeRequest(proto.Message):
+    r"""The request message for the GetResourceChange method.
+
+    Attributes:
+        name (str):
+            Required. The name of the resource change to retrieve.
+            Format:
+            'projects/{project_id}/locations/{location}/previews/{preview}/resourceChanges/{resource_change}'.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ResourceDriftTerraformInfo(proto.Message):
+    r"""Terraform info of a ResourceChange.
+
+    Attributes:
+        address (str):
+            Output only. The address of the drifted
+            resource.
+        type_ (str):
+            Output only. The type of the drifted
+            resource.
+        resource_name (str):
+            Output only. TF resource name.
+        provider (str):
+            Output only. The provider of the drifted
+            resource.
+    """
+
+    address: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    type_: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    resource_name: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    provider: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+
+
+class ResourceDrift(proto.Message):
+    r"""A resource drift represents a drift to a resource in the
+    state file.
+
+    Attributes:
+        name (str):
+            Identifier. The name of the resource drift. Format:
+            'projects/{project_id}/locations/{location}/previews/{preview}/resourceDrifts/{resource_drift}'.
+        terraform_info (google.cloud.config_v1.types.ResourceDriftTerraformInfo):
+            Output only. Terraform info of the resource
+            drift.
+        property_drifts (MutableSequence[google.cloud.config_v1.types.PropertyDrift]):
+            Output only. The property drifts of the
+            resource drift.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    terraform_info: "ResourceDriftTerraformInfo" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="ResourceDriftTerraformInfo",
+    )
+    property_drifts: MutableSequence["PropertyDrift"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=3,
+        message="PropertyDrift",
+    )
+
+
+class PropertyDrift(proto.Message):
+    r"""A property drift represents a drift to a property in the
+    state file.
+
+    Attributes:
+        path (str):
+            Output only. The path of the property drift.
+        before_sensitive_paths (MutableSequence[str]):
+            Output only. The paths of sensitive fields in ``before``.
+            Paths are relative to ``path``.
+        before (google.protobuf.struct_pb2.Value):
+            Output only. Representations of the object
+            value before the actions.
+        after_sensitive_paths (MutableSequence[str]):
+            Output only. The paths of sensitive fields in ``after``.
+            Paths are relative to ``path``.
+        after (google.protobuf.struct_pb2.Value):
+            Output only. Representations of the object
+            value after the actions.
+    """
+
+    path: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    before_sensitive_paths: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    before: struct_pb2.Value = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=struct_pb2.Value,
+    )
+    after_sensitive_paths: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    after: struct_pb2.Value = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=struct_pb2.Value,
+    )
+
+
+class ListResourceDriftsRequest(proto.Message):
+    r"""The request message for the ListResourceDrifts method.
+
+    Attributes:
+        parent (str):
+            Required. The parent in whose context the ResourceDrifts are
+            listed. The parent value is in the format:
+            'projects/{project_id}/locations/{location}/previews/{preview}'.
+        page_size (int):
+            Optional. When requesting a page of resource drifts,
+            'page_size' specifies number of resource drifts to return.
+            If unspecified, at most 500 will be returned. The maximum
+            value is 1000.
+        page_token (str):
+            Optional. Token returned by previous call to
+            'ListResourceDrifts' which specifies the
+            position in the list from where to continue
+            listing the resource drifts.
+        filter (str):
+            Optional. Lists the resource drifts that match the filter
+            expression. A filter expression filters the resource drifts
+            listed in the response. The expression must be of the form
+            '{field} {operator} {value}' where operators: '<', '>',
+            '<=', '>=', '!=', '=', ':' are supported (colon ':'
+            represents a HAS operator which is roughly synonymous with
+            equality). {field} can refer to a proto or JSON field, or a
+            synthetic field. Field names can be camelCase or snake_case.
+
+            Examples:
+
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/previews/dep/resourceDrifts/baz
+        order_by (str):
+            Optional. Field to use to sort the list.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    filter: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    order_by: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
+
+
+class ListResourceDriftsResponse(proto.Message):
+    r"""A response to a 'ListResourceDrifts' call. Contains a list of
+    ResourceDrifts.
+
+    Attributes:
+        resource_drifts (MutableSequence[google.cloud.config_v1.types.ResourceDrift]):
+            List of ResourceDrifts.
+        next_page_token (str):
+            A token to request the next page of resources
+            from the 'ListResourceDrifts' method. The value
+            of an empty string means that there are no more
+            resources to return.
+        unreachable (MutableSequence[str]):
+            Unreachable resources, if any.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    resource_drifts: MutableSequence["ResourceDrift"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="ResourceDrift",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+
+
+class GetResourceDriftRequest(proto.Message):
+    r"""The request message for the GetResourceDrift method.
+
+    Attributes:
+        name (str):
+            Required. The name of the resource drift to retrieve.
+            Format:
+            'projects/{project_id}/locations/{location}/previews/{preview}/resourceDrifts/{resource_drift}'.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ProviderConfig(proto.Message):
+    r"""ProviderConfig contains the provider configurations.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        source_type (google.cloud.config_v1.types.ProviderConfig.ProviderSource):
+            Optional. ProviderSource specifies the source
+            type of the provider.
+
+            This field is a member of `oneof`_ ``_source_type``.
+    """
+
+    class ProviderSource(proto.Enum):
+        r"""ProviderSource represents the source type of the provider.
+
+        Values:
+            PROVIDER_SOURCE_UNSPECIFIED (0):
+                Unspecified source type, default to public
+                sources.
+            SERVICE_MAINTAINED (1):
+                Service maintained provider source type.
+        """
+
+        PROVIDER_SOURCE_UNSPECIFIED = 0
+        SERVICE_MAINTAINED = 1
+
+    source_type: ProviderSource = proto.Field(
+        proto.ENUM,
+        number=1,
+        optional=True,
+        enum=ProviderSource,
+    )
+
+
+class GetAutoMigrationConfigRequest(proto.Message):
+    r"""The request message for the GetAutoMigrationConfig method.
+
+    Attributes:
+        name (str):
+            Required. The name of the AutoMigrationConfig. Format:
+            'projects/{project_id}/locations/{location}/AutoMigrationConfig'.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class AutoMigrationConfig(proto.Message):
+    r"""AutoMigrationConfig contains the automigration configuration
+    for a project.
+
+    Attributes:
+        name (str):
+            Identifier. The name of the AutoMigrationConfig. Format:
+            'projects/{project_id}/locations/{location}/AutoMigrationConfig'.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. Time the AutoMigrationConfig was
+            last updated.
+        auto_migration_enabled (bool):
+            Optional. Whether the auto migration is
+            enabled for the project.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=timestamp_pb2.Timestamp,
+    )
+    auto_migration_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+
+
+class UpdateAutoMigrationConfigRequest(proto.Message):
+    r"""The request message for the UpdateAutoMigrationConfig method.
+
+    Attributes:
+        update_mask (google.protobuf.field_mask_pb2.FieldMask):
+            Optional. The update mask applies to the resource. See
+            [google.protobuf.FieldMask][google.protobuf.FieldMask].
+        auto_migration_config (google.cloud.config_v1.types.AutoMigrationConfig):
+            Required. The AutoMigrationConfig to update.
+    """
+
+    update_mask: field_mask_pb2.FieldMask = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=field_mask_pb2.FieldMask,
+    )
+    auto_migration_config: "AutoMigrationConfig" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="AutoMigrationConfig",
+    )
+
+
+class DeploymentGroup(proto.Message):
+    r"""A DeploymentGroup is a collection of DeploymentUnits that in
+    a DAG-like structure.
+
+    Attributes:
+        name (str):
+            Identifier. The name of the deployment group. Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}'.
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. Time when the deployment group
+            was created.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. Time when the deployment group
+            was last updated.
+        labels (MutableMapping[str, str]):
+            Optional. User-defined metadata for the
+            deployment group.
+        annotations (MutableMapping[str, str]):
+            Optional. Arbitrary key-value metadata
+            storage e.g. to help client tools identify
+            deployment group during automation. See
+            https://google.aip.dev/148#annotations for
+            details on format and size limitations.
+        state (google.cloud.config_v1.types.DeploymentGroup.State):
+            Output only. Current state of the deployment
+            group.
+        state_description (str):
+            Output only. Additional information regarding
+            the current state.
+        deployment_units (MutableSequence[google.cloud.config_v1.types.DeploymentUnit]):
+            The deployment units of the deployment group
+            in a DAG like structure. When a deployment group
+            is being provisioned, the deployment units are
+            deployed in a DAG order.
+            The provided units must be in a DAG order,
+            otherwise an error will be returned.
+        provisioning_state (google.cloud.config_v1.types.DeploymentGroup.ProvisioningState):
+            Output only. The provisioning state of the
+            deployment group.
+        provisioning_state_description (str):
+            Output only. Additional information regarding
+            the current provisioning state.
+        provisioning_error (google.rpc.status_pb2.Status):
+            Output only. The error status of the
+            deployment group provisioning or deprovisioning.
+    """
+
+    class State(proto.Enum):
+        r"""Possible states of a deployment group.
+
+        Values:
+            STATE_UNSPECIFIED (0):
+                The default value. This value is used if the
+                state is omitted.
+            CREATING (1):
+                The deployment group is being created.
+            ACTIVE (2):
+                The deployment group is healthy.
+            UPDATING (3):
+                The deployment group is being updated.
+            DELETING (4):
+                The deployment group is being deleted.
+            FAILED (5):
+                The deployment group has encountered an
+                unexpected error.
+            SUSPENDED (6):
+                The deployment group is no longer being
+                actively reconciled. This may be the result of
+                recovering the project after deletion.
+            DELETED (7):
+                The deployment group has been deleted.
+        """
+
+        STATE_UNSPECIFIED = 0
+        CREATING = 1
+        ACTIVE = 2
+        UPDATING = 3
+        DELETING = 4
+        FAILED = 5
+        SUSPENDED = 6
+        DELETED = 7
+
+    class ProvisioningState(proto.Enum):
+        r"""Possible provisioning states of a deployment group.
+
+        Values:
+            PROVISIONING_STATE_UNSPECIFIED (0):
+                Unspecified provisioning state.
+            PROVISIONING (1):
+                The deployment group is being provisioned.
+            PROVISIONED (2):
+                The deployment group is provisioned.
+            FAILED_TO_PROVISION (3):
+                The deployment group failed to be
+                provisioned.
+            DEPROVISIONING (4):
+                The deployment group is being deprovisioned.
+            DEPROVISIONED (5):
+                The deployment group is deprovisioned.
+            FAILED_TO_DEPROVISION (6):
+                The deployment group failed to be
+                deprovisioned.
+        """
+
+        PROVISIONING_STATE_UNSPECIFIED = 0
+        PROVISIONING = 1
+        PROVISIONED = 2
+        FAILED_TO_PROVISION = 3
+        DEPROVISIONING = 4
+        DEPROVISIONED = 5
+        FAILED_TO_DEPROVISION = 6
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=timestamp_pb2.Timestamp,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    labels: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=4,
+    )
+    annotations: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=5,
+    )
+    state: State = proto.Field(
+        proto.ENUM,
+        number=6,
+        enum=State,
+    )
+    state_description: str = proto.Field(
+        proto.STRING,
+        number=7,
+    )
+    deployment_units: MutableSequence["DeploymentUnit"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=8,
+        message="DeploymentUnit",
+    )
+    provisioning_state: ProvisioningState = proto.Field(
+        proto.ENUM,
+        number=9,
+        enum=ProvisioningState,
+    )
+    provisioning_state_description: str = proto.Field(
+        proto.STRING,
+        number=10,
+    )
+    provisioning_error: status_pb2.Status = proto.Field(
+        proto.MESSAGE,
+        number=11,
+        message=status_pb2.Status,
+    )
+
+
+class DeploymentUnit(proto.Message):
+    r"""A DeploymentUnit is a container for a deployment and its
+    dependencies. An existing deployment can be provided directly in the
+    unit, or the unit can act as a placeholder to define the DAG, with
+    the deployment specs supplied in a ``provisionDeploymentRequest``.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        id (str):
+            The id of the deployment unit. Must be unique
+            within the deployment group.
+        deployment (str):
+            Optional. The name of the deployment to be provisioned.
+            Format:
+            'projects/{project_id}/locations/{location}/deployments/{deployment}'.
+
+            This field is a member of `oneof`_ ``_deployment``.
+        dependencies (MutableSequence[str]):
+            Required. The IDs of the deployment units
+            within the deployment group that this unit
+            depends on.
+    """
+
+    id: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    deployment: str = proto.Field(
+        proto.STRING,
+        number=2,
+        optional=True,
+    )
+    dependencies: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+
+
+class DeploymentSpec(proto.Message):
+    r"""Spec for a deployment to be created.
+
+    Attributes:
+        deployment_id (str):
+            Required. The id of the deployment to be
+            created which doesn't include the project id and
+            location.
+        deployment (google.cloud.config_v1.types.Deployment):
+            Required. The deployment to be created.
+    """
+
+    deployment_id: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    deployment: "Deployment" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="Deployment",
+    )
+
+
+class GetDeploymentGroupRequest(proto.Message):
+    r"""The request message for the GetDeploymentGroup method.
+
+    Attributes:
+        name (str):
+            Required. The name of the deployment group to retrieve.
+            Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}'.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ListDeploymentGroupsRequest(proto.Message):
+    r"""The request message for the ListDeploymentGroups method.
+
+    Attributes:
+        parent (str):
+            Required. The parent, which owns this collection of
+            deployment groups. Format:
+            'projects/{project_id}/locations/{location}'.
+        page_size (int):
+            Optional. When requesting a page of resources, 'page_size'
+            specifies number of resources to return. If unspecified, at
+            most 500 will be returned. The maximum value is 1000.
+        page_token (str):
+            Optional. Token returned by previous call to
+            'ListDeploymentGroups' which specifies the
+            position in the list from where to continue
+            listing the deployment groups.
+        filter (str):
+            Optional. Lists the DeploymentGroups that match the filter
+            expression. A filter expression filters the deployment
+            groups listed in the response. The expression must be of the
+            form '{field} {operator} {value}' where operators: '<', '>',
+            '<=', '>=', '!=', '=', ':' are supported (colon ':'
+            represents a HAS operator which is roughly synonymous with
+            equality). {field} can refer to a proto or JSON field, or a
+            synthetic field. Field names can be camelCase or snake_case.
+
+            Examples:
+
+            - Filter by name: name =
+              "projects/foo/locations/us-central1/deploymentGroups/bar"
+
+            - Filter by labels:
+
+              - Resources that have a key called 'foo' labels.foo:\*
+              - Resources that have a key called 'foo' whose value is
+                'bar' labels.foo = bar
+
+            - Filter by state:
+
+              - DeploymentGroups in CREATING state. state=CREATING
+        order_by (str):
+            Optional. Field to use to sort the list.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    filter: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    order_by: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
+
+
+class ListDeploymentGroupsResponse(proto.Message):
+    r"""The response message for the ListDeploymentGroups method.
+
+    Attributes:
+        deployment_groups (MutableSequence[google.cloud.config_v1.types.DeploymentGroup]):
+            The deployment groups from the specified
+            collection.
+        next_page_token (str):
+            Token to be supplied to the next ListDeploymentGroups
+            request via ``page_token`` to obtain the next set of
+            results.
+        unreachable (MutableSequence[str]):
+            Locations that could not be reached.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    deployment_groups: MutableSequence["DeploymentGroup"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="DeploymentGroup",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+
+
+class ProvisionDeploymentGroupRequest(proto.Message):
+    r"""The request message for the ProvisionDeploymentGroup method.
+
+    Attributes:
+        name (str):
+            Required. The name of the deployment group to provision.
+            Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}'.
+        deployment_specs (MutableMapping[str, google.cloud.config_v1.types.DeploymentSpec]):
+            Optional. The deployment specs of the deployment units to be
+            created within the same project and location of the
+            deployment group. The key is the unit ID, and the value is
+            the ``DeploymentSpec``. Provisioning will fail if a
+            ``deployment_spec`` has a ``deployment_id`` that matches an
+            existing deployment in the same project and location. If an
+            existing deployment was part of the last successful revision
+            but is no longer in the current DeploymentGroup's
+            ``deployment_units``, it will be recreated if included in
+            ``deployment_specs``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    deployment_specs: MutableMapping[str, "DeploymentSpec"] = proto.MapField(
+        proto.STRING,
+        proto.MESSAGE,
+        number=3,
+        message="DeploymentSpec",
+    )
+
+
+class DeprovisionDeploymentGroupRequest(proto.Message):
+    r"""The request message for the DeprovisionDeploymentGroup
+    method.
+
+    Attributes:
+        name (str):
+            Required. The name of the deployment group to deprovision.
+            Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}'.
+        force (bool):
+            Optional. If set to true, this option is
+            propagated to the deletion of each deployment in
+            the group. This corresponds to the 'force' field
+            in DeleteDeploymentRequest.
+        delete_policy (google.cloud.config_v1.types.DeleteDeploymentRequest.DeletePolicy):
+            Optional. Policy on how resources within each deployment
+            should be handled during deletion. This policy is applied
+            globally to the deletion of all deployments in this group.
+            This corresponds to the 'delete_policy' field in
+            DeleteDeploymentRequest.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    force: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+    )
+    delete_policy: "DeleteDeploymentRequest.DeletePolicy" = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum="DeleteDeploymentRequest.DeletePolicy",
+    )
+
+
+class DeploymentOperationSummary(proto.Message):
+    r"""The summary of the deployment operation.
+
+    Attributes:
+        deployment_step (google.cloud.config_v1.types.DeploymentOperationMetadata.DeploymentStep):
+            Output only. The current step the deployment
+            operation is running.
+        build (str):
+            Output only. Cloud Build instance UUID
+            associated with this operation.
+        logs (str):
+            Output only. Location of Deployment operations logs in
+            ``gs://{bucket}/{object}`` format.
+        content (str):
+            Output only. Location of Deployment operations content in
+            ``gs://{bucket}/{object}`` format.
+        artifacts (str):
+            Output only. Location of Deployment operations artifacts in
+            ``gs://{bucket}/{object}`` format.
+    """
+
+    deployment_step: "DeploymentOperationMetadata.DeploymentStep" = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum="DeploymentOperationMetadata.DeploymentStep",
+    )
+    build: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    logs: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    content: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    artifacts: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
+
+
+class DeploymentUnitProgress(proto.Message):
+    r"""The progress of a deployment unit provisioning or
+    deprovisioning.
+
+    Attributes:
+        unit_id (str):
+            Output only. The unit id of the deployment
+            unit to be provisioned.
+        deployment (str):
+            Output only. The name of the deployment to be
+            provisioned. Format:
+
+            'projects/{project}/locations/{location}/deployments/{deployment}'.
+        state (google.cloud.config_v1.types.DeploymentUnitProgress.State):
+            Output only. The current step of the
+            deployment unit provisioning.
+        state_description (str):
+            Output only. Additional information regarding
+            the current state.
+        deployment_operation_summary (google.cloud.config_v1.types.DeploymentOperationSummary):
+            Output only. The summary of the deployment
+            operation.
+        error (google.rpc.status_pb2.Status):
+            Output only. Holds the error status of the
+            deployment unit provisioning.
+        intent (google.cloud.config_v1.types.DeploymentUnitProgress.Intent):
+            Output only. The intent of the deployment
+            unit.
+    """
+
+    class State(proto.Enum):
+        r"""The possible steps a deployment unit provisioning may be
+        running.
+
+        Values:
+            STATE_UNSPECIFIED (0):
+                The default value. This value is unused.
+            QUEUED (1):
+                The deployment unit is queued for deployment
+                creation or update.
+            APPLYING_DEPLOYMENT (2):
+                The underlying deployment of the unit is
+                being created or updated.
+            SUCCEEDED (4):
+                The underlying deployment operation of the
+                unit has succeeded.
+            FAILED (5):
+                The underlying deployment operation of the
+                unit has failed.
+            ABORTED (6):
+                The deployment unit was aborted, likely due
+                to failures in other dependent deployment units.
+            SKIPPED (7):
+                The deployment unit was skipped because there
+                were no changes to apply.
+            DELETING_DEPLOYMENT (8):
+                The deployment is being deleted.
+            PREVIEWING_DEPLOYMENT (9):
+                The deployment is being previewed.
+        """
+
+        STATE_UNSPECIFIED = 0
+        QUEUED = 1
+        APPLYING_DEPLOYMENT = 2
+        SUCCEEDED = 4
+        FAILED = 5
+        ABORTED = 6
+        SKIPPED = 7
+        DELETING_DEPLOYMENT = 8
+        PREVIEWING_DEPLOYMENT = 9
+
+    class Intent(proto.Enum):
+        r"""The possible intents of a deployment unit.
+
+        Values:
+            INTENT_UNSPECIFIED (0):
+                Unspecified intent.
+            CREATE_DEPLOYMENT (1):
+                Create deployment in the unit from the
+                deployment spec.
+            UPDATE_DEPLOYMENT (2):
+                Update deployment in the unit.
+            DELETE_DEPLOYMENT (3):
+                Delete deployment in the unit.
+            RECREATE_DEPLOYMENT (4):
+                Recreate deployment in the unit.
+            CLEAN_UP (5):
+                Delete deployment in latest successful
+                revision while no longer referenced in any
+                deployment unit in the current deployment group.
+            UNCHANGED (6):
+                Expected to be unchanged.
+        """
+
+        INTENT_UNSPECIFIED = 0
+        CREATE_DEPLOYMENT = 1
+        UPDATE_DEPLOYMENT = 2
+        DELETE_DEPLOYMENT = 3
+        RECREATE_DEPLOYMENT = 4
+        CLEAN_UP = 5
+        UNCHANGED = 6
+
+    unit_id: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    deployment: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    state: State = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=State,
+    )
+    state_description: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    deployment_operation_summary: "DeploymentOperationSummary" = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message="DeploymentOperationSummary",
+    )
+    error: status_pb2.Status = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message=status_pb2.Status,
+    )
+    intent: Intent = proto.Field(
+        proto.ENUM,
+        number=7,
+        enum=Intent,
+    )
+
+
+class ProvisionDeploymentGroupOperationMetadata(proto.Message):
+    r"""Operation metadata for ``ProvisionDeploymentGroup`` and
+    ``DeprovisionDeploymentGroup`` long-running operations.
+
+    Attributes:
+        step (google.cloud.config_v1.types.ProvisionDeploymentGroupOperationMetadata.ProvisionDeploymentGroupStep):
+            Output only. The current step of the
+            deployment group operation.
+        deployment_unit_progresses (MutableSequence[google.cloud.config_v1.types.DeploymentUnitProgress]):
+            Output only. Progress information for each
+            deployment unit within the operation.
+    """
+
+    class ProvisionDeploymentGroupStep(proto.Enum):
+        r"""Possible steps during a deployment group provisioning or
+        deprovisioning operation.
+
+        Values:
+            PROVISION_DEPLOYMENT_GROUP_STEP_UNSPECIFIED (0):
+                Unspecified step.
+            VALIDATING_DEPLOYMENT_GROUP (1):
+                Validating the deployment group.
+            ASSOCIATING_DEPLOYMENTS_TO_DEPLOYMENT_GROUP (2):
+                Locking the deployments to the deployment
+                group for atomic actuation.
+            PROVISIONING_DEPLOYMENT_UNITS (3):
+                Provisioning the deployment units.
+            DISASSOCIATING_DEPLOYMENTS_FROM_DEPLOYMENT_GROUP (4):
+                Unlocking the deployments from the deployment
+                group after actuation.
+            SUCCEEDED (5):
+                The operation has succeeded.
+            FAILED (6):
+                The operation has failed.
+            DEPROVISIONING_DEPLOYMENT_UNITS (7):
+                Deprovisioning the deployment units.
+        """
+
+        PROVISION_DEPLOYMENT_GROUP_STEP_UNSPECIFIED = 0
+        VALIDATING_DEPLOYMENT_GROUP = 1
+        ASSOCIATING_DEPLOYMENTS_TO_DEPLOYMENT_GROUP = 2
+        PROVISIONING_DEPLOYMENT_UNITS = 3
+        DISASSOCIATING_DEPLOYMENTS_FROM_DEPLOYMENT_GROUP = 4
+        SUCCEEDED = 5
+        FAILED = 6
+        DEPROVISIONING_DEPLOYMENT_UNITS = 7
+
+    step: ProvisionDeploymentGroupStep = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum=ProvisionDeploymentGroupStep,
+    )
+    deployment_unit_progresses: MutableSequence["DeploymentUnitProgress"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="DeploymentUnitProgress",
+        )
+    )
+
+
+class DeploymentGroupRevision(proto.Message):
+    r"""A DeploymentGroupRevision represents a snapshot of a
+    [DeploymentGroup][google.cloud.config.v1.DeploymentGroup] at a given
+    point in time, created when a DeploymentGroup is provisioned or
+    deprovisioned.
+
+    Attributes:
+        name (str):
+            Identifier. The name of the deployment group revision.
+            Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}/revisions/{revision}'.
+        snapshot (google.cloud.config_v1.types.DeploymentGroup):
+            Output only. The snapshot of the deployment
+            group at this revision.
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. Time when the deployment group
+            revision was created.
+        alternative_ids (MutableSequence[str]):
+            Output only. The alternative IDs of the
+            deployment group revision.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    snapshot: "DeploymentGroup" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="DeploymentGroup",
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    alternative_ids: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+
+
+class GetDeploymentGroupRevisionRequest(proto.Message):
+    r"""The request message for the GetDeploymentGroupRevision
+    method.
+
+    Attributes:
+        name (str):
+            Required. The name of the deployment group revision to
+            retrieve. Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}/revisions/{revision}'.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ListDeploymentGroupRevisionsRequest(proto.Message):
+    r"""The request message for the ListDeploymentGroupRevisions
+    method.
+
+    Attributes:
+        parent (str):
+            Required. The parent, which owns this collection of
+            deployment group revisions. Format:
+            'projects/{project_id}/locations/{location}/deploymentGroups/{deployment_group}'.
+        page_size (int):
+            Optional. When requesting a page of resources, 'page_size'
+            specifies number of resources to return. If unspecified, a
+            sensible default will be used by the server. The maximum
+            value is 1000; values above 1000 will be coerced to 1000.
+        page_token (str):
+            Optional. Token returned by previous call to
+            'ListDeploymentGroupRevisions' which specifies the position
+            in the list from where to continue listing the deployment
+            group revisions. All other parameters provided to
+            ``ListDeploymentGroupRevisions`` must match the call that
+            provided the page token.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
+class ListDeploymentGroupRevisionsResponse(proto.Message):
+    r"""The response message for the ListDeploymentGroupRevisions
+    method.
+
+    Attributes:
+        deployment_group_revisions (MutableSequence[google.cloud.config_v1.types.DeploymentGroupRevision]):
+            The deployment group revisions from the
+            specified collection.
+        next_page_token (str):
+            Token to be supplied to the next
+            ListDeploymentGroupRevisions request via ``page_token`` to
+            obtain the next set of results.
+        unreachable (MutableSequence[str]):
+            Unordered list. Locations that could not be
+            reached.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    deployment_group_revisions: MutableSequence["DeploymentGroupRevision"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="DeploymentGroupRevision",
+        )
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
     )
 
 

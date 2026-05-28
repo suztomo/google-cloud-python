@@ -1,5 +1,76 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-apihub/#history
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.5.0...google-cloud-apihub-v0.6.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.4.0...google-cloud-apihub-v0.5.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.3.0...google-cloud-apihub-v0.4.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.2.7...google-cloud-apihub-v0.3.0) (2025-10-07)
+
+
+### Features
+
+* [google-cloud-apihub] enable grpc transport (#14577) - [ ] Regenerate this pull request now. ([015634e3fe5c3305a49ad768f27c9e85c0f8e242](https://github.com/googleapis/google-cloud-python/commit/015634e3fe5c3305a49ad768f27c9e85c0f8e242))
+
+## [0.2.7](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.2.6...google-cloud-apihub-v0.2.7) (2025-09-22)
+
+
+### Features
+
+* Add full lifecycle management for API Operations within API Versions (Create, Update, Delete) ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Add new fields and enums to resources to support richer metadata, including source tracking (SourceMetadata), plugin configurations (AuthConfig, ConfigVariable), new attributes, and additional deployment details ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Enable Deletion of ApiHub Instances via the Provisioning service ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Enhance list filtering options across various resources (APIs, Versions, Specs, Operations, Deployments) with support for user-defined attributes ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Introduce new services for data collection (ApiHubCollect) and curation (ApiHubCurate) ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Make CMEK configuration optional for ApiHub Instances, defaulting to GMEK ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+* Significantly expand Plugin and Plugin Instance management capabilities, including creation, execution, and lifecycle control ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+
+
+### Documentation
+
+* Update field descriptions, comments, and links in existing services ([24d4f37](https://github.com/googleapis/google-cloud-python/commit/24d4f37adcd333552c834fd6a4fcfb41522c90df))
+
+## [0.2.6](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.2.5...google-cloud-apihub-v0.2.6) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([1562bb7](https://github.com/googleapis/google-cloud-python/commit/1562bb740c7cd56179e52185dde3c32af861de5e))
+
 ## [0.2.5](https://github.com/googleapis/google-cloud-python/compare/google-cloud-apihub-v0.2.4...google-cloud-apihub-v0.2.5) (2025-03-15)
 
 

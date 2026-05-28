@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -256,16 +256,16 @@ class PacketHeader(proto.Message):
 
             The input format is a lowercase hex string:
 
-            -  version_id: 1 byte, currently must be zero - hex encoded
-               (2 characters)
-            -  trace_id: 16 bytes (opaque blob) - hex encoded (32
-               characters)
-            -  span_id: 8 bytes (opaque blob) - hex encoded (16
-               characters)
-            -  trace_options: 1 byte (LSB means tracing enabled) - hex
-               encoded (2 characters) Example:
-               "00-404142434445464748494a4b4c4d4e4f-6162636465666768-01"
-               v trace_id span_id options
+            - version_id: 1 byte, currently must be zero - hex encoded
+              (2 characters)
+            - trace_id: 16 bytes (opaque blob) - hex encoded (32
+              characters)
+            - span_id: 8 bytes (opaque blob) - hex encoded (16
+              characters)
+            - trace_options: 1 byte (LSB means tracing enabled) - hex
+              encoded (2 characters) Example:
+              "00-404142434445464748494a4b4c4d4e4f-6162636465666768-01"
+              v trace_id span_id options
     """
 
     capture_time: timestamp_pb2.Timestamp = proto.Field(

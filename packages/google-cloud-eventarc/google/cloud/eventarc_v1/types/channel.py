@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -71,8 +71,8 @@ class Channel(proto.Message):
             channel. The token must be used by the provider
             to register the channel for publishing.
         crypto_key_name (str):
-            Resource name of a KMS crypto key (managed by the user) used
-            to encrypt/decrypt their event data.
+            Optional. Resource name of a KMS crypto key (managed by the
+            user) used to encrypt/decrypt their event data.
 
             It must match the pattern
             ``projects/*/locations/*/keyRings/*/cryptoKeys/*``.
@@ -80,6 +80,8 @@ class Channel(proto.Message):
             Output only. Whether or not this Channel
             satisfies the requirements of physical zone
             separation
+        labels (MutableMapping[str, str]):
+            Optional. Resource labels.
     """
 
     class State(proto.Enum):
@@ -113,6 +115,7 @@ class Channel(proto.Message):
                 the subscriber should create a new Channel and
                 give it to the provider.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2
@@ -161,6 +164,11 @@ class Channel(proto.Message):
     satisfies_pzs: bool = proto.Field(
         proto.BOOL,
         number=12,
+    )
+    labels: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=13,
     )
 
 

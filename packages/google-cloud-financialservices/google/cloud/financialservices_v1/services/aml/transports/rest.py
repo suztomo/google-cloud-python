@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,37 +16,39 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
 from google.cloud.financialservices_v1.types import (
+    backtest_result,
+    dataset,
+    engine_config,
+    engine_version,
+    instance,
+    model,
+    prediction_result,
+)
+from google.cloud.financialservices_v1.types import (
     backtest_result as gcf_backtest_result,
 )
+from google.cloud.financialservices_v1.types import dataset as gcf_dataset
 from google.cloud.financialservices_v1.types import engine_config as gcf_engine_config
+from google.cloud.financialservices_v1.types import instance as gcf_instance
+from google.cloud.financialservices_v1.types import model as gcf_model
 from google.cloud.financialservices_v1.types import (
     prediction_result as gcf_prediction_result,
 )
-from google.cloud.financialservices_v1.types import backtest_result
-from google.cloud.financialservices_v1.types import dataset
-from google.cloud.financialservices_v1.types import dataset as gcf_dataset
-from google.cloud.financialservices_v1.types import engine_config
-from google.cloud.financialservices_v1.types import engine_version
-from google.cloud.financialservices_v1.types import instance
-from google.cloud.financialservices_v1.types import instance as gcf_instance
-from google.cloud.financialservices_v1.types import model
-from google.cloud.financialservices_v1.types import model as gcf_model
-from google.cloud.financialservices_v1.types import prediction_result
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseAMLRestTransport
@@ -2416,9 +2418,10 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2436,6 +2439,12 @@ class AMLRestTransport(_BaseAMLRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[AMLRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2604,7 +2613,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2756,7 +2765,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2914,7 +2923,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3066,7 +3075,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3218,7 +3227,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3372,7 +3381,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3525,7 +3534,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3670,7 +3679,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3821,7 +3830,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3966,7 +3975,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4111,7 +4120,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4259,7 +4268,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4385,9 +4394,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             """
 
-            http_options = (
-                _BaseAMLRestTransport._BaseExportBacktestResultMetadata._get_http_options()
-            )
+            http_options = _BaseAMLRestTransport._BaseExportBacktestResultMetadata._get_http_options()
 
             request, metadata = self._interceptor.pre_export_backtest_result_metadata(
                 request, metadata
@@ -4413,7 +4420,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4454,11 +4461,10 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             resp = self._interceptor.post_export_backtest_result_metadata(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_export_backtest_result_metadata_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_export_backtest_result_metadata_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4543,9 +4549,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             """
 
-            http_options = (
-                _BaseAMLRestTransport._BaseExportEngineConfigMetadata._get_http_options()
-            )
+            http_options = _BaseAMLRestTransport._BaseExportEngineConfigMetadata._get_http_options()
 
             request, metadata = self._interceptor.pre_export_engine_config_metadata(
                 request, metadata
@@ -4571,7 +4575,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4612,11 +4616,10 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             resp = self._interceptor.post_export_engine_config_metadata(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_export_engine_config_metadata_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_export_engine_config_metadata_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4733,7 +4736,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4860,9 +4863,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             """
 
-            http_options = (
-                _BaseAMLRestTransport._BaseExportPredictionResultMetadata._get_http_options()
-            )
+            http_options = _BaseAMLRestTransport._BaseExportPredictionResultMetadata._get_http_options()
 
             request, metadata = self._interceptor.pre_export_prediction_result_metadata(
                 request, metadata
@@ -4888,7 +4889,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4929,11 +4930,10 @@ class AMLRestTransport(_BaseAMLRestTransport):
 
             resp = self._interceptor.post_export_prediction_result_metadata(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_export_prediction_result_metadata_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_export_prediction_result_metadata_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -5045,7 +5045,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6250,7 +6250,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7473,7 +7473,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7624,7 +7624,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7781,7 +7781,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7932,7 +7932,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8083,7 +8083,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8237,7 +8237,7 @@ class AMLRestTransport(_BaseAMLRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8356,7 +8356,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreatePredictionResult(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreatePredictionResult(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_backtest_result(
@@ -8408,7 +8410,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeletePredictionResult(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeletePredictionResult(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def export_backtest_result_metadata(
@@ -8419,7 +8423,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportBacktestResultMetadata(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportBacktestResultMetadata(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def export_engine_config_metadata(
@@ -8429,7 +8435,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportEngineConfigMetadata(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportEngineConfigMetadata(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def export_model_metadata(
@@ -8448,7 +8456,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportPredictionResultMetadata(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportPredictionResultMetadata(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def export_registered_parties(
@@ -8456,7 +8466,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ) -> Callable[[instance.ExportRegisteredPartiesRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportRegisteredParties(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportRegisteredParties(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_backtest_result(
@@ -8523,7 +8535,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ) -> Callable[[instance.ImportRegisteredPartiesRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportRegisteredParties(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportRegisteredParties(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_backtest_results(
@@ -8645,7 +8659,9 @@ class AMLRestTransport(_BaseAMLRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdatePredictionResult(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdatePredictionResult(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):

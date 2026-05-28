@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,13 @@ from .cache_service import (
     ListCachedContentsResponse,
     UpdateCachedContentRequest,
 )
-from .cached_content import CachedContent
-from .citation import CitationMetadata, CitationSource
+from .cached_content import (
+    CachedContent,
+)
+from .citation import (
+    CitationMetadata,
+    CitationSource,
+)
 from .content import (
     Blob,
     CodeExecution,
@@ -31,20 +36,27 @@ from .content import (
     DynamicRetrievalConfig,
     ExecutableCode,
     FileData,
+    FileSearch,
     FunctionCall,
     FunctionCallingConfig,
     FunctionDeclaration,
     FunctionResponse,
+    FunctionResponseBlob,
+    FunctionResponsePart,
+    GoogleMaps,
     GoogleSearchRetrieval,
     GroundingPassage,
     GroundingPassages,
     Modality,
     ModalityTokenCount,
     Part,
+    RetrievalConfig,
     Schema,
     Tool,
     ToolConfig,
     Type,
+    UrlContext,
+    VideoMetadata,
 )
 from .discuss_service import (
     CountMessageTokensRequest,
@@ -55,7 +67,10 @@ from .discuss_service import (
     Message,
     MessagePrompt,
 )
-from .file import File, VideoMetadata
+from .file import (
+    File,
+    VideoFileMetadata,
+)
 from .file_service import (
     CreateFileRequest,
     CreateFileResponse,
@@ -99,7 +114,9 @@ from .generative_service import (
     GroundingChunk,
     GroundingMetadata,
     GroundingSupport,
+    ImageConfig,
     LogprobsResult,
+    MultiSpeakerVoiceConfig,
     PrebuiltVoiceConfig,
     RealtimeInputConfig,
     RetrievalMetadata,
@@ -108,13 +125,18 @@ from .generative_service import (
     SemanticRetrieverConfig,
     SessionResumptionConfig,
     SessionResumptionUpdate,
+    SpeakerVoiceConfig,
     SpeechConfig,
     TaskType,
     ThinkingConfig,
+    UrlContextMetadata,
+    UrlMetadata,
     UsageMetadata,
     VoiceConfig,
 )
-from .model import Model
+from .model import (
+    Model,
+)
 from .model_service import (
     CreateTunedModelMetadata,
     CreateTunedModelRequest,
@@ -127,7 +149,9 @@ from .model_service import (
     ListTunedModelsResponse,
     UpdateTunedModelRequest,
 )
-from .permission import Permission
+from .permission import (
+    Permission,
+)
 from .permission_service import (
     CreatePermissionRequest,
     DeletePermissionRequest,
@@ -139,8 +163,8 @@ from .permission_service import (
     UpdatePermissionRequest,
 )
 from .prediction_service import (
-    GenerateVideoResponse,
     Media,
+    PredictLongRunningGeneratedVideoResponse,
     PredictLongRunningMetadata,
     PredictLongRunningRequest,
     PredictLongRunningResponse,
@@ -236,18 +260,25 @@ __all__ = (
     "DynamicRetrievalConfig",
     "ExecutableCode",
     "FileData",
+    "FileSearch",
     "FunctionCall",
     "FunctionCallingConfig",
     "FunctionDeclaration",
     "FunctionResponse",
+    "FunctionResponseBlob",
+    "FunctionResponsePart",
+    "GoogleMaps",
     "GoogleSearchRetrieval",
     "GroundingPassage",
     "GroundingPassages",
     "ModalityTokenCount",
     "Part",
+    "RetrievalConfig",
     "Schema",
     "Tool",
     "ToolConfig",
+    "UrlContext",
+    "VideoMetadata",
     "Modality",
     "Type",
     "CountMessageTokensRequest",
@@ -258,7 +289,7 @@ __all__ = (
     "Message",
     "MessagePrompt",
     "File",
-    "VideoMetadata",
+    "VideoFileMetadata",
     "CreateFileRequest",
     "CreateFileResponse",
     "DeleteFileRequest",
@@ -299,7 +330,9 @@ __all__ = (
     "GroundingChunk",
     "GroundingMetadata",
     "GroundingSupport",
+    "ImageConfig",
     "LogprobsResult",
+    "MultiSpeakerVoiceConfig",
     "PrebuiltVoiceConfig",
     "RealtimeInputConfig",
     "RetrievalMetadata",
@@ -308,8 +341,11 @@ __all__ = (
     "SemanticRetrieverConfig",
     "SessionResumptionConfig",
     "SessionResumptionUpdate",
+    "SpeakerVoiceConfig",
     "SpeechConfig",
     "ThinkingConfig",
+    "UrlContextMetadata",
+    "UrlMetadata",
     "UsageMetadata",
     "VoiceConfig",
     "TaskType",
@@ -333,8 +369,8 @@ __all__ = (
     "TransferOwnershipRequest",
     "TransferOwnershipResponse",
     "UpdatePermissionRequest",
-    "GenerateVideoResponse",
     "Media",
+    "PredictLongRunningGeneratedVideoResponse",
     "PredictLongRunningMetadata",
     "PredictLongRunningRequest",
     "PredictLongRunningResponse",

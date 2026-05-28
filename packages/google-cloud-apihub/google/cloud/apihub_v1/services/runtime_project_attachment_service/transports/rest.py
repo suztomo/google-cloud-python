@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
@@ -26,8 +28,6 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -537,9 +537,10 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -557,6 +558,12 @@ class RuntimeProjectAttachmentServiceRestTransport(
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[RuntimeProjectAttachmentServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -648,9 +655,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseCreateRuntimeProjectAttachment._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseCreateRuntimeProjectAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_runtime_project_attachment(
                 request, metadata
@@ -721,11 +726,10 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             resp = self._interceptor.post_create_runtime_project_attachment(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_runtime_project_attachment_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_runtime_project_attachment_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -808,9 +812,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseDeleteRuntimeProjectAttachment._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseDeleteRuntimeProjectAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_runtime_project_attachment(
                 request, metadata
@@ -832,7 +834,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -933,9 +935,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetRuntimeProjectAttachment._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetRuntimeProjectAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_get_runtime_project_attachment(
                 request, metadata
@@ -1001,11 +1001,10 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             resp = self._interceptor.post_get_runtime_project_attachment(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_runtime_project_attachment_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_runtime_project_attachment_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1095,9 +1094,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListRuntimeProjectAttachments._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListRuntimeProjectAttachments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_runtime_project_attachments(
                 request, metadata
@@ -1154,9 +1151,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = (
-                runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
-            )
+            resp = runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
             pb_resp = runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse.pb(
                 resp
             )
@@ -1165,11 +1160,10 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             resp = self._interceptor.post_list_runtime_project_attachments(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_runtime_project_attachments_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_runtime_project_attachments_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1259,9 +1253,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseLookupRuntimeProjectAttachment._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseLookupRuntimeProjectAttachment._get_http_options()
 
             request, metadata = self._interceptor.pre_lookup_runtime_project_attachment(
                 request, metadata
@@ -1318,9 +1310,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = (
-                runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
-            )
+            resp = runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
             pb_resp = runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse.pb(
                 resp
             )
@@ -1329,11 +1319,10 @@ class RuntimeProjectAttachmentServiceRestTransport(
 
             resp = self._interceptor.post_lookup_runtime_project_attachment(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_lookup_runtime_project_attachment_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_lookup_runtime_project_attachment_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1369,7 +1358,9 @@ class RuntimeProjectAttachmentServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateRuntimeProjectAttachment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateRuntimeProjectAttachment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_runtime_project_attachment(
@@ -1380,7 +1371,9 @@ class RuntimeProjectAttachmentServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteRuntimeProjectAttachment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteRuntimeProjectAttachment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_runtime_project_attachment(
@@ -1391,7 +1384,9 @@ class RuntimeProjectAttachmentServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetRuntimeProjectAttachment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetRuntimeProjectAttachment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_runtime_project_attachments(
@@ -1402,7 +1397,9 @@ class RuntimeProjectAttachmentServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListRuntimeProjectAttachments(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListRuntimeProjectAttachments(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def lookup_runtime_project_attachment(
@@ -1413,7 +1410,9 @@ class RuntimeProjectAttachmentServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._LookupRuntimeProjectAttachment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._LookupRuntimeProjectAttachment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -1473,9 +1472,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -1616,9 +1613,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListLocations._get_transcoded_request(
@@ -1755,9 +1750,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -1875,9 +1868,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -1993,9 +1984,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseGetOperation._get_transcoded_request(
@@ -2134,9 +2123,7 @@ class RuntimeProjectAttachmentServiceRestTransport(
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseRuntimeProjectAttachmentServiceRestTransport._BaseListOperations._get_transcoded_request(

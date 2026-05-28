@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -46,6 +46,7 @@ class InventoryView(proto.Enum):
         FULL (2):
             Returns all fields.
     """
+
     INVENTORY_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -187,6 +188,7 @@ class Inventory(proto.Message):
                     result of the agent reporting inventory via the
                     reporting API.
             """
+
             ORIGIN_TYPE_UNSPECIFIED = 0
             INVENTORY_REPORT = 1
 
@@ -203,6 +205,7 @@ class Inventory(proto.Message):
                     This represents an update that is available
                     for a package.
             """
+
             TYPE_UNSPECIFIED = 0
             INSTALLED_PACKAGE = 1
             AVAILABLE_PACKAGE = 2
@@ -287,8 +290,8 @@ class Inventory(proto.Message):
                 This field is a member of `oneof`_ ``details``.
             wua_package (google.cloud.osconfig_v1alpha.types.Inventory.WindowsUpdatePackage):
                 Details of a Windows Update package. See
-                https://docs.microsoft.com/en-us/windows/win32/api/_wua/ for
-                information about Windows Update.
+                https://docs.microsoft.com/en-us/windows/win32/api/\_wua/
+                for information about Windows Update.
 
                 This field is a member of `oneof`_ ``details``.
             qfe_package (google.cloud.osconfig_v1alpha.types.Inventory.WindowsQuickFixEngineeringPackage):
@@ -426,9 +429,9 @@ class Inventory(proto.Message):
     class WindowsUpdatePackage(proto.Message):
         r"""Details related to a Windows Update package. Field data and names
         are taken from Windows Update API IUpdate Interface:
-        https://docs.microsoft.com/en-us/windows/win32/api/_wua/ Descriptive
-        fields like title, and description are localized based on the locale
-        of the VM being updated.
+        https://docs.microsoft.com/en-us/windows/win32/api/\_wua/
+        Descriptive fields like title, and description are localized based
+        on the locale of the VM being updated.
 
         Attributes:
             title (str):

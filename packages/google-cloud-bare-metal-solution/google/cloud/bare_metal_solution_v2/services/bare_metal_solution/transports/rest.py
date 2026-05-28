@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,39 +16,44 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
+from google.cloud.bare_metal_solution_v2.types import (
+    instance,
+    lun,
+    network,
+    nfs_share,
+    osimage,
+    provisioning,
+    ssh_key,
+    volume,
+    volume_snapshot,
+)
+from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
+from google.cloud.bare_metal_solution_v2.types import network as gcb_network
 from google.cloud.bare_metal_solution_v2.types import nfs_share as gcb_nfs_share
+from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
+from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
 from google.cloud.bare_metal_solution_v2.types import (
     volume_snapshot as gcb_volume_snapshot,
 )
-from google.cloud.bare_metal_solution_v2.types import instance
-from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
-from google.cloud.bare_metal_solution_v2.types import lun
-from google.cloud.bare_metal_solution_v2.types import network
-from google.cloud.bare_metal_solution_v2.types import network as gcb_network
-from google.cloud.bare_metal_solution_v2.types import nfs_share
-from google.cloud.bare_metal_solution_v2.types import osimage, provisioning
-from google.cloud.bare_metal_solution_v2.types import ssh_key
-from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
-from google.cloud.bare_metal_solution_v2.types import volume
-from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
-from google.cloud.bare_metal_solution_v2.types import volume_snapshot
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseBareMetalSolutionRestTransport
@@ -2547,9 +2552,10 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2567,6 +2573,12 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[BareMetalSolutionRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2675,9 +2687,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseCreateNfsShare._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseCreateNfsShare._get_http_options()
 
             request, metadata = self._interceptor.pre_create_nfs_share(
                 request, metadata
@@ -2703,7 +2713,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2827,9 +2837,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                         A provisioning configuration.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseCreateProvisioningConfig._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseCreateProvisioningConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_create_provisioning_config(
                 request, metadata
@@ -2984,9 +2992,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseCreateSSHKey._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseCreateSSHKey._get_http_options()
 
             request, metadata = self._interceptor.pre_create_ssh_key(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseCreateSSHKey._get_transcoded_request(
@@ -3138,9 +3144,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseCreateVolumeSnapshot._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseCreateVolumeSnapshot._get_http_options()
 
             request, metadata = self._interceptor.pre_create_volume_snapshot(
                 request, metadata
@@ -3297,9 +3301,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseDeleteNfsShare._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseDeleteNfsShare._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_nfs_share(
                 request, metadata
@@ -3321,7 +3323,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3438,9 +3440,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseDeleteSSHKey._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseDeleteSSHKey._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_ssh_key(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseDeleteSSHKey._get_transcoded_request(
@@ -3460,7 +3460,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3546,9 +3546,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseDeleteVolumeSnapshot._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseDeleteVolumeSnapshot._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_volume_snapshot(
                 request, metadata
@@ -3570,7 +3568,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3691,7 +3689,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3821,15 +3819,12 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseDisableInteractiveSerialConsole._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseDisableInteractiveSerialConsole._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_disable_interactive_serial_console(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_disable_interactive_serial_console(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseDisableInteractiveSerialConsole._get_transcoded_request(
                 http_options, request
@@ -3852,7 +3847,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3893,11 +3888,10 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             resp = self._interceptor.post_disable_interactive_serial_console(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_disable_interactive_serial_console_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_disable_interactive_serial_console_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3983,9 +3977,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseEnableInteractiveSerialConsole._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseEnableInteractiveSerialConsole._get_http_options()
 
             request, metadata = self._interceptor.pre_enable_interactive_serial_console(
                 request, metadata
@@ -4011,7 +4003,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4052,11 +4044,10 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             resp = self._interceptor.post_enable_interactive_serial_console(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_enable_interactive_serial_console_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_enable_interactive_serial_console_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4166,7 +4157,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4318,7 +4309,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5026,9 +5017,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     A provisioning configuration.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseGetProvisioningConfig._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseGetProvisioningConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_get_provisioning_config(
                 request, metadata
@@ -5323,9 +5312,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseGetVolumeSnapshot._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseGetVolumeSnapshot._get_http_options()
 
             request, metadata = self._interceptor.pre_get_volume_snapshot(
                 request, metadata
@@ -5473,9 +5460,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListInstances._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListInstances._get_http_options()
 
             request, metadata = self._interceptor.pre_list_instances(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseListInstances._get_transcoded_request(
@@ -5767,9 +5752,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListNetworks._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListNetworks._get_http_options()
 
             request, metadata = self._interceptor.pre_list_networks(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseListNetworks._get_transcoded_request(
@@ -5912,9 +5895,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     Response with Networks with IPs
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListNetworkUsage._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListNetworkUsage._get_http_options()
 
             request, metadata = self._interceptor.pre_list_network_usage(
                 request, metadata
@@ -6064,9 +6045,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListNfsShares._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListNfsShares._get_http_options()
 
             request, metadata = self._interceptor.pre_list_nfs_shares(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseListNfsShares._get_transcoded_request(
@@ -6211,9 +6190,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListOSImages._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListOSImages._get_http_options()
 
             request, metadata = self._interceptor.pre_list_os_images(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseListOSImages._get_transcoded_request(
@@ -6359,9 +6336,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListProvisioningQuotas._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListProvisioningQuotas._get_http_options()
 
             request, metadata = self._interceptor.pre_list_provisioning_quotas(
                 request, metadata
@@ -6805,9 +6780,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListVolumeSnapshots._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListVolumeSnapshots._get_http_options()
 
             request, metadata = self._interceptor.pre_list_volume_snapshots(
                 request, metadata
@@ -6958,9 +6931,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     A server.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseRenameInstance._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseRenameInstance._get_http_options()
 
             request, metadata = self._interceptor.pre_rename_instance(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseRenameInstance._get_transcoded_request(
@@ -7110,9 +7081,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     A Network.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseRenameNetwork._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseRenameNetwork._get_http_options()
 
             request, metadata = self._interceptor.pre_rename_network(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseRenameNetwork._get_transcoded_request(
@@ -7262,9 +7231,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     An NFS share.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseRenameNfsShare._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseRenameNfsShare._get_http_options()
 
             request, metadata = self._interceptor.pre_rename_nfs_share(
                 request, metadata
@@ -7415,9 +7382,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                     A storage volume.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseRenameVolume._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseRenameVolume._get_http_options()
 
             request, metadata = self._interceptor.pre_rename_volume(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseRenameVolume._get_transcoded_request(
@@ -7569,9 +7534,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseResetInstance._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseResetInstance._get_http_options()
 
             request, metadata = self._interceptor.pre_reset_instance(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseResetInstance._get_transcoded_request(
@@ -7595,7 +7558,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7720,9 +7683,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseResizeVolume._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseResizeVolume._get_http_options()
 
             request, metadata = self._interceptor.pre_resize_volume(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseResizeVolume._get_transcoded_request(
@@ -7746,7 +7707,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7873,9 +7834,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseRestoreVolumeSnapshot._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseRestoreVolumeSnapshot._get_http_options()
 
             request, metadata = self._interceptor.pre_restore_volume_snapshot(
                 request, metadata
@@ -7901,7 +7860,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8029,9 +7988,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseStartInstance._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseStartInstance._get_http_options()
 
             request, metadata = self._interceptor.pre_start_instance(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseStartInstance._get_transcoded_request(
@@ -8055,7 +8012,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8180,9 +8137,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseStopInstance._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseStopInstance._get_http_options()
 
             request, metadata = self._interceptor.pre_stop_instance(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseStopInstance._get_transcoded_request(
@@ -8206,7 +8161,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8332,9 +8287,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseSubmitProvisioningConfig._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseSubmitProvisioningConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_submit_provisioning_config(
                 request, metadata
@@ -8493,9 +8446,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseUpdateInstance._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseUpdateInstance._get_http_options()
 
             request, metadata = self._interceptor.pre_update_instance(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseUpdateInstance._get_transcoded_request(
@@ -8519,7 +8470,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8646,9 +8597,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseUpdateNetwork._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseUpdateNetwork._get_http_options()
 
             request, metadata = self._interceptor.pre_update_network(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseUpdateNetwork._get_transcoded_request(
@@ -8672,7 +8621,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8799,9 +8748,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseUpdateNfsShare._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseUpdateNfsShare._get_http_options()
 
             request, metadata = self._interceptor.pre_update_nfs_share(
                 request, metadata
@@ -8827,7 +8774,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8952,9 +8899,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                         A provisioning configuration.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseUpdateProvisioningConfig._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseUpdateProvisioningConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_provisioning_config(
                 request, metadata
@@ -9109,9 +9054,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
 
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseUpdateVolume._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseUpdateVolume._get_http_options()
 
             request, metadata = self._interceptor.pre_update_volume(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseUpdateVolume._get_transcoded_request(
@@ -9135,7 +9078,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -9218,7 +9161,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateProvisioningConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateProvisioningConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_ssh_key(
@@ -9279,7 +9224,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DisableInteractiveSerialConsole(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DisableInteractiveSerialConsole(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def enable_interactive_serial_console(
@@ -9289,7 +9236,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._EnableInteractiveSerialConsole(self._session, self._host, self._interceptor)  # type: ignore
+        return self._EnableInteractiveSerialConsole(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def evict_lun(self) -> Callable[[lun.EvictLunRequest], operations_pb2.Operation]:
@@ -9414,7 +9363,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListProvisioningQuotas(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListProvisioningQuotas(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_ssh_keys(
@@ -9524,7 +9475,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._SubmitProvisioningConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._SubmitProvisioningConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_instance(
@@ -9558,7 +9511,9 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateProvisioningConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateProvisioningConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_volume(
@@ -9766,9 +9721,7 @@ class BareMetalSolutionRestTransport(_BaseBareMetalSolutionRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseBareMetalSolutionRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseBareMetalSolutionRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseBareMetalSolutionRestTransport._BaseListLocations._get_transcoded_request(

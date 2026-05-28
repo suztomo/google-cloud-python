@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -27,6 +27,7 @@ __protobuf__ = proto.module(
     manifest={
         "CreateAssessmentRequest",
         "TransactionEvent",
+        "PhoneAuthenticationEvent",
         "AnnotateAssessmentRequest",
         "AnnotateAssessmentResponse",
         "EndpointVerificationInfo",
@@ -38,6 +39,7 @@ __protobuf__ = proto.module(
         "UserInfo",
         "UserId",
         "RiskAnalysis",
+        "Bot",
         "TokenProperties",
         "FraudPreventionAssessment",
         "FraudSignals",
@@ -144,7 +146,8 @@ class TransactionEvent(proto.Message):
 
     class TransactionEventType(proto.Enum):
         r"""Enum that represents an event in the payment transaction
-        lifecycle.
+        lifecycle. Ensure that applications can handle values not
+        explicitly listed.
 
         Values:
             TRANSACTION_EVENT_TYPE_UNSPECIFIED (0):
@@ -238,6 +241,7 @@ class TransactionEvent(proto.Message):
                 refunds, we recommend that you include an amount in the
                 ``value`` field.
         """
+
         TRANSACTION_EVENT_TYPE_UNSPECIFIED = 0
         MERCHANT_APPROVE = 1
         MERCHANT_DENY = 2
@@ -278,6 +282,31 @@ class TransactionEvent(proto.Message):
     )
 
 
+class PhoneAuthenticationEvent(proto.Message):
+    r"""Details on a phone authentication event
+
+    Attributes:
+        phone_number (str):
+            Required. Phone number in E.164 format for
+            which a multi-factor authentication challenge
+            was initiated, succeeded, or failed.
+        event_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. The time at which the multi-factor
+            authentication event (challenge or verification)
+            occurred.
+    """
+
+    phone_number: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    event_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=timestamp_pb2.Timestamp,
+    )
+
+
 class AnnotateAssessmentRequest(proto.Message):
     r"""The request message to annotate an Assessment.
 
@@ -309,6 +338,11 @@ class AnnotateAssessmentRequest(proto.Message):
             Optional. If the assessment is part of a
             payment transaction, provide details on payment
             lifecycle events that occur in the transaction.
+        phone_authentication_event (google.cloud.recaptchaenterprise_v1.types.PhoneAuthenticationEvent):
+            Optional. If using an external multi-factor
+            authentication provider, provide phone
+            authentication details for fraud detection
+            purposes.
     """
 
     class Annotation(proto.Enum):
@@ -334,6 +368,7 @@ class AnnotateAssessmentRequest(proto.Message):
                 Deprecated, prefer indicating INCORRECT_PASSWORD through the
                 reasons field instead.
         """
+
         ANNOTATION_UNSPECIFIED = 0
         LEGITIMATE = 1
         FRAUDULENT = 2
@@ -409,6 +444,7 @@ class AnnotateAssessmentRequest(proto.Message):
                 such as spam, scams, phishing, or social
                 engineering.
         """
+
         REASON_UNSPECIFIED = 0
         CHARGEBACK = 1
         CHARGEBACK_FRAUD = 8
@@ -451,6 +487,11 @@ class AnnotateAssessmentRequest(proto.Message):
         proto.MESSAGE,
         number=5,
         message="TransactionEvent",
+    )
+    phone_authentication_event: "PhoneAuthenticationEvent" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="PhoneAuthenticationEvent",
     )
 
 
@@ -534,7 +575,8 @@ class AccountVerificationInfo(proto.Message):
 
     class Result(proto.Enum):
         r"""Result of the account verification as contained in the
-        verdict token issued at the end of the verification flow.
+        verdict token issued at the end of the verification flow. Ensure
+        that applications can handle values not explicitly listed.
 
         Values:
             RESULT_UNSPECIFIED (0):
@@ -572,6 +614,7 @@ class AccountVerificationInfo(proto.Message):
                 The request parameters do not match with the
                 token provided and cannot be processed.
         """
+
         RESULT_UNSPECIFIED = 0
         SUCCESS_USER_VERIFIED = 1
         ERROR_USER_NOT_VERIFIED = 2
@@ -795,10 +838,10 @@ class Event(proto.Message):
             Optional. The URI resource the user requested
             that triggered an assessment.
         waf_token_assessment (bool):
-            Optional. Flag for running WAF token
-            assessment. If enabled, the token must be
-            specified, and have been created by a
-            WAF-enabled key.
+            Optional. Flag for running Web Application
+            Firewall (WAF) token assessment. If enabled, the
+            token must be specified, and have been created
+            by a WAF-enabled key.
         ja3 (str):
             Optional. JA3 fingerprint for SSL clients. To
             learn how to compute this fingerprint, please
@@ -836,6 +879,8 @@ class Event(proto.Message):
 
     class FraudPrevention(proto.Enum):
         r"""Setting that controls Fraud Prevention assessments.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             FRAUD_PREVENTION_UNSPECIFIED (0):
@@ -851,6 +896,7 @@ class Event(proto.Message):
                 Disable Fraud Prevention for this assessment,
                 regardless of the Google Cloud console settings.
         """
+
         FRAUD_PREVENTION_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -945,13 +991,13 @@ class TransactionData(proto.Message):
             Optional. The payment method for the transaction. The
             allowed values are:
 
-            -  credit-card
-            -  debit-card
-            -  gift-card
-            -  processor-{name} (If a third-party is used, for example,
-               processor-paypal)
-            -  custom-{name} (If an alternative method is used, for
-               example, custom-crypto)
+            - credit-card
+            - debit-card
+            - gift-card
+            - processor-{name} (If a third-party is used, for example,
+              processor-paypal)
+            - custom-{name} (If an alternative method is used, for
+              example, custom-crypto)
         card_bin (str):
             Optional. The Bank Identification Number -
             generally the first 6 or 8 digits of the card.
@@ -1323,12 +1369,18 @@ class RiskAnalysis(proto.Message):
             used for experimentation only. The set of
             possible reasons is subject to change.
         challenge (google.cloud.recaptchaenterprise_v1.types.RiskAnalysis.Challenge):
-            Output only. Challenge information for SCORE_AND_CHALLENGE
-            and INVISIBLE keys
+            Output only. Challenge information for
+            POLICY_BASED_CHALLENGE and INVISIBLE keys.
+        verified_bots (MutableSequence[google.cloud.recaptchaenterprise_v1.types.Bot]):
+            Output only. Bots with identities that have
+            been verified by reCAPTCHA and detected in the
+            event.
     """
 
     class ClassificationReason(proto.Enum):
         r"""Reasons contributing to the risk analysis verdict.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             CLASSIFICATION_REASON_UNSPECIFIED (0):
@@ -1356,6 +1408,7 @@ class RiskAnalysis(proto.Message):
                 The request matches behavioral
                 characteristics of chargebacks for fraud.
         """
+
         CLASSIFICATION_REASON_UNSPECIFIED = 0
         AUTOMATION = 1
         UNEXPECTED_ENVIRONMENT = 2
@@ -1366,7 +1419,8 @@ class RiskAnalysis(proto.Message):
         SUSPECTED_CHARGEBACK = 7
 
     class Challenge(proto.Enum):
-        r"""Challenge information for SCORE_AND_CHALLENGE and INVISIBLE keys
+        r"""Challenge information for POLICY_BASED_CHALLENGE and INVISIBLE keys.
+        Ensure that applications can handle values not explicitly listed.
 
         Values:
             CHALLENGE_UNSPECIFIED (0):
@@ -1379,6 +1433,7 @@ class RiskAnalysis(proto.Message):
                 A solution was submitted that was incorrect
                 or otherwise deemed suspicious.
         """
+
         CHALLENGE_UNSPECIFIED = 0
         NOCAPTCHA = 1
         PASSED = 2
@@ -1401,6 +1456,60 @@ class RiskAnalysis(proto.Message):
         proto.ENUM,
         number=4,
         enum=Challenge,
+    )
+    verified_bots: MutableSequence["Bot"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=5,
+        message="Bot",
+    )
+
+
+class Bot(proto.Message):
+    r"""Bot information and metadata.
+
+    Attributes:
+        name (str):
+            Optional. Enumerated string value that
+            indicates the identity of the bot, formatted in
+            kebab-case.
+        bot_type (google.cloud.recaptchaenterprise_v1.types.Bot.BotType):
+            Optional. Enumerated field representing the
+            type of bot.
+    """
+
+    class BotType(proto.Enum):
+        r"""Types of bots.
+        Ensure that applications can handle values not explicitly
+        listed.
+
+        Values:
+            BOT_TYPE_UNSPECIFIED (0):
+                Default unspecified type.
+            AI_AGENT (1):
+                Software program that interacts with a site
+                and performs tasks autonomously.
+            CONTENT_SCRAPER (2):
+                Software that extracts specific data from
+                sites for use.
+            SEARCH_INDEXER (3):
+                Software that crawls sites and stores content
+                for the purpose of efficient retrieval, likely
+                as part of a search engine.
+        """
+
+        BOT_TYPE_UNSPECIFIED = 0
+        AI_AGENT = 1
+        CONTENT_SCRAPER = 2
+        SEARCH_INDEXER = 3
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    bot_type: BotType = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=BotType,
     )
 
 
@@ -1438,6 +1547,8 @@ class TokenProperties(proto.Message):
 
     class InvalidReason(proto.Enum):
         r"""Enum that represents the types of invalid token reasons.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             INVALID_REASON_UNSPECIFIED (0):
@@ -1457,7 +1568,18 @@ class TokenProperties(proto.Message):
                 A retriable error (such as network failure)
                 occurred on the browser. Could easily be
                 simulated by an attacker.
+            UNEXPECTED_ACTION (7):
+                The action provided at token generation was different than
+                the ``expected_action`` in the assessment request. The
+                comparison is case-insensitive. This reason can only be
+                returned if all of the following are true:
+
+                - your ``site_key`` has the POLICY_BASED_CHALLENGE
+                  integration type
+                - you set an action score threshold higher than 0.0
+                - you provided a non-empty ``expected_action``
         """
+
         INVALID_REASON_UNSPECIFIED = 0
         UNKNOWN_INVALID_REASON = 1
         MALFORMED = 2
@@ -1465,6 +1587,7 @@ class TokenProperties(proto.Message):
         DUPE = 4
         MISSING = 5
         BROWSER_ERROR = 6
+        UNEXPECTED_ACTION = 7
 
     valid: bool = proto.Field(
         proto.BOOL,
@@ -1507,6 +1630,10 @@ class FraudPreventionAssessment(proto.Message):
             being fraudulent. Summarizes the combined risk
             of attack vectors below. Values are from 0.0
             (lowest) to 1.0 (highest).
+        risk_reasons (MutableSequence[google.cloud.recaptchaenterprise_v1.types.FraudPreventionAssessment.RiskReason]):
+            Output only. Reasons why the transaction is
+            probably fraudulent and received a high
+            transaction risk score.
         stolen_instrument_verdict (google.cloud.recaptchaenterprise_v1.types.FraudPreventionAssessment.StolenInstrumentVerdict):
             Output only. Assessment of this transaction
             for risk of a stolen instrument.
@@ -1517,6 +1644,57 @@ class FraudPreventionAssessment(proto.Message):
             Output only. Assessment of this transaction
             for behavioral trust.
     """
+
+    class RiskReason(proto.Message):
+        r"""Risk reasons applicable to the Fraud Prevention assessment.
+
+        Attributes:
+            reason (google.cloud.recaptchaenterprise_v1.types.FraudPreventionAssessment.RiskReason.Reason):
+                Output only. Risk reasons applicable to the
+                Fraud Prevention assessment.
+        """
+
+        class Reason(proto.Enum):
+            r"""Risk reasons applicable to the Fraud Prevention assessment.
+            New risk reasons will be added over time.
+
+            Values:
+                REASON_UNSPECIFIED (0):
+                    Default unspecified type.
+                HIGH_TRANSACTION_VELOCITY (1):
+                    A suspiciously high number of recent
+                    transactions have used identifiers present in
+                    this transaction.
+                EXCESSIVE_ENUMERATION_PATTERN (2):
+                    User is cycling through a suspiciously large
+                    number of identifiers, suggesting enumeration or
+                    validation attacks within a potential fraud
+                    network.
+                SHORT_IDENTITY_HISTORY (3):
+                    User has a short history or no history in the
+                    reCAPTCHA network, suggesting the possibility of
+                    synthetic identity generation.
+                GEOLOCATION_DISCREPANCY (4):
+                    Identifiers used in this transaction
+                    originate from an unusual or conflicting set of
+                    geolocations.
+                ASSOCIATED_WITH_FRAUD_CLUSTER (5):
+                    This transaction is linked to a cluster of
+                    known fraudulent activity.
+            """
+
+            REASON_UNSPECIFIED = 0
+            HIGH_TRANSACTION_VELOCITY = 1
+            EXCESSIVE_ENUMERATION_PATTERN = 2
+            SHORT_IDENTITY_HISTORY = 3
+            GEOLOCATION_DISCREPANCY = 4
+            ASSOCIATED_WITH_FRAUD_CLUSTER = 5
+
+        reason: "FraudPreventionAssessment.RiskReason.Reason" = proto.Field(
+            proto.ENUM,
+            number=1,
+            enum="FraudPreventionAssessment.RiskReason.Reason",
+        )
 
     class StolenInstrumentVerdict(proto.Message):
         r"""Information about stolen instrument fraud, where the user is
@@ -1571,6 +1749,11 @@ class FraudPreventionAssessment(proto.Message):
     transaction_risk: float = proto.Field(
         proto.FLOAT,
         number=1,
+    )
+    risk_reasons: MutableSequence[RiskReason] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=6,
+        message=RiskReason,
     )
     stolen_instrument_verdict: StolenInstrumentVerdict = proto.Field(
         proto.MESSAGE,
@@ -1639,6 +1822,8 @@ class FraudSignals(proto.Message):
         class CardLabel(proto.Enum):
             r"""Risk labels describing the card being assessed, such as its
             funding mechanism.
+            Ensure that applications can handle values not explicitly
+            listed.
 
             Values:
                 CARD_LABEL_UNSPECIFIED (0):
@@ -1653,17 +1838,18 @@ class FraudSignals(proto.Message):
                     This card has been detected as being used in
                     an unexpected geographic location.
             """
+
             CARD_LABEL_UNSPECIFIED = 0
             PREPAID = 1
             VIRTUAL = 2
             UNEXPECTED_LOCATION = 3
 
-        card_labels: MutableSequence[
-            "FraudSignals.CardSignals.CardLabel"
-        ] = proto.RepeatedField(
-            proto.ENUM,
-            number=1,
-            enum="FraudSignals.CardSignals.CardLabel",
+        card_labels: MutableSequence["FraudSignals.CardSignals.CardLabel"] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=1,
+                enum="FraudSignals.CardSignals.CardLabel",
+            )
         )
 
     user_signals: UserSignals = proto.Field(
@@ -1693,6 +1879,8 @@ class SmsTollFraudVerdict(proto.Message):
 
     class SmsTollFraudReason(proto.Enum):
         r"""Reasons contributing to the SMS toll fraud verdict.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             SMS_TOLL_FRAUD_REASON_UNSPECIFIED (0):
@@ -1700,6 +1888,7 @@ class SmsTollFraudVerdict(proto.Message):
             INVALID_PHONE_NUMBER (1):
                 The provided phone number was invalid
         """
+
         SMS_TOLL_FRAUD_REASON_UNSPECIFIED = 0
         INVALID_PHONE_NUMBER = 1
 
@@ -1740,6 +1929,8 @@ class AccountDefenderAssessment(proto.Message):
 
     class AccountDefenderLabel(proto.Enum):
         r"""Labels returned by account defender for this request.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             ACCOUNT_DEFENDER_LABEL_UNSPECIFIED (0):
@@ -1762,6 +1953,7 @@ class AccountDefenderAssessment(proto.Message):
                 imply that the account is bad but can require
                 further investigation.
         """
+
         ACCOUNT_DEFENDER_LABEL_UNSPECIFIED = 0
         PROFILE_MATCH = 1
         SUSPICIOUS_LOGIN_ACTIVITY = 2
@@ -2095,11 +2287,11 @@ class MigrateKeyRequest(proto.Message):
             Enterprise key or migrated key behaves differently than a
             reCAPTCHA (non-Enterprise version) key when you reach a
             quota limit (see
-            https://cloud.google.com/recaptcha/quotas#quota_limit). To
-            avoid any disruption of your usage, we check that a billing
-            account is present. If your usage of reCAPTCHA is under the
-            free quota, you can safely skip the billing check and
-            proceed with the migration. See
+            https://docs.cloud.google.com/recaptcha/quotas#quota_limit).
+            To avoid any disruption of your usage, we check that a
+            billing account is present. If your usage of reCAPTCHA is
+            under the free quota, you can safely skip the billing check
+            and proceed with the migration. See
             https://cloud.google.com/recaptcha/docs/billing-information.
     """
 
@@ -2238,7 +2430,8 @@ class Key(proto.Message):
             Optional. Options for user acceptance
             testing.
         waf_settings (google.cloud.recaptchaenterprise_v1.types.WafSettings):
-            Optional. Settings for WAF
+            Optional. Settings for Web Application
+            Firewall (WAF).
     """
 
     name: str = proto.Field(
@@ -2312,7 +2505,8 @@ class TestingOptions(proto.Message):
 
     class TestingChallenge(proto.Enum):
         r"""Enum that represents the challenge option for challenge-based
-        (CHECKBOX, INVISIBLE) testing keys.
+        (for example, CHECKBOX and INVISIBLE) testing keys. Ensure that
+        applications can handle values not explicitly listed.
 
         Values:
             TESTING_CHALLENGE_UNSPECIFIED (0):
@@ -2326,6 +2520,7 @@ class TestingOptions(proto.Message):
                 Challenge requests for this key always return
                 an unsolvable challenge.
         """
+
         TESTING_CHALLENGE_UNSPECIFIED = 0
         NOCAPTCHA = 1
         UNSOLVABLE_CHALLENGE = 2
@@ -2349,13 +2544,16 @@ class WebKeySettings(proto.Message):
             Optional. If set to true, it means allowed_domains are not
             enforced.
         allowed_domains (MutableSequence[str]):
-            Optional. Domains or subdomains of websites
-            allowed to use the key. All subdomains of an
-            allowed domain are automatically allowed. A
-            valid domain requires a host and must not
-            include any path, port, query or fragment.
-            Examples: 'example.com' or
-            'subdomain.example.com'
+            Optional. Domains or subdomains of websites allowed to use
+            the key. All subdomains of an allowed domain are
+            automatically allowed. A valid domain requires a host and
+            must not include any path, port, query or fragment.
+            Examples: 'example.com' or 'subdomain.example.com' Each key
+            supports a maximum of 250 domains. To use a key on more
+            domains, set ``allow_all_domains`` to true. When this is
+            set, you are responsible for validating the hostname by
+            checking the ``token_properties.hostname`` field in each
+            assessment response against your list of allowed domains.
         allow_amp_traffic (bool):
             Optional. If set to true, the key can be used
             on AMP (Accelerated Mobile Pages) websites. This
@@ -2367,12 +2565,16 @@ class WebKeySettings(proto.Message):
         challenge_security_preference (google.cloud.recaptchaenterprise_v1.types.WebKeySettings.ChallengeSecurityPreference):
             Optional. Settings for the frequency and difficulty at which
             this key triggers captcha challenges. This should only be
-            specified for IntegrationTypes CHECKBOX and INVISIBLE and
-            SCORE_AND_CHALLENGE.
+            specified for ``IntegrationType`` CHECKBOX, INVISIBLE or
+            POLICY_BASED_CHALLENGE.
+        challenge_settings (google.cloud.recaptchaenterprise_v1.types.WebKeySettings.ChallengeSettings):
+            Optional. Challenge settings.
     """
 
     class IntegrationType(proto.Enum):
         r"""Enum that represents the integration types for web keys.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             INTEGRATION_TYPE_UNSPECIFIED (0):
@@ -2391,15 +2593,22 @@ class WebKeySettings(proto.Message):
                 Doesn't display the "I'm not a robot"
                 checkbox, but may show captcha challenges after
                 risk analysis.
+            POLICY_BASED_CHALLENGE (5):
+                Displays a visual challenge or not depending
+                on the user risk analysis score.
         """
+
         INTEGRATION_TYPE_UNSPECIFIED = 0
         SCORE = 1
         CHECKBOX = 2
         INVISIBLE = 3
+        POLICY_BASED_CHALLENGE = 5
 
     class ChallengeSecurityPreference(proto.Enum):
         r"""Enum that represents the possible challenge frequency and
         difficulty configurations for a web key.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             CHALLENGE_SECURITY_PREFERENCE_UNSPECIFIED (0):
@@ -2414,10 +2623,58 @@ class WebKeySettings(proto.Message):
             SECURITY (3):
                 Key tends to show more and harder challenges.
         """
+
         CHALLENGE_SECURITY_PREFERENCE_UNSPECIFIED = 0
         USABILITY = 1
         BALANCE = 2
         SECURITY = 3
+
+    class ActionSettings(proto.Message):
+        r"""Per-action challenge settings.
+
+        Attributes:
+            score_threshold (float):
+                Required. A challenge is triggered if the
+                end-user score is below that threshold. Value
+                must be between 0 and 1 (inclusive).
+        """
+
+        score_threshold: float = proto.Field(
+            proto.FLOAT,
+            number=1,
+        )
+
+    class ChallengeSettings(proto.Message):
+        r"""Settings for POLICY_BASED_CHALLENGE keys to control when a challenge
+        is triggered.
+
+        Attributes:
+            default_settings (google.cloud.recaptchaenterprise_v1.types.WebKeySettings.ActionSettings):
+                Required. Defines when a challenge is triggered (unless the
+                default threshold is overridden for the given action, see
+                ``action_settings``).
+            action_settings (MutableMapping[str, google.cloud.recaptchaenterprise_v1.types.WebKeySettings.ActionSettings]):
+                Optional. The action to score threshold map. The action name
+                should be the same as the action name passed in the
+                ``data-action`` attribute (see
+                https://cloud.google.com/recaptcha/docs/actions-website).
+                Action names are case-insensitive. There is a maximum of 100
+                action settings. An action name has a maximum length of 100.
+        """
+
+        default_settings: "WebKeySettings.ActionSettings" = proto.Field(
+            proto.MESSAGE,
+            number=1,
+            message="WebKeySettings.ActionSettings",
+        )
+        action_settings: MutableMapping[str, "WebKeySettings.ActionSettings"] = (
+            proto.MapField(
+                proto.STRING,
+                proto.MESSAGE,
+                number=2,
+                message="WebKeySettings.ActionSettings",
+            )
+        )
 
     allow_all_domains: bool = proto.Field(
         proto.BOOL,
@@ -2441,6 +2698,11 @@ class WebKeySettings(proto.Message):
         number=5,
         enum=ChallengeSecurityPreference,
     )
+    challenge_settings: ChallengeSettings = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message=ChallengeSettings,
+    )
 
 
 class AndroidKeySettings(proto.Message):
@@ -2451,9 +2713,14 @@ class AndroidKeySettings(proto.Message):
             Optional. If set to true, allowed_package_names are not
             enforced.
         allowed_package_names (MutableSequence[str]):
-            Optional. Android package names of apps
-            allowed to use the key. Example:
-            'com.companyname.appname'
+            Optional. Android package names of apps allowed to use the
+            key. Example: 'com.companyname.appname' Each key supports a
+            maximum of 250 package names. To use a key on more apps, set
+            ``allow_all_package_names`` to true. When this is set, you
+            are responsible for validating the package name by checking
+            the ``token_properties.android_package_name`` field in each
+            assessment response against your list of allowed package
+            names.
         support_non_google_app_store_distribution (bool):
             Optional. Set to true for keys that are used
             in an Android application that is available for
@@ -2483,9 +2750,14 @@ class IOSKeySettings(proto.Message):
             Optional. If set to true, allowed_bundle_ids are not
             enforced.
         allowed_bundle_ids (MutableSequence[str]):
-            Optional. iOS bundle ids of apps allowed to
-            use the key. Example:
-            'com.companyname.productname.appname'
+            Optional. iOS bundle IDs of apps allowed to use the key.
+            Example: 'com.companyname.productname.appname' Each key
+            supports a maximum of 250 bundle IDs. To use a key on more
+            apps, set ``allow_all_bundle_ids`` to true. When this is
+            set, you are responsible for validating the bundle id by
+            checking the ``token_properties.ios_bundle_id`` field in
+            each assessment response against your list of allowed bundle
+            IDs.
         apple_developer_id (google.cloud.recaptchaenterprise_v1.types.AppleDeveloperId):
             Optional. Apple Developer account details for
             the app that is protected by the reCAPTCHA Key.
@@ -2996,12 +3268,12 @@ class ListRelatedAccountGroupsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    related_account_groups: MutableSequence[
-        "RelatedAccountGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="RelatedAccountGroup",
+    related_account_groups: MutableSequence["RelatedAccountGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="RelatedAccountGroup",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -3266,15 +3538,17 @@ class WafSettings(proto.Message):
 
     Attributes:
         waf_service (google.cloud.recaptchaenterprise_v1.types.WafSettings.WafService):
-            Required. The WAF service that uses this key.
+            Required. The Web Application Firewall (WAF)
+            service that uses this key.
         waf_feature (google.cloud.recaptchaenterprise_v1.types.WafSettings.WafFeature):
-            Required. The WAF feature for which this key
-            is enabled.
+            Required. The Web Application Firewall (WAF)
+            feature for which this key is enabled.
     """
 
     class WafFeature(proto.Enum):
         r"""Supported WAF features. For more information, see
         https://cloud.google.com/recaptcha/docs/usecase#comparison_of_features.
+        Ensure that applications can handle values not explicitly listed.
 
         Values:
             WAF_FEATURE_UNSPECIFIED (0):
@@ -3288,10 +3562,9 @@ class WafSettings(proto.Message):
                 Use reCAPTCHA action-tokens to protect user
                 actions.
             EXPRESS (5):
-                Use reCAPTCHA WAF express protection to
-                protect any content other than web pages, like
-                APIs and IoT devices.
+                Deprecated: Use ``express_settings`` instead.
         """
+
         WAF_FEATURE_UNSPECIFIED = 0
         CHALLENGE_PAGE = 1
         SESSION_TOKEN = 2
@@ -3299,7 +3572,9 @@ class WafSettings(proto.Message):
         EXPRESS = 5
 
     class WafService(proto.Enum):
-        r"""Web Application Firewalls supported by reCAPTCHA.
+        r"""Web Application Firewalls that reCAPTCHA supports.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             WAF_SERVICE_UNSPECIFIED (0):
@@ -3313,6 +3588,7 @@ class WafSettings(proto.Message):
             AKAMAI (5):
                 Akamai
         """
+
         WAF_SERVICE_UNSPECIFIED = 0
         CA = 1
         FASTLY = 3
@@ -3343,13 +3619,9 @@ class AssessmentEnvironment(proto.Message):
             can be the link to the client module's project.
             Examples include:
 
-            -
-              "github.com/GoogleCloudPlatform/recaptcha-enterprise-google-tag-manager"
-            -
-              "cloud.google.com/recaptcha/docs/implement-waf-akamai"
-            -
-              "cloud.google.com/recaptcha/docs/implement-waf-cloudflare"
-            - "wordpress.org/plugins/recaptcha-something".
+              -
+            "github.com/GoogleCloudPlatform/recaptcha-enterprise-google-tag-manager"
+              - "wordpress.org/plugins/recaptcha-something".
         version (str):
             Optional. The version of the client module.
             For example, "1.0.0".
@@ -3385,6 +3657,8 @@ class IpOverrideData(proto.Message):
 
     class OverrideType(proto.Enum):
         r"""Enum that represents the type of IP override.
+        Ensure that applications can handle values not explicitly
+        listed.
 
         Values:
             OVERRIDE_TYPE_UNSPECIFIED (0):
@@ -3394,6 +3668,7 @@ class IpOverrideData(proto.Message):
                 Allowlist the IP address; i.e. give a
                 ``risk_analysis.score`` of 0.9 for all valid assessments.
         """
+
         OVERRIDE_TYPE_UNSPECIFIED = 0
         ALLOW = 1
 

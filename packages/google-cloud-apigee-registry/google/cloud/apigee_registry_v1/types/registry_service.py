@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.apigee_registry_v1.types import registry_models
@@ -203,7 +203,7 @@ class UpdateApiRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The list of fields to be updated. If omitted, all fields are
             updated that are set in the request message (fields set to
-            default values are ignored). If an asterisk "*" is
+            default values are ignored). If an asterisk "\*" is
             specified, all fields are updated, including fields that are
             unspecified/default in the request.
         allow_missing (bool):
@@ -382,7 +382,7 @@ class UpdateApiVersionRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The list of fields to be updated. If omitted, all fields are
             updated that are set in the request message (fields set to
-            default values are ignored). If an asterisk "*" is
+            default values are ignored). If an asterisk "\*" is
             specified, all fields are updated, including fields that are
             unspecified/default in the request.
         allow_missing (bool):
@@ -579,7 +579,7 @@ class UpdateApiSpecRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The list of fields to be updated. If omitted, all fields are
             updated that are set in the request message (fields set to
-            default values are ignored). If an asterisk "*" is
+            default values are ignored). If an asterisk "\*" is
             specified, all fields are updated, including fields that are
             unspecified/default in the request.
         allow_missing (bool):
@@ -807,12 +807,12 @@ class ListApiDeploymentsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    api_deployments: MutableSequence[
-        registry_models.ApiDeployment
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=registry_models.ApiDeployment,
+    api_deployments: MutableSequence[registry_models.ApiDeployment] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=registry_models.ApiDeployment,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -883,7 +883,7 @@ class UpdateApiDeploymentRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The list of fields to be updated. If omitted, all fields are
             updated that are set in the request message (fields set to
-            default values are ignored). If an asterisk "*" is
+            default values are ignored). If an asterisk "\*" is
             specified, all fields are updated, including fields that are
             unspecified/default in the request.
         allow_missing (bool):
@@ -999,12 +999,12 @@ class ListApiDeploymentRevisionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    api_deployments: MutableSequence[
-        registry_models.ApiDeployment
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=registry_models.ApiDeployment,
+    api_deployments: MutableSequence[registry_models.ApiDeployment] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=registry_models.ApiDeployment,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

@@ -4,6 +4,86 @@
 
 [1]: https://pypi.org/project/google-cloud-translate/#history
 
+## [3.26.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.25.0...google-cloud-translate-v3.26.0) (2026-04-09)
+
+
+### Features
+
+* A new field `mime_type` is added to message `.google.cloud.translation.v3.AdaptiveMtTranslateRequest` ([56ccbd8612b6790b0477bf8d777080061072e745](https://github.com/googleapis/google-cloud-python/commit/56ccbd8612b6790b0477bf8d777080061072e745))
+
+## [3.25.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.24.0...google-cloud-translate-v3.25.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [3.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.23.0...google-cloud-translate-v3.24.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [3.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.22.0...google-cloud-translate-v3.23.0) (2025-11-06)
+
+
+### Features
+
+* Adds support for RefineText  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Adds option for pdf_native only document translation  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Adds option for contextual translation with glossaries  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+
+## [3.22.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.21.1...google-cloud-translate-v3.22.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+## [3.21.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.21.0...google-cloud-translate-v3.21.1) (2025-07-02)
+
+
+### Documentation
+
+* [google-cloud-translate] minor formatting ([#14035](https://github.com/googleapis/google-cloud-python/issues/14035)) ([bf121c4](https://github.com/googleapis/google-cloud-python/commit/bf121c44586c1dbb80b8e67c18018db75749e669))
+
+## [3.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.20.3...google-cloud-translate-v3.21.0) (2025-06-23)
+
+
+### Features
+
+* add google.cloud.location.Locations API ([b1831f5](https://github.com/googleapis/google-cloud-python/commit/b1831f5b40061c3939bcee7274cf70a7348a7fea))
+* add google.iam.v1.IAMPolicy API ([b1831f5](https://github.com/googleapis/google-cloud-python/commit/b1831f5b40061c3939bcee7274cf70a7348a7fea))
+* add google.longrunning.Operations API ([b1831f5](https://github.com/googleapis/google-cloud-python/commit/b1831f5b40061c3939bcee7274cf70a7348a7fea))
+
+
+### Documentation
+
+* minor formatting ([b1831f5](https://github.com/googleapis/google-cloud-python/commit/b1831f5b40061c3939bcee7274cf70a7348a7fea))
+* Update hyperlink to the supported languages documentation page ([b1831f5](https://github.com/googleapis/google-cloud-python/commit/b1831f5b40061c3939bcee7274cf70a7348a7fea))
+
+## [3.20.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.20.2...google-cloud-translate-v3.20.3) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([0131a33](https://github.com/googleapis/google-cloud-python/commit/0131a33582f84d9be5ecb1c0ef8b56aa3d9e9cf0))
 
 ## [3.20.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-translate-v3.20.1...google-cloud-translate-v3.20.2) (2025-03-15)
 

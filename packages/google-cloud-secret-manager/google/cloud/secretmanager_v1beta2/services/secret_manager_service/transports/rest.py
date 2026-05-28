@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,19 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -938,8 +938,8 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
     Manages secrets and operations using those secrets. Implements a
     REST model with the following objects:
 
-    -  [Secret][google.cloud.secretmanager.v1beta2.Secret]
-    -  [SecretVersion][google.cloud.secretmanager.v1beta2.SecretVersion]
+    - [Secret][google.cloud.secretmanager.v1beta2.Secret]
+    - [SecretVersion][google.cloud.secretmanager.v1beta2.SecretVersion]
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -974,9 +974,10 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -994,6 +995,12 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[SecretManagerServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1073,9 +1080,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseAccessSecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseAccessSecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_access_secret_version(
                 request, metadata
@@ -1228,9 +1233,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseAddSecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseAddSecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_add_secret_version(
                 request, metadata
@@ -1392,9 +1395,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseCreateSecret._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseCreateSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_create_secret(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseCreateSecret._get_transcoded_request(
@@ -1539,9 +1540,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseDeleteSecret._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseDeleteSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_secret(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseDeleteSecret._get_transcoded_request(
@@ -1561,7 +1560,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1654,9 +1653,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseDestroySecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseDestroySecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_destroy_secret_version(
                 request, metadata
@@ -1812,9 +1809,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseDisableSecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseDisableSecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_disable_secret_version(
                 request, metadata
@@ -1970,9 +1965,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseEnableSecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseEnableSecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_enable_secret_version(
                 request, metadata
@@ -2199,9 +2192,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -2353,9 +2344,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseGetSecret._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseGetSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_get_secret(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseGetSecret._get_transcoded_request(
@@ -2501,9 +2490,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseGetSecretVersion._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseGetSecretVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_get_secret_version(
                 request, metadata
@@ -2653,9 +2640,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseListSecrets._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseListSecrets._get_http_options()
 
             request, metadata = self._interceptor.pre_list_secrets(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseListSecrets._get_transcoded_request(
@@ -2801,9 +2786,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseListSecretVersions._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseListSecretVersions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_secret_versions(
                 request, metadata
@@ -3028,9 +3011,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -3179,9 +3160,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                     Response message for ``TestIamPermissions`` method.
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -3343,9 +3322,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseUpdateSecret._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseUpdateSecret._get_http_options()
 
             request, metadata = self._interceptor.pre_update_secret(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseUpdateSecret._get_transcoded_request(
@@ -3619,9 +3596,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -3760,9 +3735,7 @@ class SecretManagerServiceRestTransport(_BaseSecretManagerServiceRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseSecretManagerServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseSecretManagerServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseSecretManagerServiceRestTransport._BaseListLocations._get_transcoded_request(

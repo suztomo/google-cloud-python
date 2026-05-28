@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_replace_deployment():
     client = gsuiteaddons_v1.GSuiteAddOnsClient()
 
     # Initialize request argument(s)
-    request = gsuiteaddons_v1.ReplaceDeploymentRequest(
-    )
+    request = gsuiteaddons_v1.ReplaceDeploymentRequest()
 
     # Make the request
     response = client.replace_deployment(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END gsuiteaddons_v1_generated_GSuiteAddOns_ReplaceDeployment_sync]

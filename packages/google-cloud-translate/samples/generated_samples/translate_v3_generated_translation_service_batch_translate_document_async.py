@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,19 +48,23 @@ async def sample_batch_translate_document():
     request = translate_v3.BatchTranslateDocumentRequest(
         parent="parent_value",
         source_language_code="source_language_code_value",
-        target_language_codes=['target_language_codes_value1', 'target_language_codes_value2'],
+        target_language_codes=[
+            "target_language_codes_value1",
+            "target_language_codes_value2",
+        ],
         input_configs=input_configs,
         output_config=output_config,
     )
 
     # Make the request
-    operation = client.batch_translate_document(request=request)
+    operation = await client.batch_translate_document(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END translate_v3_generated_TranslationService_BatchTranslateDocument_async]

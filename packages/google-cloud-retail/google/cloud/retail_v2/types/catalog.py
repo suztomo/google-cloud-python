@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2.types import common, import_config
@@ -45,19 +45,19 @@ class ProductLevelConfig(proto.Message):
             allowed to be ingested into the catalog. Acceptable values
             are:
 
-            -  ``primary`` (default): You can ingest
-               [Product][google.cloud.retail.v2.Product]s of all types.
-               When ingesting a
-               [Product][google.cloud.retail.v2.Product], its type will
-               default to
-               [Product.Type.PRIMARY][google.cloud.retail.v2.Product.Type.PRIMARY]
-               if unset.
-            -  ``variant`` (incompatible with Retail Search): You can
-               only ingest
-               [Product.Type.VARIANT][google.cloud.retail.v2.Product.Type.VARIANT]
-               [Product][google.cloud.retail.v2.Product]s. This means
-               [Product.primary_product_id][google.cloud.retail.v2.Product.primary_product_id]
-               cannot be empty.
+            - ``primary`` (default): You can ingest
+              [Product][google.cloud.retail.v2.Product]s of all types.
+              When ingesting a
+              [Product][google.cloud.retail.v2.Product], its type will
+              default to
+              [Product.Type.PRIMARY][google.cloud.retail.v2.Product.Type.PRIMARY]
+              if unset.
+            - ``variant`` (incompatible with Retail Search): You can
+              only ingest
+              [Product.Type.VARIANT][google.cloud.retail.v2.Product.Type.VARIANT]
+              [Product][google.cloud.retail.v2.Product]s. This means
+              [Product.primary_product_id][google.cloud.retail.v2.Product.primary_product_id]
+              cannot be empty.
 
             If this field is set to an invalid value other than these,
             an INVALID_ARGUMENT error is returned.
@@ -76,12 +76,12 @@ class ProductLevelConfig(proto.Message):
             [Product.id][google.cloud.retail.v2.Product.id]. Acceptable
             values are:
 
-            -  ``offerId`` (default): Import ``offerId`` as the product
-               ID.
-            -  ``itemGroupId``: Import ``itemGroupId`` as the product
-               ID. Notice that Retail API will choose one item from the
-               ones with the same ``itemGroupId``, and use it to
-               represent the item group.
+            - ``offerId`` (default): Import ``offerId`` as the product
+              ID.
+            - ``itemGroupId``: Import ``itemGroupId`` as the product ID.
+              Notice that Retail API will choose one item from the ones
+              with the same ``itemGroupId``, and use it to represent the
+              item group.
 
             If this field is set to an invalid value other than these,
             an INVALID_ARGUMENT error is returned.
@@ -222,6 +222,7 @@ class CatalogAttribute(proto.Message):
             NUMERICAL (2):
                 Numerical attribute.
         """
+
         UNKNOWN = 0
         TEXTUAL = 1
         NUMERICAL = 2
@@ -237,6 +238,7 @@ class CatalogAttribute(proto.Message):
             INDEXABLE_DISABLED (2):
                 Indexable option disabled for an attribute.
         """
+
         INDEXABLE_OPTION_UNSPECIFIED = 0
         INDEXABLE_ENABLED = 1
         INDEXABLE_DISABLED = 2
@@ -255,6 +257,7 @@ class CatalogAttribute(proto.Message):
                 Dynamic facetable option disabled for an
                 attribute.
         """
+
         DYNAMIC_FACETABLE_OPTION_UNSPECIFIED = 0
         DYNAMIC_FACETABLE_ENABLED = 1
         DYNAMIC_FACETABLE_DISABLED = 2
@@ -270,6 +273,7 @@ class CatalogAttribute(proto.Message):
             SEARCHABLE_DISABLED (2):
                 Searchable option disabled for an attribute.
         """
+
         SEARCHABLE_OPTION_UNSPECIFIED = 0
         SEARCHABLE_ENABLED = 1
         SEARCHABLE_DISABLED = 2
@@ -288,6 +292,7 @@ class CatalogAttribute(proto.Message):
                 Exact searchable option disabled for an
                 attribute.
         """
+
         EXACT_SEARCHABLE_OPTION_UNSPECIFIED = 0
         EXACT_SEARCHABLE_ENABLED = 1
         EXACT_SEARCHABLE_DISABLED = 2
@@ -303,6 +308,7 @@ class CatalogAttribute(proto.Message):
             RETRIEVABLE_DISABLED (2):
                 Retrievable option disabled for an attribute.
         """
+
         RETRIEVABLE_OPTION_UNSPECIFIED = 0
         RETRIEVABLE_ENABLED = 1
         RETRIEVABLE_DISABLED = 2
@@ -616,8 +622,8 @@ class CompletionConfig(proto.Message):
             'red s' with 'exact-prefix' specified would suggest "red
             shoes". Currently supported values:
 
-            -  'out-of-order'
-            -  'exact-prefix'
+            - 'out-of-order'
+            - 'exact-prefix'
 
             Default value: 'exact-prefix'.
         max_suggestions (int):

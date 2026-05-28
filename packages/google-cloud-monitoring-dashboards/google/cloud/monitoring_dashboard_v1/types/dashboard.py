@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,12 +120,12 @@ class Dashboard(proto.Message):
         oneof="layout",
         message=layouts.ColumnLayout,
     )
-    dashboard_filters: MutableSequence[
-        dashboard_filter.DashboardFilter
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=11,
-        message=dashboard_filter.DashboardFilter,
+    dashboard_filters: MutableSequence[dashboard_filter.DashboardFilter] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=11,
+            message=dashboard_filter.DashboardFilter,
+        )
     )
     labels: MutableMapping[str, str] = proto.MapField(
         proto.STRING,

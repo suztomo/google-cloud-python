@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@ import json  # type: ignore
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import gapic_v1, path_template
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 
-from google.cloud.retail_v2beta.types import export_config, import_config
-from google.cloud.retail_v2beta.types import product
+from google.cloud.retail_v2beta.types import (
+    export_config,
+    import_config,
+    product,
+    product_service,
+    purge_config,
+)
 from google.cloud.retail_v2beta.types import product as gcr_product
-from google.cloud.retail_v2beta.types import product_service, purge_config
 
 from .base import DEFAULT_CLIENT_INFO, ProductServiceTransport
 

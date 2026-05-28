@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_corpora():
     client = generativelanguage_v1beta.RetrieverServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = generativelanguage_v1beta.ListCorporaRequest(
-    )
+    request = generativelanguage_v1beta.ListCorporaRequest()
 
     # Make the request
     page_result = client.list_corpora(request=request)
@@ -48,5 +47,6 @@ async def sample_list_corpora():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END generativelanguage_v1beta_generated_RetrieverService_ListCorpora_async]

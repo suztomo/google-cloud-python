@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2beta.types import serving_config as gcr_serving_config
@@ -52,7 +52,7 @@ class CreateServingConfigRequest(proto.Message):
             name.
 
             This value should be 4-63 characters, and valid characters
-            are /[a-z][0-9]-_/.
+            are /[a-z][0-9]-\_/.
     """
 
     parent: str = proto.Field(
@@ -81,7 +81,7 @@ class UpdateServingConfigRequest(proto.Message):
             [ServingConfig][google.cloud.retail.v2beta.ServingConfig] to
             update. The following are NOT supported:
 
-            -  [ServingConfig.name][google.cloud.retail.v2beta.ServingConfig.name]
+            - [ServingConfig.name][google.cloud.retail.v2beta.ServingConfig.name]
 
             If not set, all supported fields are updated.
     """
@@ -177,12 +177,12 @@ class ListServingConfigsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    serving_configs: MutableSequence[
-        gcr_serving_config.ServingConfig
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcr_serving_config.ServingConfig,
+    serving_configs: MutableSequence[gcr_serving_config.ServingConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcr_serving_config.ServingConfig,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

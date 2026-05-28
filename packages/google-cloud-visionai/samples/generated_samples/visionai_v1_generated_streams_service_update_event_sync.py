@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_event():
     client = visionai_v1.StreamsServiceClient()
 
     # Initialize request argument(s)
-    request = visionai_v1.UpdateEventRequest(
-    )
+    request = visionai_v1.UpdateEventRequest()
 
     # Make the request
     operation = client.update_event(request=request)
@@ -51,5 +50,6 @@ def sample_update_event():
 
     # Handle the response
     print(response)
+
 
 # [END visionai_v1_generated_StreamsService_UpdateEvent_sync]

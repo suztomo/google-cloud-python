@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -38,10 +38,12 @@ __protobuf__ = proto.module(
         "AutoDetectDecodingConfig",
         "ExplicitDecodingConfig",
         "SpeakerDiarizationConfig",
+        "CustomPromptConfig",
         "RecognitionFeatures",
         "TranscriptNormalization",
         "TranslationConfig",
         "SpeechAdaptation",
+        "DenoiserConfig",
         "RecognitionConfig",
         "RecognizeRequest",
         "RecognitionResponseMetadata",
@@ -692,6 +694,7 @@ class Recognizer(proto.Message):
             DELETED (4):
                 This Recognizer has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4
@@ -773,30 +776,30 @@ class AutoDetectDecodingConfig(proto.Message):
     r"""Automatically detected decoding parameters. Supported for the
     following encodings:
 
-    -  WAV_LINEAR16: 16-bit signed little-endian PCM samples in a WAV
-       container.
+    - WAV_LINEAR16: 16-bit signed little-endian PCM samples in a WAV
+      container.
 
-    -  WAV_MULAW: 8-bit companded mulaw samples in a WAV container.
+    - WAV_MULAW: 8-bit companded mulaw samples in a WAV container.
 
-    -  WAV_ALAW: 8-bit companded alaw samples in a WAV container.
+    - WAV_ALAW: 8-bit companded alaw samples in a WAV container.
 
-    -  RFC4867_5_AMR: AMR frames with an rfc4867.5 header.
+    - RFC4867_5_AMR: AMR frames with an rfc4867.5 header.
 
-    -  RFC4867_5_AMRWB: AMR-WB frames with an rfc4867.5 header.
+    - RFC4867_5_AMRWB: AMR-WB frames with an rfc4867.5 header.
 
-    -  FLAC: FLAC frames in the "native FLAC" container format.
+    - FLAC: FLAC frames in the "native FLAC" container format.
 
-    -  MP3: MPEG audio frames with optional (ignored) ID3 metadata.
+    - MP3: MPEG audio frames with optional (ignored) ID3 metadata.
 
-    -  OGG_OPUS: Opus audio frames in an Ogg container.
+    - OGG_OPUS: Opus audio frames in an Ogg container.
 
-    -  WEBM_OPUS: Opus audio frames in a WebM container.
+    - WEBM_OPUS: Opus audio frames in a WebM container.
 
-    -  MP4_AAC: AAC audio frames in an MP4 container.
+    - MP4_AAC: AAC audio frames in an MP4 container.
 
-    -  M4A_AAC: AAC audio frames in an M4A container.
+    - M4A_AAC: AAC audio frames in an M4A container.
 
-    -  MOV_AAC: AAC audio frames in an MOV container.
+    - MOV_AAC: AAC audio frames in an MOV container.
 
     """
 
@@ -811,13 +814,14 @@ class ExplicitDecodingConfig(proto.Message):
         sample_rate_hertz (int):
             Optional. Sample rate in Hertz of the audio
             data sent for recognition. Valid values are:
-            8000-48000. 16000 is optimal. For best results,
-            set the sampling rate of the audio source to
-            16000 Hz. If that's not possible, use the native
-            sample rate of the audio source (instead of
-            re-sampling). Note that this field is marked as
-            OPTIONAL for backward compatibility reasons. It
-            is (and has always been) effectively REQUIRED.
+            8000-48000, and 16000 is optimal. For best
+            results, set the sampling rate of the audio
+            source to 16000 Hz. If that's not possible, use
+            the native sample rate of the audio source
+            (instead of resampling). Note that this field is
+            marked as OPTIONAL for backward compatibility
+            reasons. It is (and has always been) effectively
+            REQUIRED.
         audio_channel_count (int):
             Optional. Number of channels present in the
             audio data sent for recognition. Note that this
@@ -862,6 +866,7 @@ class ExplicitDecodingConfig(proto.Message):
             MOV_AAC (12):
                 AAC audio frames in an MOV container.
         """
+
         AUDIO_ENCODING_UNSPECIFIED = 0
         LINEAR16 = 1
         MULAW = 2
@@ -896,17 +901,13 @@ class SpeakerDiarizationConfig(proto.Message):
 
     Attributes:
         min_speaker_count (int):
-            Required. Minimum number of speakers in the conversation.
-            This range gives you more flexibility by allowing the system
-            to automatically determine the correct number of speakers.
-
-            To fix the number of speakers detected in the audio, set
-            ``min_speaker_count`` = ``max_speaker_count``.
+            Optional. The system automatically determines
+            the number of speakers. This value is not
+            currently used.
         max_speaker_count (int):
-            Required. Maximum number of speakers in the conversation.
-            Valid values are: 1-6. Must be >= ``min_speaker_count``.
-            This range gives you more flexibility by allowing the system
-            to automatically determine the correct number of speakers.
+            Optional. The system automatically determines
+            the number of speakers. This value is not
+            currently used.
     """
 
     min_speaker_count: int = proto.Field(
@@ -919,6 +920,21 @@ class SpeakerDiarizationConfig(proto.Message):
     )
 
 
+class CustomPromptConfig(proto.Message):
+    r"""Configuration to enable custom prompt in chirp3.
+
+    Attributes:
+        custom_prompt (str):
+            Optional. The custom instructions to override
+            the existing instructions for chirp3.
+    """
+
+    custom_prompt: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
 class RecognitionFeatures(proto.Message):
     r"""Available recognition features.
 
@@ -926,7 +942,7 @@ class RecognitionFeatures(proto.Message):
         profanity_filter (bool):
             If set to ``true``, the server will attempt to filter out
             profanities, replacing all but the initial character in each
-            filtered word with asterisks, for instance, "f***". If set
+            filtered word with asterisks, for instance, "f**\*". If set
             to ``false`` or omitted, profanities won't be filtered out.
         enable_word_time_offsets (bool):
             If ``true``, the top result includes a list of words and the
@@ -960,24 +976,18 @@ class RecognitionFeatures(proto.Message):
         multi_channel_mode (google.cloud.speech_v2.types.RecognitionFeatures.MultiChannelMode):
             Mode for recognizing multi-channel audio.
         diarization_config (google.cloud.speech_v2.types.SpeakerDiarizationConfig):
-            Configuration to enable speaker diarization
-            and set additional parameters to make
-            diarization better suited for your application.
-            When this is enabled, we send all the words from
-            the beginning of the audio for the top
-            alternative in every consecutive STREAMING
-            responses. This is done in order to improve our
-            speaker tags as our models learn to identify the
-            speakers in the conversation over time. For
-            non-streaming requests, the diarization results
-            will be provided only in the top alternative of
-            the FINAL SpeechRecognitionResult.
+            Configuration to enable speaker diarization.
+            To enable diarization, set this field to an
+            empty SpeakerDiarizationConfig message.
         max_alternatives (int):
             Maximum number of recognition hypotheses to be returned. The
             server may return fewer than ``max_alternatives``. Valid
             values are ``0``-``30``. A value of ``0`` or ``1`` will
             return a maximum of one. If omitted, will return a maximum
             of one.
+        custom_prompt_config (google.cloud.speech_v2.types.CustomPromptConfig):
+            Optional. Configuration to enable custom
+            prompt for chirp3.
     """
 
     class MultiChannelMode(proto.Enum):
@@ -995,6 +1005,7 @@ class RecognitionFeatures(proto.Message):
                 selected [model][google.cloud.speech.v2.Recognizer.model] is
                 ``latest_short``.
         """
+
         MULTI_CHANNEL_MODE_UNSPECIFIED = 0
         SEPARATE_RECOGNITION_PER_CHANNEL = 1
 
@@ -1035,6 +1046,11 @@ class RecognitionFeatures(proto.Message):
     max_alternatives: int = proto.Field(
         proto.INT32,
         number=16,
+    )
+    custom_prompt_config: "CustomPromptConfig" = proto.Field(
+        proto.MESSAGE,
+        number=18,
+        message="CustomPromptConfig",
     )
 
 
@@ -1167,6 +1183,34 @@ class SpeechAdaptation(proto.Message):
     )
 
 
+class DenoiserConfig(proto.Message):
+    r"""Denoiser config. May not be supported for all models and may
+    have no effect.
+
+    Attributes:
+        denoise_audio (bool):
+            Denoise audio before sending to the
+            transcription model.
+        snr_threshold (float):
+            Signal-to-Noise Ratio (SNR) threshold for the denoiser. Here
+            SNR means the loudness of the speech signal. Audio with an
+            SNR below this threshold, meaning the speech is too quiet,
+            will be prevented from being sent to the transcription
+            model.
+
+            If snr_threshold=0, no filtering will be applied.
+    """
+
+    denoise_audio: bool = proto.Field(
+        proto.BOOL,
+        number=1,
+    )
+    snr_threshold: float = proto.Field(
+        proto.FLOAT,
+        number=2,
+    )
+
+
 class RecognitionConfig(proto.Message):
     r"""Provides information to the Recognizer that specifies how to
     process the recognition request.
@@ -1232,6 +1276,10 @@ class RecognitionConfig(proto.Message):
             Optional. Optional configuration used to
             automatically run translation on the given audio
             to the desired language for supported models.
+        denoiser_config (google.cloud.speech_v2.types.DenoiserConfig):
+            Optional. Optional denoiser config. May not
+            be supported for all models and may have no
+            effect.
     """
 
     auto_decoding_config: "AutoDetectDecodingConfig" = proto.Field(
@@ -1273,6 +1321,11 @@ class RecognitionConfig(proto.Message):
         proto.MESSAGE,
         number=15,
         message="TranslationConfig",
+    )
+    denoiser_config: "DenoiserConfig" = proto.Field(
+        proto.MESSAGE,
+        number=16,
+        message="DenoiserConfig",
     )
 
 
@@ -1371,6 +1424,8 @@ class RecognizeRequest(proto.Message):
 class RecognitionResponseMetadata(proto.Message):
     r"""Metadata about the recognition request and response.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         request_id (str):
             Global request identifier auto-generated by
@@ -1378,6 +1433,11 @@ class RecognitionResponseMetadata(proto.Message):
         total_billed_duration (google.protobuf.duration_pb2.Duration):
             When available, billed audio seconds for the
             corresponding request.
+        prompt (str):
+            Optional. Output only. Provides the prompt
+            used for the recognition request.
+
+            This field is a member of `oneof`_ ``_prompt``.
     """
 
     request_id: str = proto.Field(
@@ -1388,6 +1448,11 @@ class RecognitionResponseMetadata(proto.Message):
         proto.MESSAGE,
         number=6,
         message=duration_pb2.Duration,
+    )
+    prompt: str = proto.Field(
+        proto.STRING,
+        number=10,
+        optional=True,
     )
 
 
@@ -1588,7 +1653,42 @@ class StreamingRecognitionFeatures(proto.Message):
             the specified duration has elapsed after the last
             VOICE_ACTIVITY speech event has been sent. The field
             ``voice_activity_events`` must also be set to true.
+        endpointing_sensitivity (google.cloud.speech_v2.types.StreamingRecognitionFeatures.EndpointingSensitivity):
+            Optional. Endpointing sensitivity for this
+            stream.
     """
+
+    class EndpointingSensitivity(proto.Enum):
+        r"""Endpointing sensitivity is intended for applications that
+        want to minimize result latency, possibly at the expense of
+        quality. Some utterances may be broken up into multiple
+        fragments.
+
+        Values:
+            ENDPOINTING_SENSITIVITY_UNSPECIFIED (0):
+                If no value is specified, the values for
+                ENDPOINTING_SENSITIVITY_STANDARD will be used.
+            ENDPOINTING_SENSITIVITY_STANDARD (1):
+                Standard sensitivity, no optimization for
+                latency.
+            ENDPOINTING_SENSITIVITY_SUPERSHORT (2):
+                Super short sensitivity, optimized for super
+                short utterances like single words ("Yes", "No",
+                "Hello", etc.) or a single phrase, command or
+                short query (e.g. "check balance", "five
+                dollars", "call Mom").
+            ENDPOINTING_SENSITIVITY_SHORT (3):
+                Short sensitivity, optimized for short
+                utterances like single sentences. (e.g. "Remind
+                me to call the dentist tomorrow morning at
+                nine", "Navigate to the nearest coffee shop that
+                is currently open")
+        """
+
+        ENDPOINTING_SENSITIVITY_UNSPECIFIED = 0
+        ENDPOINTING_SENSITIVITY_STANDARD = 1
+        ENDPOINTING_SENSITIVITY_SUPERSHORT = 2
+        ENDPOINTING_SENSITIVITY_SHORT = 3
 
     class VoiceActivityTimeout(proto.Message):
         r"""Events that a timeout can be set on for voice activity.
@@ -1629,6 +1729,11 @@ class StreamingRecognitionFeatures(proto.Message):
         proto.MESSAGE,
         number=3,
         message=VoiceActivityTimeout,
+    )
+    endpointing_sensitivity: EndpointingSensitivity = proto.Field(
+        proto.ENUM,
+        number=8,
+        enum=EndpointingSensitivity,
     )
 
 
@@ -1810,6 +1915,7 @@ class BatchRecognizeRequest(proto.Message):
                 lower utilization periods for a price discount.
                 The request is fulfilled within 24 hours.
         """
+
         PROCESSING_STRATEGY_UNSPECIFIED = 0
         DYNAMIC_BATCHING = 1
 
@@ -2285,7 +2391,7 @@ class StreamingRecognitionResult(proto.Message):
             change its guess about this interim result. Values range
             from 0.0 (completely unstable) to 1.0 (completely stable).
             This field is only provided for interim results
-            ([is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=``false``).
+            ([is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=\ ``false``).
             The default of 0.0 is a sentinel value indicating
             ``stability`` was not set.
         result_end_offset (google.protobuf.duration_pb2.Duration):
@@ -2368,32 +2474,31 @@ class StreamingRecognizeResponse(proto.Message):
 
     Notes:
 
-    -  Only two of the above responses #4 and #7 contain final results;
-       they are indicated by ``is_final: true``. Concatenating these
-       together generates the full transcript: "to be or not to be that
-       is the question".
+    - Only two of the above responses #4 and #7 contain final results;
+      they are indicated by ``is_final: true``. Concatenating these
+      together generates the full transcript: "to be or not to be that
+      is the question".
 
-    -  The others contain interim ``results``. #3 and #6 contain two
-       interim ``results``: the first portion has a high stability and
-       is less likely to change; the second portion has a low stability
-       and is very likely to change. A UI designer might choose to show
-       only high stability ``results``.
+    - The others contain interim ``results``. #3 and #6 contain two
+      interim ``results``: the first portion has a high stability and is
+      less likely to change; the second portion has a low stability and
+      is very likely to change. A UI designer might choose to show only
+      high stability ``results``.
 
-    -  The specific ``stability`` and ``confidence`` values shown above
-       are only for illustrative purposes. Actual values may vary.
+    - The specific ``stability`` and ``confidence`` values shown above
+      are only for illustrative purposes. Actual values may vary.
 
-    -  In each response, only one of these fields will be set:
-       ``error``, ``speech_event_type``, or one or more (repeated)
-       ``results``.
+    - In each response, only one of these fields will be set: ``error``,
+      ``speech_event_type``, or one or more (repeated) ``results``.
 
     Attributes:
         results (MutableSequence[google.cloud.speech_v2.types.StreamingRecognitionResult]):
             This repeated list contains zero or more results that
             correspond to consecutive portions of the audio currently
             being processed. It contains zero or one
-            [is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=``true``
+            [is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=\ ``true``
             result (the newly settled portion), followed by zero or more
-            [is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=``false``
+            [is_final][google.cloud.speech.v2.StreamingRecognitionResult.is_final]=\ ``false``
             results (the interim results).
         speech_event_type (google.cloud.speech_v2.types.StreamingRecognizeResponse.SpeechEventType):
             Indicates the type of speech event.
@@ -2432,6 +2537,7 @@ class StreamingRecognizeResponse(proto.Message):
                 repeatedly throughout the stream. This event is only sent if
                 ``voice_activity_events`` is set to true.
         """
+
         SPEECH_EVENT_TYPE_UNSPECIFIED = 0
         END_OF_SINGLE_UTTERANCE = 1
         SPEECH_ACTIVITY_BEGIN = 2
@@ -2617,6 +2723,7 @@ class CustomClass(proto.Message):
             DELETED (4):
                 This CustomClass has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4
@@ -2779,6 +2886,7 @@ class PhraseSet(proto.Message):
             DELETED (4):
                 This PhraseSet has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 2
         DELETED = 4

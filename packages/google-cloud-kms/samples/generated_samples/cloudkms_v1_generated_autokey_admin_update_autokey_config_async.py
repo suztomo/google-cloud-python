@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_autokey_config():
     client = kms_v1.AutokeyAdminAsyncClient()
 
     # Initialize request argument(s)
-    request = kms_v1.UpdateAutokeyConfigRequest(
-    )
+    request = kms_v1.UpdateAutokeyConfigRequest()
 
     # Make the request
     response = await client.update_autokey_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END cloudkms_v1_generated_AutokeyAdmin_UpdateAutokeyConfig_async]

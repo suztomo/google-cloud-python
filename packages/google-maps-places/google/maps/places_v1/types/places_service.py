@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.geo.type.types import viewport
-from google.type import latlng_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
+from google.geo.type.types import viewport
 
-from google.maps.places_v1.types import contextual_content, ev_charging, geometry
-from google.maps.places_v1.types import routing_preference as gmp_routing_preference
+from google.maps.places_v1.types import (
+    contextual_content,
+    ev_charging,
+    geometry,
+    routing_summary,
+)
 from google.maps.places_v1.types import place as gmp_place
 from google.maps.places_v1.types import polyline as gmp_polyline
 from google.maps.places_v1.types import route_modifiers as gmp_route_modifiers
-from google.maps.places_v1.types import routing_summary
+from google.maps.places_v1.types import routing_preference as gmp_routing_preference
 from google.maps.places_v1.types import travel_mode as gmp_travel_mode
 
 __protobuf__ = proto.module(
@@ -216,6 +220,9 @@ class SearchNearbyRequest(proto.Message):
         routing_parameters (google.maps.places_v1.types.RoutingParameters):
             Optional. Parameters that affect the routing
             to the search results.
+        include_future_opening_businesses (bool):
+            Optional. If true, include businesses that
+            are not yet open but will open in the future.
     """
 
     class RankPreference(proto.Enum):
@@ -230,6 +237,7 @@ class SearchNearbyRequest(proto.Message):
             POPULARITY (2):
                 Ranks results by popularity.
         """
+
         RANK_PREFERENCE_UNSPECIFIED = 0
         DISTANCE = 1
         POPULARITY = 2
@@ -296,6 +304,10 @@ class SearchNearbyRequest(proto.Message):
         number=10,
         message="RoutingParameters",
     )
+    include_future_opening_businesses: bool = proto.Field(
+        proto.BOOL,
+        number=15,
+    )
 
 
 class SearchNearbyResponse(proto.Message):
@@ -319,12 +331,12 @@ class SearchNearbyResponse(proto.Message):
         number=1,
         message=gmp_place.Place,
     )
-    routing_summaries: MutableSequence[
-        routing_summary.RoutingSummary
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=routing_summary.RoutingSummary,
+    routing_summaries: MutableSequence[routing_summary.RoutingSummary] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=routing_summary.RoutingSummary,
+        )
     )
 
 
@@ -414,6 +426,9 @@ class SearchTextRequest(proto.Message):
             Google Maps. Places will not return fields including
             ``location``, ``plus_code``, and other location related
             fields for these businesses.
+        include_future_opening_businesses (bool):
+            Optional. If true, include businesses that
+            are not yet open but will open in the future.
     """
 
     class RankPreference(proto.Enum):
@@ -432,6 +447,7 @@ class SearchTextRequest(proto.Message):
                 Ranks results by relevance. Sort order
                 determined by normal ranking stack.
         """
+
         RANK_PREFERENCE_UNSPECIFIED = 0
         DISTANCE = 1
         RELEVANCE = 2
@@ -524,12 +540,12 @@ class SearchTextRequest(proto.Message):
             proto.DOUBLE,
             number=1,
         )
-        connector_types: MutableSequence[
-            ev_charging.EVConnectorType
-        ] = proto.RepeatedField(
-            proto.ENUM,
-            number=2,
-            enum=ev_charging.EVConnectorType,
+        connector_types: MutableSequence[ev_charging.EVConnectorType] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=2,
+                enum=ev_charging.EVConnectorType,
+            )
         )
 
     class SearchAlongRouteParameters(proto.Message):
@@ -632,6 +648,10 @@ class SearchTextRequest(proto.Message):
         proto.BOOL,
         number=20,
     )
+    include_future_opening_businesses: bool = proto.Field(
+        proto.BOOL,
+        number=21,
+    )
 
 
 class SearchTextResponse(proto.Message):
@@ -667,19 +687,19 @@ class SearchTextResponse(proto.Message):
         number=1,
         message=gmp_place.Place,
     )
-    routing_summaries: MutableSequence[
-        routing_summary.RoutingSummary
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=routing_summary.RoutingSummary,
+    routing_summaries: MutableSequence[routing_summary.RoutingSummary] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=routing_summary.RoutingSummary,
+        )
     )
-    contextual_contents: MutableSequence[
-        contextual_content.ContextualContent
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=contextual_content.ContextualContent,
+    contextual_contents: MutableSequence[contextual_content.ContextualContent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=contextual_content.ContextualContent,
+        )
     )
 
 
@@ -819,16 +839,16 @@ class GetPlaceRequest(proto.Message):
 
             We recommend the following guidelines:
 
-            -  Use session tokens for all Place Autocomplete calls.
-            -  Generate a fresh token for each session. Using a version
-               4 UUID is recommended.
-            -  Ensure that the credentials used for all Place
-               Autocomplete, Place Details, and Address Validation
-               requests within a session belong to the same Cloud
-               Console project.
-            -  Be sure to pass a unique session token for each new
-               session. Using the same token for more than one session
-               will result in each request being billed individually.
+            - Use session tokens for all Place Autocomplete calls.
+            - Generate a fresh token for each session. Using a version 4
+              UUID is recommended.
+            - Ensure that the credentials used for all Place
+              Autocomplete, Place Details, and Address Validation
+              requests within a session belong to the same Cloud Console
+              project.
+            - Be sure to pass a unique session token for each new
+              session. Using the same token for more than one session
+              will result in each request being billed individually.
     """
 
     name: str = proto.Field(
@@ -933,16 +953,16 @@ class AutocompletePlacesRequest(proto.Message):
 
             We recommend the following guidelines:
 
-            -  Use session tokens for all Place Autocomplete calls.
-            -  Generate a fresh token for each session. Using a version
-               4 UUID is recommended.
-            -  Ensure that the credentials used for all Place
-               Autocomplete, Place Details, and Address Validation
-               requests within a session belong to the same Cloud
-               Console project.
-            -  Be sure to pass a unique session token for each new
-               session. Using the same token for more than one session
-               will result in each request being billed individually.
+            - Use session tokens for all Place Autocomplete calls.
+            - Generate a fresh token for each session. Using a version 4
+              UUID is recommended.
+            - Ensure that the credentials used for all Place
+              Autocomplete, Place Details, and Address Validation
+              requests within a session belong to the same Cloud Console
+              project.
+            - Be sure to pass a unique session token for each new
+              session. Using the same token for more than one session
+              will result in each request being billed individually.
         include_pure_service_area_businesses (bool):
             Optional. Include pure service area businesses if the field
             is set to true. Pure service area business is a business
@@ -953,6 +973,9 @@ class AutocompletePlacesRequest(proto.Message):
             Google Maps. Places will not return fields including
             ``location``, ``plus_code``, and other location related
             fields for these businesses.
+        include_future_opening_businesses (bool):
+            Optional. If true, include businesses that
+            are not yet open but will open in the future.
     """
 
     class LocationBias(proto.Message):
@@ -1079,6 +1102,10 @@ class AutocompletePlacesRequest(proto.Message):
     include_pure_service_area_businesses: bool = proto.Field(
         proto.BOOL,
         number=12,
+    )
+    include_future_opening_businesses: bool = proto.Field(
+        proto.BOOL,
+        number=13,
     )
 
 

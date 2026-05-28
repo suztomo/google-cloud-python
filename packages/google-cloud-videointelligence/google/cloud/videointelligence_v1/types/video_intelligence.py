@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -101,6 +101,7 @@ class Feature(proto.Enum):
         PERSON_DETECTION (14):
             Person detection.
     """
+
     FEATURE_UNSPECIFIED = 0
     LABEL_DETECTION = 1
     SHOT_CHANGE_DETECTION = 2
@@ -127,6 +128,7 @@ class LabelDetectionMode(proto.Enum):
             Detect both shot-level and frame-level
             labels.
     """
+
     LABEL_DETECTION_MODE_UNSPECIFIED = 0
     SHOT_MODE = 1
     FRAME_MODE = 2
@@ -150,6 +152,7 @@ class Likelihood(proto.Enum):
         VERY_LIKELY (5):
             Very likely.
     """
+
     LIKELIHOOD_UNSPECIFIED = 0
     VERY_UNLIKELY = 1
     UNLIKELY = 2
@@ -171,7 +174,7 @@ class AnnotateVideoRequest(proto.Message):
             For more information, see `Request
             URIs <https://cloud.google.com/storage/docs/request-endpoints>`__.
             To identify multiple videos, a video URI may include
-            wildcards in the ``object-id``. Supported wildcards: '*' to
+            wildcards in the ``object-id``. Supported wildcards: '\*' to
             match 0 or more characters; '?' to match 1 character. If
             unset, the input video should be embedded in the request as
             ``input_content``. If set, ``input_content`` must be unset.
@@ -803,12 +806,12 @@ class FaceFrame(proto.Message):
             location.
     """
 
-    normalized_bounding_boxes: MutableSequence[
-        "NormalizedBoundingBox"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="NormalizedBoundingBox",
+    normalized_bounding_boxes: MutableSequence["NormalizedBoundingBox"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="NormalizedBoundingBox",
+        )
     )
     time_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -1070,24 +1073,24 @@ class VideoAnnotationResults(proto.Message):
         number=2,
         message="LabelAnnotation",
     )
-    segment_presence_label_annotations: MutableSequence[
-        "LabelAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=23,
-        message="LabelAnnotation",
+    segment_presence_label_annotations: MutableSequence["LabelAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=23,
+            message="LabelAnnotation",
+        )
     )
     shot_label_annotations: MutableSequence["LabelAnnotation"] = proto.RepeatedField(
         proto.MESSAGE,
         number=3,
         message="LabelAnnotation",
     )
-    shot_presence_label_annotations: MutableSequence[
-        "LabelAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=24,
-        message="LabelAnnotation",
+    shot_presence_label_annotations: MutableSequence["LabelAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=24,
+            message="LabelAnnotation",
+        )
     )
     frame_label_annotations: MutableSequence["LabelAnnotation"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1099,12 +1102,12 @@ class VideoAnnotationResults(proto.Message):
         number=5,
         message="FaceAnnotation",
     )
-    face_detection_annotations: MutableSequence[
-        "FaceDetectionAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=13,
-        message="FaceDetectionAnnotation",
+    face_detection_annotations: MutableSequence["FaceDetectionAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=13,
+            message="FaceDetectionAnnotation",
+        )
     )
     shot_annotations: MutableSequence["VideoSegment"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1126,26 +1129,26 @@ class VideoAnnotationResults(proto.Message):
         number=12,
         message="TextAnnotation",
     )
-    object_annotations: MutableSequence[
-        "ObjectTrackingAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=14,
-        message="ObjectTrackingAnnotation",
+    object_annotations: MutableSequence["ObjectTrackingAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=14,
+            message="ObjectTrackingAnnotation",
+        )
     )
-    logo_recognition_annotations: MutableSequence[
-        "LogoRecognitionAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=19,
-        message="LogoRecognitionAnnotation",
+    logo_recognition_annotations: MutableSequence["LogoRecognitionAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=19,
+            message="LogoRecognitionAnnotation",
+        )
     )
-    person_detection_annotations: MutableSequence[
-        "PersonDetectionAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=20,
-        message="PersonDetectionAnnotation",
+    person_detection_annotations: MutableSequence["PersonDetectionAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=20,
+            message="PersonDetectionAnnotation",
+        )
     )
     error: status_pb2.Status = proto.Field(
         proto.MESSAGE,
@@ -1235,12 +1238,12 @@ class AnnotateVideoProgress(proto.Message):
             ``AnnotateVideoRequest``.
     """
 
-    annotation_progress: MutableSequence[
-        "VideoAnnotationProgress"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="VideoAnnotationProgress",
+    annotation_progress: MutableSequence["VideoAnnotationProgress"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="VideoAnnotationProgress",
+        )
     )
 
 
@@ -1265,9 +1268,9 @@ class SpeechTranscriptionConfig(proto.Message):
         filter_profanity (bool):
             Optional. If set to ``true``, the server will attempt to
             filter out profanities, replacing all but the initial
-            character in each filtered word with asterisks, e.g. "f***".
-            If set to ``false`` or omitted, profanities won't be
-            filtered out.
+            character in each filtered word with asterisks, e.g.
+            "f**\*". If set to ``false`` or omitted, profanities won't
+            be filtered out.
         speech_contexts (MutableSequence[google.cloud.videointelligence_v1.types.SpeechContext]):
             Optional. A means to provide context to
             assist the speech recognition.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_phone_number():
     client = dialogflow_v2beta1.PhoneNumbersClient()
 
     # Initialize request argument(s)
-    request = dialogflow_v2beta1.UpdatePhoneNumberRequest(
-    )
+    request = dialogflow_v2beta1.UpdatePhoneNumberRequest()
 
     # Make the request
     response = client.update_phone_number(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2beta1_generated_PhoneNumbers_UpdatePhoneNumber_sync]

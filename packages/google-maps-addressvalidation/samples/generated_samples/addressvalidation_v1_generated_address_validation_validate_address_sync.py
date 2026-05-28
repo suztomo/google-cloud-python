@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_validate_address():
     client = addressvalidation_v1.AddressValidationClient()
 
     # Initialize request argument(s)
-    request = addressvalidation_v1.ValidateAddressRequest(
-    )
+    request = addressvalidation_v1.ValidateAddressRequest()
 
     # Make the request
     response = client.validate_address(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END addressvalidation_v1_generated_AddressValidation_ValidateAddress_sync]

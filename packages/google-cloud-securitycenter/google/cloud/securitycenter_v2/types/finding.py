@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,28 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.securitycenter_v2.types import access as gcs_access
+from google.cloud.securitycenter_v2.types import (
+    affected_resources as gcs_affected_resources,
+)
+from google.cloud.securitycenter_v2.types import ai_model as gcs_ai_model
+from google.cloud.securitycenter_v2.types import application as gcs_application
+from google.cloud.securitycenter_v2.types import attack_exposure as gcs_attack_exposure
+from google.cloud.securitycenter_v2.types import (
+    backup_disaster_recovery as gcs_backup_disaster_recovery,
+)
+from google.cloud.securitycenter_v2.types import chokepoint as gcs_chokepoint
+from google.cloud.securitycenter_v2.types import cloud_armor as gcs_cloud_armor
+from google.cloud.securitycenter_v2.types import (
+    cloud_dlp_data_profile as gcs_cloud_dlp_data_profile,
+)
+from google.cloud.securitycenter_v2.types import (
+    cloud_dlp_inspection as gcs_cloud_dlp_inspection,
+)
 from google.cloud.securitycenter_v2.types import (
     compliance,
     connection,
@@ -29,26 +47,26 @@ from google.cloud.securitycenter_v2.types import (
     data_access_event,
     data_flow_event,
     data_retention_deletion_event,
-)
-from google.cloud.securitycenter_v2.types import (
     external_system,
     file,
     group_membership,
     iam_binding,
+    load_balancer,
+    log_entry,
+    network,
+    org_policy,
+    process,
 )
-from google.cloud.securitycenter_v2.types import attack_exposure as gcs_attack_exposure
-from google.cloud.securitycenter_v2.types import (
-    backup_disaster_recovery as gcs_backup_disaster_recovery,
-)
-from google.cloud.securitycenter_v2.types import (
-    cloud_dlp_data_profile as gcs_cloud_dlp_data_profile,
-)
-from google.cloud.securitycenter_v2.types import (
-    cloud_dlp_inspection as gcs_cloud_dlp_inspection,
-)
+from google.cloud.securitycenter_v2.types import database as gcs_database
+from google.cloud.securitycenter_v2.types import disk as gcs_disk
 from google.cloud.securitycenter_v2.types import exfiltration as gcs_exfiltration
+from google.cloud.securitycenter_v2.types import indicator as gcs_indicator
+from google.cloud.securitycenter_v2.types import ip_rules as gcs_ip_rules
+from google.cloud.securitycenter_v2.types import job as gcs_job
 from google.cloud.securitycenter_v2.types import kernel_rootkit as gcs_kernel_rootkit
+from google.cloud.securitycenter_v2.types import kubernetes as gcs_kubernetes
 from google.cloud.securitycenter_v2.types import mitre_attack as gcs_mitre_attack
+from google.cloud.securitycenter_v2.types import notebook as gcs_notebook
 from google.cloud.securitycenter_v2.types import security_marks as gcs_security_marks
 from google.cloud.securitycenter_v2.types import (
     security_posture as gcs_security_posture,
@@ -56,17 +74,8 @@ from google.cloud.securitycenter_v2.types import (
 from google.cloud.securitycenter_v2.types import (
     toxic_combination as gcs_toxic_combination,
 )
+from google.cloud.securitycenter_v2.types import vertex_ai as gcs_vertex_ai
 from google.cloud.securitycenter_v2.types import vulnerability as gcs_vulnerability
-from google.cloud.securitycenter_v2.types import access as gcs_access
-from google.cloud.securitycenter_v2.types import application as gcs_application
-from google.cloud.securitycenter_v2.types import cloud_armor as gcs_cloud_armor
-from google.cloud.securitycenter_v2.types import database as gcs_database
-from google.cloud.securitycenter_v2.types import disk as gcs_disk
-from google.cloud.securitycenter_v2.types import indicator as gcs_indicator
-from google.cloud.securitycenter_v2.types import kubernetes as gcs_kubernetes
-from google.cloud.securitycenter_v2.types import load_balancer, log_entry
-from google.cloud.securitycenter_v2.types import notebook as gcs_notebook
-from google.cloud.securitycenter_v2.types import org_policy, process
 
 __protobuf__ = proto.module(
     package="google.cloud.securitycenter.v2",
@@ -87,7 +96,7 @@ class Finding(proto.Message):
 
     Attributes:
         name (str):
-            The `relative resource
+            Identifier. The `relative resource
             name <https://cloud.google.com/apis/design/resource_names#relative_resource_name>`__
             of the finding. The following list shows some examples:
 
@@ -97,12 +106,12 @@ class Finding(proto.Message):
             +
             ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+            - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+            - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
@@ -116,12 +125,12 @@ class Finding(proto.Message):
             +
             ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+            - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``folders/{folder_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
 
-            -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+            - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
             -
 
             ``projects/{project_id}/sources/{source_id}/locations/{location_id}/findings/{finding_id}``
@@ -135,15 +144,15 @@ class Finding(proto.Message):
             This field is immutable after creation time. The following
             list shows some examples:
 
-            -  ``organizations/{organization_id}/sources/{source_id}``
-            -  ``folders/{folders_id}/sources/{source_id}``
-            -  ``projects/{projects_id}/sources/{source_id}``
+            - ``organizations/{organization_id}/sources/{source_id}``
+            - ``folders/{folders_id}/sources/{source_id}``
+            - ``projects/{projects_id}/sources/{source_id}``
             -
 
             ``organizations/{organization_id}/sources/{source_id}/locations/{location_id}``
 
-            -  ``folders/{folders_id}/sources/{source_id}/locations/{location_id}``
-            -  ``projects/{projects_id}/sources/{source_id}/locations/{location_id}``
+            - ``folders/{folders_id}/sources/{source_id}/locations/{location_id}``
+            - ``projects/{projects_id}/sources/{source_id}/locations/{location_id}``
         resource_name (str):
             Immutable. For findings on Google Cloud resources, the full
             resource name of the Google Cloud resource this finding is
@@ -306,9 +315,13 @@ class Finding(proto.Message):
         org_policies (MutableSequence[google.cloud.securitycenter_v2.types.OrgPolicy]):
             Contains information about the org policies
             associated with the finding.
+        job (google.cloud.securitycenter_v2.types.Job):
+            Job associated with the finding.
         application (google.cloud.securitycenter_v2.types.Application):
             Represents an application associated with the
             finding.
+        ip_rules (google.cloud.securitycenter_v2.types.IpRules):
+            IP rules associated with the finding.
         backup_disaster_recovery (google.cloud.securitycenter_v2.types.BackupDisasterRecovery):
             Fields related to Backup and DR findings.
         security_posture (google.cloud.securitycenter_v2.types.SecurityPosture):
@@ -344,9 +357,26 @@ class Finding(proto.Message):
             finding.
         data_flow_events (MutableSequence[google.cloud.securitycenter_v2.types.DataFlowEvent]):
             Data flow events associated with the finding.
+        networks (MutableSequence[google.cloud.securitycenter_v2.types.Network]):
+            Represents the VPC networks that the resource
+            is attached to.
         data_retention_deletion_events (MutableSequence[google.cloud.securitycenter_v2.types.DataRetentionDeletionEvent]):
             Data retention deletion events associated
             with the finding.
+        affected_resources (google.cloud.securitycenter_v2.types.AffectedResources):
+            AffectedResources associated with the
+            finding.
+        ai_model (google.cloud.securitycenter_v2.types.AiModel):
+            The AI model associated with the finding.
+        chokepoint (google.cloud.securitycenter_v2.types.Chokepoint):
+            Contains details about a chokepoint, which is a resource or
+            resource group where high-risk attack paths converge, based
+            on [attack path simulations]
+            (https://cloud.google.com/security-command-center/docs/attack-exposure-learn#attack_path_simulations).
+            This field cannot be updated. Its value is ignored in all
+            update requests.
+        vertex_ai (google.cloud.securitycenter_v2.types.VertexAi):
+            VertexAi associated with the finding.
     """
 
     class State(proto.Enum):
@@ -363,6 +393,7 @@ class Finding(proto.Message):
                 non-issue or otherwise addressed and is no
                 longer active.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         INACTIVE = 2
@@ -449,6 +480,7 @@ class Finding(proto.Message):
                 access to an environment but is not able to
                 access data, execute code, or create resources.
         """
+
         SEVERITY_UNSPECIFIED = 0
         CRITICAL = 1
         HIGH = 2
@@ -468,6 +500,7 @@ class Finding(proto.Message):
             UNDEFINED (3):
                 Finding has never been muted/unmuted.
         """
+
         MUTE_UNSPECIFIED = 0
         MUTED = 1
         UNMUTED = 2
@@ -505,7 +538,12 @@ class Finding(proto.Message):
             SENSITIVE_DATA_RISK (8):
                 Describes a potential security risk to data
                 assets that contain sensitive data.
+            CHOKEPOINT (9):
+                Describes a resource or resource group where
+                high risk attack paths converge, based on attack
+                path simulations (APS).
         """
+
         FINDING_CLASS_UNSPECIFIED = 0
         THREAT = 1
         VULNERABILITY = 2
@@ -515,6 +553,7 @@ class Finding(proto.Message):
         POSTURE_VIOLATION = 6
         TOXIC_COMBINATION = 7
         SENSITIVE_DATA_RISK = 8
+        CHOKEPOINT = 9
 
     class MuteInfo(proto.Message):
         r"""Mute information about the finding, including whether the
@@ -585,12 +624,12 @@ class Finding(proto.Message):
             number=1,
             message="Finding.MuteInfo.StaticMute",
         )
-        dynamic_mute_records: MutableSequence[
-            "Finding.MuteInfo.DynamicMuteRecord"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="Finding.MuteInfo.DynamicMuteRecord",
+        dynamic_mute_records: MutableSequence["Finding.MuteInfo.DynamicMuteRecord"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="Finding.MuteInfo.DynamicMuteRecord",
+            )
         )
 
     name: str = proto.Field(
@@ -678,13 +717,13 @@ class Finding(proto.Message):
         number=19,
         message=timestamp_pb2.Timestamp,
     )
-    external_systems: MutableMapping[
-        str, external_system.ExternalSystem
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=20,
-        message=external_system.ExternalSystem,
+    external_systems: MutableMapping[str, external_system.ExternalSystem] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=20,
+            message=external_system.ExternalSystem,
+        )
     )
     mitre_attack: gcs_mitre_attack.MitreAttack = proto.Field(
         proto.MESSAGE,
@@ -794,10 +833,20 @@ class Finding(proto.Message):
         number=43,
         message=org_policy.OrgPolicy,
     )
+    job: gcs_job.Job = proto.Field(
+        proto.MESSAGE,
+        number=44,
+        message=gcs_job.Job,
+    )
     application: gcs_application.Application = proto.Field(
         proto.MESSAGE,
         number=45,
         message=gcs_application.Application,
+    )
+    ip_rules: gcs_ip_rules.IpRules = proto.Field(
+        proto.MESSAGE,
+        number=46,
+        message=gcs_ip_rules.IpRules,
     )
     backup_disaster_recovery: gcs_backup_disaster_recovery.BackupDisasterRecovery = (
         proto.Field(
@@ -836,31 +885,36 @@ class Finding(proto.Message):
         number=56,
         message=gcs_toxic_combination.ToxicCombination,
     )
-    group_memberships: MutableSequence[
-        group_membership.GroupMembership
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=57,
-        message=group_membership.GroupMembership,
+    group_memberships: MutableSequence[group_membership.GroupMembership] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=57,
+            message=group_membership.GroupMembership,
+        )
     )
     disk: gcs_disk.Disk = proto.Field(
         proto.MESSAGE,
         number=58,
         message=gcs_disk.Disk,
     )
-    data_access_events: MutableSequence[
-        data_access_event.DataAccessEvent
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=61,
-        message=data_access_event.DataAccessEvent,
+    data_access_events: MutableSequence[data_access_event.DataAccessEvent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=61,
+            message=data_access_event.DataAccessEvent,
+        )
     )
-    data_flow_events: MutableSequence[
-        data_flow_event.DataFlowEvent
-    ] = proto.RepeatedField(
+    data_flow_events: MutableSequence[data_flow_event.DataFlowEvent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=62,
+            message=data_flow_event.DataFlowEvent,
+        )
+    )
+    networks: MutableSequence[network.Network] = proto.RepeatedField(
         proto.MESSAGE,
-        number=62,
-        message=data_flow_event.DataFlowEvent,
+        number=63,
+        message=network.Network,
     )
     data_retention_deletion_events: MutableSequence[
         data_retention_deletion_event.DataRetentionDeletionEvent
@@ -868,6 +922,26 @@ class Finding(proto.Message):
         proto.MESSAGE,
         number=64,
         message=data_retention_deletion_event.DataRetentionDeletionEvent,
+    )
+    affected_resources: gcs_affected_resources.AffectedResources = proto.Field(
+        proto.MESSAGE,
+        number=65,
+        message=gcs_affected_resources.AffectedResources,
+    )
+    ai_model: gcs_ai_model.AiModel = proto.Field(
+        proto.MESSAGE,
+        number=66,
+        message=gcs_ai_model.AiModel,
+    )
+    chokepoint: gcs_chokepoint.Chokepoint = proto.Field(
+        proto.MESSAGE,
+        number=69,
+        message=gcs_chokepoint.Chokepoint,
+    )
+    vertex_ai: gcs_vertex_ai.VertexAi = proto.Field(
+        proto.MESSAGE,
+        number=72,
+        message=gcs_vertex_ai.VertexAi,
     )
 
 

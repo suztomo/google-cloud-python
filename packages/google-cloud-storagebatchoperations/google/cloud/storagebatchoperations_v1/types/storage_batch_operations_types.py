@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,26 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.cloud.storagebatchoperations.v1",
     manifest={
         "Job",
+        "BucketOperation",
         "BucketList",
         "Manifest",
         "PrefixList",
         "PutObjectHold",
         "DeleteObject",
         "RewriteObject",
+        "ObjectRetention",
         "PutMetadata",
+        "ObjectCustomContextPayload",
+        "CustomContextUpdates",
+        "UpdateObjectCustomContext",
         "ErrorSummary",
         "ErrorLogEntry",
         "Counters",
@@ -87,6 +92,10 @@ class Job(proto.Message):
             KMS key.
 
             This field is a member of `oneof`_ ``transformation``.
+        update_object_custom_context (google.cloud.storagebatchoperations_v1.types.UpdateObjectCustomContext):
+            Update object custom context.
+
+            This field is a member of `oneof`_ ``transformation``.
         logging_config (google.cloud.storagebatchoperations_v1.types.LoggingConfig):
             Optional. Logging configuration.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -106,6 +115,17 @@ class Job(proto.Message):
             with sample error log entries.
         state (google.cloud.storagebatchoperations_v1.types.Job.State):
             Output only. State of the job.
+        dry_run (bool):
+            Optional. If true, the job will run in dry
+            run mode, returning the total object count and,
+            if the object configuration is a prefix list,
+            the bytes found from source. No transformations
+            will be performed.
+        is_multi_bucket_job (bool):
+            Output only. If true, this Job operates on
+            multiple buckets. Multibucket jobs are subject
+            to different quota limits than single-bucket
+            jobs.
     """
 
     class State(proto.Enum):
@@ -122,12 +142,16 @@ class Job(proto.Message):
                 Cancelled by the user.
             FAILED (4):
                 Terminated due to an unrecoverable failure.
+            QUEUED (5):
+                Queued but not yet started.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         SUCCEEDED = 2
         CANCELED = 3
         FAILED = 4
+        QUEUED = 5
 
     name: str = proto.Field(
         proto.STRING,
@@ -167,6 +191,12 @@ class Job(proto.Message):
         oneof="transformation",
         message="RewriteObject",
     )
+    update_object_custom_context: "UpdateObjectCustomContext" = proto.Field(
+        proto.MESSAGE,
+        number=23,
+        oneof="transformation",
+        message="UpdateObjectCustomContext",
+    )
     logging_config: "LoggingConfig" = proto.Field(
         proto.MESSAGE,
         number=9,
@@ -200,6 +230,191 @@ class Job(proto.Message):
     state: State = proto.Field(
         proto.ENUM,
         number=15,
+        enum=State,
+    )
+    dry_run: bool = proto.Field(
+        proto.BOOL,
+        number=22,
+    )
+    is_multi_bucket_job: bool = proto.Field(
+        proto.BOOL,
+        number=24,
+    )
+
+
+class BucketOperation(proto.Message):
+    r"""BucketOperation represents a bucket-level breakdown of a Job.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Identifier. The resource name of the BucketOperation. This
+            is defined by the service. Format:
+            projects/{project}/locations/global/jobs/{job_id}/bucketOperations/{bucket_operation}.
+        bucket_name (str):
+            The bucket name of the objects to be
+            transformed in the BucketOperation.
+        prefix_list (google.cloud.storagebatchoperations_v1.types.PrefixList):
+            Specifies objects matching a prefix set.
+
+            This field is a member of `oneof`_ ``object_configuration``.
+        manifest (google.cloud.storagebatchoperations_v1.types.Manifest):
+            Specifies objects in a manifest file.
+
+            This field is a member of `oneof`_ ``object_configuration``.
+        put_object_hold (google.cloud.storagebatchoperations_v1.types.PutObjectHold):
+            Changes object hold status.
+
+            This field is a member of `oneof`_ ``transformation``.
+        delete_object (google.cloud.storagebatchoperations_v1.types.DeleteObject):
+            Delete objects.
+
+            This field is a member of `oneof`_ ``transformation``.
+        put_metadata (google.cloud.storagebatchoperations_v1.types.PutMetadata):
+            Updates object metadata. Allows updating
+            fixed-key and custom metadata and fixed-key
+            metadata i.e. Cache-Control,
+            Content-Disposition, Content-Encoding,
+            Content-Language, Content-Type, Custom-Time.
+
+            This field is a member of `oneof`_ ``transformation``.
+        rewrite_object (google.cloud.storagebatchoperations_v1.types.RewriteObject):
+            Rewrite the object and updates metadata like
+            KMS key.
+
+            This field is a member of `oneof`_ ``transformation``.
+        update_object_custom_context (google.cloud.storagebatchoperations_v1.types.UpdateObjectCustomContext):
+            Update object custom context.
+
+            This field is a member of `oneof`_ ``transformation``.
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time that the
+            BucketOperation was created.
+        start_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time that the
+            BucketOperation was started.
+        complete_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time that the
+            BucketOperation was completed.
+        counters (google.cloud.storagebatchoperations_v1.types.Counters):
+            Output only. Information about the progress
+            of the bucket operation.
+        error_summaries (MutableSequence[google.cloud.storagebatchoperations_v1.types.ErrorSummary]):
+            Output only. Summarizes errors encountered
+            with sample error log entries.
+        state (google.cloud.storagebatchoperations_v1.types.BucketOperation.State):
+            Output only. State of the BucketOperation.
+    """
+
+    class State(proto.Enum):
+        r"""Describes state of the BucketOperation.
+
+        Values:
+            STATE_UNSPECIFIED (0):
+                Default value. This value is unused.
+            QUEUED (1):
+                Created but not yet started.
+            RUNNING (2):
+                In progress.
+            SUCCEEDED (3):
+                Completed successfully.
+            CANCELED (4):
+                Cancelled by the user.
+            FAILED (5):
+                Terminated due to an unrecoverable failure.
+        """
+
+        STATE_UNSPECIFIED = 0
+        QUEUED = 1
+        RUNNING = 2
+        SUCCEEDED = 3
+        CANCELED = 4
+        FAILED = 5
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    bucket_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    prefix_list: "PrefixList" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        oneof="object_configuration",
+        message="PrefixList",
+    )
+    manifest: "Manifest" = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        oneof="object_configuration",
+        message="Manifest",
+    )
+    put_object_hold: "PutObjectHold" = proto.Field(
+        proto.MESSAGE,
+        number=11,
+        oneof="transformation",
+        message="PutObjectHold",
+    )
+    delete_object: "DeleteObject" = proto.Field(
+        proto.MESSAGE,
+        number=12,
+        oneof="transformation",
+        message="DeleteObject",
+    )
+    put_metadata: "PutMetadata" = proto.Field(
+        proto.MESSAGE,
+        number=13,
+        oneof="transformation",
+        message="PutMetadata",
+    )
+    rewrite_object: "RewriteObject" = proto.Field(
+        proto.MESSAGE,
+        number=14,
+        oneof="transformation",
+        message="RewriteObject",
+    )
+    update_object_custom_context: "UpdateObjectCustomContext" = proto.Field(
+        proto.MESSAGE,
+        number=15,
+        oneof="transformation",
+        message="UpdateObjectCustomContext",
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=timestamp_pb2.Timestamp,
+    )
+    start_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message=timestamp_pb2.Timestamp,
+    )
+    complete_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message=timestamp_pb2.Timestamp,
+    )
+    counters: "Counters" = proto.Field(
+        proto.MESSAGE,
+        number=8,
+        message="Counters",
+    )
+    error_summaries: MutableSequence["ErrorSummary"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=9,
+        message="ErrorSummary",
+    )
+    state: State = proto.Field(
+        proto.ENUM,
+        number=10,
         enum=State,
     )
 
@@ -275,15 +490,13 @@ class Manifest(proto.Message):
             bucket. Each row in the file must include the object details
             i.e. BucketId and Name. Generation may optionally be
             specified. When it is not specified the live object is acted
-            upon. ``manifest_location`` should either be
-
-            1) An absolute path to the object in the format of
-               ``gs://bucket_name/path/file_name.csv``.
-            2) An absolute path with a single wildcard character in the
-               file name, for example
-               ``gs://bucket_name/path/file_name*.csv``. If manifest
-               location is specified with a wildcard, objects in all
-               manifest files matching the pattern will be acted upon.
+            upon. ``manifest_location`` should either be 1) An absolute
+            path to the object in the format of
+            ``gs://bucket_name/path/file_name.csv``. 2) An absolute path
+            with a single wildcard character in the file name, for
+            example ``gs://bucket_name/path/file_name*.csv``. If
+            manifest location is specified with a wildcard, objects in
+            all manifest files matching the pattern will be acted upon.
     """
 
     manifest_location: str = proto.Field(
@@ -299,10 +512,10 @@ class PrefixList(proto.Message):
         included_object_prefixes (MutableSequence[str]):
             Optional. Include prefixes of the objects to be transformed.
 
-            -  Supports full object name
-            -  Supports prefix of the object name
-            -  Wildcards are not supported
-            -  Supports empty string for all objects in a bucket.
+            - Supports full object name
+            - Supports prefix of the object name
+            - Wildcards are not supported
+            - Supports empty string for all objects in a bucket.
     """
 
     included_object_prefixes: MutableSequence[str] = proto.RepeatedField(
@@ -339,6 +552,7 @@ class PutObjectHold(proto.Message):
             UNSET (2):
                 Releases the hold.
         """
+
         HOLD_STATUS_UNSPECIFIED = 0
         SET = 1
         UNSET = 2
@@ -414,6 +628,55 @@ class RewriteObject(proto.Message):
     )
 
 
+class ObjectRetention(proto.Message):
+    r"""Describes options for object retention update.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        retain_until_time (str):
+            Required. The time when the object will be
+            retained until. UNSET will clear the retention.
+            Must be specified in RFC 3339 format e.g.
+            YYYY-MM-DD'T'HH:MM:SS.SS'Z' or
+            YYYY-MM-DD'T'HH:MM:SS'Z'.
+
+            This field is a member of `oneof`_ ``_retain_until_time``.
+        retention_mode (google.cloud.storagebatchoperations_v1.types.ObjectRetention.RetentionMode):
+            Required. The retention mode of the object.
+
+            This field is a member of `oneof`_ ``_retention_mode``.
+    """
+
+    class RetentionMode(proto.Enum):
+        r"""Describes the retention mode.
+
+        Values:
+            RETENTION_MODE_UNSPECIFIED (0):
+                If set and retain_until_time is empty, clears the retention.
+            LOCKED (1):
+                Sets the retention mode to locked.
+            UNLOCKED (2):
+                Sets the retention mode to unlocked.
+        """
+
+        RETENTION_MODE_UNSPECIFIED = 0
+        LOCKED = 1
+        UNLOCKED = 2
+
+    retain_until_time: str = proto.Field(
+        proto.STRING,
+        number=1,
+        optional=True,
+    )
+    retention_mode: RetentionMode = proto.Field(
+        proto.ENUM,
+        number=2,
+        optional=True,
+        enum=RetentionMode,
+    )
+
+
 class PutMetadata(proto.Message):
     r"""Describes options for object metadata update.
 
@@ -448,9 +711,9 @@ class PutMetadata(proto.Message):
             This field is a member of `oneof`_ ``_content_language``.
         content_type (str):
             Optional. Updates objects Content-Type fixed
-            metadata. Unset values will be ignored.
-            Set empty values to clear the metadata. Refer
-            to documentation in
+            metadata. Unset values will be ignored. Set
+            empty values to clear the metadata. Refer to
+            documentation in
             https://cloud.google.com/storage/docs/metadata#content-type
 
             This field is a member of `oneof`_ ``_content_type``.
@@ -479,6 +742,16 @@ class PutMetadata(proto.Message):
             with this flag is not changed. Refer to
             documentation in
             https://cloud.google.com/storage/docs/metadata#custom-metadata
+        object_retention (google.cloud.storagebatchoperations_v1.types.ObjectRetention):
+            Optional. Updates objects retention lock configuration.
+            Unset values will be ignored. Set empty values to clear the
+            retention for the object with existing ``Unlocked``
+            retention mode. Object with existing ``Locked`` retention
+            mode cannot be cleared or reduce retain_until_time. Refer to
+            documentation in
+            https://cloud.google.com/storage/docs/object-lock
+
+            This field is a member of `oneof`_ ``_object_retention``.
     """
 
     content_disposition: str = proto.Field(
@@ -515,6 +788,99 @@ class PutMetadata(proto.Message):
         proto.STRING,
         proto.STRING,
         number=7,
+    )
+    object_retention: "ObjectRetention" = proto.Field(
+        proto.MESSAGE,
+        number=8,
+        optional=True,
+        message="ObjectRetention",
+    )
+
+
+class ObjectCustomContextPayload(proto.Message):
+    r"""Describes the payload of a user defined object custom
+    context.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        value (str):
+            The value of the object custom context. If set, ``value``
+            must NOT be an empty string since it is a required field in
+            custom context. If unset, ``value`` will be ignored and no
+            changes will be made to the ``value`` field of the custom
+            context payload.
+
+            This field is a member of `oneof`_ ``_value``.
+    """
+
+    value: str = proto.Field(
+        proto.STRING,
+        number=1,
+        optional=True,
+    )
+
+
+class CustomContextUpdates(proto.Message):
+    r"""Describes a collection of updates to apply to custom contexts
+    identified by key.
+
+    Attributes:
+        updates (MutableMapping[str, google.cloud.storagebatchoperations_v1.types.ObjectCustomContextPayload]):
+            Optional. Insert or update the existing
+            custom contexts.
+        keys_to_clear (MutableSequence[str]):
+            Optional. Custom contexts to clear by key. A key cannot be
+            present in both ``updates`` and ``keys_to_clear``.
+    """
+
+    updates: MutableMapping[str, "ObjectCustomContextPayload"] = proto.MapField(
+        proto.STRING,
+        proto.MESSAGE,
+        number=1,
+        message="ObjectCustomContextPayload",
+    )
+    keys_to_clear: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+
+
+class UpdateObjectCustomContext(proto.Message):
+    r"""Describes options to update object custom contexts.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        custom_context_updates (google.cloud.storagebatchoperations_v1.types.CustomContextUpdates):
+            A collection of updates to apply to specific
+            custom contexts. Use this to add, update or
+            delete individual contexts by key.
+
+            This field is a member of `oneof`_ ``action``.
+        clear_all (bool):
+            If set, must be set to true and all existing
+            object custom contexts will be deleted.
+
+            This field is a member of `oneof`_ ``action``.
+    """
+
+    custom_context_updates: "CustomContextUpdates" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="action",
+        message="CustomContextUpdates",
+    )
+    clear_all: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+        oneof="action",
     )
 
 
@@ -573,13 +939,45 @@ class ErrorLogEntry(proto.Message):
 class Counters(proto.Message):
     r"""Describes details about the progress of the job.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         total_object_count (int):
             Output only. Number of objects listed.
         succeeded_object_count (int):
             Output only. Number of objects completed.
         failed_object_count (int):
-            Output only. Number of objects failed.
+            Output only. The number of objects that
+            failed due to user errors or service errors.
+        total_bytes_found (int):
+            Output only. Number of bytes found from
+            source. This field is only populated for jobs
+            with a prefix list object configuration.
+
+            This field is a member of `oneof`_ ``_total_bytes_found``.
+        object_custom_contexts_created (int):
+            Output only. Number of object custom contexts
+            created. This field is only populated for jobs
+            with the UpdateObjectCustomContext
+            transformation.
+
+            This field is a member of `oneof`_ ``_object_custom_contexts_created``.
+        object_custom_contexts_deleted (int):
+            Output only. Number of object custom contexts
+            deleted. This field is only populated for jobs
+            with the UpdateObjectCustomContext
+            transformation.
+
+            This field is a member of `oneof`_ ``_object_custom_contexts_deleted``.
+        object_custom_contexts_updated (int):
+            Output only. Number of object custom contexts
+            updated. This counter tracks custom contexts
+            where the key already existed, but the payload
+            was modified. This field is only populated for
+            jobs with the UpdateObjectCustomContext
+            transformation.
+
+            This field is a member of `oneof`_ ``_object_custom_contexts_updated``.
     """
 
     total_object_count: int = proto.Field(
@@ -593,6 +991,26 @@ class Counters(proto.Message):
     failed_object_count: int = proto.Field(
         proto.INT64,
         number=3,
+    )
+    total_bytes_found: int = proto.Field(
+        proto.INT64,
+        number=4,
+        optional=True,
+    )
+    object_custom_contexts_created: int = proto.Field(
+        proto.INT64,
+        number=5,
+        optional=True,
+    )
+    object_custom_contexts_deleted: int = proto.Field(
+        proto.INT64,
+        number=6,
+        optional=True,
+    )
+    object_custom_contexts_updated: int = proto.Field(
+        proto.INT64,
+        number=7,
+        optional=True,
     )
 
 
@@ -617,6 +1035,7 @@ class LoggingConfig(proto.Message):
                 The corresponding transform action in this
                 job.
         """
+
         LOGGABLE_ACTION_UNSPECIFIED = 0
         TRANSFORM = 6
 
@@ -635,6 +1054,7 @@ class LoggingConfig(proto.Message):
                 actions are logged as
                 [ERROR][google.logging.type.LogSeverity.ERROR].
         """
+
         LOGGABLE_ACTION_STATE_UNSPECIFIED = 0
         SUCCEEDED = 1
         FAILED = 2

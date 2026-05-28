@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,12 +69,12 @@ class SerializedTaxonomy(proto.Message):
         number=3,
         message="SerializedPolicyTag",
     )
-    activated_policy_types: MutableSequence[
-        policytagmanager.Taxonomy.PolicyType
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=4,
-        enum=policytagmanager.Taxonomy.PolicyType,
+    activated_policy_types: MutableSequence[policytagmanager.Taxonomy.PolicyType] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=4,
+            enum=policytagmanager.Taxonomy.PolicyType,
+        )
     )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ def sample_create_agent():
 
     # Initialize request argument(s)
     agent = dialogflowcx_v3.Agent()
+    agent.start_flow = "start_flow_value"
     agent.display_name = "display_name_value"
     agent.default_language_code = "default_language_code_value"
     agent.time_zone = "time_zone_value"
@@ -54,5 +55,6 @@ def sample_create_agent():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v3_generated_Agents_CreateAgent_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_capacity_commitment():
     client = bigquery_reservation_v1.ReservationServiceClient()
 
     # Initialize request argument(s)
-    request = bigquery_reservation_v1.UpdateCapacityCommitmentRequest(
-    )
+    request = bigquery_reservation_v1.UpdateCapacityCommitmentRequest()
 
     # Make the request
     response = client.update_capacity_commitment(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END bigqueryreservation_v1_generated_ReservationService_UpdateCapacityCommitment_sync]

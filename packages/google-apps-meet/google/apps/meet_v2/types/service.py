@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.apps.meet_v2.types import resource
@@ -115,7 +115,7 @@ class UpdateSpaceRequest(proto.Message):
             updated in the space. If update_mask isn't provided(not set,
             set with empty paths, or only has "" as paths), it defaults
             to update all fields provided with values in the request.
-            Using "*" as update_mask will update all fields, including
+            Using "\*" as update_mask will update all fields, including
             deleting fields not set in the request.
     """
 
@@ -187,17 +187,17 @@ class ListConferenceRecordsRequest(proto.Message):
             format <https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form>`__.
             The following are the filterable fields:
 
-            -  ``space.meeting_code``
-            -  ``space.name``
-            -  ``start_time``
-            -  ``end_time``
+            - ``space.meeting_code``
+            - ``space.name``
+            - ``start_time``
+            - ``end_time``
 
             For example, consider the following filters:
 
-            -  ``space.name = "spaces/NAME"``
-            -  ``space.meeting_code = "abc-mnop-xyz"``
-            -  ``start_time>="2024-01-01T00:00:00.000Z" AND start_time<="2024-01-02T00:00:00.000Z"``
-            -  ``end_time IS NULL``
+            - ``space.name = "spaces/NAME"``
+            - ``space.meeting_code = "abc-mnop-xyz"``
+            - ``start_time>="2024-01-01T00:00:00.000Z" AND start_time<="2024-01-02T00:00:00.000Z"``
+            - ``end_time IS NULL``
     """
 
     page_size: int = proto.Field(
@@ -231,12 +231,12 @@ class ListConferenceRecordsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    conference_records: MutableSequence[
-        resource.ConferenceRecord
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resource.ConferenceRecord,
+    conference_records: MutableSequence[resource.ConferenceRecord] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resource.ConferenceRecord,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -278,8 +278,8 @@ class ListParticipantsRequest(proto.Message):
             format <https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form>`__.
             The following are the filterable fields:
 
-            -  ``earliest_start_time``
-            -  ``latest_end_time``
+            - ``earliest_start_time``
+            - ``latest_end_time``
 
             For example, ``latest_end_time IS NULL`` returns active
             participants in the conference.
@@ -377,8 +377,8 @@ class ListParticipantSessionsRequest(proto.Message):
             format <https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form>`__.
             The following are the filterable fields:
 
-            -  ``start_time``
-            -  ``end_time``
+            - ``start_time``
+            - ``end_time``
 
             For example, ``end_time IS NULL`` returns active participant
             sessions in the conference record.
@@ -419,12 +419,12 @@ class ListParticipantSessionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    participant_sessions: MutableSequence[
-        resource.ParticipantSession
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resource.ParticipantSession,
+    participant_sessions: MutableSequence[resource.ParticipantSession] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resource.ParticipantSession,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

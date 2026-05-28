@@ -1,5 +1,63 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-maps-routeoptimization/#history
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-routeoptimization-v0.3.0...google-maps-routeoptimization-v0.4.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-routeoptimization-v0.2.0...google-maps-routeoptimization-v0.3.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-maps-routeoptimization-v0.1.11...google-maps-routeoptimization-v0.2.0) (2025-10-20)
+
+
+### Documentation
+
+* A comment for field `duration_distance_matrices` in message `.google.maps.routeoptimization.v1.ShipmentModel` is changed  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* A comment for enum `TravelMode` is changed  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* A comment for field `precedence_rules` in message `.google.maps.routeoptimization.v1.ShipmentModel` is changed  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* A comment for field `place_id` in message `.google.maps.routeoptimization.v1.Waypoint` is changed  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+
+### Features
+
+* add experimental Load Costs feature  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add experimental U-turn Avoidance feature  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add OptimizeToursLongRunning method  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add OptimizeToursUri method  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.11](https://github.com/googleapis/google-cloud-python/compare/google-maps-routeoptimization-v0.1.10...google-maps-routeoptimization-v0.1.11) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8066d24](https://github.com/googleapis/google-cloud-python/commit/8066d24068e6d036dcf77e7abb5401a5ba3f8a63))
+
 ## [0.1.10](https://github.com/googleapis/google-cloud-python/compare/google-maps-routeoptimization-v0.1.9...google-maps-routeoptimization-v0.1.10) (2025-03-21)
 
 

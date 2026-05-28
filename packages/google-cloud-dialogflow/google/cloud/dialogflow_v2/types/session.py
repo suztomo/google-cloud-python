@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2.types import audio_config as gcd_audio_config
-from google.cloud.dialogflow_v2.types import context
+from google.cloud.dialogflow_v2.types import context, session_entity_type
 from google.cloud.dialogflow_v2.types import intent as gcd_intent
-from google.cloud.dialogflow_v2.types import session_entity_type
 
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.v2",
@@ -272,12 +271,12 @@ class QueryParameters(proto.Message):
         proto.BOOL,
         number=4,
     )
-    session_entity_types: MutableSequence[
-        session_entity_type.SessionEntityType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=session_entity_type.SessionEntityType,
+    session_entity_types: MutableSequence[session_entity_type.SessionEntityType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=session_entity_type.SessionEntityType,
+        )
     )
     payload: struct_pb2.Struct = proto.Field(
         proto.MESSAGE,
@@ -363,14 +362,14 @@ class QueryResult(proto.Message):
         query_text (str):
             The original conversational query text:
 
-            -  If natural language text was provided as input,
-               ``query_text`` contains a copy of the input.
-            -  If natural language speech audio was provided as input,
-               ``query_text`` contains the speech recognition result. If
-               speech recognizer produced multiple alternatives, a
-               particular one is picked.
-            -  If automatic spell correction is enabled, ``query_text``
-               will contain the corrected user input.
+            - If natural language text was provided as input,
+              ``query_text`` contains a copy of the input.
+            - If natural language speech audio was provided as input,
+              ``query_text`` contains the speech recognition result. If
+              speech recognizer produced multiple alternatives, a
+              particular one is picked.
+            - If automatic spell correction is enabled, ``query_text``
+              will contain the corrected user input.
         language_code (str):
             The language that was triggered during intent detection. See
             `Language
@@ -397,24 +396,24 @@ class QueryResult(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
         all_required_params_present (bool):
             This field is set to:
 
-            -  ``false`` if the matched intent has required parameters
-               and not all of the required parameter values have been
-               collected.
-            -  ``true`` if all required parameter values have been
-               collected, or if the matched intent doesn't contain any
-               required parameters.
+            - ``false`` if the matched intent has required parameters
+              and not all of the required parameter values have been
+              collected.
+            - ``true`` if all required parameter values have been
+              collected, or if the matched intent doesn't contain any
+              required parameters.
         cancels_slot_filling (bool):
             Indicates whether the conversational query triggers a
             cancellation for slot filling. For more information, see the
@@ -505,12 +504,12 @@ class QueryResult(proto.Message):
         proto.STRING,
         number=6,
     )
-    fulfillment_messages: MutableSequence[
-        gcd_intent.Intent.Message
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=gcd_intent.Intent.Message,
+    fulfillment_messages: MutableSequence[gcd_intent.Intent.Message] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=gcd_intent.Intent.Message,
+        )
     )
     webhook_source: str = proto.Field(
         proto.STRING,
@@ -577,10 +576,10 @@ class StreamingDetectIntentRequest(proto.Message):
 
        However, note that:
 
-       -  Dialogflow will bill you for the audio duration so far.
-       -  Dialogflow discards all Speech recognition results in favor of
-          the input text.
-       -  Dialogflow will use the language code from the first message.
+       - Dialogflow will bill you for the audio duration so far.
+       - Dialogflow discards all Speech recognition results in favor of
+         the input text.
+       - Dialogflow will use the language code from the first message.
 
     After you sent all input, you must half-close or abort the request
     stream.
@@ -772,19 +771,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=5,
     )
-    speech_partial_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message=duration_pb2.Duration,
+    speech_partial_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message=duration_pb2.Duration,
+        )
     )
-    speech_final_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=duration_pb2.Duration,
+    speech_final_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=duration_pb2.Duration,
+        )
     )
     partial_responses: int = proto.Field(
         proto.INT32,
@@ -802,19 +801,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=11,
     )
-    dtmf_partial_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=12,
-        message=duration_pb2.Duration,
+    dtmf_partial_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=12,
+            message=duration_pb2.Duration,
+        )
     )
-    dtmf_final_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=13,
-        message=duration_pb2.Duration,
+    dtmf_final_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=13,
+            message=duration_pb2.Duration,
+        )
     )
     single_utterance_end_time_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -1030,6 +1029,7 @@ class StreamingRecognitionResult(proto.Message):
                 ``single_utterance`` was set to ``true``, and is not used
                 otherwise.
         """
+
         MESSAGE_TYPE_UNSPECIFIED = 0
         TRANSCRIPT = 1
         END_OF_SINGLE_UTTERANCE = 2
@@ -1051,12 +1051,12 @@ class StreamingRecognitionResult(proto.Message):
         proto.FLOAT,
         number=4,
     )
-    speech_word_info: MutableSequence[
-        gcd_audio_config.SpeechWordInfo
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=gcd_audio_config.SpeechWordInfo,
+    speech_word_info: MutableSequence[gcd_audio_config.SpeechWordInfo] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=gcd_audio_config.SpeechWordInfo,
+        )
     )
     speech_end_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -1118,15 +1118,15 @@ class EventInput(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
         language_code (str):
             Required. The language of this query. See `Language
             Support <https://cloud.google.com/dialogflow/docs/reference/language>`__

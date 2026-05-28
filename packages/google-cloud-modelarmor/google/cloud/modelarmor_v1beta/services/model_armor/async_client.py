@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
     Callable,
     Dict,
     Mapping,
@@ -29,13 +32,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.modelarmor_v1beta import gapic_version as package_version
 
@@ -44,9 +47,9 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.modelarmor_v1beta.services.model_armor import pagers
 from google.cloud.modelarmor_v1beta.types import service
@@ -113,7 +116,10 @@ class ModelArmorAsyncClient:
         Returns:
             ModelArmorAsyncClient: The constructed client.
         """
-        return ModelArmorClient.from_service_account_info.__func__(ModelArmorAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ModelArmorClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ModelArmorAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -129,7 +135,10 @@ class ModelArmorAsyncClient:
         Returns:
             ModelArmorAsyncClient: The constructed client.
         """
-        return ModelArmorClient.from_service_account_file.__func__(ModelArmorAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ModelArmorClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ModelArmorAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -179,7 +188,7 @@ class ModelArmorAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1274,9 +1283,183 @@ class ModelArmorAsyncClient:
         # Done; return the response.
         return response
 
+    def stream_sanitize_user_prompt(
+        self,
+        requests: Optional[AsyncIterator[service.SanitizeUserPromptRequest]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> Awaitable[AsyncIterable[service.SanitizeUserPromptResponse]]:
+        r"""Streaming version of Sanitize User Prompt.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import modelarmor_v1beta
+
+            async def sample_stream_sanitize_user_prompt():
+                # Create a client
+                client = modelarmor_v1beta.ModelArmorAsyncClient()
+
+                # Initialize request argument(s)
+                user_prompt_data = modelarmor_v1beta.DataItem()
+                user_prompt_data.text = "text_value"
+
+                request = modelarmor_v1beta.SanitizeUserPromptRequest(
+                    name="name_value",
+                    user_prompt_data=user_prompt_data,
+                )
+
+                # This method expects an iterator which contains
+                # 'modelarmor_v1beta.SanitizeUserPromptRequest' objects
+                # Here we create a generator that yields a single `request` for
+                # demonstrative purposes.
+                requests = [request]
+
+                def request_generator():
+                    for request in requests:
+                        yield request
+
+                # Make the request
+                stream = await client.stream_sanitize_user_prompt(requests=request_generator())
+
+                # Handle the response
+                async for response in stream:
+                    print(response)
+
+        Args:
+            requests (AsyncIterator[`google.cloud.modelarmor_v1beta.types.SanitizeUserPromptRequest`]):
+                The request object AsyncIterator. Sanitize User Prompt request.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            AsyncIterable[google.cloud.modelarmor_v1beta.types.SanitizeUserPromptResponse]:
+                Sanitized User Prompt Response.
+        """
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.stream_sanitize_user_prompt
+        ]
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            requests,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def stream_sanitize_model_response(
+        self,
+        requests: Optional[AsyncIterator[service.SanitizeModelResponseRequest]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> Awaitable[AsyncIterable[service.SanitizeModelResponseResponse]]:
+        r"""Streaming version of Sanitizes Model Response.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import modelarmor_v1beta
+
+            async def sample_stream_sanitize_model_response():
+                # Create a client
+                client = modelarmor_v1beta.ModelArmorAsyncClient()
+
+                # Initialize request argument(s)
+                model_response_data = modelarmor_v1beta.DataItem()
+                model_response_data.text = "text_value"
+
+                request = modelarmor_v1beta.SanitizeModelResponseRequest(
+                    name="name_value",
+                    model_response_data=model_response_data,
+                )
+
+                # This method expects an iterator which contains
+                # 'modelarmor_v1beta.SanitizeModelResponseRequest' objects
+                # Here we create a generator that yields a single `request` for
+                # demonstrative purposes.
+                requests = [request]
+
+                def request_generator():
+                    for request in requests:
+                        yield request
+
+                # Make the request
+                stream = await client.stream_sanitize_model_response(requests=request_generator())
+
+                # Handle the response
+                async for response in stream:
+                    print(response)
+
+        Args:
+            requests (AsyncIterator[`google.cloud.modelarmor_v1beta.types.SanitizeModelResponseRequest`]):
+                The request object AsyncIterator. Sanitize Model Response request.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            AsyncIterable[google.cloud.modelarmor_v1beta.types.SanitizeModelResponseResponse]:
+                Sanitized Model Response Response.
+        """
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.stream_sanitize_model_response
+        ]
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            requests,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1302,8 +1485,12 @@ class ModelArmorAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1312,7 +1499,7 @@ class ModelArmorAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1320,7 +1507,7 @@ class ModelArmorAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1331,7 +1518,7 @@ class ModelArmorAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1357,8 +1544,12 @@ class ModelArmorAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1367,7 +1558,7 @@ class ModelArmorAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1375,7 +1566,7 @@ class ModelArmorAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,19 +45,19 @@ class Service(proto.Message):
 
             Restrictions:
 
-            -  The entire annotations dictionary may contain up to 2000
-               characters, spread accoss all key-value pairs.
-               Annotations that go beyond this limit are rejected
-            -  Valid annotation keys have two segments: an optional
-               prefix and name, separated by a slash (/). The name
-               segment is required and must be 63 characters or less,
-               beginning and ending with an alphanumeric character
-               ([a-z0-9A-Z]) with dashes (-), underscores (_), dots (.),
-               and alphanumerics between. The prefix is optional. If
-               specified, the prefix must be a DNS subdomain: a series
-               of DNS labels separated by dots (.), not longer than 253
-               characters in total, followed by a slash (/). Annotations
-               that fails to meet these requirements are rejected
+            - The entire annotations dictionary may contain up to 2000
+              characters, spread accoss all key-value pairs. Annotations
+              that go beyond this limit are rejected
+            - Valid annotation keys have two segments: an optional
+              prefix and name, separated by a slash (/). The name
+              segment is required and must be 63 characters or less,
+              beginning and ending with an alphanumeric character
+              ([a-z0-9A-Z]) with dashes (-), underscores (\_), dots (.),
+              and alphanumerics between. The prefix is optional. If
+              specified, the prefix must be a DNS subdomain: a series of
+              DNS labels separated by dots (.), not longer than 253
+              characters in total, followed by a slash (/). Annotations
+              that fails to meet these requirements are rejected
 
             Note: This field is equivalent to the ``metadata`` field in
             the v1beta1 API. They have the same syntax and read/write to

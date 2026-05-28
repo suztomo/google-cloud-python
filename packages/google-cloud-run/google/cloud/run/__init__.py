@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ from google.cloud.run_v2.services.builds.async_client import BuildsAsyncClient
 from google.cloud.run_v2.services.builds.client import BuildsClient
 from google.cloud.run_v2.services.executions.async_client import ExecutionsAsyncClient
 from google.cloud.run_v2.services.executions.client import ExecutionsClient
+from google.cloud.run_v2.services.instances.async_client import InstancesAsyncClient
+from google.cloud.run_v2.services.instances.client import InstancesClient
 from google.cloud.run_v2.services.jobs.async_client import JobsAsyncClient
 from google.cloud.run_v2.services.jobs.client import JobsClient
 from google.cloud.run_v2.services.revisions.async_client import RevisionsAsyncClient
@@ -30,12 +32,17 @@ from google.cloud.run_v2.services.services.async_client import ServicesAsyncClie
 from google.cloud.run_v2.services.services.client import ServicesClient
 from google.cloud.run_v2.services.tasks.async_client import TasksAsyncClient
 from google.cloud.run_v2.services.tasks.client import TasksClient
+from google.cloud.run_v2.services.worker_pools.async_client import (
+    WorkerPoolsAsyncClient,
+)
+from google.cloud.run_v2.services.worker_pools.client import WorkerPoolsClient
 from google.cloud.run_v2.types.build import (
     StorageSource,
     SubmitBuildRequest,
     SubmitBuildResponse,
 )
 from google.cloud.run_v2.types.condition import Condition
+from google.cloud.run_v2.types.container_status import ContainerStatus
 from google.cloud.run_v2.types.execution import (
     CancelExecutionRequest,
     DeleteExecutionRequest,
@@ -45,6 +52,21 @@ from google.cloud.run_v2.types.execution import (
     ListExecutionsResponse,
 )
 from google.cloud.run_v2.types.execution_template import ExecutionTemplate
+from google.cloud.run_v2.types.instance import (
+    CreateInstanceRequest,
+    DeleteInstanceRequest,
+    GetInstanceRequest,
+    Instance,
+    ListInstancesRequest,
+    ListInstancesResponse,
+    StartInstanceRequest,
+    StopInstanceRequest,
+)
+from google.cloud.run_v2.types.instance_split import (
+    InstanceSplit,
+    InstanceSplitAllocationType,
+    InstanceSplitStatus,
+)
 from google.cloud.run_v2.types.job import (
     CreateJobRequest,
     DeleteJobRequest,
@@ -73,6 +95,7 @@ from google.cloud.run_v2.types.k8s_min import (
     ResourceRequirements,
     SecretKeySelector,
     SecretVolumeSource,
+    SourceCode,
     TCPSocketAction,
     VersionToPath,
     Volume,
@@ -120,6 +143,19 @@ from google.cloud.run_v2.types.vendor_settings import (
     ServiceMesh,
     ServiceScaling,
     VpcAccess,
+    WorkerPoolScaling,
+)
+from google.cloud.run_v2.types.worker_pool import (
+    CreateWorkerPoolRequest,
+    DeleteWorkerPoolRequest,
+    GetWorkerPoolRequest,
+    ListWorkerPoolsRequest,
+    ListWorkerPoolsResponse,
+    UpdateWorkerPoolRequest,
+    WorkerPool,
+)
+from google.cloud.run_v2.types.worker_pool_revision_template import (
+    WorkerPoolRevisionTemplate,
 )
 
 __all__ = (
@@ -127,6 +163,8 @@ __all__ = (
     "BuildsAsyncClient",
     "ExecutionsClient",
     "ExecutionsAsyncClient",
+    "InstancesClient",
+    "InstancesAsyncClient",
     "JobsClient",
     "JobsAsyncClient",
     "RevisionsClient",
@@ -135,10 +173,13 @@ __all__ = (
     "ServicesAsyncClient",
     "TasksClient",
     "TasksAsyncClient",
+    "WorkerPoolsClient",
+    "WorkerPoolsAsyncClient",
     "StorageSource",
     "SubmitBuildRequest",
     "SubmitBuildResponse",
     "Condition",
+    "ContainerStatus",
     "CancelExecutionRequest",
     "DeleteExecutionRequest",
     "Execution",
@@ -146,6 +187,17 @@ __all__ = (
     "ListExecutionsRequest",
     "ListExecutionsResponse",
     "ExecutionTemplate",
+    "CreateInstanceRequest",
+    "DeleteInstanceRequest",
+    "GetInstanceRequest",
+    "Instance",
+    "ListInstancesRequest",
+    "ListInstancesResponse",
+    "StartInstanceRequest",
+    "StopInstanceRequest",
+    "InstanceSplit",
+    "InstanceSplitStatus",
+    "InstanceSplitAllocationType",
     "CreateJobRequest",
     "DeleteJobRequest",
     "ExecutionReference",
@@ -171,6 +223,7 @@ __all__ = (
     "ResourceRequirements",
     "SecretKeySelector",
     "SecretVolumeSource",
+    "SourceCode",
     "TCPSocketAction",
     "VersionToPath",
     "Volume",
@@ -205,7 +258,16 @@ __all__ = (
     "ServiceMesh",
     "ServiceScaling",
     "VpcAccess",
+    "WorkerPoolScaling",
     "EncryptionKeyRevocationAction",
     "ExecutionEnvironment",
     "IngressTraffic",
+    "CreateWorkerPoolRequest",
+    "DeleteWorkerPoolRequest",
+    "GetWorkerPoolRequest",
+    "ListWorkerPoolsRequest",
+    "ListWorkerPoolsResponse",
+    "UpdateWorkerPoolRequest",
+    "WorkerPool",
+    "WorkerPoolRevisionTemplate",
 )

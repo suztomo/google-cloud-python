@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -59,6 +59,7 @@ class EventView(proto.Enum):
         EVENT_VIEW_FULL (2):
             Includes all event fields.
     """
+
     EVENT_VIEW_UNSPECIFIED = 0
     EVENT_VIEW_BASIC = 1
     EVENT_VIEW_FULL = 2
@@ -79,6 +80,7 @@ class OrganizationEventView(proto.Enum):
         ORGANIZATION_EVENT_VIEW_FULL (2):
             Includes all organization event fields.
     """
+
     ORGANIZATION_EVENT_VIEW_UNSPECIFIED = 0
     ORGANIZATION_EVENT_VIEW_BASIC = 1
     ORGANIZATION_EVENT_VIEW_FULL = 2
@@ -149,6 +151,7 @@ class Event(proto.Message):
                 Event category for service outage or
                 degradation.
         """
+
         EVENT_CATEGORY_UNSPECIFIED = 0
         INCIDENT = 2
 
@@ -168,6 +171,7 @@ class Event(proto.Message):
                 under investigation to determine if it has a
                 confirmed impact on any Google Cloud products.
         """
+
         DETAILED_CATEGORY_UNSPECIFIED = 0
         CONFIRMED_INCIDENT = 1
         EMERGING_INCIDENT = 2
@@ -186,6 +190,7 @@ class Event(proto.Message):
                 Event is no longer affecting the Google Cloud
                 product or has been merged with another event.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CLOSED = 2
@@ -216,8 +221,8 @@ class Event(proto.Message):
                 The incident was automatically closed because of the
                 following reasons:
 
-                -  The impact of the incident could not be confirmed.
-                -  The incident was intermittent or resolved itself.
+                - The impact of the incident could not be confirmed.
+                - The incident was intermittent or resolved itself.
 
                 The incident does not have a resolution because no action or
                 investigation happened. If it is intermittent, the incident
@@ -228,6 +233,7 @@ class Event(proto.Message):
                 Google Cloud product. This state can change if
                 the incident is reviewed again.
         """
+
         DETAILED_STATE_UNSPECIFIED = 0
         EMERGING = 1
         CONFIRMED = 2
@@ -264,6 +270,7 @@ class Event(proto.Message):
                 The incident is verified to be impacting your
                 project.
         """
+
         RELEVANCE_UNSPECIFIED = 0
         UNKNOWN = 2
         NOT_IMPACTED = 6
@@ -410,6 +417,7 @@ class OrganizationEvent(proto.Message):
                 Event category for service outage or
                 degradation.
         """
+
         EVENT_CATEGORY_UNSPECIFIED = 0
         INCIDENT = 2
 
@@ -429,6 +437,7 @@ class OrganizationEvent(proto.Message):
                 under investigation to determine if it has a
                 confirmed impact on any Google Cloud products.
         """
+
         DETAILED_CATEGORY_UNSPECIFIED = 0
         CONFIRMED_INCIDENT = 1
         EMERGING_INCIDENT = 2
@@ -447,6 +456,7 @@ class OrganizationEvent(proto.Message):
                 Event is no longer affecting the Google Cloud
                 product or has been merged with another event.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CLOSED = 2
@@ -477,8 +487,8 @@ class OrganizationEvent(proto.Message):
                 The incident was automatically closed because of the
                 following reasons:
 
-                -  The impact of the incident could not be confirmed.
-                -  The incident was intermittent or resolved itself.
+                - The impact of the incident could not be confirmed.
+                - The incident was intermittent or resolved itself.
 
                 The incident does not have a resolution because no action or
                 investigation happened. If it is intermittent, the incident
@@ -489,6 +499,7 @@ class OrganizationEvent(proto.Message):
                 Google Cloud product. This state can change if
                 the incident is reviewed again.
         """
+
         DETAILED_STATE_UNSPECIFIED = 0
         EMERGING = 1
         CONFIRMED = 2
@@ -768,11 +779,11 @@ class ListEventsRequest(proto.Message):
             Optional. A filter expression that filters resources listed
             in the response. The expression takes the following forms:
 
-            -  field=value for ``category`` and ``state``\
-            -  field <, >, <=, or >= value for ``update_time`` Examples:
-               ``category=INCIDENT``,
-               ``update_time>="2000-01-01T11:30:00-04:00"``,
-               ``event_impacts.product.product_name:"Eventarc"``
+            - field=value for ``category`` and ``state``\
+            - field <, >, <=, or >= value for ``update_time`` Examples:
+              ``category=INCIDENT``,
+              ``update_time>="2000-01-01T11:30:00-04:00"``,
+              ``event_impacts.product.product_name:"Eventarc"``
 
             .. raw:: html
 
@@ -910,8 +921,8 @@ class ListOrganizationEventsRequest(proto.Message):
             Optional. A filter expression that filters resources listed
             in the response. The expression takes the following forms:
 
-            -  field=value for ``category`` and ``state``
-            -  field <, >, <=, or >= value for ``update_time``
+            - field=value for ``category`` and ``state``
+            - field <, >, <=, or >= value for ``update_time``
 
             Examples: ``category=INCIDENT``,
             ``update_time>="2000-01-01T11:30:00-04:00"``

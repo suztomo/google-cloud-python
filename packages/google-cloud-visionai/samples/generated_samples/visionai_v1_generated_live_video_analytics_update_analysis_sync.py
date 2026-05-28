@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_analysis():
     client = visionai_v1.LiveVideoAnalyticsClient()
 
     # Initialize request argument(s)
-    request = visionai_v1.UpdateAnalysisRequest(
-    )
+    request = visionai_v1.UpdateAnalysisRequest()
 
     # Make the request
     operation = client.update_analysis(request=request)
@@ -51,5 +50,6 @@ def sample_update_analysis():
 
     # Handle the response
     print(response)
+
 
 # [END visionai_v1_generated_LiveVideoAnalytics_UpdateAnalysis_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -59,6 +59,8 @@ __protobuf__ = proto.module(
         "ListEntriesResponse",
         "GetEntryRequest",
         "LookupEntryRequest",
+        "LookupContextRequest",
+        "LookupContextResponse",
         "SearchEntriesRequest",
         "SearchEntriesResult",
         "SearchEntriesResponse",
@@ -69,6 +71,20 @@ __protobuf__ = proto.module(
         "ListMetadataJobsResponse",
         "CancelMetadataJobRequest",
         "MetadataJob",
+        "EntryLink",
+        "CreateEntryLinkRequest",
+        "UpdateEntryLinkRequest",
+        "DeleteEntryLinkRequest",
+        "LookupEntryLinksRequest",
+        "LookupEntryLinksResponse",
+        "GetEntryLinkRequest",
+        "MetadataFeed",
+        "CreateMetadataFeedRequest",
+        "GetMetadataFeedRequest",
+        "ListMetadataFeedsRequest",
+        "ListMetadataFeedsResponse",
+        "DeleteMetadataFeedRequest",
+        "UpdateMetadataFeedRequest",
     },
 )
 
@@ -93,6 +109,7 @@ class EntryView(proto.Enum):
             Returns all aspects. If the number of aspects
             exceeds 100, the first 100 will be returned.
     """
+
     ENTRY_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -119,6 +136,7 @@ class TransferStatus(proto.Enum):
             from Data Catalog service. The resource can only
             be updated from Dataplex API.
     """
+
     TRANSFER_STATUS_UNSPECIFIED = 0
     TRANSFER_STATUS_MIGRATED = 1
     TRANSFER_STATUS_TRANSFERRED = 2
@@ -157,6 +175,9 @@ class AspectType(proto.Message):
             client may send it on update and delete requests
             to ensure it has an up-to-date value before
             proceeding.
+        data_classification (google.cloud.dataplex_v1.types.AspectType.DataClassification):
+            Optional. Immutable. Stores data
+            classification of the aspect.
         authorization (google.cloud.dataplex_v1.types.AspectType.Authorization):
             Immutable. Defines the Authorization for this
             type.
@@ -168,15 +189,30 @@ class AspectType(proto.Message):
             Types created from Dataplex API.
     """
 
+    class DataClassification(proto.Enum):
+        r"""Classifies the data stored by the aspect.
+
+        Values:
+            DATA_CLASSIFICATION_UNSPECIFIED (0):
+                Denotes that the aspect contains only
+                metadata.
+            METADATA_AND_DATA (1):
+                Metadata and data classification.
+        """
+
+        DATA_CLASSIFICATION_UNSPECIFIED = 0
+        METADATA_AND_DATA = 1
+
     class Authorization(proto.Message):
-        r"""Autorization for an AspectType.
+        r"""Authorization for an AspectType.
 
         Attributes:
             alternate_use_permission (str):
                 Immutable. The IAM permission grantable on
                 the EntryGroup to allow access to instantiate
-                Aspects of Dataplex owned AspectTypes, only
-                settable for Dataplex owned Types.
+                Aspects of Dataplex Universal Catalog owned
+                AspectTypes, only settable for Dataplex
+                Universal Catalog owned Types.
         """
 
         alternate_use_permission: str = proto.Field(
@@ -207,20 +243,20 @@ class AspectType(proto.Message):
 
                 Primitive types:
 
-                -  string
-                -  integer
-                -  boolean
-                -  double
-                -  datetime. Must be of the format RFC3339 UTC "Zulu"
-                   (Examples: "2014-10-02T15:01:23Z" and
-                   "2014-10-02T15:01:23.045123456Z").
+                - string
+                - int
+                - bool
+                - double
+                - datetime. Must be of the format RFC3339 UTC "Zulu"
+                  (Examples: "2014-10-02T15:01:23Z" and
+                  "2014-10-02T15:01:23.045123456Z").
 
                 Complex types:
 
-                -  enum
-                -  array
-                -  map
-                -  record
+                - enum
+                - array
+                - map
+                - record
             record_fields (MutableSequence[google.cloud.dataplex_v1.types.AspectType.MetadataTemplate]):
                 Optional. Field definition. You must specify
                 it if the type is record. It defines the nested
@@ -324,10 +360,10 @@ class AspectType(proto.Message):
                     special meaning to string fields. The following values are
                     supported:
 
-                    -  richText: The field must be interpreted as a rich text
-                       field.
-                    -  url: A fully qualified URL link.
-                    -  resource: A service qualified resource reference.
+                    - richText: The field must be interpreted as a rich text
+                      field.
+                    - url: A fully qualified URL link.
+                    - resource: A service qualified resource reference.
                 string_values (MutableSequence[str]):
                     Optional. Suggested hints for string fields.
                     You can use them to suggest values to users
@@ -371,19 +407,19 @@ class AspectType(proto.Message):
             proto.STRING,
             number=5,
         )
-        record_fields: MutableSequence[
-            "AspectType.MetadataTemplate"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=6,
-            message="AspectType.MetadataTemplate",
+        record_fields: MutableSequence["AspectType.MetadataTemplate"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=6,
+                message="AspectType.MetadataTemplate",
+            )
         )
-        enum_values: MutableSequence[
-            "AspectType.MetadataTemplate.EnumValue"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=8,
-            message="AspectType.MetadataTemplate.EnumValue",
+        enum_values: MutableSequence["AspectType.MetadataTemplate.EnumValue"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=8,
+                message="AspectType.MetadataTemplate.EnumValue",
+            )
         )
         map_items: "AspectType.MetadataTemplate" = proto.Field(
             proto.MESSAGE,
@@ -448,6 +484,11 @@ class AspectType(proto.Message):
     etag: str = proto.Field(
         proto.STRING,
         number=8,
+    )
+    data_classification: DataClassification = proto.Field(
+        proto.ENUM,
+        number=9,
+        enum=DataClassification,
     )
     authorization: Authorization = proto.Field(
         proto.MESSAGE,
@@ -615,8 +656,9 @@ class EntryType(proto.Message):
             alternate_use_permission (str):
                 Immutable. The IAM permission grantable on
                 the Entry Group to allow access to instantiate
-                Entries of Dataplex owned Entry Types, only
-                settable for Dataplex owned Types.
+                Entries of Dataplex Universal Catalog owned
+                Entry Types, only settable for Dataplex
+                Universal Catalog owned Types.
         """
 
         alternate_use_permission: str = proto.Field(
@@ -787,19 +829,19 @@ class Entry(proto.Message):
             ``projects/{project_id_or_number}/locations/{location_id}/entryTypes/{entry_type_id}``.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time when the entry was
-            created in Dataplex.
+            created in Dataplex Universal Catalog.
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time when the entry was last
-            updated in Dataplex.
+            updated in Dataplex Universal Catalog.
         aspects (MutableMapping[str, google.cloud.dataplex_v1.types.Aspect]):
             Optional. The aspects that are attached to the entry.
             Depending on how the aspect is attached to the entry, the
             format of the aspect key can be one of the following:
 
-            -  If the aspect is attached directly to the entry:
-               ``{project_id_or_number}.{location_id}.{aspect_type_id}``
-            -  If the aspect is attached to an entry's path:
-               ``{project_id_or_number}.{location_id}.{aspect_type_id}@{path}``
+            - If the aspect is attached directly to the entry:
+              ``{project_id_or_number}.{location_id}.{aspect_type_id}``
+            - If the aspect is attached to an entry's path:
+              ``{project_id_or_number}.{location_id}.{aspect_type_id}@{path}``
         parent_entry (str):
             Optional. Immutable. The resource name of the parent entry,
             in the format
@@ -974,7 +1016,7 @@ class CreateEntryGroupRequest(proto.Message):
         parent (str):
             Required. The resource name of the entryGroup, of the form:
             projects/{project_number}/locations/{location_id} where
-            ``location_id`` refers to a GCP region.
+            ``location_id`` refers to a Google Cloud region.
         entry_group_id (str):
             Required. EntryGroup identifier.
         entry_group (google.cloud.dataplex_v1.types.EntryGroup):
@@ -1223,7 +1265,7 @@ class UpdateEntryTypeRequest(proto.Message):
 
 
 class DeleteEntryTypeRequest(proto.Message):
-    r"""Delele EntryType Request.
+    r"""Delete EntryType Request.
 
     Attributes:
         name (str):
@@ -1271,9 +1313,9 @@ class ListEntryTypesRequest(proto.Message):
             Optional. Filter request. Filters are case-sensitive. The
             service supports the following formats:
 
-            -  labels.key1 = "value1"
-            -  labels:key1
-            -  name = "value"
+            - labels.key1 = "value1"
+            - labels:key1
+            - name = "value"
 
             These restrictions can be conjoined with AND, OR, and NOT
             conjunctions.
@@ -1419,7 +1461,7 @@ class UpdateAspectTypeRequest(proto.Message):
 
 
 class DeleteAspectTypeRequest(proto.Message):
-    r"""Delele AspectType Request.
+    r"""Delete AspectType Request.
 
     Attributes:
         name (str):
@@ -1467,9 +1509,9 @@ class ListAspectTypesRequest(proto.Message):
             Optional. Filter request. Filters are case-sensitive. The
             service supports the following formats:
 
-            -  labels.key1 = "value1"
-            -  labels:key1
-            -  name = "value"
+            - labels.key1 = "value1"
+            - labels:key1
+            - name = "value"
 
             These restrictions can be conjoined with AND, OR, and NOT
             conjunctions.
@@ -1619,17 +1661,17 @@ class UpdateEntryRequest(proto.Message):
             Optional. The map keys of the Aspects which the service
             should modify. It supports the following syntaxes:
 
-            -  ``<aspect_type_reference>`` - matches an aspect of the
-               given type and empty path.
-            -  ``<aspect_type_reference>@path`` - matches an aspect of
-               the given type and specified path. For example, to attach
-               an aspect to a field that is specified by the ``schema``
-               aspect, the path should have the format
-               ``Schema.<field_name>``.
-            -  ``<aspect_type_reference>@*`` - matches aspects of the
-               given type for all paths.
-            -  ``*@path`` - matches aspects of all types on the given
-               path.
+            - ``<aspect_type_reference>`` - matches an aspect of the
+              given type and empty path.
+            - ``<aspect_type_reference>@path`` - matches an aspect of
+              the given type and specified path. For example, to attach
+              an aspect to a field that is specified by the ``schema``
+              aspect, the path should have the format
+              ``Schema.<field_name>``.
+            - ``<aspect_type_reference>@*`` - matches aspects of the
+              given type for all paths.
+            - ``*@path`` - matches aspects of all types on the given
+              path.
 
             The service will not remove existing aspects matching the
             syntax unless ``delete_missing_aspects`` is set to true.
@@ -1699,8 +1741,9 @@ class ListEntriesRequest(proto.Message):
             case-sensitive. You can filter the request by the following
             fields:
 
-            -  entry_type
-            -  entry_source.display_name
+            - entry_type
+            - entry_source.display_name
+            - parent_entry
 
             The comparison operators are =, !=, <, >, <=, >=. The
             service compares strings according to lexical order.
@@ -1708,16 +1751,21 @@ class ListEntriesRequest(proto.Message):
             You can use the logical operators AND, OR, NOT in the
             filter.
 
-            You can use Wildcard "*", but for entry_type you need to
-            provide the full project id or number.
+            You can use Wildcard "\*", but for entry_type and
+            parent_entry you need to provide the full project id or
+            number.
+
+            You cannot use parent_entry in conjunction with other
+            fields.
 
             Example filter expressions:
 
-            -  "entry_source.display_name=AnExampleDisplayName"
-            -  "entry_type=projects/example-project/locations/global/entryTypes/example-entry_type"
-            -  "entry_type=projects/example-project/locations/us/entryTypes/a\*
-               OR entry_type=projects/another-project/locations/\*"
-            -  "NOT entry_source.display_name=AnotherExampleDisplayName".
+            - "entry_source.display_name=AnExampleDisplayName"
+            - "entry_type=projects/example-project/locations/global/entryTypes/example-entry_type"
+            - "entry_type=projects/example-project/locations/us/entryTypes/a\*
+              OR entry_type=projects/another-project/locations/\*"
+            - "NOT entry_source.display_name=AnotherExampleDisplayName"
+            - "parent_entry=projects/example-project/locations/us/entryGroups/example-entry-group/entries/example-entry".
     """
 
     parent: str = proto.Field(
@@ -1852,6 +1900,55 @@ class LookupEntryRequest(proto.Message):
     )
 
 
+class LookupContextRequest(proto.Message):
+    r"""Lookup Context using permissions in the source system.
+
+    Attributes:
+        name (str):
+            Required. The project to which the request should be
+            attributed in the following form:
+            ``projects/{project}/locations/{location}``.
+        resources (MutableSequence[str]):
+            Required. The entry names to lookup context for. The request
+            should have max 10 of those.
+
+            Examples:
+            ---------
+
+            projects/{project}/locations/{location}/entryGroups/{entry_group}/entries/{entry}
+        options (MutableMapping[str, str]):
+            Optional. Allows to configure the context.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    resources: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    options: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=4,
+    )
+
+
+class LookupContextResponse(proto.Message):
+    r"""Lookup Context response.
+
+    Attributes:
+        context (str):
+            LLM generated context for the resources.
+    """
+
+    context: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
 class SearchEntriesRequest(proto.Message):
     r"""
 
@@ -1859,11 +1956,11 @@ class SearchEntriesRequest(proto.Message):
         name (str):
             Required. The project to which the request should be
             attributed in the following form:
-            ``projects/{project}/locations/{location}``.
+            ``projects/{project}/locations/global``.
         query (str):
             Required. The query against which entries in scope should be
             matched. The query syntax is defined in `Search syntax for
-            Dataplex
+            Dataplex Universal
             Catalog <https://cloud.google.com/dataplex/docs/search-syntax>`__.
         page_size (int):
             Optional. Number of results in the search page. If <=0, then
@@ -1877,15 +1974,19 @@ class SearchEntriesRequest(proto.Message):
             Optional. Specifies the ordering of results. Supported
             values are:
 
-            -  ``relevance`` (default)
-            -  ``last_modified_timestamp``
-            -  ``last_modified_timestamp asc``
+            - ``relevance``
+            - ``last_modified_timestamp``
+            - ``last_modified_timestamp asc``
         scope (str):
             Optional. The scope under which the search should be
             operating. It must either be ``organizations/<org_id>`` or
             ``projects/<project_ref>``. If it is unspecified, it
             defaults to the organization where the project provided in
             ``name`` is located.
+        semantic_search (bool):
+            Optional. Specifies whether the search should
+            understand the meaning and intent behind the
+            query, rather than just matching keywords.
     """
 
     name: str = proto.Field(
@@ -1911,6 +2012,10 @@ class SearchEntriesRequest(proto.Message):
     scope: str = proto.Field(
         proto.STRING,
         number=7,
+    )
+    semantic_search: bool = proto.Field(
+        proto.BOOL,
+        number=11,
     )
 
 
@@ -2015,17 +2120,22 @@ class ImportItem(proto.Message):
         entry (google.cloud.dataplex_v1.types.Entry):
             Information about an entry and its attached
             aspects.
+        entry_link (google.cloud.dataplex_v1.types.EntryLink):
+            Information about the entry link. User should provide either
+            one of the entry or entry_link. While providing entry_link,
+            user should not provide update_mask and aspect_keys.
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             The fields to update, in paths that are relative to the
             ``Entry`` resource. Separate each field with a comma.
 
-            In ``FULL`` entry sync mode, Dataplex includes the paths of
-            all of the fields for an entry that can be modified,
-            including aspects. This means that Dataplex replaces the
-            existing entry with the entry in the metadata import file.
-            All modifiable fields are updated, regardless of the fields
-            that are listed in the update mask, and regardless of
-            whether a field is present in the ``entry`` object.
+            In ``FULL`` entry sync mode, Dataplex Universal Catalog
+            includes the paths of all of the fields for an entry that
+            can be modified, including aspects. This means that Dataplex
+            Universal Catalog replaces the existing entry with the entry
+            in the metadata import file. All modifiable fields are
+            updated, regardless of the fields that are listed in the
+            update mask, and regardless of whether a field is present in
+            the ``entry`` object.
 
             The ``update_mask`` field is ignored when an entry is
             created or re-created.
@@ -2033,23 +2143,24 @@ class ImportItem(proto.Message):
             In an aspect-only metadata job (when entry sync mode is
             ``NONE``), set this value to ``aspects``.
 
-            Dataplex also determines which entries and aspects to modify
-            by comparing the values and timestamps that you provide in
-            the metadata import file with the values and timestamps that
-            exist in your project. For more information, see `Comparison
+            Dataplex Universal Catalog also determines which entries and
+            aspects to modify by comparing the values and timestamps
+            that you provide in the metadata import file with the values
+            and timestamps that exist in your project. For more
+            information, see `Comparison
             logic <https://cloud.google.com/dataplex/docs/import-metadata#data-modification-logic>`__.
         aspect_keys (MutableSequence[str]):
             The aspects to modify. Supports the following syntaxes:
 
-            -  ``{aspect_type_reference}``: matches aspects that belong
-               to the specified aspect type and are attached directly to
-               the entry.
-            -  ``{aspect_type_reference}@{path}``: matches aspects that
-               belong to the specified aspect type and path.
-            -  ``{aspect_type_reference}@*`` : matches aspects of the
-               given type for all paths.
-            -  ``*@path`` : matches aspects of all types on the given
-               path.
+            - ``{aspect_type_reference}``: matches aspects that belong
+              to the specified aspect type and are attached directly to
+              the entry.
+            - ``{aspect_type_reference}@{path}``: matches aspects that
+              belong to the specified aspect type and path.
+            - ``{aspect_type_reference}@*`` : matches aspects of the
+              given type for all paths.
+            - ``*@path`` : matches aspects of all types on the given
+              path.
 
             Replace ``{aspect_type_reference}`` with a reference to the
             aspect type, in the format
@@ -2057,14 +2168,20 @@ class ImportItem(proto.Message):
 
             In ``FULL`` entry sync mode, if you leave this field empty,
             it is treated as specifying exactly those aspects that are
-            present within the specified entry. Dataplex implicitly adds
-            the keys for all of the required aspects of an entry.
+            present within the specified entry. Dataplex Universal
+            Catalog implicitly adds the keys for all of the required
+            aspects of an entry.
     """
 
     entry: "Entry" = proto.Field(
         proto.MESSAGE,
         number=1,
         message="Entry",
+    )
+    entry_link: "EntryLink" = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message="EntryLink",
     )
     update_mask: field_mask_pb2.FieldMask = proto.Field(
         proto.MESSAGE,
@@ -2154,9 +2271,9 @@ class ListMetadataJobsRequest(proto.Message):
             Optional. Filter request. Filters are case-sensitive. The
             service supports the following formats:
 
-            -  ``labels.key1 = "value1"``
-            -  ``labels:key1``
-            -  ``name = "value"``
+            - ``labels.key1 = "value1"``
+            - ``labels:key1``
+            - ``name = "value"``
 
             You can combine filters with ``AND``, ``OR``, and ``NOT``
             operators.
@@ -2298,6 +2415,7 @@ class MetadataJob(proto.Message):
             EXPORT (2):
                 Export job.
         """
+
         TYPE_UNSPECIFIED = 0
         IMPORT = 1
         EXPORT = 2
@@ -2324,6 +2442,15 @@ class MetadataJob(proto.Message):
             update_time (google.protobuf.timestamp_pb2.Timestamp):
                 Output only. The time when the status was
                 updated.
+            deleted_entry_links (int):
+                Output only. The total number of entry links
+                that were successfully deleted.
+            created_entry_links (int):
+                Output only. The total number of entry links
+                that were successfully created.
+            unchanged_entry_links (int):
+                Output only. The total number of entry links
+                that were left unchanged.
         """
 
         deleted_entries: int = proto.Field(
@@ -2350,6 +2477,18 @@ class MetadataJob(proto.Message):
             proto.MESSAGE,
             number=5,
             message=timestamp_pb2.Timestamp,
+        )
+        deleted_entry_links: int = proto.Field(
+            proto.INT64,
+            number=7,
+        )
+        created_entry_links: int = proto.Field(
+            proto.INT64,
+            number=8,
+        )
+        unchanged_entry_links: int = proto.Field(
+            proto.INT64,
+            number=9,
         )
 
     class ExportJobResult(proto.Message):
@@ -2380,12 +2519,12 @@ class MetadataJob(proto.Message):
 
         You can run the following kinds of metadata import jobs:
 
-        -  Full sync of entries with incremental import of their aspects.
-           Supported for custom entries.
-        -  Incremental import of aspects only. Supported for aspects that
-           belong to custom entries and system entries. For custom entries,
-           you can modify both optional aspects and required aspects. For
-           system entries, you can modify optional aspects.
+        - Full sync of entries with incremental import of their aspects.
+          Supported for custom entries.
+        - Incremental import of aspects only. Supported for aspects that
+          belong to custom entries and system entries. For custom entries,
+          you can modify both optional aspects and required aspects. For
+          system entries, you can modify optional aspects.
 
         Attributes:
             source_storage_uri (str):
@@ -2443,11 +2582,12 @@ class MetadataJob(proto.Message):
                     Sync mode unspecified.
                 FULL (1):
                     All resources in the job's scope are
-                    modified. If a resource exists in Dataplex but
-                    isn't included in the metadata import file, the
-                    resource is deleted when you run the metadata
-                    job. Use this mode to perform a full sync of the
-                    set of entries in the job scope.
+                    modified. If a resource exists in Dataplex
+                    Universal Catalog but isn't included in the
+                    metadata import file, the resource is deleted
+                    when you run the metadata job. Use this mode to
+                    perform a full sync of the set of entries in the
+                    job scope.
 
                     This sync mode is supported for entries.
                 INCREMENTAL (2):
@@ -2465,6 +2605,7 @@ class MetadataJob(proto.Message):
 
                     This sync mode is supported for entries.
             """
+
             SYNC_MODE_UNSPECIFIED = 0
             FULL = 1
             INCREMENTAL = 2
@@ -2495,6 +2636,7 @@ class MetadataJob(proto.Message):
                     import items, but doesn't specify which import
                     item has an error.
             """
+
             LOG_LEVEL_UNSPECIFIED = 0
             DEBUG = 1
             INFO = 2
@@ -2505,14 +2647,13 @@ class MetadataJob(proto.Message):
 
             Attributes:
                 entry_groups (MutableSequence[str]):
-                    Required. The entry group that is in scope for the import
-                    job, specified as a relative resource name in the format
+                    Required. The entry groups that are in scope for the import
+                    job, specified as relative resource names in the format
                     ``projects/{project_number_or_id}/locations/{location_id}/entryGroups/{entry_group_id}``.
                     Only entries and aspects that belong to the specified entry
-                    group are affected by the job.
+                    groups are affected by the job.
 
-                    Must contain exactly one element. The entry group and the
-                    job must be in the same location.
+                    The entry groups and the job must be in the same location.
                 entry_types (MutableSequence[str]):
                     Required. The entry types that are in scope for the import
                     job, specified as relative resource names in the format
@@ -2542,6 +2683,41 @@ class MetadataJob(proto.Message):
 
                     The location of an aspect type must either match the
                     location of the job, or the aspect type must be global.
+                glossaries (MutableSequence[str]):
+                    Optional. The glossaries that are in scope for the import
+                    job, specified as relative resource names in the format
+                    ``projects/{project_number_or_id}/locations/{location_id}/glossaries/{glossary_id}``.
+
+                    While importing Business Glossary entries, the user must
+                    provide glossaries. While importing entries, the user does
+                    not have to provide glossaries. If the metadata import file
+                    attempts to modify Business Glossary entries whose glossary
+                    isn't included in this list, the import job will skip those
+                    entries.
+
+                    The location of a glossary must either match the location of
+                    the job, or the glossary must be global.
+                entry_link_types (MutableSequence[str]):
+                    Optional. The entry link types that are in scope for the
+                    import job, specified as relative resource names in the
+                    format
+                    ``projects/{project_number_or_id}/locations/{location_id}/entryLinkTypes/{entry_link_type_id}``.
+                    The job modifies only the entryLinks that belong to these
+                    entry link types.
+
+                    If the metadata import file attempts to create or delete an
+                    entry link whose entry link type isn't included in this
+                    list, the import job will skip those entry links.
+                referenced_entry_scopes (MutableSequence[str]):
+                    Optional. Defines the scope of entries that can be
+                    referenced in the entry links.
+
+                    Currently, projects are supported as valid scopes. Format:
+                    ``projects/{project_number_or_id}``
+
+                    If the metadata import file attempts to create an entry link
+                    which references an entry that is not in the scope, the
+                    import job will skip that entry link.
             """
 
             entry_groups: MutableSequence[str] = proto.RepeatedField(
@@ -2555,6 +2731,18 @@ class MetadataJob(proto.Message):
             aspect_types: MutableSequence[str] = proto.RepeatedField(
                 proto.STRING,
                 number=3,
+            )
+            glossaries: MutableSequence[str] = proto.RepeatedField(
+                proto.STRING,
+                number=4,
+            )
+            entry_link_types: MutableSequence[str] = proto.RepeatedField(
+                proto.STRING,
+                number=5,
+            )
+            referenced_entry_scopes: MutableSequence[str] = proto.RepeatedField(
+                proto.STRING,
+                number=6,
             )
 
         source_storage_uri: str = proto.Field(
@@ -2599,9 +2787,9 @@ class MetadataJob(proto.Message):
                 You can optionally specify a custom prefix after the bucket
                 name, in the format ``gs://{bucket}/{prefix}/``. The maximum
                 length of the custom prefix is 128 characters. Dataplex
-                constructs the object path for the exported files by using
-                the bucket name and prefix that you provide, followed by a
-                system-generated path.
+                Universal Catalog constructs the object path for the
+                exported files by using the bucket name and prefix that you
+                provide, followed by a system-generated path.
 
                 The bucket must be in the same VPC Service Controls
                 perimeter as the job.
@@ -2615,14 +2803,14 @@ class MetadataJob(proto.Message):
                     Whether the metadata export job is an organization-level
                     export job.
 
-                    -  If ``true``, the job exports the entries from the same
-                       organization and VPC Service Controls perimeter as the
-                       job. The project that the job belongs to determines the
-                       VPC Service Controls perimeter. If you set the job scope
-                       to be at the organization level, then don't provide a
-                       list of projects or entry groups.
-                    -  If ``false``, you must specify a list of projects or a
-                       list of entry groups whose entries you want to export.
+                    - If ``true``, the job exports the entries from the same
+                      organization and VPC Service Controls perimeter as the
+                      job. The project that the job belongs to determines the
+                      VPC Service Controls perimeter. If you set the job scope
+                      to be at the organization level, then don't provide a list
+                      of projects or entry groups.
+                    - If ``false``, you must specify a list of projects or a
+                      list of entry groups whose entries you want to export.
 
                     The default is ``false``.
                 projects (MutableSequence[str]):
@@ -2730,6 +2918,7 @@ class MetadataJob(proto.Message):
                 SUCCEEDED_WITH_ERRORS (7):
                     The job completed with some errors.
             """
+
             STATE_UNSPECIFIED = 0
             QUEUED = 1
             RUNNING = 2
@@ -2814,6 +3003,706 @@ class MetadataJob(proto.Message):
         proto.MESSAGE,
         number=7,
         message=Status,
+    )
+
+
+class EntryLink(proto.Message):
+    r"""EntryLink represents a link between two Entries.
+
+    Attributes:
+        name (str):
+            Output only. Immutable. Identifier. The relative resource
+            name of the Entry Link, of the form:
+            ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entryLinks/{entry_link_id}``
+        entry_link_type (str):
+            Required. Immutable. Relative resource name of the Entry
+            Link Type used to create this Entry Link. For example:
+
+            - Entry link between synonym terms in a glossary:
+              ``projects/dataplex-types/locations/global/entryLinkTypes/synonym``
+            - Entry link between related terms in a glossary:
+              ``projects/dataplex-types/locations/global/entryLinkTypes/related``
+            - Entry link between glossary terms and data assets:
+              ``projects/dataplex-types/locations/global/entryLinkTypes/definition``
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time when the Entry Link was
+            created.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time when the Entry Link was
+            last updated.
+        aspects (MutableMapping[str, google.cloud.dataplex_v1.types.Aspect]):
+            Optional. The aspects that are attached to the entry link.
+            The format of the aspect key has to be the following:
+            ``{project_id_or_number}.{location_id}.{aspect_type_id}``
+            Currently, only a single aspect of a Dataplex-owned Aspect
+            Type is allowed.
+        entry_references (MutableSequence[google.cloud.dataplex_v1.types.EntryLink.EntryReference]):
+            Required. Immutable. Specifies the Entries
+            referenced in the Entry Link. There should be
+            exactly two entry references.
+    """
+
+    class EntryReference(proto.Message):
+        r"""Reference to the Entry that is linked through the Entry Link.
+
+        Attributes:
+            name (str):
+                Required. Immutable. The relative resource name of the
+                referenced Entry, of the form:
+                ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}``
+            path (str):
+                Immutable. The path in the Entry that is
+                referenced in the Entry Link. Empty path denotes
+                that the Entry itself is referenced in the Entry
+                Link.
+            type_ (google.cloud.dataplex_v1.types.EntryLink.EntryReference.Type):
+                Required. Immutable. The reference type of
+                the Entry.
+        """
+
+        class Type(proto.Enum):
+            r"""Reference type of the Entry.
+
+            Values:
+                UNSPECIFIED (0):
+                    Unspecified reference type. Implies that the
+                    Entry is referenced in a non-directional Entry
+                    Link.
+                SOURCE (2):
+                    The Entry is referenced as the source of the
+                    directional Entry Link.
+                TARGET (3):
+                    The Entry is referenced as the target of the
+                    directional Entry Link.
+            """
+
+            UNSPECIFIED = 0
+            SOURCE = 2
+            TARGET = 3
+
+        name: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        path: str = proto.Field(
+            proto.STRING,
+            number=2,
+        )
+        type_: "EntryLink.EntryReference.Type" = proto.Field(
+            proto.ENUM,
+            number=3,
+            enum="EntryLink.EntryReference.Type",
+        )
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    entry_link_type: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=timestamp_pb2.Timestamp,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message=timestamp_pb2.Timestamp,
+    )
+    aspects: MutableMapping[str, "Aspect"] = proto.MapField(
+        proto.STRING,
+        proto.MESSAGE,
+        number=6,
+        message="Aspect",
+    )
+    entry_references: MutableSequence[EntryReference] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=10,
+        message=EntryReference,
+    )
+
+
+class CreateEntryLinkRequest(proto.Message):
+    r"""Request message for CreateEntryLink.
+
+    Attributes:
+        parent (str):
+            Required. The resource name of the parent Entry Group:
+            ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}``.
+        entry_link_id (str):
+            Required. Entry Link identifier
+
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the EntryGroup.
+        entry_link (google.cloud.dataplex_v1.types.EntryLink):
+            Required. Entry Link resource.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    entry_link_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    entry_link: "EntryLink" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message="EntryLink",
+    )
+
+
+class UpdateEntryLinkRequest(proto.Message):
+    r"""Request message for UpdateEntryLink method.
+
+    Attributes:
+        entry_link (google.cloud.dataplex_v1.types.EntryLink):
+            Required. Entry Link resource.
+        allow_missing (bool):
+            Optional. If set to true and the entry link
+            doesn't exist, the service will create it.
+        aspect_keys (MutableSequence[str]):
+            Optional. The map keys of the Aspects which the service
+            should modify. It should be the aspect type reference in the
+            format
+            ``{project_id_or_number}.{location_id}.{aspect_type_id}``.
+
+            If this field is left empty, the service treats it as
+            specifying exactly those Aspects present in the request.
+    """
+
+    entry_link: "EntryLink" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message="EntryLink",
+    )
+    allow_missing: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+    aspect_keys: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=5,
+    )
+
+
+class DeleteEntryLinkRequest(proto.Message):
+    r"""Request message for DeleteEntryLink.
+
+    Attributes:
+        name (str):
+            Required. The resource name of the Entry Link:
+            ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entryLinks/{entry_link_id}``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class LookupEntryLinksRequest(proto.Message):
+    r"""Request message for LookupEntryLinks.
+
+    Attributes:
+        name (str):
+            Required. The project to which the request should be
+            attributed to Format:
+            ``projects/{project_id_or_number}/locations/{location_id}``.
+        entry (str):
+            Required. The resource name of the referred Entry. Format:
+            ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}``.
+            Entry Links which references this entry will be returned in
+            the response.
+        entry_mode (google.cloud.dataplex_v1.types.LookupEntryLinksRequest.EntryMode):
+            Mode of entry reference.
+        entry_link_types (MutableSequence[str]):
+            Entry link types to filter the response by.
+            If empty, all entry link types will be returned.
+            At most 10 entry link types can be specified.
+        page_size (int):
+            Maximum number of EntryLinks to return. The
+            service may return fewer than this value. If
+            unspecified, at most 10 EntryLinks will be
+            returned. The maximum value is 10; values above
+            10 will be coerced to 10.
+        page_token (str):
+            Page token received from a previous ``LookupEntryLinks``
+            call. Provide this to retrieve the subsequent page. When
+            paginating, all other parameters that are provided to the
+            ``LookupEntryLinks`` request must match the call that
+            provided the page token.
+    """
+
+    class EntryMode(proto.Enum):
+        r"""Mode of entry reference.
+
+        Values:
+            ENTRY_MODE_UNSPECIFIED (0):
+                Unspecified entry mode. Returns both
+                directional and non-directional entry links
+                which references the entry.
+            SOURCE (1):
+                Returns all directed entry links which
+                references the entry as source.
+            TARGET (2):
+                Return all directed entry links which
+                references the entry as target.
+        """
+
+        ENTRY_MODE_UNSPECIFIED = 0
+        SOURCE = 1
+        TARGET = 2
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    entry: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    entry_mode: EntryMode = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=EntryMode,
+    )
+    entry_link_types: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=5,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+
+
+class LookupEntryLinksResponse(proto.Message):
+    r"""Response message for LookupEntryLinks.
+
+    Attributes:
+        entry_links (MutableSequence[google.cloud.dataplex_v1.types.EntryLink]):
+            List of entry links that reference the
+            specified entry.
+        next_page_token (str):
+            Token to retrieve the next page of results,
+            or empty if there are no more results in the
+            list.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    entry_links: MutableSequence["EntryLink"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="EntryLink",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class GetEntryLinkRequest(proto.Message):
+    r"""Request message for GetEntryLink.
+
+    Attributes:
+        name (str):
+            Required. The resource name of the Entry Link:
+            ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entryLinks/{entry_link_id}``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class MetadataFeed(proto.Message):
+    r"""MetadataFeed contains information related to the metadata
+    feed.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Identifier. The resource name of the metadata feed, in the
+            format
+            ``projects/{project_id_or_number}/locations/{location_id}/metadataFeeds/{metadata_feed_id}``.
+        uid (str):
+            Output only. A system-generated, globally
+            unique ID for the metadata job. If the metadata
+            job is deleted and then re-created with the same
+            name, this ID is different.
+        scope (google.cloud.dataplex_v1.types.MetadataFeed.Scope):
+            Required. The scope of the metadata feed.
+            Only the in scope changes are published.
+        filters (google.cloud.dataplex_v1.types.MetadataFeed.Filters):
+            Optional. The filters of the metadata feed.
+            Only the changes that match the filters are
+            published.
+        create_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time when the feed was
+            created.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time when the feed was
+            updated.
+        labels (MutableMapping[str, str]):
+            Optional. User-defined labels.
+        pubsub_topic (str):
+            Optional. The pubsub topic that you want the metadata feed
+            messages to publish to. Please grant Dataplex service
+            account the permission to publish messages to the topic. The
+            service account is:
+            service-{PROJECT_NUMBER}@gcp-sa-dataplex.iam.gserviceaccount.com.
+
+            This field is a member of `oneof`_ ``endpoint``.
+    """
+
+    class Scope(proto.Message):
+        r"""Scope defines the scope of the metadata feed.
+        Scopes are exclusive. Only one of the scopes can be specified.
+
+        Attributes:
+            organization_level (bool):
+                Optional. Whether the metadata feed is at the
+                organization-level.
+
+                - If ``true``, all changes happened to the entries in the
+                  same organization as the feed are published.
+                - If ``false``, you must specify a list of projects or a
+                  list of entry groups whose entries you want to listen to.
+
+                The default is ``false``.
+            projects (MutableSequence[str]):
+                Optional. The projects whose entries you want to listen to.
+                Must be in the same organization as the feed. Must be in the
+                format: ``projects/{project_id_or_number}``.
+            entry_groups (MutableSequence[str]):
+                Optional. The entry groups whose entries you want to listen
+                to. Must be in the format:
+                ``projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}``.
+        """
+
+        organization_level: bool = proto.Field(
+            proto.BOOL,
+            number=1,
+        )
+        projects: MutableSequence[str] = proto.RepeatedField(
+            proto.STRING,
+            number=2,
+        )
+        entry_groups: MutableSequence[str] = proto.RepeatedField(
+            proto.STRING,
+            number=3,
+        )
+
+    class Filters(proto.Message):
+        r"""Filters defines the type of changes that you want to listen
+        to. You can have multiple entry type filters and multiple aspect
+        type filters. All of the entry type filters are OR'ed together.
+        All of the aspect type filters are OR'ed together.
+        All of the entry type filters and aspect type filters are AND'ed
+        together.
+
+        Attributes:
+            entry_types (MutableSequence[str]):
+                Optional. The entry types that you want to listen to,
+                specified as relative resource names in the format
+                ``projects/{project_id_or_number}/locations/{location}/entryTypes/{entry_type_id}``.
+                Only entries that belong to the specified entry types are
+                published.
+            aspect_types (MutableSequence[str]):
+                Optional. The aspect types that you want to listen to.
+                Depending on how the aspect is attached to the entry, in the
+                format:
+                ``projects/{project_id_or_number}/locations/{location}/aspectTypes/{aspect_type_id}``.
+            change_types (MutableSequence[google.cloud.dataplex_v1.types.MetadataFeed.Filters.ChangeType]):
+                Optional. The type of change that you want to
+                listen to. If not specified, all changes are
+                published.
+        """
+
+        class ChangeType(proto.Enum):
+            r"""The type of change that you want to listen to.
+
+            Values:
+                CHANGE_TYPE_UNSPECIFIED (0):
+                    Unspecified change type. Defaults to
+                    UNSPECIFIED.
+                CREATE (1):
+                    The change is a create event.
+                UPDATE (2):
+                    The change is an update event.
+                DELETE (3):
+                    The change is a delete event.
+            """
+
+            CHANGE_TYPE_UNSPECIFIED = 0
+            CREATE = 1
+            UPDATE = 2
+            DELETE = 3
+
+        entry_types: MutableSequence[str] = proto.RepeatedField(
+            proto.STRING,
+            number=1,
+        )
+        aspect_types: MutableSequence[str] = proto.RepeatedField(
+            proto.STRING,
+            number=2,
+        )
+        change_types: MutableSequence["MetadataFeed.Filters.ChangeType"] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=3,
+                enum="MetadataFeed.Filters.ChangeType",
+            )
+        )
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    uid: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    scope: Scope = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=Scope,
+    )
+    filters: Filters = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message=Filters,
+    )
+    create_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message=timestamp_pb2.Timestamp,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message=timestamp_pb2.Timestamp,
+    )
+    labels: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=8,
+    )
+    pubsub_topic: str = proto.Field(
+        proto.STRING,
+        number=100,
+        oneof="endpoint",
+    )
+
+
+class CreateMetadataFeedRequest(proto.Message):
+    r"""Request message for CreateMetadataFeed.
+
+    Attributes:
+        parent (str):
+            Required. The resource name of the parent location, in the
+            format
+            ``projects/{project_id_or_number}/locations/{location_id}``
+        metadata_feed (google.cloud.dataplex_v1.types.MetadataFeed):
+            Required. The metadata job resource.
+        metadata_feed_id (str):
+            Optional. The metadata job ID. If not provided, a unique ID
+            is generated with the prefix ``metadata-job-``.
+        validate_only (bool):
+            Optional. The service validates the request
+            without performing any mutations. The default is
+            false.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    metadata_feed: "MetadataFeed" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="MetadataFeed",
+    )
+    metadata_feed_id: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    validate_only: bool = proto.Field(
+        proto.BOOL,
+        number=4,
+    )
+
+
+class GetMetadataFeedRequest(proto.Message):
+    r"""Request message for GetMetadataFeed.
+
+    Attributes:
+        name (str):
+            Required. The resource name of the metadata feed, in the
+            format
+            ``projects/{project_id_or_number}/locations/{location_id}/MetadataFeeds/{metadata_feed_id}``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ListMetadataFeedsRequest(proto.Message):
+    r"""Request message for ListMetadataFeedsRequest.
+
+    Attributes:
+        parent (str):
+            Required. The resource name of the parent location, in the
+            format
+            ``projects/{project_id_or_number}/locations/{location_id}``
+        page_size (int):
+            Optional. The maximum number of metadata
+            feeds to return. The service might return fewer
+            feeds than this value. If unspecified, at most
+            10 feeds are returned. The maximum value is
+            1,000.
+        page_token (str):
+            Optional. The page token received from a previous
+            ``ListMetadataFeeds`` call. Provide this token to retrieve
+            the subsequent page of results. When paginating, all other
+            parameters that are provided to the ``ListMetadataFeeds``
+            request must match the call that provided the page token.
+        filter (str):
+            Optional. Filter request. Filters are case-sensitive. The
+            service supports the following formats:
+
+            - ``labels.key1 = "value1"``
+            - ``labels:key1``
+            - ``name = "value"``
+
+            You can combine filters with ``AND``, ``OR``, and ``NOT``
+            operators.
+        order_by (str):
+            Optional. The field to sort the results by, either ``name``
+            or ``create_time``. If not specified, the ordering is
+            undefined.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    filter: str = proto.Field(
+        proto.STRING,
+        number=4,
+    )
+    order_by: str = proto.Field(
+        proto.STRING,
+        number=5,
+    )
+
+
+class ListMetadataFeedsResponse(proto.Message):
+    r"""Response message for ListMetadataFeeds.
+
+    Attributes:
+        metadata_feeds (MutableSequence[google.cloud.dataplex_v1.types.MetadataFeed]):
+            List of metadata feeds under the specified
+            parent location.
+        next_page_token (str):
+            A token to retrieve the next page of results.
+            If there are no more results in the list, the
+            value is empty.
+        unreachable (MutableSequence[str]):
+            Unordered list. Locations that the service
+            couldn't reach.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    metadata_feeds: MutableSequence["MetadataFeed"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="MetadataFeed",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
+    )
+
+
+class DeleteMetadataFeedRequest(proto.Message):
+    r"""Request message for DeleteMetadataFeed.
+
+    Attributes:
+        name (str):
+            Required. The resource name of the metadata feed, in the
+            format
+            ``projects/{project_id_or_number}/locations/{location_id}/MetadataFeeds/{metadata_feed_id}``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class UpdateMetadataFeedRequest(proto.Message):
+    r"""Request message for UpdateMetadataFeed.
+
+    Attributes:
+        metadata_feed (google.cloud.dataplex_v1.types.MetadataFeed):
+            Required. Update description. Only fields specified in
+            ``update_mask`` are updated.
+        update_mask (google.protobuf.field_mask_pb2.FieldMask):
+            Optional. Mask of fields to update.
+        validate_only (bool):
+            Optional. Only validate the request, but do
+            not perform mutations. The default is false.
+    """
+
+    metadata_feed: "MetadataFeed" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message="MetadataFeed",
+    )
+    update_mask: field_mask_pb2.FieldMask = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=field_mask_pb2.FieldMask,
+    )
+    validate_only: bool = proto.Field(
+        proto.BOOL,
+        number=3,
     )
 
 

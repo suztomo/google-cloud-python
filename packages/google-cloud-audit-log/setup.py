@@ -20,10 +20,10 @@ from setuptools import find_namespace_packages
 
 name = "google-cloud-audit-log"
 description = "Google Cloud Audit Protos"
-version = "0.3.2"
+version = "0.5.0"
 release_status = "Development Status :: 4 - Beta"
 dependencies = [
-    "protobuf>=3.20.2,<7.0.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5",
+    "protobuf >= 4.25.8, < 8.0.0",
     "googleapis-common-protos >= 1.56.2, < 2.0.0",
 ]
 
@@ -45,13 +45,12 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
     ],
     description=description,
@@ -60,7 +59,7 @@ setuptools.setup(
     install_requires=dependencies,
     license="Apache-2.0",
     packages=find_namespace_packages(exclude=("tests*", "testing*")),
-    python_requires=">=3.7",
-    url="https://github.com/googleapis/python-audit-log",
+    python_requires=">=3.9",
+    url="https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-audit-log",
     include_package_data=True,
 )

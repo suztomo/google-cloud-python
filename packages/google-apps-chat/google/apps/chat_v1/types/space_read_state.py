@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -70,14 +70,14 @@ class GetSpaceReadStateRequest(proto.Message):
 
             To refer to the calling user, set one of the following:
 
-            -  The ``me`` alias. For example,
-               ``users/me/spaces/{space}/spaceReadState``.
+            - The ``me`` alias. For example,
+              ``users/me/spaces/{space}/spaceReadState``.
 
-            -  Their Workspace email address. For example,
-               ``users/user@example.com/spaces/{space}/spaceReadState``.
+            - Their Workspace email address. For example,
+              ``users/user@example.com/spaces/{space}/spaceReadState``.
 
-            -  Their user id. For example,
-               ``users/123456789/spaces/{space}/spaceReadState``.
+            - Their user id. For example,
+              ``users/123456789/spaces/{space}/spaceReadState``.
 
             Format: users/{user}/spaces/{space}/spaceReadState
     """
@@ -99,21 +99,21 @@ class UpdateSpaceReadStateRequest(proto.Message):
 
             To refer to the calling user, set one of the following:
 
-            -  The ``me`` alias. For example,
-               ``users/me/spaces/{space}/spaceReadState``.
+            - The ``me`` alias. For example,
+              ``users/me/spaces/{space}/spaceReadState``.
 
-            -  Their Workspace email address. For example,
-               ``users/user@example.com/spaces/{space}/spaceReadState``.
+            - Their Workspace email address. For example,
+              ``users/user@example.com/spaces/{space}/spaceReadState``.
 
-            -  Their user id. For example,
-               ``users/123456789/spaces/{space}/spaceReadState``.
+            - Their user id. For example,
+              ``users/123456789/spaces/{space}/spaceReadState``.
 
             Format: users/{user}/spaces/{space}/spaceReadState
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. The field paths to update. Currently supported
             field paths:
 
-            -  ``last_read_time``
+            - ``last_read_time``
 
             When the ``last_read_time`` is before the latest message
             create time, the space appears as unread in the UI.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ class TranslationReportRecord(proto.Message):
             ERROR (3):
                 ERROR type. Translation failed.
         """
+
         SEVERITY_UNSPECIFIED = 0
         INFO = 1
         WARNING = 2

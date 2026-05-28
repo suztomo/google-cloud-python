@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataqna_v1alpha.types import annotated_string
@@ -52,6 +52,7 @@ class InterpretEntity(proto.Enum):
         METRIC (2):
             A metric entity.
     """
+
     INTERPRET_ENTITY_UNSPECIFIED = 0
     DIMENSION = 1
     METRIC = 2
@@ -195,6 +196,7 @@ class InterpretError(proto.Message):
                 answer. For example, because a requested
                 operation is not supported.
         """
+
         INTERPRET_ERROR_CODE_UNSPECIFIED = 0
         INVALID_QUERY = 1
         FAILED_TO_UNDERSTAND = 2
@@ -321,6 +323,7 @@ class ExecutionInfo(proto.Message):
             FAILED (4):
                 The job completed unsuccessfully.
         """
+
         JOB_EXECUTION_STATE_UNSPECIFIED = 0
         NOT_EXECUTED = 1
         RUNNING = 2
@@ -550,6 +553,7 @@ class InterpretationStructure(proto.Message):
                 may give a hint to the user that the requested
                 type was not understood.
         """
+
         VISUALIZATION_TYPE_UNSPECIFIED = 0
         TABLE = 1
         BAR_CHART = 2

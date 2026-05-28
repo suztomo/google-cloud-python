@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.rpc import status_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2.types import participant, session
@@ -75,7 +75,9 @@ class ConversationEvent(proto.Message):
             CONVERSATION_FINISHED (2):
                 An existing conversation has closed. This is
                 fired when a telephone call is terminated, or a
-                conversation is closed via the API.
+                conversation is closed via the API. The event is
+                fired for every CompleteConversation call, even
+                if the conversation is already closed.
             HUMAN_INTERVENTION_NEEDED (3):
                 An existing conversation has received
                 notification from Dialogflow that human
@@ -99,10 +101,11 @@ class ConversationEvent(proto.Message):
 
                 We don't fire this event:
 
-                -  in an API call because we can directly return the error,
-                   or,
-                -  when we can recover from an error.
+                - in an API call because we can directly return the error,
+                  or,
+                - when we can recover from an error.
         """
+
         TYPE_UNSPECIFIED = 0
         CONVERSATION_STARTED = 1
         CONVERSATION_FINISHED = 2

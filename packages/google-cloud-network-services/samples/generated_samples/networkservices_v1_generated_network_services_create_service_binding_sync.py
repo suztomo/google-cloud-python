@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,14 +39,9 @@ def sample_create_service_binding():
     client = network_services_v1.NetworkServicesClient()
 
     # Initialize request argument(s)
-    service_binding = network_services_v1.ServiceBinding()
-    service_binding.name = "name_value"
-    service_binding.service = "service_value"
-
     request = network_services_v1.CreateServiceBindingRequest(
         parent="parent_value",
         service_binding_id="service_binding_id_value",
-        service_binding=service_binding,
     )
 
     # Make the request
@@ -58,5 +53,6 @@ def sample_create_service_binding():
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_CreateServiceBinding_sync]

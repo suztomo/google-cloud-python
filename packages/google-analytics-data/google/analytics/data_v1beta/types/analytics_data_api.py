@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.analytics.data_v1beta.types import data
@@ -130,19 +130,19 @@ class CheckCompatibilityResponse(proto.Message):
             The compatibility of each metric.
     """
 
-    dimension_compatibilities: MutableSequence[
-        data.DimensionCompatibility
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=data.DimensionCompatibility,
+    dimension_compatibilities: MutableSequence[data.DimensionCompatibility] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=data.DimensionCompatibility,
+        )
     )
-    metric_compatibilities: MutableSequence[
-        data.MetricCompatibility
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=data.MetricCompatibility,
+    metric_compatibilities: MutableSequence[data.MetricCompatibility] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=data.MetricCompatibility,
+        )
     )
 
 
@@ -247,7 +247,7 @@ class RunReportRequest(proto.Message):
         metric_aggregations (MutableSequence[google.analytics.data_v1beta.types.MetricAggregation]):
             Aggregation of metrics. Aggregated metric values will be
             shown in rows where the dimension_values are set to
-            "RESERVED_(MetricAggregation)". Aggregates including both
+            "RESERVED\_(MetricAggregation)". Aggregates including both
             comparisons and multiple date ranges will be aggregated
             based on the date ranges.
         order_bys (MutableSequence[google.analytics.data_v1beta.types.OrderBy]):
@@ -881,7 +881,7 @@ class RunRealtimeReportRequest(proto.Message):
         metric_aggregations (MutableSequence[google.analytics.data_v1beta.types.MetricAggregation]):
             Aggregation of metrics. Aggregated metric values will be
             shown in rows where the dimension_values are set to
-            "RESERVED_(MetricAggregation)".
+            "RESERVED\_(MetricAggregation)".
         order_bys (MutableSequence[google.analytics.data_v1beta.types.OrderBy]):
             Specifies how rows are ordered in the
             response.
@@ -1226,6 +1226,7 @@ class AudienceExport(proto.Message):
                 is possible that re-requesting this audience
                 export will succeed.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2

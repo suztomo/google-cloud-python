@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.shopping.type.types import types
-from google.type import date_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
+from google.shopping.type.types import types
 
 __protobuf__ = proto.module(
     package="google.shopping.merchant.accounts.v1beta",
@@ -89,15 +89,15 @@ class UpdateOnlineReturnPolicyRequest(proto.Message):
             The following fields are supported (in both ``snake_case``
             and ``lowerCamelCase``):
 
-            -  ``accept_defective_only``
-            -  ``accept_exchange``
-            -  ``item_conditions``
-            -  ``policy``
-            -  ``process_refund_days``
-            -  ``restocking_fee``
-            -  ``return_methods``
-            -  ``return_policy_uri``
-            -  ``return_shipping_fee``
+            - ``accept_defective_only``
+            - ``accept_exchange``
+            - ``item_conditions``
+            - ``policy``
+            - ``process_refund_days``
+            - ``restocking_fee``
+            - ``return_methods``
+            - ``return_policy_uri``
+            - ``return_shipping_fee``
     """
 
     online_return_policy: "OnlineReturnPolicy" = proto.Field(
@@ -290,6 +290,7 @@ class OnlineReturnPolicy(proto.Message):
             AT_A_KIOSK (3):
                 Return at a kiosk.
         """
+
         RETURN_METHOD_UNSPECIFIED = 0
         BY_MAIL = 1
         IN_STORE = 2
@@ -306,6 +307,7 @@ class OnlineReturnPolicy(proto.Message):
             USED (2):
                 Used.
         """
+
         ITEM_CONDITION_UNSPECIFIED = 0
         NEW = 1
         USED = 2
@@ -323,6 +325,7 @@ class OnlineReturnPolicy(proto.Message):
             CUSTOMER_RESPONSIBILITY (3):
                 Customer to provide.
         """
+
         RETURN_LABEL_SOURCE_UNSPECIFIED = 0
         DOWNLOAD_AND_PRINT = 1
         IN_THE_PACKAGE = 2
@@ -355,6 +358,7 @@ class OnlineReturnPolicy(proto.Message):
                     Customers will pay the actual return shipping
                     fee.
             """
+
             TYPE_UNSPECIFIED = 0
             FIXED = 1
             CUSTOMER_PAYING_ACTUAL_FEE = 2
@@ -432,6 +436,7 @@ class OnlineReturnPolicy(proto.Message):
                 LIFETIME_RETURNS (3):
                     Life time returns.
             """
+
             TYPE_UNSPECIFIED = 0
             NUMBER_OF_DAYS_AFTER_DELIVERY = 1
             NO_RETURNS = 2

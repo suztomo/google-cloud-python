@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.gke_multicloud_v1 import gapic_version as package_version
 
@@ -61,12 +61,12 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.gke_multicloud_v1.services.azure_clusters import pagers
 from google.cloud.gke_multicloud_v1.types import (
@@ -123,7 +123,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -131,7 +131,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -141,6 +141,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -160,6 +164,34 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "gkemulticloud.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -414,12 +446,8 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AzureClustersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -427,7 +455,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -459,20 +487,14 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AzureClustersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -496,7 +518,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -593,7 +615,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -683,18 +705,16 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = AzureClustersClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            AzureClustersClient._read_environment_variables()
+        )
         self._client_cert_source = AzureClustersClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = AzureClustersClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -722,8 +742,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(AzureClustersTransport, transport)
             self._api_endpoint = self._transport.host
@@ -922,6 +941,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                    Active Directory Application and tenant.
 
         """
+        warnings.warn(
+            "AzureClustersClient.create_azure_client is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1067,6 +1090,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                    Active Directory Application and tenant.
 
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_client is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1191,6 +1218,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 resolve additional pages automatically.
 
         """
+        warnings.warn(
+            "AzureClustersClient.list_azure_clients is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1342,6 +1373,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                       }
 
         """
+        warnings.warn(
+            "AzureClustersClient.delete_azure_client is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1516,6 +1551,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 An Anthos cluster running on Azure.
 
         """
+        warnings.warn(
+            "AzureClustersClient.create_azure_cluster is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1645,23 +1684,23 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 repeated paths field can only include these fields from
                 [AzureCluster][google.cloud.gkemulticloud.v1.AzureCluster]:
 
-                -  ``description``.
-                -  ``azureClient``.
-                -  ``control_plane.version``.
-                -  ``control_plane.vm_size``.
-                -  ``annotations``.
-                -  ``authorization.admin_users``.
-                -  ``authorization.admin_groups``.
-                -  ``control_plane.root_volume.size_gib``.
-                -  ``azure_services_authentication``.
-                -  ``azure_services_authentication.tenant_id``.
-                -  ``azure_services_authentication.application_id``.
-                -  ``control_plane.proxy_config``.
-                -  ``control_plane.proxy_config.resource_group_id``.
-                -  ``control_plane.proxy_config.secret_id``.
-                -  ``control_plane.ssh_config.authorized_key``.
-                -  ``logging_config.component_config.enable_components``
-                -  ``monitoring_config.managed_prometheus_config.enabled``.
+                - ``description``.
+                - ``azureClient``.
+                - ``control_plane.version``.
+                - ``control_plane.vm_size``.
+                - ``annotations``.
+                - ``authorization.admin_users``.
+                - ``authorization.admin_groups``.
+                - ``control_plane.root_volume.size_gib``.
+                - ``azure_services_authentication``.
+                - ``azure_services_authentication.tenant_id``.
+                - ``azure_services_authentication.application_id``.
+                - ``control_plane.proxy_config``.
+                - ``control_plane.proxy_config.resource_group_id``.
+                - ``control_plane.proxy_config.secret_id``.
+                - ``control_plane.ssh_config.authorized_key``.
+                - ``logging_config.component_config.enable_components``
+                - ``monitoring_config.managed_prometheus_config.enabled``.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1683,6 +1722,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 An Anthos cluster running on Azure.
 
         """
+        warnings.warn(
+            "AzureClustersClient.update_azure_cluster is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1812,6 +1855,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
             google.cloud.gke_multicloud_v1.types.AzureCluster:
                 An Anthos cluster running on Azure.
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_cluster is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1936,6 +1983,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 resolve additional pages automatically.
 
         """
+        warnings.warn(
+            "AzureClustersClient.list_azure_clusters is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2088,6 +2139,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                       }
 
         """
+        warnings.warn(
+            "AzureClustersClient.delete_azure_cluster is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2198,6 +2253,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
             google.cloud.gke_multicloud_v1.types.GenerateAzureClusterAgentTokenResponse:
 
         """
+        warnings.warn(
+            "AzureClustersClient.generate_azure_cluster_agent_token is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -2290,6 +2350,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 AzureClusters.GenerateAzureAccessToken method.
 
         """
+        warnings.warn(
+            "AzureClustersClient.generate_azure_access_token is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -2443,6 +2508,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 An Anthos node pool running on Azure.
 
         """
+        warnings.warn(
+            "AzureClustersClient.create_azure_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2572,12 +2642,12 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
                 \*. ``annotations``.
 
-                -  ``version``.
-                -  ``autoscaling.min_node_count``.
-                -  ``autoscaling.max_node_count``.
-                -  ``config.ssh_config.authorized_key``.
-                -  ``management.auto_repair``.
-                -  ``management``.
+                - ``version``.
+                - ``autoscaling.min_node_count``.
+                - ``autoscaling.max_node_count``.
+                - ``config.ssh_config.authorized_key``.
+                - ``management.auto_repair``.
+                - ``management``.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2599,6 +2669,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 An Anthos node pool running on Azure.
 
         """
+        warnings.warn(
+            "AzureClustersClient.update_azure_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2727,6 +2802,10 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
             google.cloud.gke_multicloud_v1.types.AzureNodePool:
                 An Anthos node pool running on Azure.
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_node_pool is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2851,6 +2930,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 resolve additional pages automatically.
 
         """
+        warnings.warn(
+            "AzureClustersClient.list_azure_node_pools is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2998,6 +3082,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                       }
 
         """
+        warnings.warn(
+            "AzureClustersClient.delete_azure_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -3126,6 +3215,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 specification for details.
 
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_open_id_config is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -3241,6 +3335,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 Key Set as specififed in RFC 7517.
 
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_json_web_keys is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -3365,6 +3464,11 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
                 regions and Kubernetes versions.
 
         """
+        warnings.warn(
+            "AzureClustersClient.get_azure_server_config is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -3426,7 +3530,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3452,8 +3556,12 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3462,7 +3570,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3471,7 +3579,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3485,7 +3593,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3511,8 +3619,12 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3521,7 +3633,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3530,7 +3642,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3544,7 +3656,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
     def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3574,8 +3686,12 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3584,7 +3700,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3592,7 +3708,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3600,7 +3716,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
     def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3629,8 +3745,12 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3639,7 +3759,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3647,7 +3767,7 @@ class AzureClustersClient(metaclass=AzureClustersClientMeta):
 
         # Send the request.
         rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

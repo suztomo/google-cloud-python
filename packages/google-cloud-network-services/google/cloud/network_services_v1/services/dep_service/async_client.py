@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.network_services_v1 import gapic_version as package_version
 
@@ -44,16 +44,19 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.network_services_v1.services.dep_service import pagers
 from google.cloud.network_services_v1.types import common, dep
@@ -84,6 +87,14 @@ class DepServiceAsyncClient:
     _DEFAULT_ENDPOINT_TEMPLATE = DepServiceClient._DEFAULT_ENDPOINT_TEMPLATE
     _DEFAULT_UNIVERSE = DepServiceClient._DEFAULT_UNIVERSE
 
+    authz_extension_path = staticmethod(DepServiceClient.authz_extension_path)
+    parse_authz_extension_path = staticmethod(
+        DepServiceClient.parse_authz_extension_path
+    )
+    lb_edge_extension_path = staticmethod(DepServiceClient.lb_edge_extension_path)
+    parse_lb_edge_extension_path = staticmethod(
+        DepServiceClient.parse_lb_edge_extension_path
+    )
     lb_route_extension_path = staticmethod(DepServiceClient.lb_route_extension_path)
     parse_lb_route_extension_path = staticmethod(
         DepServiceClient.parse_lb_route_extension_path
@@ -124,7 +135,10 @@ class DepServiceAsyncClient:
         Returns:
             DepServiceAsyncClient: The constructed client.
         """
-        return DepServiceClient.from_service_account_info.__func__(DepServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DepServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DepServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +154,10 @@ class DepServiceAsyncClient:
         Returns:
             DepServiceAsyncClient: The constructed client.
         """
-        return DepServiceClient.from_service_account_file.__func__(DepServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DepServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DepServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -190,7 +207,7 @@ class DepServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -343,8 +360,8 @@ class DepServiceAsyncClient:
                 resources.
             parent (:class:`str`):
                 Required. The project and location from which the
-                ``LbTrafficExtension`` resources are listed, specified
-                in the following format:
+                ``LbTrafficExtension`` resources are listed. These
+                values are specified in the following format:
                 ``projects/{project}/locations/{location}``.
 
                 This corresponds to the ``parent`` field
@@ -573,7 +590,6 @@ class DepServiceAsyncClient:
                 # Initialize request argument(s)
                 lb_traffic_extension = network_services_v1.LbTrafficExtension()
                 lb_traffic_extension.name = "name_value"
-                lb_traffic_extension.forwarding_rules = ['forwarding_rules_value1', 'forwarding_rules_value2']
                 lb_traffic_extension.extension_chains.name = "name_value"
                 lb_traffic_extension.extension_chains.match_condition.cel_expression = "cel_expression_value"
                 lb_traffic_extension.extension_chains.extensions.name = "name_value"
@@ -587,11 +603,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_lb_traffic_extension(request=request)
+                operation = await client.create_lb_traffic_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -730,7 +746,6 @@ class DepServiceAsyncClient:
                 # Initialize request argument(s)
                 lb_traffic_extension = network_services_v1.LbTrafficExtension()
                 lb_traffic_extension.name = "name_value"
-                lb_traffic_extension.forwarding_rules = ['forwarding_rules_value1', 'forwarding_rules_value2']
                 lb_traffic_extension.extension_chains.name = "name_value"
                 lb_traffic_extension.extension_chains.match_condition.cel_expression = "cel_expression_value"
                 lb_traffic_extension.extension_chains.extensions.name = "name_value"
@@ -742,11 +757,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_lb_traffic_extension(request=request)
+                operation = await client.update_lb_traffic_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -762,8 +777,8 @@ class DepServiceAsyncClient:
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
                 Optional. Used to specify the fields to be overwritten
                 in the ``LbTrafficExtension`` resource by the update.
-                The fields specified in the update_mask are relative to
-                the resource, not the full request. A field is
+                The fields specified in the ``update_mask`` are relative
+                to the resource, not the full request. A field is
                 overwritten if it is in the mask. If the user does not
                 specify a mask, then all fields are overwritten.
 
@@ -882,11 +897,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_lb_traffic_extension(request=request)
+                operation = await client.delete_lb_traffic_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1028,8 +1043,8 @@ class DepServiceAsyncClient:
                 resources.
             parent (:class:`str`):
                 Required. The project and location from which the
-                ``LbRouteExtension`` resources are listed, specified in
-                the following format:
+                ``LbRouteExtension`` resources are listed. These values
+                are specified in the following format:
                 ``projects/{project}/locations/{location}``.
 
                 This corresponds to the ``parent`` field
@@ -1269,11 +1284,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_lb_route_extension(request=request)
+                operation = await client.create_lb_route_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1421,11 +1436,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_lb_route_extension(request=request)
+                operation = await client.update_lb_route_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1441,10 +1456,10 @@ class DepServiceAsyncClient:
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
                 Optional. Used to specify the fields to be overwritten
                 in the ``LbRouteExtension`` resource by the update. The
-                fields specified in the update_mask are relative to the
-                resource, not the full request. A field is overwritten
-                if it is in the mask. If the user does not specify a
-                mask, then all fields are overwritten.
+                fields specified in the ``update_mask`` are relative to
+                the resource, not the full request. A field is
+                overwritten if it is in the mask. If the user does not
+                specify a mask, then all fields are overwritten.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1558,11 +1573,11 @@ class DepServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_lb_route_extension(request=request)
+                operation = await client.delete_lb_route_extension(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1659,9 +1674,1361 @@ class DepServiceAsyncClient:
         # Done; return the response.
         return response
 
+    async def list_lb_edge_extensions(
+        self,
+        request: Optional[Union[dep.ListLbEdgeExtensionsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListLbEdgeExtensionsAsyncPager:
+        r"""Lists ``LbEdgeExtension`` resources in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_list_lb_edge_extensions():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.ListLbEdgeExtensionsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_lb_edge_extensions(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.ListLbEdgeExtensionsRequest, dict]]):
+                The request object. Message for requesting list of ``LbEdgeExtension``
+                resources.
+            parent (:class:`str`):
+                Required. The project and location from which the
+                ``LbEdgeExtension`` resources are listed. These values
+                are specified in the following format:
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_services_v1.services.dep_service.pagers.ListLbEdgeExtensionsAsyncPager:
+                Message for response to listing LbEdgeExtension
+                resources.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.ListLbEdgeExtensionsRequest):
+            request = dep.ListLbEdgeExtensionsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_lb_edge_extensions
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListLbEdgeExtensionsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_lb_edge_extension(
+        self,
+        request: Optional[Union[dep.GetLbEdgeExtensionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> dep.LbEdgeExtension:
+        r"""Gets details of the specified ``LbEdgeExtension`` resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_get_lb_edge_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.GetLbEdgeExtensionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_lb_edge_extension(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.GetLbEdgeExtensionRequest, dict]]):
+                The request object. Message for getting a ``LbEdgeExtension`` resource.
+            name (:class:`str`):
+                Required. A name of the ``LbEdgeExtension`` resource to
+                get. Must be in the format
+                ``projects/{project}/locations/{location}/lbEdgeExtensions/{lb_edge_extension}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_services_v1.types.LbEdgeExtension:
+                LbEdgeExtension is a resource that lets the extension service influence
+                   the selection of backend services and Cloud CDN cache
+                   keys by modifying request headers.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.GetLbEdgeExtensionRequest):
+            request = dep.GetLbEdgeExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_lb_edge_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_lb_edge_extension(
+        self,
+        request: Optional[Union[dep.CreateLbEdgeExtensionRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        lb_edge_extension: Optional[dep.LbEdgeExtension] = None,
+        lb_edge_extension_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Creates a new ``LbEdgeExtension`` resource in a given project
+        and location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_create_lb_edge_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                lb_edge_extension = network_services_v1.LbEdgeExtension()
+                lb_edge_extension.name = "name_value"
+                lb_edge_extension.forwarding_rules = ['forwarding_rules_value1', 'forwarding_rules_value2']
+                lb_edge_extension.extension_chains.name = "name_value"
+                lb_edge_extension.extension_chains.match_condition.cel_expression = "cel_expression_value"
+                lb_edge_extension.extension_chains.extensions.name = "name_value"
+                lb_edge_extension.extension_chains.extensions.service = "service_value"
+                lb_edge_extension.load_balancing_scheme = "EXTERNAL_MANAGED"
+
+                request = network_services_v1.CreateLbEdgeExtensionRequest(
+                    parent="parent_value",
+                    lb_edge_extension_id="lb_edge_extension_id_value",
+                    lb_edge_extension=lb_edge_extension,
+                )
+
+                # Make the request
+                operation = await client.create_lb_edge_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.CreateLbEdgeExtensionRequest, dict]]):
+                The request object. Message for creating a ``LbEdgeExtension`` resource.
+            parent (:class:`str`):
+                Required. The parent resource of the ``LbEdgeExtension``
+                resource. Must be in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            lb_edge_extension (:class:`google.cloud.network_services_v1.types.LbEdgeExtension`):
+                Required. ``LbEdgeExtension`` resource to be created.
+                This corresponds to the ``lb_edge_extension`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            lb_edge_extension_id (:class:`str`):
+                Required. User-provided ID of the ``LbEdgeExtension``
+                resource to be created.
+
+                This corresponds to the ``lb_edge_extension_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_services_v1.types.LbEdgeExtension` LbEdgeExtension is a resource that lets the extension service influence
+                   the selection of backend services and Cloud CDN cache
+                   keys by modifying request headers.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, lb_edge_extension, lb_edge_extension_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.CreateLbEdgeExtensionRequest):
+            request = dep.CreateLbEdgeExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if lb_edge_extension is not None:
+            request.lb_edge_extension = lb_edge_extension
+        if lb_edge_extension_id is not None:
+            request.lb_edge_extension_id = lb_edge_extension_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_lb_edge_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            dep.LbEdgeExtension,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def update_lb_edge_extension(
+        self,
+        request: Optional[Union[dep.UpdateLbEdgeExtensionRequest, dict]] = None,
+        *,
+        lb_edge_extension: Optional[dep.LbEdgeExtension] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Updates the parameters of the specified ``LbEdgeExtension``
+        resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_update_lb_edge_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                lb_edge_extension = network_services_v1.LbEdgeExtension()
+                lb_edge_extension.name = "name_value"
+                lb_edge_extension.forwarding_rules = ['forwarding_rules_value1', 'forwarding_rules_value2']
+                lb_edge_extension.extension_chains.name = "name_value"
+                lb_edge_extension.extension_chains.match_condition.cel_expression = "cel_expression_value"
+                lb_edge_extension.extension_chains.extensions.name = "name_value"
+                lb_edge_extension.extension_chains.extensions.service = "service_value"
+                lb_edge_extension.load_balancing_scheme = "EXTERNAL_MANAGED"
+
+                request = network_services_v1.UpdateLbEdgeExtensionRequest(
+                    lb_edge_extension=lb_edge_extension,
+                )
+
+                # Make the request
+                operation = await client.update_lb_edge_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.UpdateLbEdgeExtensionRequest, dict]]):
+                The request object. Message for updating a ``LbEdgeExtension`` resource.
+            lb_edge_extension (:class:`google.cloud.network_services_v1.types.LbEdgeExtension`):
+                Required. ``LbEdgeExtension`` resource being updated.
+                This corresponds to the ``lb_edge_extension`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
+                Optional. Used to specify the fields to be overwritten
+                in the ``LbEdgeExtension`` resource by the update. The
+                fields specified in the ``update_mask`` are relative to
+                the resource, not the full request. A field is
+                overwritten if it is in the mask. If the user does not
+                specify a mask, then all fields are overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_services_v1.types.LbEdgeExtension` LbEdgeExtension is a resource that lets the extension service influence
+                   the selection of backend services and Cloud CDN cache
+                   keys by modifying request headers.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [lb_edge_extension, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.UpdateLbEdgeExtensionRequest):
+            request = dep.UpdateLbEdgeExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if lb_edge_extension is not None:
+            request.lb_edge_extension = lb_edge_extension
+        if update_mask is not None:
+            request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.update_lb_edge_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("lb_edge_extension.name", request.lb_edge_extension.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            dep.LbEdgeExtension,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_lb_edge_extension(
+        self,
+        request: Optional[Union[dep.DeleteLbEdgeExtensionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes the specified ``LbEdgeExtension`` resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_delete_lb_edge_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.DeleteLbEdgeExtensionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_lb_edge_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.DeleteLbEdgeExtensionRequest, dict]]):
+                The request object. Message for deleting a ``LbEdgeExtension`` resource.
+            name (:class:`str`):
+                Required. The name of the ``LbEdgeExtension`` resource
+                to delete. Must be in the format
+                ``projects/{project}/locations/{location}/lbEdgeExtensions/{lb_edge_extension}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.DeleteLbEdgeExtensionRequest):
+            request = dep.DeleteLbEdgeExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_lb_edge_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_authz_extensions(
+        self,
+        request: Optional[Union[dep.ListAuthzExtensionsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListAuthzExtensionsAsyncPager:
+        r"""Lists ``AuthzExtension`` resources in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_list_authz_extensions():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.ListAuthzExtensionsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_authz_extensions(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.ListAuthzExtensionsRequest, dict]]):
+                The request object. Message for requesting list of ``AuthzExtension``
+                resources.
+            parent (:class:`str`):
+                Required. The project and location from which the
+                ``AuthzExtension`` resources are listed. These values
+                are specified in the following format:
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_services_v1.services.dep_service.pagers.ListAuthzExtensionsAsyncPager:
+                Message for response to listing AuthzExtension
+                resources.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.ListAuthzExtensionsRequest):
+            request = dep.ListAuthzExtensionsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_authz_extensions
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListAuthzExtensionsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_authz_extension(
+        self,
+        request: Optional[Union[dep.GetAuthzExtensionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> dep.AuthzExtension:
+        r"""Gets details of the specified ``AuthzExtension`` resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_get_authz_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.GetAuthzExtensionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_authz_extension(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.GetAuthzExtensionRequest, dict]]):
+                The request object. Message for getting a ``AuthzExtension`` resource.
+            name (:class:`str`):
+                Required. A name of the ``AuthzExtension`` resource to
+                get. Must be in the format
+                ``projects/{project}/locations/{location}/authzExtensions/{authz_extension}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_services_v1.types.AuthzExtension:
+                AuthzExtension is a resource that allows traffic forwarding
+                   to a callout backend service to make an authorization
+                   decision.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.GetAuthzExtensionRequest):
+            request = dep.GetAuthzExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_authz_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_authz_extension(
+        self,
+        request: Optional[Union[dep.CreateAuthzExtensionRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        authz_extension: Optional[dep.AuthzExtension] = None,
+        authz_extension_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Creates a new ``AuthzExtension`` resource in a given project and
+        location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_create_authz_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                authz_extension = network_services_v1.AuthzExtension()
+                authz_extension.name = "name_value"
+                authz_extension.load_balancing_scheme = "EXTERNAL_MANAGED"
+                authz_extension.authority = "authority_value"
+                authz_extension.service = "service_value"
+
+                request = network_services_v1.CreateAuthzExtensionRequest(
+                    parent="parent_value",
+                    authz_extension_id="authz_extension_id_value",
+                    authz_extension=authz_extension,
+                )
+
+                # Make the request
+                operation = await client.create_authz_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.CreateAuthzExtensionRequest, dict]]):
+                The request object. Message for creating a ``AuthzExtension`` resource.
+            parent (:class:`str`):
+                Required. The parent resource of the ``AuthzExtension``
+                resource. Must be in the format
+                ``projects/{project}/locations/{location}``.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            authz_extension (:class:`google.cloud.network_services_v1.types.AuthzExtension`):
+                Required. ``AuthzExtension`` resource to be created.
+                This corresponds to the ``authz_extension`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            authz_extension_id (:class:`str`):
+                Required. User-provided ID of the ``AuthzExtension``
+                resource to be created.
+
+                This corresponds to the ``authz_extension_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_services_v1.types.AuthzExtension` AuthzExtension is a resource that allows traffic forwarding
+                   to a callout backend service to make an authorization
+                   decision.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, authz_extension, authz_extension_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.CreateAuthzExtensionRequest):
+            request = dep.CreateAuthzExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if authz_extension is not None:
+            request.authz_extension = authz_extension
+        if authz_extension_id is not None:
+            request.authz_extension_id = authz_extension_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_authz_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            dep.AuthzExtension,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def update_authz_extension(
+        self,
+        request: Optional[Union[dep.UpdateAuthzExtensionRequest, dict]] = None,
+        *,
+        authz_extension: Optional[dep.AuthzExtension] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Updates the parameters of the specified ``AuthzExtension``
+        resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_update_authz_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                authz_extension = network_services_v1.AuthzExtension()
+                authz_extension.name = "name_value"
+                authz_extension.load_balancing_scheme = "EXTERNAL_MANAGED"
+                authz_extension.authority = "authority_value"
+                authz_extension.service = "service_value"
+
+                request = network_services_v1.UpdateAuthzExtensionRequest(
+                    authz_extension=authz_extension,
+                )
+
+                # Make the request
+                operation = await client.update_authz_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.UpdateAuthzExtensionRequest, dict]]):
+                The request object. Message for updating a ``AuthzExtension`` resource.
+            authz_extension (:class:`google.cloud.network_services_v1.types.AuthzExtension`):
+                Required. ``AuthzExtension`` resource being updated.
+                This corresponds to the ``authz_extension`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
+                Required. Used to specify the fields to be overwritten
+                in the ``AuthzExtension`` resource by the update. The
+                fields specified in the ``update_mask`` are relative to
+                the resource, not the full request. A field is
+                overwritten if it is in the mask. If the user does not
+                specify a mask, then all fields are overwritten.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.network_services_v1.types.AuthzExtension` AuthzExtension is a resource that allows traffic forwarding
+                   to a callout backend service to make an authorization
+                   decision.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [authz_extension, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.UpdateAuthzExtensionRequest):
+            request = dep.UpdateAuthzExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if authz_extension is not None:
+            request.authz_extension = authz_extension
+        if update_mask is not None:
+            request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.update_authz_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("authz_extension.name", request.authz_extension.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            dep.AuthzExtension,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_authz_extension(
+        self,
+        request: Optional[Union[dep.DeleteAuthzExtensionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes the specified ``AuthzExtension`` resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_services_v1
+
+            async def sample_delete_authz_extension():
+                # Create a client
+                client = network_services_v1.DepServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_services_v1.DeleteAuthzExtensionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_authz_extension(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_services_v1.types.DeleteAuthzExtensionRequest, dict]]):
+                The request object. Message for deleting a ``AuthzExtension`` resource.
+            name (:class:`str`):
+                Required. The name of the ``AuthzExtension`` resource to
+                delete. Must be in the format
+                ``projects/{project}/locations/{location}/authzExtensions/{authz_extension}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, dep.DeleteAuthzExtensionRequest):
+            request = dep.DeleteAuthzExtensionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_authz_extension
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=common.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1687,8 +3054,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1697,7 +3068,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1705,7 +3076,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1716,7 +3087,7 @@ class DepServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1742,8 +3113,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1752,7 +3127,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1760,7 +3135,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1771,7 +3146,7 @@ class DepServiceAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1801,8 +3176,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1811,7 +3190,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1819,7 +3198,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1827,7 +3206,7 @@ class DepServiceAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1856,8 +3235,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1866,7 +3249,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1874,7 +3257,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1882,7 +3265,7 @@ class DepServiceAsyncClient:
 
     async def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1974,8 +3357,12 @@ class DepServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1984,7 +3371,9 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -1992,7 +3381,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2003,7 +3392,7 @@ class DepServiceAsyncClient:
 
     async def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2096,8 +3485,12 @@ class DepServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2106,7 +3499,9 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -2114,7 +3509,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2125,7 +3520,7 @@ class DepServiceAsyncClient:
 
     async def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2156,8 +3551,12 @@ class DepServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2168,7 +3567,9 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -2176,7 +3577,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2187,7 +3588,7 @@ class DepServiceAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2213,8 +3614,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2223,7 +3628,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2231,7 +3636,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2242,7 +3647,7 @@ class DepServiceAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2268,8 +3673,12 @@ class DepServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2278,7 +3687,7 @@ class DepServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2286,7 +3695,7 @@ class DepServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
