@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ class PhoneVerificationState(proto.Enum):
         PHONE_VERIFICATION_STATE_UNVERIFIED (2):
             The phone is unverified
     """
+
     PHONE_VERIFICATION_STATE_UNSPECIFIED = 0
     PHONE_VERIFICATION_STATE_VERIFIED = 1
     PHONE_VERIFICATION_STATE_UNVERIFIED = 2

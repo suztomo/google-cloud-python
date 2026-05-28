@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_replace_artifact():
     client = apigee_registry_v1.RegistryAsyncClient()
 
     # Initialize request argument(s)
-    request = apigee_registry_v1.ReplaceArtifactRequest(
-    )
+    request = apigee_registry_v1.ReplaceArtifactRequest()
 
     # Make the request
     response = await client.replace_artifact(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END apigeeregistry_v1_generated_Registry_ReplaceArtifact_async]

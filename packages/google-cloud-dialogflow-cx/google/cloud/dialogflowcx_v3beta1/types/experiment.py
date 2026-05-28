@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -119,6 +119,7 @@ class Experiment(proto.Message):
                 The experiment with auto-rollout enabled has
                 failed.
         """
+
         STATE_UNSPECIFIED = 0
         DRAFT = 1
         RUNNING = 2
@@ -189,6 +190,7 @@ class Experiment(proto.Message):
                     Percentage of sessions reached Dialogflow 'END_PAGE' or
                     'END_SESSION'.
             """
+
             METRIC_UNSPECIFIED = 0
             CONTAINED_SESSION_NO_CALLBACK_RATE = 1
             LIVE_AGENT_HANDOFF_RATE = 2
@@ -209,6 +211,7 @@ class Experiment(proto.Message):
                 AVERAGE_TURN_COUNT (3):
                     Average turn count in a session.
             """
+
             COUNT_TYPE_UNSPECIFIED = 0
             TOTAL_NO_MATCH_COUNT = 1
             TOTAL_TURN_COUNT = 2
@@ -336,12 +339,12 @@ class Experiment(proto.Message):
                 number=3,
             )
 
-        version_metrics: MutableSequence[
-            "Experiment.Result.VersionMetrics"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="Experiment.Result.VersionMetrics",
+        version_metrics: MutableSequence["Experiment.Result.VersionMetrics"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="Experiment.Result.VersionMetrics",
+            )
         )
         last_update_time: timestamp_pb2.Timestamp = proto.Field(
             proto.MESSAGE,

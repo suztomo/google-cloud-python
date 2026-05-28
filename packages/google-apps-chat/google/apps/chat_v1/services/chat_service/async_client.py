@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.apps.chat_v1 import gapic_version as package_version
 
@@ -44,8 +44,8 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.apps.chat_v1.services.chat_service import pagers
 from google.apps.chat_v1.types import (
@@ -57,24 +57,28 @@ from google.apps.chat_v1.types import (
     group,
     history_state,
     matched_url,
+    membership,
+    message,
+    reaction,
+    section,
+    slash_command,
+    space,
+    space_event,
+    space_notification_setting,
+    space_read_state,
+    space_setup,
+    thread_read_state,
+    user,
 )
+from google.apps.chat_v1.types import membership as gc_membership
+from google.apps.chat_v1.types import message as gc_message
+from google.apps.chat_v1.types import reaction as gc_reaction
+from google.apps.chat_v1.types import section as gc_section
+from google.apps.chat_v1.types import space as gc_space
 from google.apps.chat_v1.types import (
     space_notification_setting as gc_space_notification_setting,
 )
-from google.apps.chat_v1.types import membership
-from google.apps.chat_v1.types import membership as gc_membership
-from google.apps.chat_v1.types import message
-from google.apps.chat_v1.types import message as gc_message
-from google.apps.chat_v1.types import reaction
-from google.apps.chat_v1.types import reaction as gc_reaction
-from google.apps.chat_v1.types import slash_command
-from google.apps.chat_v1.types import space
-from google.apps.chat_v1.types import space as gc_space
-from google.apps.chat_v1.types import space_event
-from google.apps.chat_v1.types import space_notification_setting
-from google.apps.chat_v1.types import space_read_state
 from google.apps.chat_v1.types import space_read_state as gc_space_read_state
-from google.apps.chat_v1.types import space_setup, thread_read_state, user
 
 from .client import ChatServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, ChatServiceTransport
@@ -120,6 +124,10 @@ class ChatServiceAsyncClient:
     )
     reaction_path = staticmethod(ChatServiceClient.reaction_path)
     parse_reaction_path = staticmethod(ChatServiceClient.parse_reaction_path)
+    section_path = staticmethod(ChatServiceClient.section_path)
+    parse_section_path = staticmethod(ChatServiceClient.parse_section_path)
+    section_item_path = staticmethod(ChatServiceClient.section_item_path)
+    parse_section_item_path = staticmethod(ChatServiceClient.parse_section_item_path)
     space_path = staticmethod(ChatServiceClient.space_path)
     parse_space_path = staticmethod(ChatServiceClient.parse_space_path)
     space_event_path = staticmethod(ChatServiceClient.space_event_path)
@@ -140,6 +148,8 @@ class ChatServiceAsyncClient:
     parse_thread_read_state_path = staticmethod(
         ChatServiceClient.parse_thread_read_state_path
     )
+    user_path = staticmethod(ChatServiceClient.user_path)
+    parse_user_path = staticmethod(ChatServiceClient.parse_user_path)
     common_billing_account_path = staticmethod(
         ChatServiceClient.common_billing_account_path
     )
@@ -174,7 +184,10 @@ class ChatServiceAsyncClient:
         Returns:
             ChatServiceAsyncClient: The constructed client.
         """
-        return ChatServiceClient.from_service_account_info.__func__(ChatServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ChatServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ChatServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -190,7 +203,10 @@ class ChatServiceAsyncClient:
         Returns:
             ChatServiceAsyncClient: The constructed client.
         """
-        return ChatServiceClient.from_service_account_file.__func__(ChatServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ChatServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ChatServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -240,7 +256,7 @@ class ChatServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -363,10 +379,24 @@ class ChatServiceAsyncClient:
         `Send a
         message <https://developers.google.com/workspace/chat/create-messages>`__.
 
-        The ``create()`` method requires either `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-        or `app
-        authentication <https://developers.google.com/workspace/chat/authorize-import>`__.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
+
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.create``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+
         Chat attributes the message sender differently depending on the
         type of authentication that you use in your request.
 
@@ -376,7 +406,7 @@ class ChatServiceAsyncClient:
         (``text``), cards (``cardsV2``), and accessory widgets
         (``accessoryWidgets``).
 
-        |Message sent with app authentication async|
+        |Message sent with app authentication|
 
         The following image shows how Chat attributes a message when you
         use user authentication. Chat displays the user as the message
@@ -384,7 +414,7 @@ class ChatServiceAsyncClient:
         its name. The content of message can only contain text
         (``text``).
 
-        |Message sent with user authentication async|
+        |Message sent with user authentication|
 
         The maximum message size, including the message contents, is
         32,000 bytes.
@@ -395,8 +425,8 @@ class ChatServiceAsyncClient:
         response only populates the ``name`` and ``thread.name`` fields
         in addition to the information that was in the request.
 
-        .. |Message sent with app authentication async| image:: https://developers.google.com/workspace/chat/images/message-app-auth.svg
-        .. |Message sent with user authentication async| image:: https://developers.google.com/workspace/chat/images/message-user-auth.svg
+        .. |Message sent with app authentication| image:: https://developers.google.com/workspace/chat/images/message-app-auth.svg
+        .. |Message sent with user authentication| image:: https://developers.google.com/workspace/chat/images/message-user-auth.svg
 
         .. code-block:: python
 
@@ -450,13 +480,13 @@ class ChatServiceAsyncClient:
                 The value for this field must meet the following
                 requirements:
 
-                -  Begins with ``client-``. For example,
-                   ``client-custom-name`` is a valid custom ID, but
-                   ``custom-name`` is not.
-                -  Contains up to 63 characters and only lowercase
-                   letters, numbers, and hyphens.
-                -  Is unique within a space. A Chat app can't use the
-                   same custom ID for different messages.
+                - Begins with ``client-``. For example,
+                  ``client-custom-name`` is a valid custom ID, but
+                  ``custom-name`` is not.
+                - Contains up to 63 characters and only lowercase
+                  letters, numbers, and hyphens.
+                - Is unique within a space. A Chat app can't use the
+                  same custom ID for different messages.
 
                 For details, see `Name a
                 message <https://developers.google.com/workspace/chat/create-messages#name_a_created_message>`__.
@@ -539,14 +569,36 @@ class ChatServiceAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListMessagesAsyncPager:
         r"""Lists messages in a space that the caller is a member of,
-        including messages from blocked members and spaces. If you list
-        messages from a space with no messages, the response is an empty
-        object. When using a REST/HTTP interface, the response contains
-        an empty JSON object, ``{}``. For an example, see `List
+        including messages from blocked members and spaces. System
+        messages, like those announcing new space members, aren't
+        included. If you list messages from a space with no messages,
+        the response is an empty object. When using a REST/HTTP
+        interface, the response contains an empty JSON object, ``{}``.
+        For an example, see `List
         messages <https://developers.google.com/workspace/chat/api/guides/v1/messages/list>`__.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with the authorization scope:
+
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``.
+            When using this authentication scope, this method only
+            returns public messages in a space. It doesn't include
+            private messages.
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         .. code-block:: python
 
@@ -689,14 +741,30 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (requires `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         .. code-block:: python
 
@@ -832,14 +900,28 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (requires `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         .. code-block:: python
 
@@ -971,11 +1053,28 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``: When using
+            this authorization scope, this method returns details about
+            a message the Chat app has access to, like direct messages
+            and `slash
+            commands <https://developers.google.com/workspace/chat/slash-commands>`__
+            that invoke the Chat app.
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+            with `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__.
+            When using this authentication scope, this method returns
+            details about a public message in a space.
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
 
         Note: Might return a message from a blocked member or space.
 
@@ -1102,11 +1201,19 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         When using app authentication, requests can only update messages
         created by the calling Chat app.
@@ -1153,18 +1260,21 @@ class ChatServiceAsyncClient:
 
                 Currently supported field paths:
 
-                -  ``text``
+                - ``text``
 
-                -  ``attachment``
+                - ``attachment``
 
-                -  ``cards`` (Requires `app
-                   authentication </chat/api/guides/auth/service-accounts>`__.)
+                - ``cards`` (Requires `app
+                  authentication </chat/api/guides/auth/service-accounts>`__.)
 
-                -  ``cards_v2`` (Requires `app
-                   authentication </chat/api/guides/auth/service-accounts>`__.)
+                - ``cards_v2`` (Requires `app
+                  authentication </chat/api/guides/auth/service-accounts>`__.)
 
-                -  ``accessory_widgets`` (Requires `app
-                   authentication </chat/api/guides/auth/service-accounts>`__.)
+                - ``accessory_widgets`` (Requires `app
+                  authentication </chat/api/guides/auth/service-accounts>`__.)
+
+                - ``quoted_message_metadata`` (Only allows removal of
+                  the quoted message.)
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1249,11 +1359,19 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
 
         When using app authentication, requests can only delete messages
         created by the calling Chat app.
@@ -1365,8 +1483,13 @@ class ChatServiceAsyncClient:
         API <https://developers.google.com/workspace/chat/api/reference/rest/v1/media/download>`__.
         For an example, see `Get metadata about a message
         attachment <https://developers.google.com/workspace/chat/get-media-attachments>`__.
+
         Requires `app
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.bot``
 
         .. code-block:: python
 
@@ -1478,7 +1601,14 @@ class ChatServiceAsyncClient:
         attachment <https://developers.google.com/workspace/chat/upload-media-attachments>`__.
 
         Requires user
-        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.create``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         You can upload attachments up to 200 MB. Certain file types
         aren't supported. For details, see `File types blocked by Google
@@ -1574,11 +1704,18 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
 
         To list all named spaces by Google Workspace organization, use
         the
@@ -1678,11 +1815,18 @@ class ChatServiceAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.SearchSpacesAsyncPager:
         r"""Returns a list of spaces in a Google Workspace organization
-        based on an administrator's search.
+        based on an administrator's search. In the request, set
+        ``use_admin_access`` to ``true``. For an example, see `Search
+        for and manage
+        spaces <https://developers.google.com/workspace/chat/search-manage-admin>`__.
 
         Requires `user authentication with administrator
-        privileges <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user#admin-privileges>`__.
-        In the request, set ``use_admin_access`` to ``true``.
+        privileges <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user#admin-privileges>`__
+        and one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.admin.spaces.readonly``
+        - ``https://www.googleapis.com/auth/chat.admin.spaces``
 
         .. code-block:: python
 
@@ -1785,14 +1929,37 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.bot``
+          - ``https://www.googleapis.com/auth/chat.app.spaces`` with
+            `administrator
+            approval <https://support.google.com/a?p=chat-app-auth>`__
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and one of the following authorization scopes is
+            used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.spaces.readonly``
+            - ``https://www.googleapis.com/auth/chat.admin.spaces``
+
+        App authentication has the following limitations:
+
+        - ``space.access_settings`` is only populated when using the
+          ``chat.app.spaces`` scope.
+        - ``space.predefind_permission_settings`` and
+          ``space.permission_settings`` are only populated when using
+          the ``chat.app.spaces`` scope, and only for spaces the app
+          created.
 
         .. code-block:: python
 
@@ -1906,31 +2073,56 @@ class ChatServiceAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> gc_space.Space:
-        r"""Creates a space with no members. Can be used to create a named
-        space, or a group chat in ``Import mode``. For an example, see
-        `Create a
+        r"""Creates a space. Can be used to create a named space, or a group
+        chat in ``Import mode``. For an example, see `Create a
         space <https://developers.google.com/workspace/chat/create-spaces>`__.
+
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces.create``
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.create``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+
+        When authenticating as an app, the ``space.customer`` field must
+        be set in the request.
+
+        When authenticating as an app, the Chat app is added as a member
+        of the space. However, unlike human authentication, the Chat app
+        is not added as a space manager. By default, the Chat app can be
+        removed from the space by all space members. To allow only space
+        managers to remove the app from a space, set
+        ``space.permission_settings.manage_apps`` to
+        ``managers_allowed``.
+
+        Space membership upon creation depends on whether the space is
+        created in ``Import mode``:
+
+        - **Import mode:** No members are created.
+        - **All other modes:** The calling user is added as a member.
+          This is:
+
+          - The app itself when using app authentication.
+          - The human user when using user authentication.
 
         If you receive the error message ``ALREADY_EXISTS`` when
         creating a space, try a different ``displayName``. An existing
         space within the Google Workspace organization might already use
         this display name.
-
-        Supports the following types of
-        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
-
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
-
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-
-        When authenticating as an app, the ``space.customer`` field must
-        be set in the request.
 
         .. code-block:: python
 
@@ -2107,7 +2299,12 @@ class ChatServiceAsyncClient:
         name.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.spaces.create``
+        - ``https://www.googleapis.com/auth/chat.spaces``
 
         .. code-block:: python
 
@@ -2205,18 +2402,34 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          one of the following authorization scopes:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scopes is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.spaces``
+
+        App authentication has the following limitations:
+
+        - To update either ``space.predefined_permission_settings`` or
+          ``space.permission_settings``, the app must be the space
+          creator.
+        - Updating the ``space.access_settings.audience`` is not
+          supported for app authentication.
 
         .. code-block:: python
 
@@ -2265,8 +2478,12 @@ class ChatServiceAsyncClient:
 
                 You can update the following fields for a space:
 
-                ``space_details``: Updates the space's description.
-                Supports up to 150 characters.
+                ``space_details``: Updates the space's description and
+                guidelines. You must pass both description and
+                guidelines in the update request as
+                [``SpaceDetails``][google.chat.v1.Space.SpaceDetails].
+                If you only want to update one of the fields, pass the
+                existing value for the other field.
 
                 ``display_name``: Only supports updating the display
                 name for spaces where ``spaceType`` field is ``SPACE``.
@@ -2319,17 +2536,16 @@ class ChatServiceAsyncClient:
                 settings <https://support.google.com/chat/answer/13340792>`__
                 of a space. When updating permission settings, you can
                 only specify ``permissionSettings`` field masks; you
-                cannot update other field masks at the same time.
-                ``permissionSettings`` is not supported with
-                ``useAdminAccess``. The supported field masks include:
+                cannot update other field masks at the same time. The
+                supported field masks include:
 
-                -  ``permission_settings.manageMembersAndGroups``
-                -  ``permission_settings.modifySpaceDetails``
-                -  ``permission_settings.toggleHistory``
-                -  ``permission_settings.useAtMentionAll``
-                -  ``permission_settings.manageApps``
-                -  ``permission_settings.manageWebhooks``
-                -  ``permission_settings.replyMessages``
+                - ``permission_settings.manageMembersAndGroups``
+                - ``permission_settings.modifySpaceDetails``
+                - ``permission_settings.toggleHistory``
+                - ``permission_settings.useAtMentionAll``
+                - ``permission_settings.manageApps``
+                - ``permission_settings.manageWebhooks``
+                - ``permission_settings.replyMessages``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2421,18 +2637,27 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.delete`` (only in
+            spaces the app created)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.delete``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.delete``
 
         .. code-block:: python
 
@@ -2534,10 +2759,14 @@ class ChatServiceAsyncClient:
         process <https://developers.google.com/workspace/chat/import-data>`__
         for the specified space and makes it visible to users.
 
-        Requires `app
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-        and domain-wide delegation. For more information, see `Authorize
-        Google Chat apps to import
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        and domain-wide delegation with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.import``
+
+        For more information, see `Authorize Google Chat apps to import
         data <https://developers.google.com/workspace/chat/authorize-import>`__.
 
         .. code-block:: python
@@ -2639,14 +2868,21 @@ class ChatServiceAsyncClient:
         returns the direct message space between the specified user and
         the authenticated user.
 
-        // Supports the following types of
+        Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          - ``https://www.googleapis.com/auth/chat.bot``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
 
         .. code-block:: python
 
@@ -2720,6 +2956,124 @@ class ChatServiceAsyncClient:
         # Done; return the response.
         return response
 
+    async def find_group_chats(
+        self,
+        request: Optional[Union[space.FindGroupChatsRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FindGroupChatsAsyncPager:
+        r"""Returns all spaces with ``spaceType == GROUP_CHAT``, whose human
+        memberships contain exactly the calling user, and the users
+        specified in ``FindGroupChatsRequest.users``. Only members that
+        have joined the conversation are supported. For an example, see
+        `Find group
+        chats <https://developers.google.com/workspace/chat/find-group-chats>`__.
+
+        If the calling user blocks, or is blocked by, some users, and no
+        spaces with the entire specified set of users are found, this
+        method returns spaces that don't include the blocked or blocking
+        users.
+
+        The specified set of users must contain only human (non-app)
+        memberships. A request that contains non-human users doesn't
+        return any spaces.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+        - ``https://www.googleapis.com/auth/chat.memberships``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_find_group_chats():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.FindGroupChatsRequest(
+                )
+
+                # Make the request
+                page_result = client.find_group_chats(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.FindGroupChatsRequest, dict]]):
+                The request object. A request to get group chat spaces
+                based on user resources.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.services.chat_service.pagers.FindGroupChatsAsyncPager:
+                A response containing group chat
+                spaces with exactly the calling user and
+                the requested users.
+
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, space.FindGroupChatsRequest):
+            request = space.FindGroupChatsRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.find_group_chats
+        ]
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.FindGroupChatsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def create_membership(
         self,
         request: Optional[Union[gc_membership.CreateMembershipRequest, dict]] = None,
@@ -2741,29 +3095,44 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.memberships.app`` (to
+            add the calling app to the space)
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
+
+        App authentication is not supported for the following use cases:
+
+        - Inviting users external to the Workspace organization that
+          owns the space.
+        - Adding a Google Group to a space.
+        - Adding a Chat app to a space.
 
         For example usage, see:
 
-        -  `Invite or add a user to a
-           space <https://developers.google.com/workspace/chat/create-members#create-user-membership>`__.
-
-        -  `Invite or add a Google Group to a
-           space <https://developers.google.com/workspace/chat/create-members#create-group-membership>`__.
-
-        -  `Add the Chat app to a
-           space <https://developers.google.com/workspace/chat/create-members#create-membership-calling-api>`__.
+        - `Invite or add a user to a
+          space <https://developers.google.com/workspace/chat/create-members#create-user-membership>`__.
+        - `Invite or add a Google Group to a
+          space <https://developers.google.com/workspace/chat/create-members#create-group-membership>`__.
+        - `Add the Chat app to a
+          space <https://developers.google.com/workspace/chat/create-members#create-membership-calling-api>`__.
 
         .. code-block:: python
 
@@ -2817,30 +3186,28 @@ class ChatServiceAsyncClient:
                 human user, it must use certain authorization scopes and
                 set specific values for certain fields:
 
-                -  When `authenticating as a
-                   user <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__,
-                   the ``chat.memberships`` authorization scope is
-                   required.
+                - When `authenticating as a
+                  user <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__,
+                  the ``chat.memberships`` authorization scope is
+                  required.
 
-                -  When `authenticating as an
-                   app <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__,
-                   the ``chat.app.memberships`` authorization scope is
-                   required. Authenticating as an app is available in
-                   `Developer
-                   Preview <https://developers.google.com/workspace/preview>`__.
+                - When `authenticating as an
+                  app <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__,
+                  the ``chat.app.memberships`` authorization scope is
+                  required.
 
-                -  Set ``user.type`` to ``HUMAN``, and set ``user.name``
-                   with format ``users/{user}``, where ``{user}`` can be
-                   the email address for the user. For users in the same
-                   Workspace organization ``{user}`` can also be the
-                   ``id`` of the
-                   `person <https://developers.google.com/people/api/rest/v1/people>`__
-                   from the People API, or the ``id`` for the user in
-                   the Directory API. For example, if the People API
-                   Person profile ID for ``user@example.com`` is
-                   ``123456789``, you can add the user to the space by
-                   setting the ``membership.member.name`` to
-                   ``users/user@example.com`` or ``users/123456789``.
+                - Set ``user.type`` to ``HUMAN``, and set ``user.name``
+                  with format ``users/{user}``, where ``{user}`` can be
+                  the email address for the user. For users in the same
+                  Workspace organization ``{user}`` can also be the
+                  ``id`` of the
+                  `person <https://developers.google.com/people/api/rest/v1/people>`__
+                  from the People API, or the ``id`` for the user in the
+                  Directory API. For example, if the People API Person
+                  profile ID for ``user@example.com`` is ``123456789``,
+                  you can add the user to the space by setting the
+                  ``membership.member.name`` to
+                  ``users/user@example.com`` or ``users/123456789``.
 
                 Inviting users external to the Workspace organization
                 that owns the space requires `user
@@ -2940,18 +3307,27 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+            (only in spaces the app created)
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
 
         .. code-block:: python
 
@@ -2996,7 +3372,7 @@ class ChatServiceAsyncClient:
 
                 Currently supported field paths:
 
-                -  ``role``
+                - ``role``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3086,18 +3462,38 @@ class ChatServiceAsyncClient:
         Supports the following types of
         `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__:
 
-        -  `App
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-           with `administrator
-           approval <https://support.google.com/a?p=chat-app-auth>`__ in
-           `Developer
-           Preview <https://developers.google.com/workspace/preview>`__
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__ and
+          the authorization scope:
 
-        -  `User
-           authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
-           You can authenticate and authorize this method with
-           administrator privileges by setting the ``use_admin_access``
-           field in the request.
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.memberships``
+          - ``https://www.googleapis.com/auth/chat.memberships.app`` (to
+            remove the calling app from the space)
+          - ``https://www.googleapis.com/auth/chat.import`` (import mode
+            spaces only)
+          - User authentication grants administrator privileges when an
+            administrator account authenticates, ``use_admin_access`` is
+            ``true``, and the following authorization scope is used:
+
+            - ``https://www.googleapis.com/auth/chat.admin.memberships``
+
+        App authentication is not supported for the following use cases:
+
+        - Removing a Google Group from a space.
+        - Removing a Chat app from a space.
+
+        To delete memberships for space managers, the requester must be
+        a space manager. If you're using `app
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+        the Chat app must be the space creator.
 
         .. code-block:: python
 
@@ -3136,12 +3532,15 @@ class ChatServiceAsyncClient:
                 memberships.
 
                 When deleting a human membership, requires the
-                ``chat.memberships`` scope and
-                ``spaces/{space}/members/{member}`` format. You can use
-                the email as an alias for ``{member}``. For example,
-                ``spaces/{space}/members/example@gmail.com`` where
-                ``example@gmail.com`` is the email of the Google Chat
-                user.
+                ``chat.memberships`` scope with `user
+                authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+                or the ``chat.memberships.app`` scope with `app
+                authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+                and the ``spaces/{space}/members/{member}`` format. You
+                can use the email as an alias for ``{member}``. For
+                example, ``spaces/{space}/members/example@gmail.com``
+                where ``example@gmail.com`` is the email of the Google
+                Chat user.
 
                 When deleting an app membership, requires the
                 ``chat.memberships.app`` scope and
@@ -3233,7 +3632,15 @@ class ChatServiceAsyncClient:
         message <https://developers.google.com/workspace/chat/create-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions.create``
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         .. code-block:: python
 
@@ -3358,7 +3765,14 @@ class ChatServiceAsyncClient:
         message <https://developers.google.com/workspace/chat/list-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages.readonly``
+        - ``https://www.googleapis.com/auth/chat.messages``
 
         .. code-block:: python
 
@@ -3488,7 +3902,14 @@ class ChatServiceAsyncClient:
         reaction <https://developers.google.com/workspace/chat/delete-reactions>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.messages.reactions``
+        - ``https://www.googleapis.com/auth/chat.messages``
+        - ``https://www.googleapis.com/auth/chat.import`` (import mode
+          spaces only)
 
         .. code-block:: python
 
@@ -3599,7 +4020,11 @@ class ChatServiceAsyncClient:
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         .. code-block:: python
 
@@ -3645,7 +4070,7 @@ class ChatServiceAsyncClient:
         Returns:
             google.apps.chat_v1.types.CustomEmoji:
                 Represents a [custom
-                emoji](\ https://support.google.com/chat/answer/12800149).
+                emoji](https://support.google.com/chat/answer/12800149).
 
         """
         # Create or coerce a protobuf request object.
@@ -3711,7 +4136,12 @@ class ChatServiceAsyncClient:
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis.readonly``
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         .. code-block:: python
 
@@ -3768,7 +4198,7 @@ class ChatServiceAsyncClient:
         Returns:
             google.apps.chat_v1.types.CustomEmoji:
                 Represents a [custom
-                emoji](\ https://support.google.com/chat/answer/12800149).
+                emoji](https://support.google.com/chat/answer/12800149).
 
         """
         # Create or coerce a protobuf request object.
@@ -3839,7 +4269,12 @@ class ChatServiceAsyncClient:
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis.readonly``
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         .. code-block:: python
 
@@ -3950,7 +4385,11 @@ class ChatServiceAsyncClient:
         permissions <https://support.google.com/a/answer/12850085>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.customemojis``
 
         .. code-block:: python
 
@@ -4063,7 +4502,12 @@ class ChatServiceAsyncClient:
         state <https://developers.google.com/workspace/chat/get-space-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate.readonly``
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         .. code-block:: python
 
@@ -4103,14 +4547,14 @@ class ChatServiceAsyncClient:
 
                 To refer to the calling user, set one of the following:
 
-                -  The ``me`` alias. For example,
-                   ``users/me/spaces/{space}/spaceReadState``.
+                - The ``me`` alias. For example,
+                  ``users/me/spaces/{space}/spaceReadState``.
 
-                -  Their Workspace email address. For example,
-                   ``users/user@example.com/spaces/{space}/spaceReadState``.
+                - Their Workspace email address. For example,
+                  ``users/user@example.com/spaces/{space}/spaceReadState``.
 
-                -  Their user id. For example,
-                   ``users/123456789/spaces/{space}/spaceReadState``.
+                - Their user id. For example,
+                  ``users/123456789/spaces/{space}/spaceReadState``.
 
                 Format: users/{user}/spaces/{space}/spaceReadState
 
@@ -4199,7 +4643,11 @@ class ChatServiceAsyncClient:
         state <https://developers.google.com/workspace/chat/update-space-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         .. code-block:: python
 
@@ -4237,14 +4685,14 @@ class ChatServiceAsyncClient:
 
                 To refer to the calling user, set one of the following:
 
-                -  The ``me`` alias. For example,
-                   ``users/me/spaces/{space}/spaceReadState``.
+                - The ``me`` alias. For example,
+                  ``users/me/spaces/{space}/spaceReadState``.
 
-                -  Their Workspace email address. For example,
-                   ``users/user@example.com/spaces/{space}/spaceReadState``.
+                - Their Workspace email address. For example,
+                  ``users/user@example.com/spaces/{space}/spaceReadState``.
 
-                -  Their user id. For example,
-                   ``users/123456789/spaces/{space}/spaceReadState``.
+                - Their user id. For example,
+                  ``users/123456789/spaces/{space}/spaceReadState``.
 
                 Format: users/{user}/spaces/{space}/spaceReadState
 
@@ -4255,7 +4703,7 @@ class ChatServiceAsyncClient:
                 Required. The field paths to update. Currently supported
                 field paths:
 
-                -  ``last_read_time``
+                - ``last_read_time``
 
                 When the ``last_read_time`` is before the latest message
                 create time, the space appears as unread in the UI.
@@ -4357,7 +4805,12 @@ class ChatServiceAsyncClient:
         state <https://developers.google.com/workspace/chat/get-thread-read-state>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with one of the following `authorization
+        scopes <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.readstate.readonly``
+        - ``https://www.googleapis.com/auth/chat.users.readstate``
 
         .. code-block:: python
 
@@ -4397,14 +4850,14 @@ class ChatServiceAsyncClient:
 
                 To refer to the calling user, set one of the following:
 
-                -  The ``me`` alias. For example,
-                   ``users/me/spaces/{space}/threads/{thread}/threadReadState``.
+                - The ``me`` alias. For example,
+                  ``users/me/spaces/{space}/threads/{thread}/threadReadState``.
 
-                -  Their Workspace email address. For example,
-                   ``users/user@example.com/spaces/{space}/threads/{thread}/threadReadState``.
+                - Their Workspace email address. For example,
+                  ``users/user@example.com/spaces/{space}/threads/{thread}/threadReadState``.
 
-                -  Their user id. For example,
-                   ``users/123456789/spaces/{space}/threads/{thread}/threadReadState``.
+                - Their user id. For example,
+                  ``users/123456789/spaces/{space}/threads/{thread}/threadReadState``.
 
                 Format:
                 users/{user}/spaces/{space}/threads/{thread}/threadReadState
@@ -4495,10 +4948,39 @@ class ChatServiceAsyncClient:
         Note: The ``permissionSettings`` field is not returned in the
         Space object of the Space event data for this request.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
-        To get an event, the authenticated user must be a member of the
-        space.
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__
+        with an `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__
+        appropriate for reading the requested data:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+          - ``https://www.googleapis.com/auth/chat.app.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+          - ``https://www.googleapis.com/auth/chat.app.memberships.readonly``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions``
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+
+        To get an event, the authenticated caller must be a member of
+        the space.
 
         For an example, see `Get details about an event from a Google
         Chat
@@ -4554,7 +5036,7 @@ class ChatServiceAsyncClient:
             google.apps.chat_v1.types.SpaceEvent:
                 An event that represents a change or activity in a Google Chat space. To
                    learn more, see [Work with events from Google
-                   Chat](\ https://developers.google.com/workspace/chat/events-overview).
+                   Chat](https://developers.google.com/workspace/chat/events-overview).
 
         """
         # Create or coerce a protobuf request object.
@@ -4625,9 +5107,38 @@ class ChatServiceAsyncClient:
         requested period, the event payload contains an empty
         ``Membership`` resource.
 
-        Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
-        To list events, the authenticated user must be a member of the
+        Supports the following types of
+        `authentication <https://developers.google.com/workspace/chat/authenticate-authorize>`__
+        with an `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__
+        appropriate for reading the requested data:
+
+        - `App
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+          with `administrator
+          approval <https://support.google.com/a?p=chat-app-auth>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.app.spaces``
+          - ``https://www.googleapis.com/auth/chat.app.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.app.memberships``
+          - ``https://www.googleapis.com/auth/chat.app.memberships.readonly``
+
+        - `User
+          authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+          with one of the following authorization scopes:
+
+          - ``https://www.googleapis.com/auth/chat.spaces.readonly``
+          - ``https://www.googleapis.com/auth/chat.spaces``
+          - ``https://www.googleapis.com/auth/chat.messages.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions.readonly``
+          - ``https://www.googleapis.com/auth/chat.messages.reactions``
+          - ``https://www.googleapis.com/auth/chat.memberships.readonly``
+          - ``https://www.googleapis.com/auth/chat.memberships``
+
+        To list events, the authenticated caller must be a member of the
         space.
 
         For an example, see `List events from a Google Chat
@@ -4694,13 +5205,13 @@ class ChatServiceAsyncClient:
                 Optionally, you can also filter by start time
                 (``start_time``) and end time (``end_time``):
 
-                -  ``start_time``: Exclusive timestamp from which to
-                   start listing space events. You can list events that
-                   occurred up to 28 days ago. If unspecified, lists
-                   space events from the past 28 days.
-                -  ``end_time``: Inclusive timestamp until which space
-                   events are listed. If unspecified, lists events up to
-                   the time of the request.
+                - ``start_time``: Exclusive timestamp from which to
+                  start listing space events. You can list events that
+                  occurred up to 28 days ago. If unspecified, lists
+                  space events from the past 28 days.
+                - ``end_time``: Inclusive timestamp until which space
+                  events are listed. If unspecified, lists events up to
+                  the time of the request.
 
                 To specify a start or end time, use the equals ``=``
                 operator and format in
@@ -4834,7 +5345,11 @@ class ChatServiceAsyncClient:
         setting <https://developers.google.com/workspace/chat/get-space-notification-setting>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.spacesettings``
 
         .. code-block:: python
 
@@ -4872,13 +5387,13 @@ class ChatServiceAsyncClient:
                 Required. Format:
                 users/{user}/spaces/{space}/spaceNotificationSetting
 
-                -  ``users/me/spaces/{space}/spaceNotificationSetting``,
-                   OR
-                -  ``users/user@example.com/spaces/{space}/spaceNotificationSetting``,
-                   OR
-                -  ``users/123456789/spaces/{space}/spaceNotificationSetting``.
-                   Note: Only the caller's user id or email is allowed
-                   in the path.
+                - ``users/me/spaces/{space}/spaceNotificationSetting``,
+                  OR
+                - ``users/user@example.com/spaces/{space}/spaceNotificationSetting``,
+                  OR
+                - ``users/123456789/spaces/{space}/spaceNotificationSetting``.
+                  Note: Only the caller's user id or email is allowed in
+                  the path.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4972,7 +5487,11 @@ class ChatServiceAsyncClient:
         setting <https://developers.google.com/workspace/chat/update-space-notification-setting>`__.
 
         Requires `user
-        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.spacesettings``
 
         .. code-block:: python
 
@@ -5017,9 +5536,9 @@ class ChatServiceAsyncClient:
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
                 Required. Supported field paths:
 
-                -  ``notification_setting``
+                - ``notification_setting``
 
-                -  ``mute_setting``
+                - ``mute_setting``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5086,6 +5605,948 @@ class ChatServiceAsyncClient:
                     ),
                 )
             ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_section(
+        self,
+        request: Optional[Union[gc_section.CreateSectionRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        section: Optional[gc_section.Section] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> gc_section.Section:
+        r"""Creates a section in Google Chat. Sections help users group
+        conversations and customize the list of spaces displayed in Chat
+        navigation panel. Only sections of type ``CUSTOM_SECTION`` can
+        be created. For details, see `Create and organize sections in
+        Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_create_section():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                section = chat_v1.Section()
+                section.type_ = "DEFAULT_APPS"
+
+                request = chat_v1.CreateSectionRequest(
+                    parent="parent_value",
+                    section=section,
+                )
+
+                # Make the request
+                response = await client.create_section(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.CreateSectionRequest, dict]]):
+                The request object. Request message for creating a
+                section.
+            parent (:class:`str`):
+                Required. The parent resource name where the section is
+                created.
+
+                Format: ``users/{user}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            section (:class:`google.apps.chat_v1.types.Section`):
+                Required. The section to create.
+                This corresponds to the ``section`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.types.Section:
+                Represents a [section](https://support.google.com/chat/answer/16059854) in
+                   Google Chat. Sections help users organize their
+                   spaces. There are two types of sections:
+
+                   1. **System Sections:** These are predefined sections
+                   managed by Google Chat. Their resource names are
+                   fixed, and they cannot be created, deleted, or have
+                   their display_name modified. Examples include: \*
+                   users/{user}/sections/default-direct-messages \*
+                   users/{user}/sections/default-spaces \*
+                   users/{user}/sections/default-apps
+
+                   2. **Custom Sections:** These are sections created
+                      and managed by the user. Creating a custom section
+                      using CreateSection **requires** a display_name.
+                      Custom sections can be updated using UpdateSection
+                      and deleted using DeleteSection.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, section]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gc_section.CreateSectionRequest):
+            request = gc_section.CreateSectionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if section is not None:
+            request.section = section
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_section
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_section(
+        self,
+        request: Optional[Union[section.DeleteSectionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> None:
+        r"""Deletes a section of type ``CUSTOM_SECTION``.
+
+        If the section contains items, such as spaces, the items are
+        moved to Google Chat's default sections and are not deleted.
+
+        For details, see `Create and organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_delete_section():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.DeleteSectionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                await client.delete_section(request=request)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.DeleteSectionRequest, dict]]):
+                The request object. Request message for deleting a section. `Developer
+                Preview <https://developers.google.com/workspace/preview>`__.
+            name (:class:`str`):
+                Required. The name of the section to delete.
+
+                Format: ``users/{user}/sections/{section}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, section.DeleteSectionRequest):
+            request = section.DeleteSectionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_section
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+    async def update_section(
+        self,
+        request: Optional[Union[gc_section.UpdateSectionRequest, dict]] = None,
+        *,
+        section: Optional[gc_section.Section] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> gc_section.Section:
+        r"""Updates a section. Only sections of type ``CUSTOM_SECTION`` can
+        be updated. For details, see `Create and organize sections in
+        Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_update_section():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                section = chat_v1.Section()
+                section.type_ = "DEFAULT_APPS"
+
+                request = chat_v1.UpdateSectionRequest(
+                    section=section,
+                )
+
+                # Make the request
+                response = await client.update_section(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.UpdateSectionRequest, dict]]):
+                The request object. Request message for updating a
+                section.
+            section (:class:`google.apps.chat_v1.types.Section`):
+                Required. The section to update.
+                This corresponds to the ``section`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
+                Required. The mask to specify which fields to update.
+
+                Currently supported field paths:
+
+                - ``display_name``
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.types.Section:
+                Represents a [section](https://support.google.com/chat/answer/16059854) in
+                   Google Chat. Sections help users organize their
+                   spaces. There are two types of sections:
+
+                   1. **System Sections:** These are predefined sections
+                   managed by Google Chat. Their resource names are
+                   fixed, and they cannot be created, deleted, or have
+                   their display_name modified. Examples include: \*
+                   users/{user}/sections/default-direct-messages \*
+                   users/{user}/sections/default-spaces \*
+                   users/{user}/sections/default-apps
+
+                   2. **Custom Sections:** These are sections created
+                      and managed by the user. Creating a custom section
+                      using CreateSection **requires** a display_name.
+                      Custom sections can be updated using UpdateSection
+                      and deleted using DeleteSection.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [section, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, gc_section.UpdateSectionRequest):
+            request = gc_section.UpdateSectionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if section is not None:
+            request.section = section
+        if update_mask is not None:
+            request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.update_section
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("section.name", request.section.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_sections(
+        self,
+        request: Optional[Union[section.ListSectionsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListSectionsAsyncPager:
+        r"""Lists sections available to the Chat user. Sections help users
+        group their conversations and customize the list of spaces
+        displayed in Chat navigation panel. For details, see `Create and
+        organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+        - ``https://www.googleapis.com/auth/chat.users.sections.readonly``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_list_sections():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.ListSectionsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_sections(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.ListSectionsRequest, dict]]):
+                The request object. Request message for listing sections.
+            parent (:class:`str`):
+                Required. The parent, which is the user resource name
+                that owns this collection of sections. Only supports
+                listing sections for the calling user. To refer to the
+                calling user, set one of the following:
+
+                - The ``me`` alias. For example, ``users/me``.
+
+                - Their Workspace email address. For example,
+                  ``users/user@example.com``.
+
+                - Their user id. For example, ``users/123456789``.
+
+                Format: ``users/{user}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.services.chat_service.pagers.ListSectionsAsyncPager:
+                Response message for listing
+                sections.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, section.ListSectionsRequest):
+            request = section.ListSectionsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_sections
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListSectionsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def position_section(
+        self,
+        request: Optional[Union[section.PositionSectionRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> section.PositionSectionResponse:
+        r"""Changes the sort order of a section. For details, see `Create
+        and organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_position_section():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.PositionSectionRequest(
+                    sort_order=1091,
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.position_section(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.PositionSectionRequest, dict]]):
+                The request object. Request message for positioning a
+                section.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.types.PositionSectionResponse:
+                Response message for positioning a
+                section.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, section.PositionSectionRequest):
+            request = section.PositionSectionRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.position_section
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_section_items(
+        self,
+        request: Optional[Union[section.ListSectionItemsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListSectionItemsAsyncPager:
+        r"""Lists items in a section.
+
+        Only spaces can be section items. For details, see `Create and
+        organize sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+        - ``https://www.googleapis.com/auth/chat.users.sections.readonly``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_list_section_items():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.ListSectionItemsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_section_items(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.ListSectionItemsRequest, dict]]):
+                The request object. Request message for listing section
+                items.
+            parent (:class:`str`):
+                Required. The parent, which is the section resource name
+                that owns this collection of section items. Only
+                supports listing section items for the calling user.
+
+                When you're filtering by space, use the wildcard ``-``
+                to search across all sections. For example,
+                ``users/{user}/sections/-``.
+
+                Format: ``users/{user}/sections/{section}``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.services.chat_service.pagers.ListSectionItemsAsyncPager:
+                Response message for listing section
+                items.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, section.ListSectionItemsRequest):
+            request = section.ListSectionItemsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_section_items
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListSectionItemsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def move_section_item(
+        self,
+        request: Optional[Union[section.MoveSectionItemRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        target_section: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> section.MoveSectionItemResponse:
+        r"""Moves an item from one section to another. For example, if a
+        section contains spaces, this method can be used to move a space
+        to a different section. For details, see `Create and organize
+        sections in Google
+        Chat <https://support.google.com/chat/answer/16059854>`__.
+
+        Requires `user
+        authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+        with the `authorization
+        scope <https://developers.google.com/workspace/chat/authenticate-authorize#chat-api-scopes>`__:
+
+        - ``https://www.googleapis.com/auth/chat.users.sections``
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.apps import chat_v1
+
+            async def sample_move_section_item():
+                # Create a client
+                client = chat_v1.ChatServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = chat_v1.MoveSectionItemRequest(
+                    name="name_value",
+                    target_section="target_section_value",
+                )
+
+                # Make the request
+                response = await client.move_section_item(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.apps.chat_v1.types.MoveSectionItemRequest, dict]]):
+                The request object. Request message for moving a section
+                item across sections.
+            name (:class:`str`):
+                Required. The resource name of the section item to move.
+
+                Format: ``users/{user}/sections/{section}/items/{item}``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            target_section (:class:`str`):
+                Required. The resource name of the section to move the
+                section item to.
+
+                Format: ``users/{user}/sections/{section}``
+
+                This corresponds to the ``target_section`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.apps.chat_v1.types.MoveSectionItemResponse:
+                Response message for moving a section
+                item.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name, target_section]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, section.MoveSectionItemRequest):
+            request = section.MoveSectionItemRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+        if target_section is not None:
+            request.target_section = target_section
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.move_section_item
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
         )
 
         # Validate the universe domain.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,6 +60,7 @@ class MetadataExchangeRequest(proto.Message):
             AUTO_IAM (2):
                 Automatic IAM authentication
         """
+
         AUTH_TYPE_UNSPECIFIED = 0
         DB_NATIVE = 1
         AUTO_IAM = 2
@@ -103,6 +104,7 @@ class MetadataExchangeResponse(proto.Message):
             ERROR (2):
                 Failure
         """
+
         RESPONSE_CODE_UNSPECIFIED = 0
         OK = 1
         ERROR = 2

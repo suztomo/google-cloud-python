@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ class KeyRevocationActionType(proto.Enum):
             Indicates user chose to opt for VM shutdown
             on key revocation.
     """
+
     KEY_REVOCATION_ACTION_TYPE_UNSPECIFIED = 0
     NONE = 1
     STOP = 2
@@ -291,7 +292,9 @@ class ComputeInstanceRestoreProperties(proto.Message):
         disks (MutableSequence[google.cloud.backupdr_v1.types.AttachedDisk]):
             Optional. Array of disks associated with this
             instance. Persistent disks must be created
-            before you can assign them.
+            before you can assign them. Source regional
+            persistent disks will be restored with default
+            replica zones if not specified.
         display_device (google.cloud.backupdr_v1.types.DisplayDevice):
             Optional. Enables display device for the
             instance.
@@ -343,6 +346,8 @@ class ComputeInstanceRestoreProperties(proto.Message):
             are configured to interact with other network
             services, such as connecting to the internet.
             Multiple interfaces are supported per instance.
+            Required to restore in different project or
+            region.
         network_performance_config (google.cloud.backupdr_v1.types.NetworkPerformanceConfig):
             Optional. Configure network performance such
             as egress bandwidth tier.
@@ -366,7 +371,8 @@ class ComputeInstanceRestoreProperties(proto.Message):
             This field is a member of `oneof`_ ``_allocation_affinity``.
         resource_policies (MutableSequence[str]):
             Optional. Resource policies applied to this
-            instance.
+            instance. By default, no resource policies will
+            be applied.
         scheduling (google.cloud.backupdr_v1.types.Scheduling):
             Optional. Sets the scheduling options for
             this instance.
@@ -408,6 +414,7 @@ class ComputeInstanceRestoreProperties(proto.Message):
                 network interface will be assigned an internal
                 IPv6 prefix if it doesn't have before.
         """
+
         INSTANCE_PRIVATE_IPV6_GOOGLE_ACCESS_UNSPECIFIED = 0
         INHERIT_FROM_SUBNETWORK = 1
         ENABLE_OUTBOUND_VM_ACCESS_TO_GOOGLE = 2
@@ -960,6 +967,7 @@ class NetworkInterface(proto.Message):
                 The network interface can have both IPv4 and
                 IPv6 addresses.
         """
+
         STACK_TYPE_UNSPECIFIED = 0
         IPV4_ONLY = 1
         IPV4_IPV6 = 2
@@ -978,6 +986,7 @@ class NetworkInterface(proto.Message):
                 This network interface can have external
                 IPv6.
         """
+
         UNSPECIFIED_IPV6_ACCESS_TYPE = 0
         INTERNAL = 1
         EXTERNAL = 2
@@ -993,6 +1002,7 @@ class NetworkInterface(proto.Message):
             GVNIC (2):
                 GVNIC
         """
+
         NIC_TYPE_UNSPECIFIED = 0
         VIRTIO_NET = 1
         GVNIC = 2
@@ -1096,6 +1106,7 @@ class NetworkPerformanceConfig(proto.Message):
             TIER_1 (2):
                 Tier 1 network performance config.
         """
+
         TIER_UNSPECIFIED = 0
         DEFAULT = 1
         TIER_1 = 2
@@ -1172,6 +1183,7 @@ class AccessConfig(proto.Message):
             DIRECT_IPV6 (2):
                 Direct IPv6 access.
         """
+
         ACCESS_TYPE_UNSPECIFIED = 0
         ONE_TO_ONE_NAT = 1
         DIRECT_IPV6 = 2
@@ -1190,6 +1202,7 @@ class AccessConfig(proto.Message):
                 Public internet quality, only limited support
                 for other networking products.
         """
+
         NETWORK_TIER_UNSPECIFIED = 0
         PREMIUM = 1
         STANDARD = 2
@@ -1326,6 +1339,7 @@ class AllocationAffinity(proto.Message):
                 Must specify key value fields for specifying the
                 reservations.
         """
+
         TYPE_UNSPECIFIED = 0
         NO_RESERVATION = 1
         ANY_RESERVATION = 2
@@ -1416,6 +1430,7 @@ class Scheduling(proto.Message):
                 automatically migrate instances out of the way
                 of maintenance events.
         """
+
         ON_HOST_MAINTENANCE_UNSPECIFIED = 0
         TERMINATE = 1
         MIGRATE = 1000
@@ -1432,6 +1447,7 @@ class Scheduling(proto.Message):
             SPOT (2):
                 Heavily discounted, no guaranteed runtime.
         """
+
         PROVISIONING_MODEL_UNSPECIFIED = 0
         STANDARD = 1
         SPOT = 2
@@ -1448,6 +1464,7 @@ class Scheduling(proto.Message):
                 Stop the VM without storing in-memory
                 content. default action.
         """
+
         INSTANCE_TERMINATION_ACTION_UNSPECIFIED = 0
         DELETE = 1
         STOP = 2
@@ -1488,6 +1505,7 @@ class Scheduling(proto.Message):
                     Requires Compute Engine to avoid certain
                     nodes.
             """
+
             OPERATOR_UNSPECIFIED = 0
             IN = 1
             NOT_IN = 2
@@ -1733,6 +1751,7 @@ class AttachedDisk(proto.Message):
             PERSISTENT (2):
                 A persistent disk type.
         """
+
         DISK_TYPE_UNSPECIFIED = 0
         SCRATCH = 1
         PERSISTENT = 2
@@ -1758,6 +1777,7 @@ class AttachedDisk(proto.Message):
                 a disk to prevent mounting the disk while it is
                 being snapshotted.
         """
+
         DISK_MODE_UNSPECIFIED = 0
         READ_WRITE = 1
         READ_ONLY = 2
@@ -1778,6 +1798,7 @@ class AttachedDisk(proto.Message):
             ISCSI (4):
                 ISCSI Disk Interface.
         """
+
         DISK_INTERFACE_UNSPECIFIED = 0
         SCSI = 1
         NVME = 2
@@ -1793,6 +1814,7 @@ class AttachedDisk(proto.Message):
             PRESERVED (1):
                 Disk state has been preserved.
         """
+
         DISK_SAVED_STATE_UNSPECIFIED = 0
         PRESERVED = 1
 
@@ -1964,6 +1986,7 @@ class GuestOsFeature(proto.Message):
             SEV_LIVE_MIGRATABLE_V2 (14):
                 SEV_LIVE_MIGRATABLE_V2 feature type.
         """
+
         FEATURE_TYPE_UNSPECIFIED = 0
         VIRTIO_SCSI_MULTIQUEUE = 1
         WINDOWS = 2

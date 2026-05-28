@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,5 +49,6 @@ async def sample_list_grpc_routes():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_ListGrpcRoutes_async]

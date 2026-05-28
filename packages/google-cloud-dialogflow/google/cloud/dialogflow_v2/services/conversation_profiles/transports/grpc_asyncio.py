@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,13 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
@@ -27,17 +31,13 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
+from google.cloud.dialogflow_v2.types import conversation_profile
 from google.cloud.dialogflow_v2.types import (
     conversation_profile as gcd_conversation_profile,
 )
-from google.cloud.dialogflow_v2.types import conversation_profile
 
 from .base import DEFAULT_CLIENT_INFO, ConversationProfilesTransport
 from .grpc import ConversationProfilesGrpcTransport
@@ -66,7 +66,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -101,7 +101,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -154,8 +154,9 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -206,9 +207,10 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -240,6 +242,10 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -374,12 +380,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_conversation_profiles" not in self._stubs:
-            self._stubs[
-                "list_conversation_profiles"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/ListConversationProfiles",
-                request_serializer=conversation_profile.ListConversationProfilesRequest.serialize,
-                response_deserializer=conversation_profile.ListConversationProfilesResponse.deserialize,
+            self._stubs["list_conversation_profiles"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/ListConversationProfiles",
+                    request_serializer=conversation_profile.ListConversationProfilesRequest.serialize,
+                    response_deserializer=conversation_profile.ListConversationProfilesResponse.deserialize,
+                )
             )
         return self._stubs["list_conversation_profiles"]
 
@@ -441,12 +447,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_conversation_profile" not in self._stubs:
-            self._stubs[
-                "create_conversation_profile"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/CreateConversationProfile",
-                request_serializer=gcd_conversation_profile.CreateConversationProfileRequest.serialize,
-                response_deserializer=gcd_conversation_profile.ConversationProfile.deserialize,
+            self._stubs["create_conversation_profile"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/CreateConversationProfile",
+                    request_serializer=gcd_conversation_profile.CreateConversationProfileRequest.serialize,
+                    response_deserializer=gcd_conversation_profile.ConversationProfile.deserialize,
+                )
             )
         return self._stubs["create_conversation_profile"]
 
@@ -479,12 +485,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_conversation_profile" not in self._stubs:
-            self._stubs[
-                "update_conversation_profile"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/UpdateConversationProfile",
-                request_serializer=gcd_conversation_profile.UpdateConversationProfileRequest.serialize,
-                response_deserializer=gcd_conversation_profile.ConversationProfile.deserialize,
+            self._stubs["update_conversation_profile"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/UpdateConversationProfile",
+                    request_serializer=gcd_conversation_profile.UpdateConversationProfileRequest.serialize,
+                    response_deserializer=gcd_conversation_profile.ConversationProfile.deserialize,
+                )
             )
         return self._stubs["update_conversation_profile"]
 
@@ -510,12 +516,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_conversation_profile" not in self._stubs:
-            self._stubs[
-                "delete_conversation_profile"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/DeleteConversationProfile",
-                request_serializer=conversation_profile.DeleteConversationProfileRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_conversation_profile"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/DeleteConversationProfile",
+                    request_serializer=conversation_profile.DeleteConversationProfileRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_conversation_profile"]
 
@@ -538,10 +544,10 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [SetSuggestionFeatureConfigOperationMetadata][google.cloud.dialogflow.v2.SetSuggestionFeatureConfigOperationMetadata]
-        -  ``response``:
-           [ConversationProfile][google.cloud.dialogflow.v2.ConversationProfile]
+        - ``metadata``:
+          [SetSuggestionFeatureConfigOperationMetadata][google.cloud.dialogflow.v2.SetSuggestionFeatureConfigOperationMetadata]
+        - ``response``:
+          [ConversationProfile][google.cloud.dialogflow.v2.ConversationProfile]
 
         If a long running operation to add or update suggestion feature
         config for the same conversation profile, participant role and
@@ -560,12 +566,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "set_suggestion_feature_config" not in self._stubs:
-            self._stubs[
-                "set_suggestion_feature_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/SetSuggestionFeatureConfig",
-                request_serializer=gcd_conversation_profile.SetSuggestionFeatureConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["set_suggestion_feature_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/SetSuggestionFeatureConfig",
+                    request_serializer=gcd_conversation_profile.SetSuggestionFeatureConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["set_suggestion_feature_config"]
 
@@ -587,10 +593,10 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [ClearSuggestionFeatureConfigOperationMetadata][google.cloud.dialogflow.v2.ClearSuggestionFeatureConfigOperationMetadata]
-        -  ``response``:
-           [ConversationProfile][google.cloud.dialogflow.v2.ConversationProfile]
+        - ``metadata``:
+          [ClearSuggestionFeatureConfigOperationMetadata][google.cloud.dialogflow.v2.ClearSuggestionFeatureConfigOperationMetadata]
+        - ``response``:
+          [ConversationProfile][google.cloud.dialogflow.v2.ConversationProfile]
 
         Returns:
             Callable[[~.ClearSuggestionFeatureConfigRequest],
@@ -603,12 +609,12 @@ class ConversationProfilesGrpcAsyncIOTransport(ConversationProfilesTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "clear_suggestion_feature_config" not in self._stubs:
-            self._stubs[
-                "clear_suggestion_feature_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.ConversationProfiles/ClearSuggestionFeatureConfig",
-                request_serializer=gcd_conversation_profile.ClearSuggestionFeatureConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["clear_suggestion_feature_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.ConversationProfiles/ClearSuggestionFeatureConfig",
+                    request_serializer=gcd_conversation_profile.ClearSuggestionFeatureConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["clear_suggestion_feature_config"]
 

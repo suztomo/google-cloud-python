@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -128,6 +128,7 @@ class Agent(proto.Message):
                 examples in intents, especially the ones using
                 @sys.any or very large custom entities.
         """
+
         MATCH_MODE_UNSPECIFIED = 0
         MATCH_MODE_HYBRID = 1
         MATCH_MODE_ML_ONLY = 2
@@ -145,6 +146,7 @@ class Agent(proto.Message):
             API_VERSION_V2_BETA_1 (3):
                 V2beta1 API.
         """
+
         API_VERSION_UNSPECIFIED = 0
         API_VERSION_V1 = 1
         API_VERSION_V2 = 2
@@ -167,6 +169,7 @@ class Agent(proto.Message):
                 Essentials Edition (same as TIER_ENTERPRISE), previously
                 known as Enterprise Plus Edition.
         """
+
         TIER_UNSPECIFIED = 0
         TIER_STANDARD = 1
         TIER_ENTERPRISE = 2

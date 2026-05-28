@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -2281,9 +2281,10 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2301,6 +2302,12 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[TelcoAutomationRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2438,9 +2445,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseApplyDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseApplyDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_apply_deployment(
                 request, metadata
@@ -2596,9 +2601,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseApplyHydratedDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseApplyHydratedDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_apply_hydrated_deployment(
                 request, metadata
@@ -2764,9 +2767,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseApproveBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseApproveBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_approve_blueprint(
                 request, metadata
@@ -2916,9 +2917,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ComputeDeploymentStatus``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseComputeDeploymentStatus._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseComputeDeploymentStatus._get_http_options()
 
             request, metadata = self._interceptor.pre_compute_deployment_status(
                 request, metadata
@@ -3081,9 +3080,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseCreateBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseCreateBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_create_blueprint(
                 request, metadata
@@ -3238,9 +3235,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseCreateDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseCreateDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_deployment(
                 request, metadata
@@ -3419,7 +3414,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3547,9 +3542,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseCreateOrchestrationCluster._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseCreateOrchestrationCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_create_orchestration_cluster(
                 request, metadata
@@ -3575,7 +3568,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3694,9 +3687,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseDeleteBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseDeleteBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_blueprint(
                 request, metadata
@@ -3718,7 +3709,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3831,7 +3822,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3957,9 +3948,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseDeleteOrchestrationCluster._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseDeleteOrchestrationCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_orchestration_cluster(
                 request, metadata
@@ -3981,7 +3970,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4105,9 +4094,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``DiscardBlueprintChanges``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseDiscardBlueprintChanges._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseDiscardBlueprintChanges._get_http_options()
 
             request, metadata = self._interceptor.pre_discard_blueprint_changes(
                 request, metadata
@@ -4265,9 +4252,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                         Response object for ``DiscardDeploymentChanges``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseDiscardDeploymentChanges._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseDiscardDeploymentChanges._get_http_options()
 
             request, metadata = self._interceptor.pre_discard_deployment_changes(
                 request, metadata
@@ -4881,9 +4866,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseGetHydratedDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseGetHydratedDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_get_hydrated_deployment(
                 request, metadata
@@ -5036,9 +5019,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseGetOrchestrationCluster._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseGetOrchestrationCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_get_orchestration_cluster(
                 request, metadata
@@ -5196,9 +5177,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseGetPublicBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseGetPublicBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_get_public_blueprint(
                 request, metadata
@@ -5343,9 +5322,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ListBlueprintRevisions``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListBlueprintRevisions._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListBlueprintRevisions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_blueprint_revisions(
                 request, metadata
@@ -5493,9 +5470,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ListBlueprints``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListBlueprints._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListBlueprints._get_http_options()
 
             request, metadata = self._interceptor.pre_list_blueprints(request, metadata)
             transcoded_request = _BaseTelcoAutomationRestTransport._BaseListBlueprints._get_transcoded_request(
@@ -5643,9 +5618,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListDeploymentRevisions._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListDeploymentRevisions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_deployment_revisions(
                 request, metadata
@@ -5795,9 +5768,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ListDeployments``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListDeployments._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListDeployments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_deployments(
                 request, metadata
@@ -6093,9 +6064,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ListHydratedDeployments``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListHydratedDeployments._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListHydratedDeployments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_hydrated_deployments(
                 request, metadata
@@ -6250,9 +6219,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListOrchestrationClusters._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListOrchestrationClusters._get_http_options()
 
             request, metadata = self._interceptor.pre_list_orchestration_clusters(
                 request, metadata
@@ -6403,9 +6370,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     Response object for ``ListPublicBlueprints``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListPublicBlueprints._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListPublicBlueprints._get_http_options()
 
             request, metadata = self._interceptor.pre_list_public_blueprints(
                 request, metadata
@@ -6564,9 +6529,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseProposeBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseProposeBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_propose_blueprint(
                 request, metadata
@@ -6728,9 +6691,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseRejectBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseRejectBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_reject_blueprint(
                 request, metadata
@@ -6876,9 +6837,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseRemoveDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseRemoveDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_remove_deployment(
                 request, metadata
@@ -6904,7 +6863,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7000,9 +6959,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseRollbackDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseRollbackDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_rollback_deployment(
                 request, metadata
@@ -7153,9 +7110,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                         Response object for ``SearchBlueprintRevisions``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseSearchBlueprintRevisions._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseSearchBlueprintRevisions._get_http_options()
 
             request, metadata = self._interceptor.pre_search_blueprint_revisions(
                 request, metadata
@@ -7307,9 +7262,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                         Response object for ``SearchDeploymentRevisions``.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseSearchDeploymentRevisions._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseSearchDeploymentRevisions._get_http_options()
 
             request, metadata = self._interceptor.pre_search_deployment_revisions(
                 request, metadata
@@ -7472,9 +7425,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseUpdateBlueprint._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseUpdateBlueprint._get_http_options()
 
             request, metadata = self._interceptor.pre_update_blueprint(
                 request, metadata
@@ -7629,9 +7580,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseUpdateDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseUpdateDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_update_deployment(
                 request, metadata
@@ -7787,9 +7736,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
 
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseUpdateHydratedDeployment._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseUpdateHydratedDeployment._get_http_options()
 
             request, metadata = self._interceptor.pre_update_hydrated_deployment(
                 request, metadata
@@ -7905,7 +7852,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ApplyHydratedDeployment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ApplyHydratedDeployment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def approve_blueprint(
@@ -7924,7 +7873,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ComputeDeploymentStatus(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ComputeDeploymentStatus(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_blueprint(
@@ -7960,7 +7911,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateOrchestrationCluster(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateOrchestrationCluster(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_blueprint(
@@ -7986,7 +7939,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteOrchestrationCluster(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteOrchestrationCluster(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def discard_blueprint_changes(
@@ -7997,7 +7952,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DiscardBlueprintChanges(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DiscardBlueprintChanges(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def discard_deployment_changes(
@@ -8008,7 +7965,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DiscardDeploymentChanges(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DiscardDeploymentChanges(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_blueprint(
@@ -8054,7 +8013,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetOrchestrationCluster(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetOrchestrationCluster(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_public_blueprint(
@@ -8075,7 +8036,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListBlueprintRevisions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListBlueprintRevisions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_blueprints(
@@ -8096,7 +8059,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListDeploymentRevisions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListDeploymentRevisions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_deployments(
@@ -8128,7 +8093,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListHydratedDeployments(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListHydratedDeployments(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_orchestration_clusters(
@@ -8139,7 +8106,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListOrchestrationClusters(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListOrchestrationClusters(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_public_blueprints(
@@ -8195,7 +8164,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._SearchBlueprintRevisions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._SearchBlueprintRevisions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def search_deployment_revisions(
@@ -8206,7 +8177,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._SearchDeploymentRevisions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._SearchDeploymentRevisions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_blueprint(
@@ -8235,7 +8208,9 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateHydratedDeployment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateHydratedDeployment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -8572,9 +8547,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -8691,9 +8664,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -8948,9 +8919,7 @@ class TelcoAutomationRestTransport(_BaseTelcoAutomationRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseTelcoAutomationRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseTelcoAutomationRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseTelcoAutomationRestTransport._BaseListOperations._get_transcoded_request(

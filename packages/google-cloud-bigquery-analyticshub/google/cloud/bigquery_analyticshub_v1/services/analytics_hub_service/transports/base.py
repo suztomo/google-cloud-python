@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,17 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.cloud.bigquery_analyticshub_v1 import gapic_version as package_version
 from google.cloud.bigquery_analyticshub_v1.types import analyticshub
@@ -73,9 +73,10 @@ class AnalyticsHubServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -86,9 +87,11 @@ class AnalyticsHubServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -104,11 +107,16 @@ class AnalyticsHubServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -131,6 +139,8 @@ class AnalyticsHubServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -246,6 +256,41 @@ class AnalyticsHubServiceTransport(abc.ABC):
             ),
             self.test_iam_permissions: gapic_v1.method.wrap_method(
                 self.test_iam_permissions,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_query_template: gapic_v1.method.wrap_method(
+                self.create_query_template,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_query_template: gapic_v1.method.wrap_method(
+                self.get_query_template,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_query_templates: gapic_v1.method.wrap_method(
+                self.list_query_templates,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_query_template: gapic_v1.method.wrap_method(
+                self.update_query_template,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_query_template: gapic_v1.method.wrap_method(
+                self.delete_query_template,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.submit_query_template: gapic_v1.method.wrap_method(
+                self.submit_query_template,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.approve_query_template: gapic_v1.method.wrap_method(
+                self.approve_query_template,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -484,6 +529,72 @@ class AnalyticsHubServiceTransport(abc.ABC):
             iam_policy_pb2.TestIamPermissionsResponse,
             Awaitable[iam_policy_pb2.TestIamPermissionsResponse],
         ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.CreateQueryTemplateRequest],
+        Union[analyticshub.QueryTemplate, Awaitable[analyticshub.QueryTemplate]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.GetQueryTemplateRequest],
+        Union[analyticshub.QueryTemplate, Awaitable[analyticshub.QueryTemplate]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_query_templates(
+        self,
+    ) -> Callable[
+        [analyticshub.ListQueryTemplatesRequest],
+        Union[
+            analyticshub.ListQueryTemplatesResponse,
+            Awaitable[analyticshub.ListQueryTemplatesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.UpdateQueryTemplateRequest],
+        Union[analyticshub.QueryTemplate, Awaitable[analyticshub.QueryTemplate]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.DeleteQueryTemplateRequest],
+        Union[empty_pb2.Empty, Awaitable[empty_pb2.Empty]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def submit_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.SubmitQueryTemplateRequest],
+        Union[analyticshub.QueryTemplate, Awaitable[analyticshub.QueryTemplate]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def approve_query_template(
+        self,
+    ) -> Callable[
+        [analyticshub.ApproveQueryTemplateRequest],
+        Union[analyticshub.QueryTemplate, Awaitable[analyticshub.QueryTemplate]],
     ]:
         raise NotImplementedError()
 

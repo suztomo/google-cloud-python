@@ -1,9 +1,9 @@
-Python Client for Compute Engine
-================================
+Python Client for Google Compute Engine
+=======================================
 
 |stable| |pypi| |versions|
 
-`Compute Engine`_: delivers virtual machines running in Google's innovative data centers and worldwide fiber network. Compute Engine's tooling and workflow support enable scaling from single instances to global, load-balanced cloud computing. Compute Engine's VMs boot quickly, come with persistent disk storage, deliver consistent performance and are available in many configurations.
+`Google Compute Engine`_: Compute Engine is an infrastructure as a service (IaaS) product that offers self-managed virtual machine (VM) instances and bare metal instances.
 
 - `Client Library Documentation`_
 - `Product Documentation`_
@@ -14,7 +14,7 @@ Python Client for Compute Engine
    :target: https://pypi.org/project/google-cloud-compute/
 .. |versions| image:: https://img.shields.io/pypi/pyversions/google-cloud-compute.svg
    :target: https://pypi.org/project/google-cloud-compute/
-.. _Compute Engine: https://cloud.google.com/compute/
+.. _Google Compute Engine: https://cloud.google.com/compute/
 .. _Client Library Documentation: https://cloud.google.com/python/docs/reference/compute/latest/summary_overview
 .. _Product Documentation:  https://cloud.google.com/compute/
 
@@ -25,12 +25,12 @@ In order to use this library, you first need to go through the following steps:
 
 1. `Select or create a Cloud Platform project.`_
 2. `Enable billing for your project.`_
-3. `Enable the Compute Engine.`_
+3. `Enable the Google Compute Engine.`_
 4. `Set up Authentication.`_
 
 .. _Select or create a Cloud Platform project.: https://console.cloud.google.com/project
 .. _Enable billing for your project.: https://cloud.google.com/billing/docs/how-to/modify-project#enable_billing_for_a_project
-.. _Enable the Compute Engine.:  https://cloud.google.com/compute/
+.. _Enable the Google Compute Engine.:  https://cloud.google.com/compute/
 .. _Set up Authentication.: https://googleapis.dev/python/google-api-core/latest/auth.html
 
 Installation
@@ -70,14 +70,15 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.7
+Python >= 3.10, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.6
+Python <= 3.9
+
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.
@@ -106,14 +107,14 @@ Windows
 Next Steps
 ~~~~~~~~~~
 
--  Read the `Client Library Documentation`_ for Compute Engine
+-  Read the `Client Library Documentation`_ for Google Compute Engine
    to see other available methods on the client.
--  Read the `Compute Engine Product documentation`_ to learn
+-  Read the `Google Compute Engine Product documentation`_ to learn
    more about the product and see How-to Guides.
 -  View this `README`_ to see the full list of Cloud
    APIs that we cover.
 
-.. _Compute Engine Product documentation:  https://cloud.google.com/compute/
+.. _Google Compute Engine Product documentation:  https://cloud.google.com/compute/
 .. _README: https://github.com/googleapis/google-cloud-python/blob/main/README.rst
 
 Logging

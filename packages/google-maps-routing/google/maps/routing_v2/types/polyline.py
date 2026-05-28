@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -47,6 +47,7 @@ class PolylineQuality(proto.Enum):
             overview of the route. Using this option has a lower request
             latency compared to using the ``HIGH_QUALITY`` option.
     """
+
     POLYLINE_QUALITY_UNSPECIFIED = 0
     HIGH_QUALITY = 1
     OVERVIEW = 2
@@ -66,6 +67,7 @@ class PolylineEncoding(proto.Enum):
             Specifies a polyline using the `GeoJSON LineString
             format <https://tools.ietf.org/html/rfc7946#section-3.1.4>`__
     """
+
     POLYLINE_ENCODING_UNSPECIFIED = 0
     ENCODED_POLYLINE = 1
     GEO_JSON_LINESTRING = 2

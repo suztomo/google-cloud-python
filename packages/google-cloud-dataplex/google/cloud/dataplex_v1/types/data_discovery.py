@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,6 +81,11 @@ class DataDiscoverySpec(proto.Message):
 
                 For supported values, refer to
                 https://cloud.google.com/bigquery/docs/locations#supported_locations.
+            project (str):
+                Optional. The project of the BigQuery dataset to publish
+                BigLake external or non-BigLake external tables to. If not
+                specified, the project of the Cloud Storage bucket will be
+                used. The format is "projects/{project_id_or_number}".
         """
 
         class TableType(proto.Enum):
@@ -100,6 +105,7 @@ class DataDiscoverySpec(proto.Message):
                     credentials of the associated BigQuery
                     connection.
             """
+
             TABLE_TYPE_UNSPECIFIED = 0
             EXTERNAL = 1
             BIGLAKE = 2
@@ -118,6 +124,10 @@ class DataDiscoverySpec(proto.Message):
         location: str = proto.Field(
             proto.STRING,
             number=4,
+        )
+        project: str = proto.Field(
+            proto.STRING,
+            number=5,
         )
 
     class StorageConfig(proto.Message):

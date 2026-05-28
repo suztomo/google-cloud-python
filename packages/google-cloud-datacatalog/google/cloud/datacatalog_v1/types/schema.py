@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,9 +97,9 @@ class ColumnSchema(proto.Message):
             required. Possible values for the field element type of a
             RANGE include:
 
-            -  DATE
-            -  DATETIME
-            -  TIMESTAMP
+            - DATE
+            - DATETIME
+            - TIMESTAMP
         gc_rule (str):
             Optional. Garbage collection policy for the
             column or column family. Applies to systems like
@@ -121,6 +121,7 @@ class ColumnSchema(proto.Message):
             INDEXING_TYPE_PRIMARY_KEY (4):
                 Column part of the primary key.
         """
+
         INDEXING_TYPE_UNSPECIFIED = 0
         INDEXING_TYPE_NONE = 1
         INDEXING_TYPE_NON_UNIQUE = 2
@@ -152,6 +153,7 @@ class ColumnSchema(proto.Message):
                 PARAMETER (5):
                     Parameter.
             """
+
             LOOKER_COLUMN_TYPE_UNSPECIFIED = 0
             DIMENSION = 1
             DIMENSION_GROUP = 2

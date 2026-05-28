@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from google.api_core import gapic_v1, path_template
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf import json_format
 
@@ -31,12 +33,14 @@ from google.cloud.eventarc_v1.types import (
     enrollment,
     eventarc,
     google_api_source,
+    google_channel_config,
+    message_bus,
+    pipeline,
+    trigger,
 )
 from google.cloud.eventarc_v1.types import (
     google_channel_config as gce_google_channel_config,
 )
-from google.cloud.eventarc_v1.types import google_channel_config
-from google.cloud.eventarc_v1.types import message_bus, pipeline, trigger
 
 from .base import DEFAULT_CLIENT_INFO, EventarcTransport
 
@@ -2143,6 +2147,10 @@ class _BaseEventarcRestTransport(EventarcTransport):
                 },
                 {
                     "method": "get",
+                    "uri": "/v1/{resource=projects/*/locations/*/kafkaSources/*}:getIamPolicy",
+                },
+                {
+                    "method": "get",
                     "uri": "/v1/{resource=projects/*/locations/*/googleApiSources/*}:getIamPolicy",
                 },
             ]
@@ -2194,6 +2202,11 @@ class _BaseEventarcRestTransport(EventarcTransport):
                 {
                     "method": "post",
                     "uri": "/v1/{resource=projects/*/locations/*/pipelines/*}:setIamPolicy",
+                    "body": "*",
+                },
+                {
+                    "method": "post",
+                    "uri": "/v1/{resource=projects/*/locations/*/kafkaSources/*}:setIamPolicy",
                     "body": "*",
                 },
                 {
@@ -2255,6 +2268,11 @@ class _BaseEventarcRestTransport(EventarcTransport):
                 {
                     "method": "post",
                     "uri": "/v1/{resource=projects/*/locations/*/pipelines/*}:testIamPermissions",
+                    "body": "*",
+                },
+                {
+                    "method": "post",
+                    "uri": "/v1/{resource=projects/*/locations/*/kafkaSources/*}:testIamPermissions",
                     "body": "*",
                 },
                 {

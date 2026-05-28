@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.datalabeling_v1beta1.types import annotation, annotation_spec_set
@@ -344,12 +344,12 @@ class PrCurve(proto.Message):
         proto.FLOAT,
         number=2,
     )
-    confidence_metrics_entries: MutableSequence[
-        ConfidenceMetricsEntry
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ConfidenceMetricsEntry,
+    confidence_metrics_entries: MutableSequence[ConfidenceMetricsEntry] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ConfidenceMetricsEntry,
+        )
     )
     mean_average_precision: float = proto.Field(
         proto.FLOAT,
@@ -407,12 +407,12 @@ class ConfusionMatrix(proto.Message):
             number=1,
             message=annotation_spec_set.AnnotationSpec,
         )
-        entries: MutableSequence[
-            "ConfusionMatrix.ConfusionMatrixEntry"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="ConfusionMatrix.ConfusionMatrixEntry",
+        entries: MutableSequence["ConfusionMatrix.ConfusionMatrixEntry"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="ConfusionMatrix.ConfusionMatrixEntry",
+            )
         )
 
     row: MutableSequence[Row] = proto.RepeatedField(

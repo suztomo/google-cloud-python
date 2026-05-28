@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .accessright import AccessRight
+from .accessright import (
+    AccessRight,
+)
 from .account_tax import (
     AccountTax,
     GetAccountTaxRequest,
@@ -37,7 +39,9 @@ from .accounts import (
     ListSubAccountsResponse,
     UpdateAccountRequest,
 )
-from .accountservices import AccountAggregation
+from .accountservices import (
+    AccountAggregation,
+)
 from .autofeedsettings import (
     AutofeedSettings,
     GetAutofeedSettingsRequest,
@@ -61,7 +65,17 @@ from .businessinfo import (
     GetBusinessInfoRequest,
     UpdateBusinessInfoRequest,
 )
-from .customerservice import CustomerService
+from .checkoutsettings import (
+    CheckoutSettings,
+    CreateCheckoutSettingsRequest,
+    DeleteCheckoutSettingsRequest,
+    GetCheckoutSettingsRequest,
+    UpdateCheckoutSettingsRequest,
+    UriSettings,
+)
+from .customerservice import (
+    CustomerService,
+)
 from .emailpreferences import (
     EmailPreferences,
     GetEmailPreferencesRequest,
@@ -114,7 +128,9 @@ from .online_return_policy import (
     OnlineReturnPolicy,
     UpdateOnlineReturnPolicyRequest,
 )
-from .phoneverificationstate import PhoneVerificationState
+from .phoneverificationstate import (
+    PhoneVerificationState,
+)
 from .programs import (
     DisableProgramRequest,
     EnableProgramRequest,
@@ -155,7 +171,9 @@ from .shippingsettings import (
     WarehouseBasedDeliveryTime,
     WarehouseCutoffTime,
 )
-from .tax_rule import TaxRule
+from .tax_rule import (
+    TaxRule,
+)
 from .termsofservice import (
     AcceptTermsOfServiceRequest,
     GetTermsOfServiceRequest,
@@ -169,7 +187,9 @@ from .termsofserviceagreementstate import (
     RetrieveForApplicationTermsOfServiceAgreementStateRequest,
     TermsOfServiceAgreementState,
 )
-from .termsofservicekind import TermsOfServiceKind
+from .termsofservicekind import (
+    TermsOfServiceKind,
+)
 from .user import (
     CreateUserRequest,
     DeleteUserRequest,
@@ -178,6 +198,9 @@ from .user import (
     ListUsersResponse,
     UpdateUserRequest,
     User,
+)
+from .verificationmailsettings import (
+    VerificationMailSettings,
 )
 
 __all__ = (
@@ -215,6 +238,12 @@ __all__ = (
     "BusinessInfo",
     "GetBusinessInfoRequest",
     "UpdateBusinessInfoRequest",
+    "CheckoutSettings",
+    "CreateCheckoutSettingsRequest",
+    "DeleteCheckoutSettingsRequest",
+    "GetCheckoutSettingsRequest",
+    "UpdateCheckoutSettingsRequest",
+    "UriSettings",
     "CustomerService",
     "EmailPreferences",
     "GetEmailPreferencesRequest",
@@ -309,4 +338,5 @@ __all__ = (
     "ListUsersResponse",
     "UpdateUserRequest",
     "User",
+    "VerificationMailSettings",
 )

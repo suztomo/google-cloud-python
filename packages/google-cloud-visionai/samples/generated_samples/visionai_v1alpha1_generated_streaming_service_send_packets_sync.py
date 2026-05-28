@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_send_packets():
     client = visionai_v1alpha1.StreamingServiceClient()
 
     # Initialize request argument(s)
-    request = visionai_v1alpha1.SendPacketsRequest(
-    )
+    request = visionai_v1alpha1.SendPacketsRequest()
 
     # This method expects an iterator which contains
     # 'visionai_v1alpha1.SendPacketsRequest' objects
@@ -58,5 +57,6 @@ def sample_send_packets():
     # Handle the response
     for response in stream:
         print(response)
+
 
 # [END visionai_v1alpha1_generated_StreamingService_SendPackets_sync]

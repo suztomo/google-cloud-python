@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_generate_access_token():
     # Initialize request argument(s)
     request = iam_credentials_v1.GenerateAccessTokenRequest(
         name="name_value",
-        scope=['scope_value1', 'scope_value2'],
+        scope=["scope_value1", "scope_value2"],
     )
 
     # Make the request
@@ -49,5 +49,6 @@ def sample_generate_access_token():
 
     # Handle the response
     print(response)
+
 
 # [END iamcredentials_v1_generated_IAMCredentials_GenerateAccessToken_sync]

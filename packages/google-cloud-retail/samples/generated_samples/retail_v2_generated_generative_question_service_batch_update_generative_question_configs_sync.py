@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,5 +52,6 @@ def sample_batch_update_generative_question_configs():
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2_generated_GenerativeQuestionService_BatchUpdateGenerativeQuestionConfigs_sync]

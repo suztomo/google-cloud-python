@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,25 +45,25 @@ class GcsFilesetSpec(proto.Message):
 
             Examples of valid ``file_patterns``:
 
-            -  ``gs://bucket_name/dir/*``: matches all files in
-               ``bucket_name/dir`` directory
-            -  ``gs://bucket_name/dir/**``: matches all files in
-               ``bucket_name/dir`` and all subdirectories
-            -  ``gs://bucket_name/file*``: matches files prefixed by
-               ``file`` in ``bucket_name``
-            -  ``gs://bucket_name/??.txt``: matches files with two
-               characters followed by ``.txt`` in ``bucket_name``
-            -  ``gs://bucket_name/[aeiou].txt``: matches files that
-               contain a single vowel character followed by ``.txt`` in
-               ``bucket_name``
-            -  ``gs://bucket_name/[a-m].txt``: matches files that
-               contain ``a``, ``b``, ... or ``m`` followed by ``.txt``
-               in ``bucket_name``
-            -  ``gs://bucket_name/a/*/b``: matches all files in
-               ``bucket_name`` that match the ``a/*/b`` pattern, such as
-               ``a/c/b``, ``a/d/b``
-            -  ``gs://another_bucket/a.txt``: matches
-               ``gs://another_bucket/a.txt``
+            - ``gs://bucket_name/dir/*``: matches all files in
+              ``bucket_name/dir`` directory
+            - ``gs://bucket_name/dir/**``: matches all files in
+              ``bucket_name/dir`` and all subdirectories
+            - ``gs://bucket_name/file*``: matches files prefixed by
+              ``file`` in ``bucket_name``
+            - ``gs://bucket_name/??.txt``: matches files with two
+              characters followed by ``.txt`` in ``bucket_name``
+            - ``gs://bucket_name/[aeiou].txt``: matches files that
+              contain a single vowel character followed by ``.txt`` in
+              ``bucket_name``
+            - ``gs://bucket_name/[a-m].txt``: matches files that contain
+              ``a``, ``b``, ... or ``m`` followed by ``.txt`` in
+              ``bucket_name``
+            - ``gs://bucket_name/a/*/b``: matches all files in
+              ``bucket_name`` that match the ``a/*/b`` pattern, such as
+              ``a/c/b``, ``a/d/b``
+            - ``gs://another_bucket/a.txt``: matches
+              ``gs://another_bucket/a.txt``
 
             You can combine wildcards to match complex sets of files,
             for example:

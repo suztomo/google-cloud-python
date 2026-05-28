@@ -1,17 +1,16 @@
 {
-    "name": "google-shopping-merchant-reviews",
-    "name_pretty": "Merchant Reviews API",
-    "api_description": "Programmatically manage your Merchant Center Accounts",
-    "product_documentation": "https://developers.google.com/merchant/api",
+    "api_description": "Programmatically manage your Merchant Center Accounts.",
+    "api_id": "merchantapi.googleapis.com",
+    "api_shortname": "merchantapi",
     "client_documentation": "https://googleapis.dev/python/google-shopping-merchant-reviews/latest",
-    "issue_tracker": "https://github.com/googleapis/google-cloud-python/issues",
-    "release_level": "preview",
+    "default_version": "v1beta",
+    "distribution_name": "google-shopping-merchant-reviews",
+    "issue_tracker": "https://issuetracker.google.com/issues/new?component=171084\u0026template=555201",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-shopping-merchant-reviews",
-    "api_id": "reviews.googleapis.com",
-    "default_version": "v1beta",
-    "codeowner_team": "",
-    "api_shortname": "reviews"
+    "name": "google-shopping-merchant-reviews",
+    "name_pretty": "Merchant",
+    "product_documentation": "https://developers.google.com/merchant/api",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

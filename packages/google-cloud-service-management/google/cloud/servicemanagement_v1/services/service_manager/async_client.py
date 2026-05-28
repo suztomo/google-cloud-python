@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.servicemanagement_v1 import gapic_version as package_version
 
@@ -44,36 +44,38 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api import auth_pb2  # type: ignore
-from google.api import backend_pb2  # type: ignore
-from google.api import billing_pb2  # type: ignore
-from google.api import client_pb2  # type: ignore
-from google.api import context_pb2  # type: ignore
-from google.api import control_pb2  # type: ignore
-from google.api import documentation_pb2  # type: ignore
-from google.api import endpoint_pb2  # type: ignore
-from google.api import http_pb2  # type: ignore
-from google.api import log_pb2  # type: ignore
-from google.api import logging_pb2  # type: ignore
-from google.api import metric_pb2  # type: ignore
-from google.api import monitored_resource_pb2  # type: ignore
-from google.api import monitoring_pb2  # type: ignore
-from google.api import quota_pb2  # type: ignore
-from google.api import service_pb2  # type: ignore
-from google.api import source_info_pb2  # type: ignore
-from google.api import system_parameter_pb2  # type: ignore
-from google.api import usage_pb2  # type: ignore
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.api.auth_pb2 as auth_pb2  # type: ignore
+import google.api.backend_pb2 as backend_pb2  # type: ignore
+import google.api.billing_pb2 as billing_pb2  # type: ignore
+import google.api.client_pb2 as client_pb2  # type: ignore
+import google.api.context_pb2 as context_pb2  # type: ignore
+import google.api.control_pb2 as control_pb2  # type: ignore
+import google.api.documentation_pb2 as documentation_pb2  # type: ignore
+import google.api.endpoint_pb2 as endpoint_pb2  # type: ignore
+import google.api.http_pb2 as http_pb2  # type: ignore
+import google.api.log_pb2 as log_pb2  # type: ignore
+import google.api.logging_pb2 as logging_pb2  # type: ignore
+import google.api.metric_pb2 as metric_pb2  # type: ignore
+import google.api.monitored_resource_pb2 as monitored_resource_pb2  # type: ignore
+import google.api.monitoring_pb2 as monitoring_pb2  # type: ignore
+import google.api.quota_pb2 as quota_pb2  # type: ignore
+import google.api.service_pb2 as service_pb2  # type: ignore
+import google.api.source_info_pb2 as source_info_pb2  # type: ignore
+import google.api.system_parameter_pb2 as system_parameter_pb2  # type: ignore
+import google.api.usage_pb2 as usage_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.api_pb2 as api_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.type_pb2 as type_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import api_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import type_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
 
 from google.cloud.servicemanagement_v1.services.service_manager import pagers
 from google.cloud.servicemanagement_v1.types import resources, servicemanager
@@ -144,7 +146,10 @@ class ServiceManagerAsyncClient:
         Returns:
             ServiceManagerAsyncClient: The constructed client.
         """
-        return ServiceManagerClient.from_service_account_info.__func__(ServiceManagerAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ServiceManagerClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ServiceManagerAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -160,7 +165,10 @@ class ServiceManagerAsyncClient:
         Returns:
             ServiceManagerAsyncClient: The constructed client.
         """
-        return ServiceManagerClient.from_service_account_file.__func__(ServiceManagerAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ServiceManagerClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ServiceManagerAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -210,7 +218,7 @@ class ServiceManagerAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -376,7 +384,7 @@ class ServiceManagerAsyncClient:
                 The Google Service Management implementation accepts the
                 following forms:
 
-                -  project:<project_id>
+                - project:<project_id>
 
                 This corresponds to the ``consumer_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -610,11 +618,11 @@ class ServiceManagerAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_service(request=request)
+                operation = await client.create_service(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -736,11 +744,11 @@ class ServiceManagerAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_service(request=request)
+                operation = await client.delete_service(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -879,11 +887,11 @@ class ServiceManagerAsyncClient:
                 )
 
                 # Make the request
-                operation = client.undelete_service(request=request)
+                operation = await client.undelete_service(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1205,18 +1213,18 @@ class ServiceManagerAsyncClient:
                       apis: - name: google.calendar.v3.Calendar
 
                       visibility:
-                         rules: - selector: "google.calendar.v3.*"
+                         rules: - selector: "google.calendar.v3.\*"
                          restriction: PREVIEW
 
                       backend:
-                         rules: - selector: "google.calendar.v3.*"
+                         rules: - selector: "google.calendar.v3.\*"
                          address: calendar.example.com
 
                       authentication:
                          providers: - id: google_calendar_auth jwks_uri:
                          https://www.googleapis.com/oauth2/v1/certs
                          issuer: https://securetoken.google.com rules: -
-                         selector: "*" requirements: provider_id:
+                         selector: "\*" requirements: provider_id:
                          google_calendar_auth
 
         """
@@ -1372,18 +1380,18 @@ class ServiceManagerAsyncClient:
                       apis: - name: google.calendar.v3.Calendar
 
                       visibility:
-                         rules: - selector: "google.calendar.v3.*"
+                         rules: - selector: "google.calendar.v3.\*"
                          restriction: PREVIEW
 
                       backend:
-                         rules: - selector: "google.calendar.v3.*"
+                         rules: - selector: "google.calendar.v3.\*"
                          address: calendar.example.com
 
                       authentication:
                          providers: - id: google_calendar_auth jwks_uri:
                          https://www.googleapis.com/oauth2/v1/certs
                          issuer: https://securetoken.google.com rules: -
-                         selector: "*" requirements: provider_id:
+                         selector: "\*" requirements: provider_id:
                          google_calendar_auth
 
         """
@@ -1486,11 +1494,11 @@ class ServiceManagerAsyncClient:
                 )
 
                 # Make the request
-                operation = client.submit_config_source(request=request)
+                operation = await client.submit_config_source(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1942,11 +1950,11 @@ class ServiceManagerAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_service_rollout(request=request)
+                operation = await client.create_service_rollout(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2187,7 +2195,7 @@ class ServiceManagerAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2213,8 +2221,12 @@ class ServiceManagerAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2223,7 +2235,7 @@ class ServiceManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2231,7 +2243,7 @@ class ServiceManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2242,7 +2254,7 @@ class ServiceManagerAsyncClient:
 
     async def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2334,8 +2346,12 @@ class ServiceManagerAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2344,7 +2360,9 @@ class ServiceManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -2352,7 +2370,7 @@ class ServiceManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2363,7 +2381,7 @@ class ServiceManagerAsyncClient:
 
     async def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2456,8 +2474,12 @@ class ServiceManagerAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2466,7 +2488,9 @@ class ServiceManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -2474,7 +2498,7 @@ class ServiceManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2485,7 +2509,7 @@ class ServiceManagerAsyncClient:
 
     async def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2516,8 +2540,12 @@ class ServiceManagerAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2528,7 +2556,9 @@ class ServiceManagerAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -2536,7 +2566,7 @@ class ServiceManagerAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

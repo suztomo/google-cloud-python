@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,22 @@ async def sample_update_target_project():
     client = vmmigration_v1.VmMigrationAsyncClient()
 
     # Initialize request argument(s)
+    target_project = vmmigration_v1.TargetProject()
+    target_project.project = "project_value"
+
     request = vmmigration_v1.UpdateTargetProjectRequest(
+        target_project=target_project,
     )
 
     # Make the request
-    operation = client.update_target_project(request=request)
+    operation = await client.update_target_project(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END vmmigration_v1_generated_VmMigration_UpdateTargetProject_async]

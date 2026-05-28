@@ -1,0 +1,355 @@
+# -*- coding: utf-8 -*-
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+import sys
+
+import google.api_core as api_core
+
+from google.ads.datamanager_v1 import gapic_version as package_version
+
+__version__ = package_version.__version__
+
+from importlib import metadata
+
+from .services.ingestion_service import (
+    IngestionServiceAsyncClient,
+    IngestionServiceClient,
+)
+from .services.marketing_data_insights_service import (
+    MarketingDataInsightsServiceAsyncClient,
+    MarketingDataInsightsServiceClient,
+)
+from .services.partner_link_service import (
+    PartnerLinkServiceAsyncClient,
+    PartnerLinkServiceClient,
+)
+from .services.user_list_direct_license_service import (
+    UserListDirectLicenseServiceAsyncClient,
+    UserListDirectLicenseServiceClient,
+)
+from .services.user_list_global_license_service import (
+    UserListGlobalLicenseServiceAsyncClient,
+    UserListGlobalLicenseServiceClient,
+)
+from .services.user_list_service import (
+    UserListServiceAsyncClient,
+    UserListServiceClient,
+)
+from .types.age_range import AgeRange
+from .types.audience import AudienceMember, MobileData, PairData, PpidData, UserIdData
+from .types.cart_data import CartData, Item, ItemCustomVariable
+from .types.consent import Consent, ConsentStatus
+from .types.destination import Destination, Product, ProductAccount
+from .types.device_info import DeviceInfo
+from .types.encryption_info import AwsWrappedKeyInfo, EncryptionInfo, GcpWrappedKeyInfo
+from .types.error import ErrorReason
+from .types.event import (
+    AdIdentifiers,
+    CustomVariable,
+    Event,
+    EventLocation,
+    EventParameter,
+    EventSource,
+)
+from .types.experimental_field import ExperimentalField
+from .types.gender import Gender
+from .types.ingestion_service import (
+    Encoding,
+    IngestAudienceMembersRequest,
+    IngestAudienceMembersResponse,
+    IngestEventsRequest,
+    IngestEventsResponse,
+    RemoveAudienceMembersRequest,
+    RemoveAudienceMembersResponse,
+    RetrieveRequestStatusRequest,
+    RetrieveRequestStatusResponse,
+)
+from .types.insights_service import (
+    Baseline,
+    RetrieveInsightsRequest,
+    RetrieveInsightsResponse,
+)
+from .types.item_parameter import ItemParameter
+from .types.match_rate import MatchRateRange
+from .types.partner_link_service import (
+    CreatePartnerLinkRequest,
+    DeletePartnerLinkRequest,
+    PartnerLink,
+    SearchPartnerLinksRequest,
+    SearchPartnerLinksResponse,
+)
+from .types.processing_errors import (
+    ErrorCount,
+    ErrorInfo,
+    ProcessingErrorReason,
+    ProcessingWarningReason,
+    WarningCount,
+    WarningInfo,
+)
+from .types.request_status_per_destination import RequestStatusPerDestination
+from .types.terms_of_service import TermsOfService, TermsOfServiceStatus
+from .types.user_data import AddressInfo, UserData, UserIdentifier
+from .types.user_list import (
+    ContactIdInfo,
+    DataSourceType,
+    IngestedUserListInfo,
+    MobileIdInfo,
+    PairIdInfo,
+    PartnerAudienceInfo,
+    PseudonymousIdInfo,
+    SizeInfo,
+    TargetNetworkInfo,
+    UserIdInfo,
+    UserList,
+)
+from .types.user_list_direct_license import UserListDirectLicense
+from .types.user_list_direct_license_service import (
+    CreateUserListDirectLicenseRequest,
+    GetUserListDirectLicenseRequest,
+    ListUserListDirectLicensesRequest,
+    ListUserListDirectLicensesResponse,
+    UpdateUserListDirectLicenseRequest,
+)
+from .types.user_list_global_license import (
+    UserListGlobalLicense,
+    UserListGlobalLicenseCustomerInfo,
+)
+from .types.user_list_global_license_service import (
+    CreateUserListGlobalLicenseRequest,
+    GetUserListGlobalLicenseRequest,
+    ListUserListGlobalLicenseCustomerInfosRequest,
+    ListUserListGlobalLicenseCustomerInfosResponse,
+    ListUserListGlobalLicensesRequest,
+    ListUserListGlobalLicensesResponse,
+    UpdateUserListGlobalLicenseRequest,
+)
+from .types.user_list_global_license_type import UserListGlobalLicenseType
+from .types.user_list_license_client_account_type import (
+    UserListLicenseClientAccountType,
+)
+from .types.user_list_license_metrics import UserListLicenseMetrics
+from .types.user_list_license_pricing import UserListLicensePricing
+from .types.user_list_license_status import UserListLicenseStatus
+from .types.user_list_service import (
+    CreateUserListRequest,
+    DeleteUserListRequest,
+    GetUserListRequest,
+    ListUserListsRequest,
+    ListUserListsResponse,
+    UpdateUserListRequest,
+)
+from .types.user_properties import (
+    CustomerType,
+    CustomerValueBucket,
+    UserProperties,
+    UserProperty,
+)
+
+if hasattr(api_core, "check_python_version") and hasattr(
+    api_core, "check_dependency_versions"
+):  # pragma: NO COVER
+    api_core.check_python_version("google.ads.datamanager_v1")  # type: ignore
+    api_core.check_dependency_versions("google.ads.datamanager_v1")  # type: ignore
+else:  # pragma: NO COVER
+    # An older version of api_core is installed which does not define the
+    # functions above. We do equivalent checks manually.
+    try:
+        import warnings
+
+        _py_version_str = sys.version.split()[0]
+        _package_label = "google.ads.datamanager_v1"
+        if sys.version_info < (3, 10):
+            warnings.warn(
+                "You are using a non-supported Python version "
+                + f"({_py_version_str}).  Google will not post any further "
+                + f"updates to {_package_label} supporting this Python version. "
+                + "Please upgrade to the latest Python version, or at "
+                + f"least to Python 3.10, and then update {_package_label}.",
+                FutureWarning,
+            )
+
+        def parse_version_to_tuple(version_string: str):
+            """Safely converts a semantic version string to a comparable tuple of integers.
+            Example: "4.25.8" -> (4, 25, 8)
+            Ignores non-numeric parts and handles common version formats.
+            Args:
+                version_string: Version string in the format "x.y.z" or "x.y.z<suffix>"
+            Returns:
+                Tuple of integers for the parsed version string.
+            """
+            parts = []
+            for part in version_string.split("."):
+                try:
+                    parts.append(int(part))
+                except ValueError:
+                    # If it's a non-numeric part (e.g., '1.0.0b1' -> 'b1'), stop here.
+                    # This is a simplification compared to 'packaging.parse_version', but sufficient
+                    # for comparing strictly numeric semantic versions.
+                    break
+            return tuple(parts)
+
+        def _get_version(dependency_name):
+            try:
+                version_string: str = metadata.version(dependency_name)
+                parsed_version = parse_version_to_tuple(version_string)
+                return (parsed_version, version_string)
+            except Exception:
+                # Catch exceptions from metadata.version() (e.g., PackageNotFoundError)
+                # or errors during parse_version_to_tuple
+                return (None, "--")
+
+        _dependency_package = "google.protobuf"
+        _next_supported_version = "4.25.8"
+        _next_supported_version_tuple = (4, 25, 8)
+        _recommendation = " (we recommend 6.x)"
+        (_version_used, _version_used_string) = _get_version(_dependency_package)
+        if _version_used and _version_used < _next_supported_version_tuple:
+            warnings.warn(
+                f"Package {_package_label} depends on "
+                + f"{_dependency_package}, currently installed at version "
+                + f"{_version_used_string}. Future updates to "
+                + f"{_package_label} will require {_dependency_package} at "
+                + f"version {_next_supported_version} or higher{_recommendation}."
+                + " Please ensure "
+                + "that either (a) your Python environment doesn't pin the "
+                + f"version of {_dependency_package}, so that updates to "
+                + f"{_package_label} can require the higher version, or "
+                + "(b) you manually update your Python environment to use at "
+                + f"least version {_next_supported_version} of "
+                + f"{_dependency_package}.",
+                FutureWarning,
+            )
+    except Exception:
+        warnings.warn(
+            "Could not determine the version of Python "
+            + "currently being used. To continue receiving "
+            + "updates for {_package_label}, ensure you are "
+            + "using a supported version of Python; see "
+            + "https://devguide.python.org/versions/"
+        )
+
+__all__ = (
+    "IngestionServiceAsyncClient",
+    "MarketingDataInsightsServiceAsyncClient",
+    "PartnerLinkServiceAsyncClient",
+    "UserListDirectLicenseServiceAsyncClient",
+    "UserListGlobalLicenseServiceAsyncClient",
+    "UserListServiceAsyncClient",
+    "AdIdentifiers",
+    "AddressInfo",
+    "AgeRange",
+    "AudienceMember",
+    "AwsWrappedKeyInfo",
+    "Baseline",
+    "CartData",
+    "Consent",
+    "ConsentStatus",
+    "ContactIdInfo",
+    "CreatePartnerLinkRequest",
+    "CreateUserListDirectLicenseRequest",
+    "CreateUserListGlobalLicenseRequest",
+    "CreateUserListRequest",
+    "CustomVariable",
+    "CustomerType",
+    "CustomerValueBucket",
+    "DataSourceType",
+    "DeletePartnerLinkRequest",
+    "DeleteUserListRequest",
+    "Destination",
+    "DeviceInfo",
+    "Encoding",
+    "EncryptionInfo",
+    "ErrorCount",
+    "ErrorInfo",
+    "ErrorReason",
+    "Event",
+    "EventLocation",
+    "EventParameter",
+    "EventSource",
+    "ExperimentalField",
+    "GcpWrappedKeyInfo",
+    "Gender",
+    "GetUserListDirectLicenseRequest",
+    "GetUserListGlobalLicenseRequest",
+    "GetUserListRequest",
+    "IngestAudienceMembersRequest",
+    "IngestAudienceMembersResponse",
+    "IngestEventsRequest",
+    "IngestEventsResponse",
+    "IngestedUserListInfo",
+    "IngestionServiceClient",
+    "Item",
+    "ItemCustomVariable",
+    "ItemParameter",
+    "ListUserListDirectLicensesRequest",
+    "ListUserListDirectLicensesResponse",
+    "ListUserListGlobalLicenseCustomerInfosRequest",
+    "ListUserListGlobalLicenseCustomerInfosResponse",
+    "ListUserListGlobalLicensesRequest",
+    "ListUserListGlobalLicensesResponse",
+    "ListUserListsRequest",
+    "ListUserListsResponse",
+    "MarketingDataInsightsServiceClient",
+    "MatchRateRange",
+    "MobileData",
+    "MobileIdInfo",
+    "PairData",
+    "PairIdInfo",
+    "PartnerAudienceInfo",
+    "PartnerLink",
+    "PartnerLinkServiceClient",
+    "PpidData",
+    "ProcessingErrorReason",
+    "ProcessingWarningReason",
+    "Product",
+    "ProductAccount",
+    "PseudonymousIdInfo",
+    "RemoveAudienceMembersRequest",
+    "RemoveAudienceMembersResponse",
+    "RequestStatusPerDestination",
+    "RetrieveInsightsRequest",
+    "RetrieveInsightsResponse",
+    "RetrieveRequestStatusRequest",
+    "RetrieveRequestStatusResponse",
+    "SearchPartnerLinksRequest",
+    "SearchPartnerLinksResponse",
+    "SizeInfo",
+    "TargetNetworkInfo",
+    "TermsOfService",
+    "TermsOfServiceStatus",
+    "UpdateUserListDirectLicenseRequest",
+    "UpdateUserListGlobalLicenseRequest",
+    "UpdateUserListRequest",
+    "UserData",
+    "UserIdData",
+    "UserIdInfo",
+    "UserIdentifier",
+    "UserList",
+    "UserListDirectLicense",
+    "UserListDirectLicenseServiceClient",
+    "UserListGlobalLicense",
+    "UserListGlobalLicenseCustomerInfo",
+    "UserListGlobalLicenseServiceClient",
+    "UserListGlobalLicenseType",
+    "UserListLicenseClientAccountType",
+    "UserListLicenseMetrics",
+    "UserListLicensePricing",
+    "UserListLicenseStatus",
+    "UserListServiceClient",
+    "UserProperties",
+    "UserProperty",
+    "WarningCount",
+    "WarningInfo",
+)

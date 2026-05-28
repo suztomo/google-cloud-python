@@ -1,5 +1,128 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-apps-chat/#history
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.8.0...google-apps-chat-v0.9.0) (2026-05-06)
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.7.0...google-apps-chat-v0.8.0) (2026-04-09)
+
+
+### Documentation
+
+* Update reference documentation for Chat API ListMessages, GetMessage, GetSpaceEvent and ListSpaceEvents. ([56ccbd8612b6790b0477bf8d777080061072e745](https://github.com/googleapis/google-cloud-python/commit/56ccbd8612b6790b0477bf8d777080061072e745))
+
+
+### Features
+
+* Support app authentication with admin-consent scopes for Chat API ListMessages, GetMessage, GetSpaceEvent and ListSpaceEvents ([56ccbd8612b6790b0477bf8d777080061072e745](https://github.com/googleapis/google-cloud-python/commit/56ccbd8612b6790b0477bf8d777080061072e745))
+* Addition of Section and SectionItem APIs ([56ccbd8612b6790b0477bf8d777080061072e745](https://github.com/googleapis/google-cloud-python/commit/56ccbd8612b6790b0477bf8d777080061072e745))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.6.0...google-apps-chat-v0.7.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.5.0...google-apps-chat-v0.6.0) (2026-02-05)
+
+
+### Features
+
+* Addition of QuoteType enum, QuotedMessageSnapshot &amp; ForwardMetadata in the QuotedMessageMetadata proto ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.4.0...google-apps-chat-v0.5.0) (2026-01-08)
+
+
+### Documentation
+
+* Improve documentation of attachment.proto, event_payload.proto and space.proto ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+
+
+### Features
+
+* Add accessory widget support for private messages ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* Add app authorization support to space APIs ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* Addition of GMAIL_MESSAGE value for RichLinkType enum in the RichLinkMetadata proto ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.3.0...google-apps-chat-v0.4.0) (2025-10-28)
+
+
+### Documentation
+
+* Update field documentations for space.proto and membership.proto  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+
+### Features
+
+* add ROLE_ASSISTANT_MANAGER to the MembershipRole enum in the Membership proto and assistant_managers_allowed to the PermissionSetting  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.2.9...google-apps-chat-v0.3.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.2.9](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.2.8...google-apps-chat-v0.2.9) (2025-08-29)
+
+
+### Bug Fixes
+
+* Changed field behavior for an existing field `last_update_time` in message `.google.chat.v1.QuotedMessageMetadata` ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* Changed field behavior for an existing field name in message .google.chat.v1.QuotedMessageMetadata ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+
+
+### Documentation
+
+* A comment for field `customer` in message `.google.chat.v1.Space` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* A comment for field `last_update_time` in message `.google.chat.v1.QuotedMessageMetadata` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* A comment for field `name` in message `.google.chat.v1.QuotedMessageMetadata` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* A comment for field `quoted_message_metadata` in message `.google.chat.v1.Message` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* A comment for field `update_mask` in message `.google.chat.v1.UpdateMessageRequest` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+* A comment for message `QuotedMessageMetadata` is changed ([08076ef](https://github.com/googleapis/google-cloud-python/commit/08076ef884baddfe523d0be8cdfafe5637ee073b))
+
+## [0.2.8](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.2.7...google-apps-chat-v0.2.8) (2025-08-06)
+
+
+### Features
+
+* Addition of app auth support for chat api ([e9795e3](https://github.com/googleapis/google-cloud-python/commit/e9795e356339141f7087a982c08fe962b3f559da))
+
+
+### Documentation
+
+* Update reference documentation for createSpace,updateSpace,deleteSpace,createMembership,updateMembership,deleteMembership and the newly added field -customer- in space.proto ([e9795e3](https://github.com/googleapis/google-cloud-python/commit/e9795e356339141f7087a982c08fe962b3f559da))
+
+## [0.2.7](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.2.6...google-apps-chat-v0.2.7) (2025-07-23)
+
+
+### Features
+
+* Exposing 1p integration message content (drive, calendar, huddle, meet chips) ([b74ec0e](https://github.com/googleapis/google-cloud-python/commit/b74ec0ef9d46f96219dbdd9ff4937597a7486f28))
+
+
+### Documentation
+
+* Update reference documentation for annotations. Introduce new richlink metadata types ([b74ec0e](https://github.com/googleapis/google-cloud-python/commit/b74ec0ef9d46f96219dbdd9ff4937597a7486f28))
+
 ## [0.2.6](https://github.com/googleapis/google-cloud-python/compare/google-apps-chat-v0.2.5...google-apps-chat-v0.2.6) (2025-05-08)
 
 

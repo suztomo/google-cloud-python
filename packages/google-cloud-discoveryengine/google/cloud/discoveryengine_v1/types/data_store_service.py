@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1.types import data_store as gcd_data_store
@@ -43,7 +43,26 @@ class CreateDataStoreRequest(proto.Message):
     [DataStoreService.CreateDataStore][google.cloud.discoveryengine.v1.DataStoreService.CreateDataStore]
     method.
 
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
+        cmek_config_name (str):
+            Resource name of the CmekConfig to use for
+            protecting this DataStore.
+
+            This field is a member of `oneof`_ ``cmek_options``.
+        disable_cmek (bool):
+            DataStore without CMEK protections. If a
+            default CmekConfig is set for the project,
+            setting this field will override the default
+            CmekConfig as well.
+
+            This field is a member of `oneof`_ ``cmek_options``.
         parent (str):
             Required. The parent resource name, such as
             ``projects/{project}/locations/{location}/collections/{collection}``.
@@ -80,6 +99,16 @@ class CreateDataStoreRequest(proto.Message):
             ``data_store.starting_schema`` is specified.
     """
 
+    cmek_config_name: str = proto.Field(
+        proto.STRING,
+        number=5,
+        oneof="cmek_options",
+    )
+    disable_cmek: bool = proto.Field(
+        proto.BOOL,
+        number=6,
+        oneof="cmek_options",
+    )
     parent: str = proto.Field(
         proto.STRING,
         number=1,

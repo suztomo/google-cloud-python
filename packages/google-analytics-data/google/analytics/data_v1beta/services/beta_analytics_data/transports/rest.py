@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -775,9 +775,10 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -795,6 +796,12 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[BetaAnalyticsDataRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -903,9 +910,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseBatchRunPivotReports._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseBatchRunPivotReports._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_run_pivot_reports(
                 request, metadata
@@ -1065,9 +1070,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseBatchRunReports._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseBatchRunReports._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_run_reports(
                 request, metadata
@@ -1227,9 +1230,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseCheckCompatibility._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseCheckCompatibility._get_http_options()
 
             request, metadata = self._interceptor.pre_check_compatibility(
                 request, metadata
@@ -1386,9 +1387,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseCreateAudienceExport._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseCreateAudienceExport._get_http_options()
 
             request, metadata = self._interceptor.pre_create_audience_export(
                 request, metadata
@@ -1414,7 +1413,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1545,9 +1544,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseGetAudienceExport._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseGetAudienceExport._get_http_options()
 
             request, metadata = self._interceptor.pre_get_audience_export(
                 request, metadata
@@ -1845,9 +1842,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseListAudienceExports._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseListAudienceExports._get_http_options()
 
             request, metadata = self._interceptor.pre_list_audience_exports(
                 request, metadata
@@ -2000,9 +1995,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseQueryAudienceExport._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseQueryAudienceExport._get_http_options()
 
             request, metadata = self._interceptor.pre_query_audience_export(
                 request, metadata
@@ -2160,9 +2153,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseRunPivotReport._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseRunPivotReport._get_http_options()
 
             request, metadata = self._interceptor.pre_run_pivot_report(
                 request, metadata
@@ -2318,9 +2309,7 @@ class BetaAnalyticsDataRestTransport(_BaseBetaAnalyticsDataRestTransport):
 
             """
 
-            http_options = (
-                _BaseBetaAnalyticsDataRestTransport._BaseRunRealtimeReport._get_http_options()
-            )
+            http_options = _BaseBetaAnalyticsDataRestTransport._BaseRunRealtimeReport._get_http_options()
 
             request, metadata = self._interceptor.pre_run_realtime_report(
                 request, metadata

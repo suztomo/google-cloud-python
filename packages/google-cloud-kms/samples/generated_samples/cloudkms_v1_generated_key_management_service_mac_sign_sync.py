@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_mac_sign():
     # Initialize request argument(s)
     request = kms_v1.MacSignRequest(
         name="name_value",
-        data=b'data_blob',
+        data=b"data_blob",
     )
 
     # Make the request
@@ -49,5 +49,6 @@ def sample_mac_sign():
 
     # Handle the response
     print(response)
+
 
 # [END cloudkms_v1_generated_KeyManagementService_MacSign_sync]

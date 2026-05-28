@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,9 +41,10 @@ async def sample_create_lb_traffic_extension():
     # Initialize request argument(s)
     lb_traffic_extension = network_services_v1.LbTrafficExtension()
     lb_traffic_extension.name = "name_value"
-    lb_traffic_extension.forwarding_rules = ['forwarding_rules_value1', 'forwarding_rules_value2']
     lb_traffic_extension.extension_chains.name = "name_value"
-    lb_traffic_extension.extension_chains.match_condition.cel_expression = "cel_expression_value"
+    lb_traffic_extension.extension_chains.match_condition.cel_expression = (
+        "cel_expression_value"
+    )
     lb_traffic_extension.extension_chains.extensions.name = "name_value"
     lb_traffic_extension.extension_chains.extensions.service = "service_value"
     lb_traffic_extension.load_balancing_scheme = "EXTERNAL_MANAGED"
@@ -55,13 +56,14 @@ async def sample_create_lb_traffic_extension():
     )
 
     # Make the request
-    operation = client.create_lb_traffic_extension(request=request)
+    operation = await client.create_lb_traffic_extension(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_DepService_CreateLbTrafficExtension_async]

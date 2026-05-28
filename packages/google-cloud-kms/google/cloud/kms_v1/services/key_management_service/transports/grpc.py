@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.kms_v1.types import resources, service
 
@@ -58,7 +60,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +95,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -119,10 +121,10 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
     Manages cryptographic keys and operations using those keys.
     Implements a REST model with the following objects:
 
-    -  [KeyRing][google.cloud.kms.v1.KeyRing]
-    -  [CryptoKey][google.cloud.kms.v1.CryptoKey]
-    -  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
-    -  [ImportJob][google.cloud.kms.v1.ImportJob]
+    - [KeyRing][google.cloud.kms.v1.KeyRing]
+    - [CryptoKey][google.cloud.kms.v1.CryptoKey]
+    - [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+    - [ImportJob][google.cloud.kms.v1.ImportJob]
 
     If you are using manual gRPC libraries, see `Using gRPC with Cloud
     KMS <https://cloud.google.com/kms/docs/grpc>`__.
@@ -165,9 +167,10 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -198,6 +201,10 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -208,6 +215,7 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
         self._grpc_channel = None
         self._ssl_channel_credentials = ssl_channel_credentials
         self._stubs: Dict[str, Callable] = {}
+        self._operations_client: Optional[operations_v1.OperationsClient] = None
 
         if api_mtls_endpoint:
             warnings.warn("api_mtls_endpoint is deprecated", DeprecationWarning)
@@ -300,9 +308,10 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -333,6 +342,22 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
     def grpc_channel(self) -> grpc.Channel:
         """Return the channel designed to connect to this service."""
         return self._grpc_channel
+
+    @property
+    def operations_client(self) -> operations_v1.OperationsClient:
+        """Create the client designed to process long-running operations.
+
+        This property caches on the instance; repeated calls return the same
+        client.
+        """
+        # Quick check: Only create a new client if we do not already have one.
+        if self._operations_client is None:
+            self._operations_client = operations_v1.OperationsClient(
+                self._logged_channel
+            )
+
+        # Return the client from cache.
+        return self._operations_client
 
     @property
     def list_key_rings(
@@ -439,6 +464,38 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 response_deserializer=service.ListImportJobsResponse.deserialize,
             )
         return self._stubs["list_import_jobs"]
+
+    @property
+    def list_retired_resources(
+        self,
+    ) -> Callable[
+        [service.ListRetiredResourcesRequest], service.ListRetiredResourcesResponse
+    ]:
+        r"""Return a callable for the list retired resources method over gRPC.
+
+        Lists the
+        [RetiredResources][google.cloud.kms.v1.RetiredResource] which
+        are the records of deleted
+        [CryptoKeys][google.cloud.kms.v1.CryptoKey]. RetiredResources
+        prevent the reuse of these resource names after deletion.
+
+        Returns:
+            Callable[[~.ListRetiredResourcesRequest],
+                    ~.ListRetiredResourcesResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_retired_resources" not in self._stubs:
+            self._stubs["list_retired_resources"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/ListRetiredResources",
+                request_serializer=service.ListRetiredResourcesRequest.serialize,
+                response_deserializer=service.ListRetiredResourcesResponse.deserialize,
+            )
+        return self._stubs["list_retired_resources"]
 
     @property
     def get_key_ring(self) -> Callable[[service.GetKeyRingRequest], resources.KeyRing]:
@@ -581,6 +638,35 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
         return self._stubs["get_import_job"]
 
     @property
+    def get_retired_resource(
+        self,
+    ) -> Callable[[service.GetRetiredResourceRequest], resources.RetiredResource]:
+        r"""Return a callable for the get retired resource method over gRPC.
+
+        Retrieves a specific
+        [RetiredResource][google.cloud.kms.v1.RetiredResource] resource,
+        which represents the record of a deleted
+        [CryptoKey][google.cloud.kms.v1.CryptoKey].
+
+        Returns:
+            Callable[[~.GetRetiredResourceRequest],
+                    ~.RetiredResource]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_retired_resource" not in self._stubs:
+            self._stubs["get_retired_resource"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/GetRetiredResource",
+                request_serializer=service.GetRetiredResourceRequest.serialize,
+                response_deserializer=resources.RetiredResource.deserialize,
+            )
+        return self._stubs["get_retired_resource"]
+
+    @property
     def create_key_ring(
         self,
     ) -> Callable[[service.CreateKeyRingRequest], resources.KeyRing]:
@@ -670,6 +756,75 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 response_deserializer=resources.CryptoKeyVersion.deserialize,
             )
         return self._stubs["create_crypto_key_version"]
+
+    @property
+    def delete_crypto_key(
+        self,
+    ) -> Callable[[service.DeleteCryptoKeyRequest], operations_pb2.Operation]:
+        r"""Return a callable for the delete crypto key method over gRPC.
+
+        Permanently deletes the given
+        [CryptoKey][google.cloud.kms.v1.CryptoKey]. All child
+        [CryptoKeyVersions][google.cloud.kms.v1.CryptoKeyVersion] must
+        have been previously deleted using
+        [KeyManagementService.DeleteCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKeyVersion].
+        The specified crypto key will be immediately and permanently
+        deleted upon calling this method. This action cannot be undone.
+
+        Returns:
+            Callable[[~.DeleteCryptoKeyRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_crypto_key" not in self._stubs:
+            self._stubs["delete_crypto_key"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/DeleteCryptoKey",
+                request_serializer=service.DeleteCryptoKeyRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_crypto_key"]
+
+    @property
+    def delete_crypto_key_version(
+        self,
+    ) -> Callable[[service.DeleteCryptoKeyVersionRequest], operations_pb2.Operation]:
+        r"""Return a callable for the delete crypto key version method over gRPC.
+
+        Permanently deletes the given
+        [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]. Only
+        possible if the version has not been previously imported and if
+        its [state][google.cloud.kms.v1.CryptoKeyVersion.state] is one
+        of [DESTROYED][CryptoKeyVersionState.DESTROYED],
+        [IMPORT_FAILED][CryptoKeyVersionState.IMPORT_FAILED], or
+        [GENERATION_FAILED][CryptoKeyVersionState.GENERATION_FAILED].
+        Successfully imported
+        [CryptoKeyVersions][google.cloud.kms.v1.CryptoKeyVersion] cannot
+        be deleted at this time. The specified version will be
+        immediately and permanently deleted upon calling this method.
+        This action cannot be undone.
+
+        Returns:
+            Callable[[~.DeleteCryptoKeyVersionRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_crypto_key_version" not in self._stubs:
+            self._stubs["delete_crypto_key_version"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/DeleteCryptoKeyVersion",
+                request_serializer=service.DeleteCryptoKeyVersionRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_crypto_key_version"]
 
     @property
     def import_crypto_key_version(
@@ -826,12 +981,12 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_crypto_key_primary_version" not in self._stubs:
-            self._stubs[
-                "update_crypto_key_primary_version"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.KeyManagementService/UpdateCryptoKeyPrimaryVersion",
-                request_serializer=service.UpdateCryptoKeyPrimaryVersionRequest.serialize,
-                response_deserializer=resources.CryptoKey.deserialize,
+            self._stubs["update_crypto_key_primary_version"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.KeyManagementService/UpdateCryptoKeyPrimaryVersion",
+                    request_serializer=service.UpdateCryptoKeyPrimaryVersionRequest.serialize,
+                    response_deserializer=resources.CryptoKey.deserialize,
+                )
             )
         return self._stubs["update_crypto_key_primary_version"]
 
@@ -876,12 +1031,12 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "destroy_crypto_key_version" not in self._stubs:
-            self._stubs[
-                "destroy_crypto_key_version"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.KeyManagementService/DestroyCryptoKeyVersion",
-                request_serializer=service.DestroyCryptoKeyVersionRequest.serialize,
-                response_deserializer=resources.CryptoKeyVersion.deserialize,
+            self._stubs["destroy_crypto_key_version"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.KeyManagementService/DestroyCryptoKeyVersion",
+                    request_serializer=service.DestroyCryptoKeyVersionRequest.serialize,
+                    response_deserializer=resources.CryptoKeyVersion.deserialize,
+                )
             )
         return self._stubs["destroy_crypto_key_version"]
 
@@ -915,12 +1070,12 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "restore_crypto_key_version" not in self._stubs:
-            self._stubs[
-                "restore_crypto_key_version"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.KeyManagementService/RestoreCryptoKeyVersion",
-                request_serializer=service.RestoreCryptoKeyVersionRequest.serialize,
-                response_deserializer=resources.CryptoKeyVersion.deserialize,
+            self._stubs["restore_crypto_key_version"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.KeyManagementService/RestoreCryptoKeyVersion",
+                    request_serializer=service.RestoreCryptoKeyVersionRequest.serialize,
+                    response_deserializer=resources.CryptoKeyVersion.deserialize,
+                )
             )
         return self._stubs["restore_crypto_key_version"]
 
@@ -1165,6 +1320,38 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 response_deserializer=service.MacVerifyResponse.deserialize,
             )
         return self._stubs["mac_verify"]
+
+    @property
+    def decapsulate(
+        self,
+    ) -> Callable[[service.DecapsulateRequest], service.DecapsulateResponse]:
+        r"""Return a callable for the decapsulate method over gRPC.
+
+        Decapsulates data that was encapsulated with a public key
+        retrieved from
+        [GetPublicKey][google.cloud.kms.v1.KeyManagementService.GetPublicKey]
+        corresponding to a
+        [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion] with
+        [CryptoKey.purpose][google.cloud.kms.v1.CryptoKey.purpose]
+        KEY_ENCAPSULATION.
+
+        Returns:
+            Callable[[~.DecapsulateRequest],
+                    ~.DecapsulateResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "decapsulate" not in self._stubs:
+            self._stubs["decapsulate"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/Decapsulate",
+                request_serializer=service.DecapsulateRequest.serialize,
+                response_deserializer=service.DecapsulateResponse.deserialize,
+            )
+        return self._stubs["decapsulate"]
 
     @property
     def generate_random_bytes(

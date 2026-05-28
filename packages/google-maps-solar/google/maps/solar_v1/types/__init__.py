@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from .solar_service import (
     CashPurchaseSavings,
     DataLayers,
     DataLayerView,
+    Experiment,
     FinancedPurchaseSavings,
     FinancialAnalysis,
     FinancialDetails,
@@ -57,6 +58,7 @@ __all__ = (
     "SolarPanelConfig",
     "SolarPotential",
     "DataLayerView",
+    "Experiment",
     "ImageryQuality",
     "SolarPanelOrientation",
 )

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -164,6 +164,7 @@ class Membership(proto.Message):
             MULTI_CLOUD (2):
                 Public cloud infrastructure.
         """
+
         INFRASTRUCTURE_TYPE_UNSPECIFIED = 0
         ON_PREM = 1
         MULTI_CLOUD = 2
@@ -284,12 +285,12 @@ class MembershipEndpoint(proto.Message):
             applied for a correctly registered cluster, in the steady
             state. These resources:
 
-            -  Ensure that the cluster is exclusively registered to one
-               and only one Hub Membership.
-            -  Propagate Workload Pool Information available in the
-               Membership Authority field.
-            -  Ensure proper initial configuration of default Hub
-               Features.
+            - Ensure that the cluster is exclusively registered to one
+              and only one Hub Membership.
+            - Propagate Workload Pool Information available in the
+              Membership Authority field.
+            - Ensure proper initial configuration of default Hub
+              Features.
     """
 
     gke_cluster: "GkeCluster" = proto.Field(
@@ -418,10 +419,15 @@ class ResourceOptions(proto.Message):
             This option should be set for clusters with Kubernetes
             apiserver versions <1.16.
         k8s_version (str):
-            Optional. Major version of the Kubernetes cluster. This is
-            only used to determine which version to use for the
+            Optional. Major and minor version of the Kubernetes cluster.
+            This is only used to determine which version to use for the
             CustomResourceDefinition resources,
             ``apiextensions/v1beta1`` or\ ``apiextensions/v1``.
+        k8s_git_version (str):
+            Optional. Git version of the Kubernetes
+            cluster. This is only used to gate the Connect
+            Agent migration to svc.id.goog on GDC-SO
+            1.33.100 patch and above.
     """
 
     connect_version: str = proto.Field(
@@ -435,6 +441,10 @@ class ResourceOptions(proto.Message):
     k8s_version: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+    k8s_git_version: str = proto.Field(
+        proto.STRING,
+        number=4,
     )
 
 
@@ -527,6 +537,7 @@ class OnPremCluster(proto.Message):
             USER (4):
                 The ClusterType is user cluster.
         """
+
         CLUSTERTYPE_UNSPECIFIED = 0
         BOOTSTRAP = 1
         HYBRID = 2
@@ -820,6 +831,7 @@ class MembershipState(proto.Message):
                 The Membership is being updated by the Hub
                 Service.
         """
+
         CODE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -868,24 +880,23 @@ class ListMembershipsRequest(proto.Message):
 
             Examples:
 
-            -  Name is ``bar`` in project ``foo-proj`` and location
-               ``global``:
+            - Name is ``bar`` in project ``foo-proj`` and location
+              ``global``:
 
-               name =
-               "projects/foo-proj/locations/global/membership/bar"
+              name = "projects/foo-proj/locations/global/membership/bar"
 
-            -  Memberships that have a label called ``foo``:
+            - Memberships that have a label called ``foo``:
 
-               labels.foo:\*
+              labels.foo:\*
 
-            -  Memberships that have a label called ``foo`` whose value
-               is ``bar``:
+            - Memberships that have a label called ``foo`` whose value
+              is ``bar``:
 
-               labels.foo = bar
+              labels.foo = bar
 
-            -  Memberships in the CREATING state:
+            - Memberships in the CREATING state:
 
-               state = CREATING
+              state = CREATING
         order_by (str):
             Optional. One or more fields to compare and
             use to sort the output. See
@@ -1097,7 +1108,7 @@ class UpdateMembershipRequest(proto.Message):
             updating a map field, set the value of a key to null or
             empty string to delete the key from the map. It's not
             possible to update a key's value to the empty string. If you
-            specify the update_mask to be a special path "*", fully
+            specify the update_mask to be a special path "\*", fully
             replaces all user-modifiable fields to match ``resource``.
         request_id (str):
             Optional. A request ID to identify requests.
@@ -1333,12 +1344,12 @@ class ValidateExclusivityResponse(proto.Message):
         status (google.rpc.status_pb2.Status):
             The validation result.
 
-            -  ``OK`` means that exclusivity is validated, assuming the
-               manifest produced by GenerateExclusivityManifest is
-               successfully applied.
-            -  ``ALREADY_EXISTS`` means that the Membership CRD is
-               already owned by another Hub. See ``status.message`` for
-               more information.
+            - ``OK`` means that exclusivity is validated, assuming the
+              manifest produced by GenerateExclusivityManifest is
+              successfully applied.
+            - ``ALREADY_EXISTS`` means that the Membership CRD is
+              already owned by another Hub. See ``status.message`` for
+              more information.
     """
 
     status: status_pb2.Status = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.vmmigration_v1 import gapic_version as package_version
 
@@ -44,17 +44,15 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.vmmigration_v1.services.vm_migration import pagers
 from google.cloud.vmmigration_v1.types import vmmigration
@@ -87,6 +85,8 @@ class VmMigrationAsyncClient:
 
     clone_job_path = staticmethod(VmMigrationClient.clone_job_path)
     parse_clone_job_path = staticmethod(VmMigrationClient.parse_clone_job_path)
+    crypto_key_path = staticmethod(VmMigrationClient.crypto_key_path)
+    parse_crypto_key_path = staticmethod(VmMigrationClient.parse_crypto_key_path)
     cutover_job_path = staticmethod(VmMigrationClient.cutover_job_path)
     parse_cutover_job_path = staticmethod(VmMigrationClient.parse_cutover_job_path)
     datacenter_connector_path = staticmethod(
@@ -95,13 +95,29 @@ class VmMigrationAsyncClient:
     parse_datacenter_connector_path = staticmethod(
         VmMigrationClient.parse_datacenter_connector_path
     )
+    disk_migration_job_path = staticmethod(VmMigrationClient.disk_migration_job_path)
+    parse_disk_migration_job_path = staticmethod(
+        VmMigrationClient.parse_disk_migration_job_path
+    )
     group_path = staticmethod(VmMigrationClient.group_path)
     parse_group_path = staticmethod(VmMigrationClient.parse_group_path)
+    image_path = staticmethod(VmMigrationClient.image_path)
+    parse_image_path = staticmethod(VmMigrationClient.parse_image_path)
+    image_import_path = staticmethod(VmMigrationClient.image_import_path)
+    parse_image_import_path = staticmethod(VmMigrationClient.parse_image_import_path)
+    image_import_job_path = staticmethod(VmMigrationClient.image_import_job_path)
+    parse_image_import_job_path = staticmethod(
+        VmMigrationClient.parse_image_import_job_path
+    )
     migrating_vm_path = staticmethod(VmMigrationClient.migrating_vm_path)
     parse_migrating_vm_path = staticmethod(VmMigrationClient.parse_migrating_vm_path)
     replication_cycle_path = staticmethod(VmMigrationClient.replication_cycle_path)
     parse_replication_cycle_path = staticmethod(
         VmMigrationClient.parse_replication_cycle_path
+    )
+    service_account_path = staticmethod(VmMigrationClient.service_account_path)
+    parse_service_account_path = staticmethod(
+        VmMigrationClient.parse_service_account_path
     )
     source_path = staticmethod(VmMigrationClient.source_path)
     parse_source_path = staticmethod(VmMigrationClient.parse_source_path)
@@ -147,7 +163,10 @@ class VmMigrationAsyncClient:
         Returns:
             VmMigrationAsyncClient: The constructed client.
         """
-        return VmMigrationClient.from_service_account_info.__func__(VmMigrationAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            VmMigrationClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(VmMigrationAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -163,7 +182,10 @@ class VmMigrationAsyncClient:
         Returns:
             VmMigrationAsyncClient: The constructed client.
         """
-        return VmMigrationClient.from_service_account_file.__func__(VmMigrationAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            VmMigrationClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(VmMigrationAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -213,7 +235,7 @@ class VmMigrationAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -594,11 +616,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_source(request=request)
+                operation = await client.create_source(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -731,11 +753,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_source(request=request)
+                operation = await client.update_source(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -869,11 +891,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_source(request=request)
+                operation = await client.delete_source(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1075,6 +1097,147 @@ class VmMigrationAsyncClient:
         # Send the request.
         response = await rpc(
             request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def fetch_storage_inventory(
+        self,
+        request: Optional[Union[vmmigration.FetchStorageInventoryRequest, dict]] = None,
+        *,
+        source: Optional[str] = None,
+        type_: Optional[vmmigration.FetchStorageInventoryRequest.StorageType] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.FetchStorageInventoryAsyncPager:
+        r"""List remote source's inventory of storage resources.
+        The remote source is another cloud vendor (e.g. AWS,
+        Azure). The inventory describes the list of existing
+        storage resources in that source. Note that this
+        operation lists the resources on the remote source, as
+        opposed to listing the MigratingVms resources in the
+        vmmigration service.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_fetch_storage_inventory():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.FetchStorageInventoryRequest(
+                    source="source_value",
+                    type_="SNAPSHOTS",
+                )
+
+                # Make the request
+                page_result = client.fetch_storage_inventory(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.FetchStorageInventoryRequest, dict]]):
+                The request object. Request message for
+                [fetchStorageInventory][google.cloud.vmmigration.v1.VmMigration.FetchStorageInventory].
+            source (:class:`str`):
+                Required. The name of the Source.
+                This corresponds to the ``source`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            type_ (:class:`google.cloud.vmmigration_v1.types.FetchStorageInventoryRequest.StorageType`):
+                Required. The type of the storage
+                inventory to fetch.
+
+                This corresponds to the ``type_`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.services.vm_migration.pagers.FetchStorageInventoryAsyncPager:
+                Response message for
+                   [fetchStorageInventory][google.cloud.vmmigration.v1.VmMigration.FetchStorageInventory].
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [source, type_]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.FetchStorageInventoryRequest):
+            request = vmmigration.FetchStorageInventoryRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if source is not None:
+            request.source = source
+        if type_ is not None:
+            request.type_ = type_
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.fetch_storage_inventory
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("source", request.source),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.FetchStorageInventoryAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1361,11 +1524,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_utilization_report(request=request)
+                operation = await client.create_utilization_report(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1509,11 +1672,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_utilization_report(request=request)
+                operation = await client.delete_utilization_report(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1894,11 +2057,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_datacenter_connector(request=request)
+                operation = await client.create_datacenter_connector(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2042,11 +2205,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_datacenter_connector(request=request)
+                operation = await client.delete_datacenter_connector(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2175,11 +2338,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.upgrade_appliance(request=request)
+                operation = await client.upgrade_appliance(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2282,11 +2445,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_migrating_vm(request=request)
+                operation = await client.create_migrating_vm(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2658,11 +2821,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_migrating_vm(request=request)
+                operation = await client.update_migrating_vm(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2796,11 +2959,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_migrating_vm(request=request)
+                operation = await client.delete_migrating_vm(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2931,11 +3094,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.start_migration(request=request)
+                operation = await client.start_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3063,11 +3226,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.resume_migration(request=request)
+                operation = await client.resume_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3169,11 +3332,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.pause_migration(request=request)
+                operation = await client.pause_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3275,11 +3438,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.finalize_migration(request=request)
+                operation = await client.finalize_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3371,6 +3534,109 @@ class VmMigrationAsyncClient:
         # Done; return the response.
         return response
 
+    async def extend_migration(
+        self,
+        request: Optional[Union[vmmigration.ExtendMigrationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Extend the migrating VM time to live.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_extend_migration():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.ExtendMigrationRequest(
+                    migrating_vm="migrating_vm_value",
+                )
+
+                # Make the request
+                operation = await client.extend_migration(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.ExtendMigrationRequest, dict]]):
+                The request object. Request message for
+                'ExtendMigrationRequest' request.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.vmmigration_v1.types.ExtendMigrationResponse`
+                Response message for 'ExtendMigration' request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.ExtendMigrationRequest):
+            request = vmmigration.ExtendMigrationRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.extend_migration
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("migrating_vm", request.migrating_vm),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.ExtendMigrationResponse,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def create_clone_job(
         self,
         request: Optional[Union[vmmigration.CreateCloneJobRequest, dict]] = None,
@@ -3406,11 +3672,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_clone_job(request=request)
+                operation = await client.create_clone_job(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3555,11 +3821,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.cancel_clone_job(request=request)
+                operation = await client.cancel_clone_job(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3656,7 +3922,8 @@ class VmMigrationAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListCloneJobsAsyncPager:
-        r"""Lists CloneJobs of a given migrating VM.
+        r"""Lists the CloneJobs of a migrating VM. Only 25 most
+        recent CloneJobs are listed.
 
         .. code-block:: python
 
@@ -3932,11 +4199,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_cutover_job(request=request)
+                operation = await client.create_cutover_job(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3974,7 +4241,7 @@ class VmMigrationAsyncClient:
 
                 The result type for the operation will be :class:`google.cloud.vmmigration_v1.types.CutoverJob` CutoverJob message describes a cutover of a migrating VM. The CutoverJob is
                    the operation of shutting down the VM, creating a
-                   snapshot and clonning the VM using the replicated
+                   snapshot and cloning the VM using the replicated
                    snapshot.
 
         """
@@ -4071,11 +4338,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.cancel_cutover_job(request=request)
+                operation = await client.cancel_cutover_job(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4172,7 +4439,8 @@ class VmMigrationAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListCutoverJobsAsyncPager:
-        r"""Lists CutoverJobs of a given migrating VM.
+        r"""Lists the CutoverJobs of a migrating VM. Only 25 most
+        recent CutoverJobs are listed.
 
         .. code-block:: python
 
@@ -4350,7 +4618,7 @@ class VmMigrationAsyncClient:
                 cutover of a migrating VM. The
                 CutoverJob is the operation of shutting
                 down the VM, creating a snapshot and
-                clonning the VM using the replicated
+                cloning the VM using the replicated
                 snapshot.
 
         """
@@ -4675,11 +4943,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_group(request=request)
+                operation = await client.create_group(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4812,11 +5080,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_group(request=request)
+                operation = await client.update_group(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4950,11 +5218,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_group(request=request)
+                operation = await client.delete_group(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5081,11 +5349,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.add_group_migration(request=request)
+                operation = await client.add_group_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5207,11 +5475,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.remove_group_migration(request=request)
+                operation = await client.remove_group_migration(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5574,17 +5842,21 @@ class VmMigrationAsyncClient:
                 client = vmmigration_v1.VmMigrationAsyncClient()
 
                 # Initialize request argument(s)
+                target_project = vmmigration_v1.TargetProject()
+                target_project.project = "project_value"
+
                 request = vmmigration_v1.CreateTargetProjectRequest(
                     parent="parent_value",
                     target_project_id="target_project_id_value",
+                    target_project=target_project,
                 )
 
                 # Make the request
-                operation = client.create_target_project(request=request)
+                operation = await client.create_target_project(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5716,15 +5988,19 @@ class VmMigrationAsyncClient:
                 client = vmmigration_v1.VmMigrationAsyncClient()
 
                 # Initialize request argument(s)
+                target_project = vmmigration_v1.TargetProject()
+                target_project.project = "project_value"
+
                 request = vmmigration_v1.UpdateTargetProjectRequest(
+                    target_project=target_project,
                 )
 
                 # Make the request
-                operation = client.update_target_project(request=request)
+                operation = await client.update_target_project(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5861,11 +6137,11 @@ class VmMigrationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_target_project(request=request)
+                operation = await client.delete_target_project(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -6199,9 +6475,1796 @@ class VmMigrationAsyncClient:
         # Done; return the response.
         return response
 
+    async def list_image_imports(
+        self,
+        request: Optional[Union[vmmigration.ListImageImportsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListImageImportsAsyncPager:
+        r"""Lists ImageImports in a given project.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_list_image_imports():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.ListImageImportsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_image_imports(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.ListImageImportsRequest, dict]]):
+                The request object. Request message for
+                'ListImageImports' call.
+            parent (:class:`str`):
+                Required. The parent, which owns this
+                collection of targets.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.services.vm_migration.pagers.ListImageImportsAsyncPager:
+                Response message for
+                'ListImageImports' call.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.ListImageImportsRequest):
+            request = vmmigration.ListImageImportsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_image_imports
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListImageImportsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_image_import(
+        self,
+        request: Optional[Union[vmmigration.GetImageImportRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> vmmigration.ImageImport:
+        r"""Gets details of a single ImageImport.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_get_image_import():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.GetImageImportRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_image_import(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.GetImageImportRequest, dict]]):
+                The request object. Request message for 'GetImageImport'
+                call.
+            name (:class:`str`):
+                Required. The ImageImport name.
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.types.ImageImport:
+                ImageImport describes the
+                configuration of the image import to
+                run.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.GetImageImportRequest):
+            request = vmmigration.GetImageImportRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_image_import
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_image_import(
+        self,
+        request: Optional[Union[vmmigration.CreateImageImportRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        image_import: Optional[vmmigration.ImageImport] = None,
+        image_import_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Creates a new ImageImport in a given project.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_create_image_import():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                image_import = vmmigration_v1.ImageImport()
+                image_import.cloud_storage_uri = "cloud_storage_uri_value"
+                image_import.disk_image_target_defaults.image_name = "image_name_value"
+                image_import.disk_image_target_defaults.target_project = "target_project_value"
+
+                request = vmmigration_v1.CreateImageImportRequest(
+                    parent="parent_value",
+                    image_import_id="image_import_id_value",
+                    image_import=image_import,
+                )
+
+                # Make the request
+                operation = await client.create_image_import(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.CreateImageImportRequest, dict]]):
+                The request object. Request message for
+                'CreateImageImport' request.
+            parent (:class:`str`):
+                Required. The ImageImport's parent.
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            image_import (:class:`google.cloud.vmmigration_v1.types.ImageImport`):
+                Required. The create request body.
+                This corresponds to the ``image_import`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            image_import_id (:class:`str`):
+                Required. The image import identifier. This value
+                maximum length is 63 characters, and valid characters
+                are /[a-z][0-9]-/. It must start with an english letter
+                and must not end with a hyphen.
+
+                This corresponds to the ``image_import_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.vmmigration_v1.types.ImageImport`
+                ImageImport describes the configuration of the image
+                import to run.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, image_import, image_import_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.CreateImageImportRequest):
+            request = vmmigration.CreateImageImportRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if image_import is not None:
+            request.image_import = image_import
+        if image_import_id is not None:
+            request.image_import_id = image_import_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_image_import
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.ImageImport,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_image_import(
+        self,
+        request: Optional[Union[vmmigration.DeleteImageImportRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes a single ImageImport.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_delete_image_import():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.DeleteImageImportRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_image_import(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.DeleteImageImportRequest, dict]]):
+                The request object. Request message for
+                'DeleteImageImport' request.
+            name (:class:`str`):
+                Required. The ImageImport name.
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.DeleteImageImportRequest):
+            request = vmmigration.DeleteImageImportRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_image_import
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_image_import_jobs(
+        self,
+        request: Optional[Union[vmmigration.ListImageImportJobsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListImageImportJobsAsyncPager:
+        r"""Lists ImageImportJobs in a given project.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_list_image_import_jobs():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.ListImageImportJobsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_image_import_jobs(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.ListImageImportJobsRequest, dict]]):
+                The request object. Request message for
+                'ListImageImportJobs' call.
+            parent (:class:`str`):
+                Required. The parent, which owns this
+                collection of targets.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.services.vm_migration.pagers.ListImageImportJobsAsyncPager:
+                Response message for
+                'ListImageImportJobs' call.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.ListImageImportJobsRequest):
+            request = vmmigration.ListImageImportJobsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_image_import_jobs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListImageImportJobsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_image_import_job(
+        self,
+        request: Optional[Union[vmmigration.GetImageImportJobRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> vmmigration.ImageImportJob:
+        r"""Gets details of a single ImageImportJob.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_get_image_import_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.GetImageImportJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_image_import_job(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.GetImageImportJobRequest, dict]]):
+                The request object. Request message for
+                'GetImageImportJob' call.
+            name (:class:`str`):
+                Required. The ImageImportJob name.
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.types.ImageImportJob:
+                ImageImportJob describes the progress
+                and result of an image import.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.GetImageImportJobRequest):
+            request = vmmigration.GetImageImportJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_image_import_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def cancel_image_import_job(
+        self,
+        request: Optional[Union[vmmigration.CancelImageImportJobRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Initiates the cancellation of a running
+        ImageImportJob.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_cancel_image_import_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.CancelImageImportJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.cancel_image_import_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.CancelImageImportJobRequest, dict]]):
+                The request object. Request message for
+                'CancelImageImportJob' request.
+            name (:class:`str`):
+                Required. The image import job id.
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.vmmigration_v1.types.CancelImageImportJobResponse`
+                Response message for 'CancelImageImportJob' request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.CancelImageImportJobRequest):
+            request = vmmigration.CancelImageImportJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.cancel_image_import_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.CancelImageImportJobResponse,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_disk_migration_job(
+        self,
+        request: Optional[
+            Union[vmmigration.CreateDiskMigrationJobRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        disk_migration_job: Optional[vmmigration.DiskMigrationJob] = None,
+        disk_migration_job_id: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Creates a new disk migration job in a given Source.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_create_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                disk_migration_job = vmmigration_v1.DiskMigrationJob()
+                disk_migration_job.aws_source_disk_details.volume_id = "volume_id_value"
+                disk_migration_job.target_details.target_disk.zone = "zone_value"
+                disk_migration_job.target_details.target_disk.disk_type = "COMPUTE_ENGINE_DISK_TYPE_HYPERDISK_BALANCED"
+                disk_migration_job.target_details.target_project = "target_project_value"
+
+                request = vmmigration_v1.CreateDiskMigrationJobRequest(
+                    parent="parent_value",
+                    disk_migration_job_id="disk_migration_job_id_value",
+                    disk_migration_job=disk_migration_job,
+                )
+
+                # Make the request
+                operation = await client.create_disk_migration_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.CreateDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'CreateDiskMigrationJob' request.
+            parent (:class:`str`):
+                Required. The DiskMigrationJob's
+                parent.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            disk_migration_job (:class:`google.cloud.vmmigration_v1.types.DiskMigrationJob`):
+                Required. The create request body.
+                This corresponds to the ``disk_migration_job`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            disk_migration_job_id (:class:`str`):
+                Required. The DiskMigrationJob
+                identifier. The maximum length of this
+                value is 63 characters. Valid characters
+                are lower case Latin letters, digits and
+                hyphen. It must start with a Latin
+                letter and must not end with a hyphen.
+
+                This corresponds to the ``disk_migration_job_id`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.vmmigration_v1.types.DiskMigrationJob` Describes the disk which will be migrated from the source environment.
+                   The source disk has to be unattached.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent, disk_migration_job, disk_migration_job_id]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.CreateDiskMigrationJobRequest):
+            request = vmmigration.CreateDiskMigrationJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+        if disk_migration_job is not None:
+            request.disk_migration_job = disk_migration_job
+        if disk_migration_job_id is not None:
+            request.disk_migration_job_id = disk_migration_job_id
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.DiskMigrationJob,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def list_disk_migration_jobs(
+        self,
+        request: Optional[Union[vmmigration.ListDiskMigrationJobsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListDiskMigrationJobsAsyncPager:
+        r"""Lists DiskMigrationJobs in a given Source.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_list_disk_migration_jobs():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.ListDiskMigrationJobsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_disk_migration_jobs(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.ListDiskMigrationJobsRequest, dict]]):
+                The request object. Request message for
+                'ListDiskMigrationJobsRequest' request.
+            parent (:class:`str`):
+                Required. The parent, which owns this
+                collection of DiskMigrationJobs.
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.services.vm_migration.pagers.ListDiskMigrationJobsAsyncPager:
+                Response message for
+                'ListDiskMigrationJobs' request.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.ListDiskMigrationJobsRequest):
+            request = vmmigration.ListDiskMigrationJobsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_disk_migration_jobs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListDiskMigrationJobsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_disk_migration_job(
+        self,
+        request: Optional[Union[vmmigration.GetDiskMigrationJobRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> vmmigration.DiskMigrationJob:
+        r"""Gets details of a single DiskMigrationJob.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_get_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.GetDiskMigrationJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_disk_migration_job(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.GetDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'GetDiskMigrationJob' request.
+            name (:class:`str`):
+                Required. The name of the
+                DiskMigrationJob.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.vmmigration_v1.types.DiskMigrationJob:
+                Describes the disk which will be
+                migrated from the source environment.
+                The source disk has to be unattached.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.GetDiskMigrationJobRequest):
+            request = vmmigration.GetDiskMigrationJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def update_disk_migration_job(
+        self,
+        request: Optional[
+            Union[vmmigration.UpdateDiskMigrationJobRequest, dict]
+        ] = None,
+        *,
+        disk_migration_job: Optional[vmmigration.DiskMigrationJob] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Updates the parameters of a single DiskMigrationJob.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_update_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                disk_migration_job = vmmigration_v1.DiskMigrationJob()
+                disk_migration_job.aws_source_disk_details.volume_id = "volume_id_value"
+                disk_migration_job.target_details.target_disk.zone = "zone_value"
+                disk_migration_job.target_details.target_disk.disk_type = "COMPUTE_ENGINE_DISK_TYPE_HYPERDISK_BALANCED"
+                disk_migration_job.target_details.target_project = "target_project_value"
+
+                request = vmmigration_v1.UpdateDiskMigrationJobRequest(
+                    disk_migration_job=disk_migration_job,
+                )
+
+                # Make the request
+                operation = await client.update_disk_migration_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.UpdateDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'UpdateDiskMigrationJob' request.
+            disk_migration_job (:class:`google.cloud.vmmigration_v1.types.DiskMigrationJob`):
+                Required. The update request body.
+                This corresponds to the ``disk_migration_job`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
+                Optional. Field mask is used to specify the fields to be
+                overwritten in the DiskMigrationJob resource by the
+                update. The fields specified in the update_mask are
+                relative to the resource, not the full request. A field
+                will be overwritten if it is in the mask. If the user
+                does not provide a mask, then a mask equivalent to all
+                fields that are populated (have a non-empty value), will
+                be implied.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.cloud.vmmigration_v1.types.DiskMigrationJob` Describes the disk which will be migrated from the source environment.
+                   The source disk has to be unattached.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [disk_migration_job, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.UpdateDiskMigrationJobRequest):
+            request = vmmigration.UpdateDiskMigrationJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if disk_migration_job is not None:
+            request.disk_migration_job = disk_migration_job
+        if update_mask is not None:
+            request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.update_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("disk_migration_job.name", request.disk_migration_job.name),)
+            ),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.DiskMigrationJob,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_disk_migration_job(
+        self,
+        request: Optional[
+            Union[vmmigration.DeleteDiskMigrationJobRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Deletes a single DiskMigrationJob.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_delete_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.DeleteDiskMigrationJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.delete_disk_migration_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.DeleteDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'DeleteDiskMigrationJob' request.
+            name (:class:`str`):
+                Required. The name of the
+                DiskMigrationJob.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.protobuf.empty_pb2.Empty` A generic empty message that you can re-use to avoid defining duplicated
+                   empty messages in your APIs. A typical example is to
+                   use it as the request or the response type of an API
+                   method. For instance:
+
+                      service Foo {
+                         rpc Bar(google.protobuf.Empty) returns
+                         (google.protobuf.Empty);
+
+                      }
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.DeleteDiskMigrationJobRequest):
+            request = vmmigration.DeleteDiskMigrationJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            empty_pb2.Empty,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def run_disk_migration_job(
+        self,
+        request: Optional[Union[vmmigration.RunDiskMigrationJobRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Runs the disk migration job.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_run_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.RunDiskMigrationJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.run_disk_migration_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.RunDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'RunDiskMigrationJobRequest' request.
+            name (:class:`str`):
+                Required. The name of the
+                DiskMigrationJob.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.vmmigration_v1.types.RunDiskMigrationJobResponse`
+                Response message for 'RunDiskMigrationJob' request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.RunDiskMigrationJobRequest):
+            request = vmmigration.RunDiskMigrationJobRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.run_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.RunDiskMigrationJobResponse,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def cancel_disk_migration_job(
+        self,
+        request: Optional[
+            Union[vmmigration.CancelDiskMigrationJobRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Cancels the disk migration job.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import vmmigration_v1
+
+            async def sample_cancel_disk_migration_job():
+                # Create a client
+                client = vmmigration_v1.VmMigrationAsyncClient()
+
+                # Initialize request argument(s)
+                request = vmmigration_v1.CancelDiskMigrationJobRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.cancel_disk_migration_job(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.vmmigration_v1.types.CancelDiskMigrationJobRequest, dict]]):
+                The request object. Request message for
+                'CancelDiskMigrationJob' request.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.vmmigration_v1.types.CancelDiskMigrationJobResponse`
+                Response message for 'CancelDiskMigrationJob' request.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vmmigration.CancelDiskMigrationJobRequest):
+            request = vmmigration.CancelDiskMigrationJobRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.cancel_disk_migration_job
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            vmmigration.CancelDiskMigrationJobResponse,
+            metadata_type=vmmigration.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6227,8 +8290,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6237,7 +8304,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6245,7 +8312,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6256,7 +8323,7 @@ class VmMigrationAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6282,8 +8349,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6292,7 +8363,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6300,7 +8371,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6311,7 +8382,7 @@ class VmMigrationAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6341,8 +8412,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6351,7 +8426,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6359,7 +8434,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6367,7 +8442,7 @@ class VmMigrationAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6396,8 +8471,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6406,7 +8485,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6414,7 +8493,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6422,7 +8501,7 @@ class VmMigrationAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6448,8 +8527,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6458,7 +8541,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6466,7 +8549,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6477,7 +8560,7 @@ class VmMigrationAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6503,8 +8586,12 @@ class VmMigrationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6513,7 +8600,7 @@ class VmMigrationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6521,7 +8608,7 @@ class VmMigrationAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

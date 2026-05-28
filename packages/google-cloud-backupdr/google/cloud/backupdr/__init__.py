@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,12 @@ __version__ = package_version.__version__
 
 from google.cloud.backupdr_v1.services.backup_dr.async_client import BackupDRAsyncClient
 from google.cloud.backupdr_v1.services.backup_dr.client import BackupDRClient
+from google.cloud.backupdr_v1.services.backup_dr_protection_summary.async_client import (
+    BackupDrProtectionSummaryAsyncClient,
+)
+from google.cloud.backupdr_v1.services.backup_dr_protection_summary.client import (
+    BackupDrProtectionSummaryClient,
+)
 from google.cloud.backupdr_v1.types.backupdr import (
     CreateManagementServerRequest,
     DeleteManagementServerRequest,
@@ -37,25 +43,33 @@ from google.cloud.backupdr_v1.types.backupdr import (
 )
 from google.cloud.backupdr_v1.types.backupplan import (
     BackupPlan,
+    BackupPlanRevision,
     BackupRule,
     BackupWindow,
     CreateBackupPlanRequest,
     DeleteBackupPlanRequest,
     GetBackupPlanRequest,
+    GetBackupPlanRevisionRequest,
+    ListBackupPlanRevisionsRequest,
+    ListBackupPlanRevisionsResponse,
     ListBackupPlansRequest,
     ListBackupPlansResponse,
     StandardSchedule,
+    UpdateBackupPlanRequest,
     WeekDayOfMonth,
 )
 from google.cloud.backupdr_v1.types.backupplanassociation import (
     BackupPlanAssociation,
     CreateBackupPlanAssociationRequest,
     DeleteBackupPlanAssociationRequest,
+    FetchBackupPlanAssociationsForResourceTypeRequest,
+    FetchBackupPlanAssociationsForResourceTypeResponse,
     GetBackupPlanAssociationRequest,
     ListBackupPlanAssociationsRequest,
     ListBackupPlanAssociationsResponse,
     RuleConfigInfo,
     TriggerBackupRequest,
+    UpdateBackupPlanAssociationRequest,
 )
 from google.cloud.backupdr_v1.types.backupvault import (
     Backup,
@@ -63,6 +77,7 @@ from google.cloud.backupdr_v1.types.backupvault import (
     BackupApplianceLockInfo,
     BackupConfigInfo,
     BackupConfigState,
+    BackupGcpResource,
     BackupLock,
     BackupVault,
     BackupVaultView,
@@ -73,6 +88,8 @@ from google.cloud.backupdr_v1.types.backupvault import (
     DataSourceGcpResource,
     DeleteBackupRequest,
     DeleteBackupVaultRequest,
+    FetchBackupsForResourceTypeRequest,
+    FetchBackupsForResourceTypeResponse,
     FetchUsableBackupVaultsRequest,
     FetchUsableBackupVaultsResponse,
     GcpBackupConfig,
@@ -94,8 +111,27 @@ from google.cloud.backupdr_v1.types.backupvault import (
     UpdateBackupVaultRequest,
     UpdateDataSourceRequest,
 )
+from google.cloud.backupdr_v1.types.backupvault_alloydb import (
+    AlloyDBClusterBackupPlanAssociationProperties,
+    AlloyDbClusterBackupProperties,
+    AlloyDBClusterDataSourceProperties,
+)
 from google.cloud.backupdr_v1.types.backupvault_ba import (
     BackupApplianceBackupProperties,
+)
+from google.cloud.backupdr_v1.types.backupvault_cloudsql import (
+    CloudSqlInstanceBackupPlanAssociationProperties,
+    CloudSqlInstanceBackupProperties,
+    CloudSqlInstanceDataSourceProperties,
+    CloudSqlInstanceDataSourceReferenceProperties,
+    CloudSqlInstanceInitializationConfig,
+)
+from google.cloud.backupdr_v1.types.backupvault_disk import (
+    DiskBackupProperties,
+    DiskDataSourceProperties,
+    DiskRestoreProperties,
+    DiskTargetEnvironment,
+    RegionDiskTargetEnvironment,
 )
 from google.cloud.backupdr_v1.types.backupvault_gce import (
     AcceleratorConfig,
@@ -123,10 +159,33 @@ from google.cloud.backupdr_v1.types.backupvault_gce import (
     ServiceAccount,
     Tags,
 )
+from google.cloud.backupdr_v1.types.datasourcereference import (
+    DataSourceBackupConfigInfo,
+    DataSourceGcpResourceInfo,
+    DataSourceReference,
+    FetchDataSourceReferencesForResourceTypeRequest,
+    FetchDataSourceReferencesForResourceTypeResponse,
+    GetDataSourceReferenceRequest,
+    ListDataSourceReferencesRequest,
+    ListDataSourceReferencesResponse,
+)
+from google.cloud.backupdr_v1.types.protection_summary import (
+    BackupConfigDetails,
+    BackupDrPlanConfig,
+    BackupDrPlanRule,
+    BackupDrTemplateConfig,
+    BackupLocation,
+    ListResourceBackupConfigsRequest,
+    ListResourceBackupConfigsResponse,
+    PitrSettings,
+    ResourceBackupConfig,
+)
 
 __all__ = (
     "BackupDRClient",
     "BackupDRAsyncClient",
+    "BackupDrProtectionSummaryClient",
+    "BackupDrProtectionSummaryAsyncClient",
     "CreateManagementServerRequest",
     "DeleteManagementServerRequest",
     "GetManagementServerRequest",
@@ -141,27 +200,36 @@ __all__ = (
     "WorkforceIdentityBasedManagementURI",
     "WorkforceIdentityBasedOAuth2ClientID",
     "BackupPlan",
+    "BackupPlanRevision",
     "BackupRule",
     "BackupWindow",
     "CreateBackupPlanRequest",
     "DeleteBackupPlanRequest",
     "GetBackupPlanRequest",
+    "GetBackupPlanRevisionRequest",
+    "ListBackupPlanRevisionsRequest",
+    "ListBackupPlanRevisionsResponse",
     "ListBackupPlansRequest",
     "ListBackupPlansResponse",
     "StandardSchedule",
+    "UpdateBackupPlanRequest",
     "WeekDayOfMonth",
     "BackupPlanAssociation",
     "CreateBackupPlanAssociationRequest",
     "DeleteBackupPlanAssociationRequest",
+    "FetchBackupPlanAssociationsForResourceTypeRequest",
+    "FetchBackupPlanAssociationsForResourceTypeResponse",
     "GetBackupPlanAssociationRequest",
     "ListBackupPlanAssociationsRequest",
     "ListBackupPlanAssociationsResponse",
     "RuleConfigInfo",
     "TriggerBackupRequest",
+    "UpdateBackupPlanAssociationRequest",
     "Backup",
     "BackupApplianceBackupConfig",
     "BackupApplianceLockInfo",
     "BackupConfigInfo",
+    "BackupGcpResource",
     "BackupLock",
     "BackupVault",
     "CreateBackupVaultRequest",
@@ -170,6 +238,8 @@ __all__ = (
     "DataSourceGcpResource",
     "DeleteBackupRequest",
     "DeleteBackupVaultRequest",
+    "FetchBackupsForResourceTypeRequest",
+    "FetchBackupsForResourceTypeResponse",
     "FetchUsableBackupVaultsRequest",
     "FetchUsableBackupVaultsResponse",
     "GcpBackupConfig",
@@ -193,7 +263,20 @@ __all__ = (
     "BackupConfigState",
     "BackupVaultView",
     "BackupView",
+    "AlloyDBClusterBackupPlanAssociationProperties",
+    "AlloyDbClusterBackupProperties",
+    "AlloyDBClusterDataSourceProperties",
     "BackupApplianceBackupProperties",
+    "CloudSqlInstanceBackupPlanAssociationProperties",
+    "CloudSqlInstanceBackupProperties",
+    "CloudSqlInstanceDataSourceProperties",
+    "CloudSqlInstanceDataSourceReferenceProperties",
+    "CloudSqlInstanceInitializationConfig",
+    "DiskBackupProperties",
+    "DiskDataSourceProperties",
+    "DiskRestoreProperties",
+    "DiskTargetEnvironment",
+    "RegionDiskTargetEnvironment",
     "AcceleratorConfig",
     "AccessConfig",
     "AdvancedMachineFeatures",
@@ -218,4 +301,21 @@ __all__ = (
     "ServiceAccount",
     "Tags",
     "KeyRevocationActionType",
+    "DataSourceBackupConfigInfo",
+    "DataSourceGcpResourceInfo",
+    "DataSourceReference",
+    "FetchDataSourceReferencesForResourceTypeRequest",
+    "FetchDataSourceReferencesForResourceTypeResponse",
+    "GetDataSourceReferenceRequest",
+    "ListDataSourceReferencesRequest",
+    "ListDataSourceReferencesResponse",
+    "BackupConfigDetails",
+    "BackupDrPlanConfig",
+    "BackupDrPlanRule",
+    "BackupDrTemplateConfig",
+    "BackupLocation",
+    "ListResourceBackupConfigsRequest",
+    "ListResourceBackupConfigsResponse",
+    "PitrSettings",
+    "ResourceBackupConfig",
 )

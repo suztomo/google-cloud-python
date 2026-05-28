@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -63,9 +63,9 @@ class Enrollment(proto.Message):
             Required. A CEL expression identifying which
             messages this enrollment applies to.
         message_bus (str):
-            Required. Resource name of the message bus
-            identifying the source of the messages. It
-            matches the form
+            Required. Immutable. Resource name of the
+            message bus identifying the source of the
+            messages. It matches the form
             projects/{project}/locations/{location}/messageBuses/{messageBus}.
         destination (str):
             Required. Destination is the Pipeline that the Enrollment is

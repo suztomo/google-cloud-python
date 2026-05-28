@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,9 +25,7 @@ from .rest import (
 )
 
 # Compile a registry of transports.
-_transport_registry = (
-    OrderedDict()
-)  # type: Dict[str, Type[SampleQuerySetServiceTransport]]
+_transport_registry = OrderedDict()  # type: Dict[str, Type[SampleQuerySetServiceTransport]]
 _transport_registry["grpc"] = SampleQuerySetServiceGrpcTransport
 _transport_registry["grpc_asyncio"] = SampleQuerySetServiceGrpcAsyncIOTransport
 _transport_registry["rest"] = SampleQuerySetServiceRestTransport

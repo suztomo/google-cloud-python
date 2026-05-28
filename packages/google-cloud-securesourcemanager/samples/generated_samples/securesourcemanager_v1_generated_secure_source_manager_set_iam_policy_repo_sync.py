@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,8 +31,9 @@
 # - It may require specifying regional endpoints when creating the service
 #   client as shown in:
 #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
 from google.cloud import securesourcemanager_v1
-from google.iam.v1 import iam_policy_pb2  # type: ignore
 
 
 def sample_set_iam_policy_repo():
@@ -49,5 +50,6 @@ def sample_set_iam_policy_repo():
 
     # Handle the response
     print(response)
+
 
 # [END securesourcemanager_v1_generated_SecureSourceManager_SetIamPolicyRepo_sync]

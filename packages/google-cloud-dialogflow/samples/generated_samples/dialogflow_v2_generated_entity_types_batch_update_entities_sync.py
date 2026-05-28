@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_batch_update_entities():
     # Initialize request argument(s)
     entities = dialogflow_v2.Entity()
     entities.value = "value_value"
-    entities.synonyms = ['synonyms_value1', 'synonyms_value2']
+    entities.synonyms = ["synonyms_value1", "synonyms_value2"]
 
     request = dialogflow_v2.BatchUpdateEntitiesRequest(
         parent="parent_value",
@@ -57,5 +57,6 @@ def sample_batch_update_entities():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2_generated_EntityTypes_BatchUpdateEntities_sync]

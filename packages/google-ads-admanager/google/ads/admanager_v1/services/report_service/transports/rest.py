@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,20 +16,20 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.ads.admanager_v1.types import report_service
+from google.ads.admanager_v1.types import report_messages, report_service
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseReportServiceRestTransport
@@ -142,8 +142,8 @@ class ReportServiceRestInterceptor:
         return request, metadata
 
     def post_create_report(
-        self, response: report_service.Report
-    ) -> report_service.Report:
+        self, response: report_messages.Report
+    ) -> report_messages.Report:
         """Post-rpc interceptor for create_report
 
         DEPRECATED. Please use the `post_create_report_with_metadata`
@@ -158,9 +158,9 @@ class ReportServiceRestInterceptor:
 
     def post_create_report_with_metadata(
         self,
-        response: report_service.Report,
+        response: report_messages.Report,
         metadata: Sequence[Tuple[str, Union[str, bytes]]],
-    ) -> Tuple[report_service.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
+    ) -> Tuple[report_messages.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
         """Post-rpc interceptor for create_report
 
         Override in a subclass to read or manipulate the response or metadata after it
@@ -241,7 +241,9 @@ class ReportServiceRestInterceptor:
         """
         return request, metadata
 
-    def post_get_report(self, response: report_service.Report) -> report_service.Report:
+    def post_get_report(
+        self, response: report_messages.Report
+    ) -> report_messages.Report:
         """Post-rpc interceptor for get_report
 
         DEPRECATED. Please use the `post_get_report_with_metadata`
@@ -256,9 +258,9 @@ class ReportServiceRestInterceptor:
 
     def post_get_report_with_metadata(
         self,
-        response: report_service.Report,
+        response: report_messages.Report,
         metadata: Sequence[Tuple[str, Union[str, bytes]]],
-    ) -> Tuple[report_service.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
+    ) -> Tuple[report_messages.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
         """Post-rpc interceptor for get_report
 
         Override in a subclass to read or manipulate the response or metadata after it
@@ -386,8 +388,8 @@ class ReportServiceRestInterceptor:
         return request, metadata
 
     def post_update_report(
-        self, response: report_service.Report
-    ) -> report_service.Report:
+        self, response: report_messages.Report
+    ) -> report_messages.Report:
         """Post-rpc interceptor for update_report
 
         DEPRECATED. Please use the `post_update_report_with_metadata`
@@ -402,9 +404,9 @@ class ReportServiceRestInterceptor:
 
     def post_update_report_with_metadata(
         self,
-        response: report_service.Report,
+        response: report_messages.Report,
         metadata: Sequence[Tuple[str, Union[str, bytes]]],
-    ) -> Tuple[report_service.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
+    ) -> Tuple[report_messages.Report, Sequence[Tuple[str, Union[str, bytes]]]]:
         """Post-rpc interceptor for update_report
 
         Override in a subclass to read or manipulate the response or metadata after it
@@ -418,6 +420,29 @@ class ReportServiceRestInterceptor:
         `post_update_report_with_metadata`.
         """
         return response, metadata
+
+    def pre_cancel_operation(
+        self,
+        request: operations_pb2.CancelOperationRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        operations_pb2.CancelOperationRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for cancel_operation
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the ReportService server.
+        """
+        return request, metadata
+
+    def post_cancel_operation(self, response: None) -> None:
+        """Post-rpc interceptor for cancel_operation
+
+        Override in a subclass to manipulate the response
+        after it is returned by the ReportService server but before
+        it is returned to user code.
+        """
+        return response
 
     def pre_get_operation(
         self,
@@ -490,9 +515,10 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -510,6 +536,12 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ReportServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -542,14 +574,16 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
         # Only create a new client if we do not already have one.
         if self._operations_client is None:
             http_options: Dict[str, List[Dict[str, str]]] = {
+                "google.longrunning.Operations.CancelOperation": [
+                    {
+                        "method": "post",
+                        "uri": "/v1/{name=networks/*/operations/reports/runs/*}:cancel",
+                    },
+                ],
                 "google.longrunning.Operations.GetOperation": [
                     {
                         "method": "get",
                         "uri": "/v1/{name=networks/*/operations/reports/runs/*}",
-                    },
-                    {
-                        "method": "get",
-                        "uri": "/v1/{name=networks/*/operations/reports/exports/*}",
                     },
                 ],
             }
@@ -606,7 +640,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
             retry: OptionalRetry = gapic_v1.method.DEFAULT,
             timeout: Optional[float] = None,
             metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-        ) -> report_service.Report:
+        ) -> report_messages.Report:
             r"""Call the create report method over HTTP.
 
             Args:
@@ -621,7 +655,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                     be of type `bytes`.
 
             Returns:
-                ~.report_service.Report:
+                ~.report_messages.Report:
                     The ``Report`` resource.
             """
 
@@ -687,8 +721,8 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = report_service.Report()
-            pb_resp = report_service.Report.pb(resp)
+            resp = report_messages.Report()
+            pb_resp = report_messages.Report.pb(resp)
 
             json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
 
@@ -701,7 +735,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 logging.DEBUG
             ):  # pragma: NO COVER
                 try:
-                    response_payload = report_service.Report.to_json(response)
+                    response_payload = report_messages.Report.to_json(response)
                 except:
                     response_payload = None
                 http_response = {
@@ -778,9 +812,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReportServiceRestTransport._BaseFetchReportResultRows._get_http_options()
-            )
+            http_options = _BaseReportServiceRestTransport._BaseFetchReportResultRows._get_http_options()
 
             request, metadata = self._interceptor.pre_fetch_report_result_rows(
                 request, metadata
@@ -907,7 +939,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
             retry: OptionalRetry = gapic_v1.method.DEFAULT,
             timeout: Optional[float] = None,
             metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-        ) -> report_service.Report:
+        ) -> report_messages.Report:
             r"""Call the get report method over HTTP.
 
             Args:
@@ -922,7 +954,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                     be of type `bytes`.
 
             Returns:
-                ~.report_service.Report:
+                ~.report_messages.Report:
                     The ``Report`` resource.
             """
 
@@ -987,8 +1019,8 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = report_service.Report()
-            pb_resp = report_service.Report.pb(resp)
+            resp = report_messages.Report()
+            pb_resp = report_messages.Report.pb(resp)
 
             json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
 
@@ -1001,7 +1033,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 logging.DEBUG
             ):  # pragma: NO COVER
                 try:
-                    response_payload = report_service.Report.to_json(response)
+                    response_payload = report_messages.Report.to_json(response)
                 except:
                     response_payload = None
                 http_response = {
@@ -1261,7 +1293,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1364,7 +1396,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
             retry: OptionalRetry = gapic_v1.method.DEFAULT,
             timeout: Optional[float] = None,
             metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-        ) -> report_service.Report:
+        ) -> report_messages.Report:
             r"""Call the update report method over HTTP.
 
             Args:
@@ -1379,7 +1411,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                     be of type `bytes`.
 
             Returns:
-                ~.report_service.Report:
+                ~.report_messages.Report:
                     The ``Report`` resource.
             """
 
@@ -1445,8 +1477,8 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = report_service.Report()
-            pb_resp = report_service.Report.pb(resp)
+            resp = report_messages.Report()
+            pb_resp = report_messages.Report.pb(resp)
 
             json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
 
@@ -1459,7 +1491,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
                 logging.DEBUG
             ):  # pragma: NO COVER
                 try:
-                    response_payload = report_service.Report.to_json(response)
+                    response_payload = report_messages.Report.to_json(response)
                 except:
                     response_payload = None
                 http_response = {
@@ -1481,7 +1513,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
     @property
     def create_report(
         self,
-    ) -> Callable[[report_service.CreateReportRequest], report_service.Report]:
+    ) -> Callable[[report_service.CreateReportRequest], report_messages.Report]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._CreateReport(self._session, self._host, self._interceptor)  # type: ignore
@@ -1500,7 +1532,7 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
     @property
     def get_report(
         self,
-    ) -> Callable[[report_service.GetReportRequest], report_service.Report]:
+    ) -> Callable[[report_service.GetReportRequest], report_messages.Report]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetReport(self._session, self._host, self._interceptor)  # type: ignore
@@ -1526,10 +1558,124 @@ class ReportServiceRestTransport(_BaseReportServiceRestTransport):
     @property
     def update_report(
         self,
-    ) -> Callable[[report_service.UpdateReportRequest], report_service.Report]:
+    ) -> Callable[[report_service.UpdateReportRequest], report_messages.Report]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._UpdateReport(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def cancel_operation(self):
+        return self._CancelOperation(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _CancelOperation(
+        _BaseReportServiceRestTransport._BaseCancelOperation, ReportServiceRestStub
+    ):
+        def __hash__(self):
+            return hash("ReportServiceRestTransport.CancelOperation")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: operations_pb2.CancelOperationRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> None:
+            r"""Call the cancel operation method over HTTP.
+
+            Args:
+                request (operations_pb2.CancelOperationRequest):
+                    The request object for CancelOperation method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+            """
+
+            http_options = (
+                _BaseReportServiceRestTransport._BaseCancelOperation._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_cancel_operation(
+                request, metadata
+            )
+            transcoded_request = _BaseReportServiceRestTransport._BaseCancelOperation._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseReportServiceRestTransport._BaseCancelOperation._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.ads.admanager_v1.ReportServiceClient.CancelOperation",
+                    extra={
+                        "serviceName": "google.ads.admanager.v1.ReportService",
+                        "rpcName": "CancelOperation",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ReportServiceRestTransport._CancelOperation._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            return self._interceptor.post_cancel_operation(None)
 
     @property
     def get_operation(self):

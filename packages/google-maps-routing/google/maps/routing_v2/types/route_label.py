@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ class RouteLabel(proto.Enum):
             Shorter travel distance route. This is an
             experimental feature.
     """
+
     ROUTE_LABEL_UNSPECIFIED = 0
     DEFAULT_ROUTE = 1
     DEFAULT_ROUTE_ALTERNATE = 2

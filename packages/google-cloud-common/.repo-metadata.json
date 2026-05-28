@@ -1,15 +1,15 @@
 {
-    "name": "common",
-    "name_pretty": "Google Cloud Common",
-    "product_documentation": "https://cloud.google.com",
+    "api_description": "Provides common protobuf definitions for APIs.",
+    "api_id": "common.googleapis.com",
+    "api_shortname": "common",
     "client_documentation": "https://cloud.google.com/python/docs/reference/common/latest",
-    "issue_tracker": "",
-    "release_level": "stable",
+    "default_version": "apiVersion",
+    "distribution_name": "google-cloud-common",
     "language": "python",
     "library_type": "CORE",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-cloud-common",
-    "default_version": "apiVersion",
-    "codeowner_team": "",
-    "api_description": "This package contains generated Python types for google.cloud.common"
+    "name": "common",
+    "name_pretty": "Common Operation Metadata type",
+    "product_documentation": "https://cloud.google.com",
+    "release_level": "stable",
+    "repo": "googleapis/google-cloud-python"
 }

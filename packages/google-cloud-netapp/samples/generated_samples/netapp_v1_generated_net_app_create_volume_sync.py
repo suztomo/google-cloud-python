@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ def sample_create_volume():
     volume.share_name = "share_name_value"
     volume.storage_pool = "storage_pool_value"
     volume.capacity_gib = 1247
-    volume.protocols = ['SMB']
+    volume.protocols = ["ISCSI"]
 
     request = netapp_v1.CreateVolumeRequest(
         parent="parent_value",
@@ -60,5 +60,6 @@ def sample_create_volume():
 
     # Handle the response
     print(response)
+
 
 # [END netapp_v1_generated_NetApp_CreateVolume_sync]

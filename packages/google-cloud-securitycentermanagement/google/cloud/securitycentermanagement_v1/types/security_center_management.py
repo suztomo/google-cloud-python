@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -83,17 +83,17 @@ class SecurityCenterService(proto.Message):
             Identifier. The name of the service, in one of the following
             formats:
 
-            -  ``organizations/{organization}/locations/{location}/securityCenterServices/{service}``
-            -  ``folders/{folder}/locations/{location}/securityCenterServices/{service}``
-            -  ``projects/{project}/locations/{location}/securityCenterServices/{service}``
+            - ``organizations/{organization}/locations/{location}/securityCenterServices/{service}``
+            - ``folders/{folder}/locations/{location}/securityCenterServices/{service}``
+            - ``projects/{project}/locations/{location}/securityCenterServices/{service}``
 
             The following values are valid for ``{service}``:
 
-            -  ``container-threat-detection``
-            -  ``event-threat-detection``
-            -  ``security-health-analytics``
-            -  ``vm-threat-detection``
-            -  ``web-security-scanner``
+            - ``container-threat-detection``
+            - ``event-threat-detection``
+            - ``security-health-analytics``
+            - ``vm-threat-detection``
+            - ``web-security-scanner``
         intended_enablement_state (google.cloud.securitycentermanagement_v1.types.SecurityCenterService.EnablementState):
             Optional. The intended enablement state for the service at
             its level of the resource hierarchy. A ``DISABLED`` state
@@ -144,6 +144,7 @@ class SecurityCenterService(proto.Message):
                 Security Command Center is misconfigured. You
                 can't set this state yourself.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         INHERITED = 1
         ENABLED = 2
@@ -229,9 +230,9 @@ class EffectiveSecurityHealthAnalyticsCustomModule(proto.Message):
             Identifier. The full resource name of the custom module, in
             one of the following formats:
 
-            -  ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
         custom_config (google.cloud.securitycentermanagement_v1.types.CustomConfig):
             Output only. The user-specified configuration
             for the module.
@@ -258,6 +259,7 @@ class EffectiveSecurityHealthAnalyticsCustomModule(proto.Message):
             DISABLED (2):
                 The module is disabled at the given level.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -291,9 +293,9 @@ class ListEffectiveSecurityHealthAnalyticsCustomModulesRequest(proto.Message):
             Required. Name of parent to list effective custom modules,
             in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of results to
             return in a single response. Default is 10,
@@ -361,9 +363,9 @@ class GetEffectiveSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             Required. The full resource name of the custom module,
             specified in one of the following formats:
 
-            -  ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+            - ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
     """
 
     name: str = proto.Field(
@@ -385,9 +387,9 @@ class SecurityHealthAnalyticsCustomModule(proto.Message):
             Identifier. The full resource name of the custom module, in
             one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
         display_name (str):
             Optional. The display name of the Security
             Health Analytics custom module. This display
@@ -438,6 +440,7 @@ class SecurityHealthAnalyticsCustomModule(proto.Message):
                 with no parent) to the ``INHERITED`` state, you receive an
                 ``INVALID_ARGUMENT`` error.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -528,6 +531,7 @@ class CustomConfig(proto.Message):
             LOW (4):
                 Low severity.
         """
+
         SEVERITY_UNSPECIFIED = 0
         CRITICAL = 1
         HIGH = 2
@@ -571,12 +575,12 @@ class CustomConfig(proto.Message):
                 message=expr_pb2.Expr,
             )
 
-        properties: MutableSequence[
-            "CustomConfig.CustomOutputSpec.Property"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="CustomConfig.CustomOutputSpec.Property",
+        properties: MutableSequence["CustomConfig.CustomOutputSpec.Property"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="CustomConfig.CustomOutputSpec.Property",
+            )
         )
 
     class ResourceSelector(proto.Message):
@@ -633,9 +637,9 @@ class ListSecurityHealthAnalyticsCustomModulesRequest(proto.Message):
             project in which to list custom modules, in one of the
             following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of results to
             return in a single response. Default is 10,
@@ -704,9 +708,9 @@ class ListDescendantSecurityHealthAnalyticsCustomModulesRequest(proto.Message):
             project in which to list custom modules, in one of the
             following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of results to
             return in a single response. Default is 10,
@@ -790,9 +794,9 @@ class CreateSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             Required. Name of the parent organization, folder, or
             project of the module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         security_health_analytics_custom_module (google.cloud.securitycentermanagement_v1.types.SecurityHealthAnalyticsCustomModule):
             Required. The resource being created.
         validate_only (bool):
@@ -805,9 +809,9 @@ class CreateSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to create the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during creation of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during creation of the module
 
             Defaults to ``false``.
     """
@@ -838,8 +842,8 @@ class UpdateSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             Required. The fields to update. The following values are
             valid:
 
-            -  ``custom_config``
-            -  ``enablement_state``
+            - ``custom_config``
+            - ``enablement_state``
 
             If you omit this field or set it to the wildcard value
             ``*``, then all eligible fields are updated.
@@ -855,9 +859,9 @@ class UpdateSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to update the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during creation of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during creation of the module
 
             Defaults to ``false``.
     """
@@ -889,9 +893,9 @@ class DeleteSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             Required. The resource name of the SHA custom module, in one
             of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
         validate_only (bool):
             Optional. When set to ``true``, the request will be
             validated (including IAM checks), but no module will be
@@ -902,9 +906,9 @@ class DeleteSecurityHealthAnalyticsCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to delete the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during deletion of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during deletion of the module
 
             Defaults to ``false``.
     """
@@ -1001,9 +1005,9 @@ class SimulatedFinding(proto.Message):
             name <https://google.aip.dev/122>`__ of the finding, in one
             of the following formats:
 
-            -  ``organizations/{organization_id}/sources/{source_id}/findings/{finding_id}``
-            -  ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
-            -  ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
+            - ``organizations/{organization_id}/sources/{source_id}/findings/{finding_id}``
+            - ``folders/{folder_id}/sources/{source_id}/findings/{finding_id}``
+            - ``projects/{project_id}/sources/{source_id}/findings/{finding_id}``
         parent (str):
             The `relative resource name <https://google.aip.dev/122>`__
             of the source the finding belongs to. For example,
@@ -1064,6 +1068,7 @@ class SimulatedFinding(proto.Message):
                 non-issue, or otherwise addressed and is no
                 longer active.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         INACTIVE = 2
@@ -1135,6 +1140,7 @@ class SimulatedFinding(proto.Message):
                 not able to access data, execute code, or create
                 resources.
         """
+
         SEVERITY_UNSPECIFIED = 0
         CRITICAL = 1
         HIGH = 2
@@ -1171,6 +1177,7 @@ class SimulatedFinding(proto.Message):
                 that represent a more severe security problem
                 when taken together.
         """
+
         FINDING_CLASS_UNSPECIFIED = 0
         THREAT = 1
         VULNERABILITY = 2
@@ -1302,9 +1309,9 @@ class EffectiveEventThreatDetectionCustomModule(proto.Message):
             Identifier. The resource name of the Event Threat Detection
             custom module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
         config (google.protobuf.struct_pb2.Struct):
             Output only. Configuration for the effective
             module.
@@ -1333,6 +1340,7 @@ class EffectiveEventThreatDetectionCustomModule(proto.Message):
             DISABLED (2):
                 The module is disabled at the given level.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -1374,9 +1382,9 @@ class ListEffectiveEventThreatDetectionCustomModulesRequest(proto.Message):
             Required. Name of parent to list effective custom modules,
             in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of results to
             return in a single response. Default is 10,
@@ -1444,9 +1452,9 @@ class GetEffectiveEventThreatDetectionCustomModuleRequest(proto.Message):
             Required. The resource name of the Event Threat Detection
             custom module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
     """
 
     name: str = proto.Field(
@@ -1466,9 +1474,9 @@ class EventThreatDetectionCustomModule(proto.Message):
             Identifier. The resource name of the Event Threat Detection
             custom module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
         config (google.protobuf.struct_pb2.Struct):
             Optional. Configuration for the module. For
             the resident module, its configuration value is
@@ -1519,6 +1527,7 @@ class EventThreatDetectionCustomModule(proto.Message):
                 with no parent) to the ``INHERITED`` state, you receive an
                 ``INVALID_ARGUMENT`` error.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -1574,9 +1583,9 @@ class ListEventThreatDetectionCustomModulesRequest(proto.Message):
             Required. Name of parent to list custom modules, in one of
             the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of modules to
             return. The service may return fewer than this
@@ -1645,9 +1654,9 @@ class ListDescendantEventThreatDetectionCustomModulesRequest(proto.Message):
             Required. Name of parent to list custom modules, in one of
             the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of modules to
             return. The service may return fewer than this
@@ -1716,9 +1725,9 @@ class GetEventThreatDetectionCustomModuleRequest(proto.Message):
             Required. The resource name of the Event Threat Detection
             custom module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
     """
 
     name: str = proto.Field(
@@ -1736,9 +1745,9 @@ class CreateEventThreatDetectionCustomModuleRequest(proto.Message):
             Required. Name of parent for the module, in one of the
             following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         event_threat_detection_custom_module (google.cloud.securitycentermanagement_v1.types.EventThreatDetectionCustomModule):
             Required. The module to create. The
             [EventThreatDetectionCustomModule.name][google.cloud.securitycentermanagement.v1.EventThreatDetectionCustomModule.name]
@@ -1754,9 +1763,9 @@ class CreateEventThreatDetectionCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to create the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during creation of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during creation of the module
 
             Defaults to ``false``.
     """
@@ -1797,9 +1806,9 @@ class UpdateEventThreatDetectionCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to update the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during creation of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during creation of the module
 
             Defaults to ``false``.
     """
@@ -1831,9 +1840,9 @@ class DeleteEventThreatDetectionCustomModuleRequest(proto.Message):
             Required. The resource name of the Event Threat Detection
             custom module, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-            -  ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+            - ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
         validate_only (bool):
             Optional. When set to ``true``, the request will be
             validated (including IAM checks), but no module will be
@@ -1844,9 +1853,9 @@ class DeleteEventThreatDetectionCustomModuleRequest(proto.Message):
             If the request is valid, a subsequent request to delete the
             module could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during creation of the module
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during creation of the module
 
             Defaults to ``false``.
     """
@@ -1870,7 +1879,7 @@ class ValidateEventThreatDetectionCustomModuleRequest(proto.Message):
             Required. Resource name of the parent to validate the custom
             modules under, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
         raw_text (str):
             Required. The raw text of the module's
             contents. Used to generate error messages.
@@ -1992,17 +2001,17 @@ class GetSecurityCenterServiceRequest(proto.Message):
             Required. The Security Command Center service to retrieve,
             in one of the following formats:
 
-            -  organizations/{organization}/locations/{location}/securityCenterServices/{service}
-            -  folders/{folder}/locations/{location}/securityCenterServices/{service}
-            -  projects/{project}/locations/{location}/securityCenterServices/{service}
+            - organizations/{organization}/locations/{location}/securityCenterServices/{service}
+            - folders/{folder}/locations/{location}/securityCenterServices/{service}
+            - projects/{project}/locations/{location}/securityCenterServices/{service}
 
             The following values are valid for ``{service}``:
 
-            -  ``container-threat-detection``
-            -  ``event-threat-detection``
-            -  ``security-health-analytics``
-            -  ``vm-threat-detection``
-            -  ``web-security-scanner``
+            - ``container-threat-detection``
+            - ``event-threat-detection``
+            - ``security-health-analytics``
+            - ``vm-threat-detection``
+            - ``web-security-scanner``
         show_eligible_modules_only (bool):
             Set to ``true`` to show only modules that are in scope. By
             default, all modules are shown.
@@ -2027,9 +2036,9 @@ class ListSecurityCenterServicesRequest(proto.Message):
             Required. The name of the parent to list Security Command
             Center services, in one of the following formats:
 
-            -  ``organizations/{organization}/locations/{location}``
-            -  ``folders/{folder}/locations/{location}``
-            -  ``projects/{project}/locations/{location}``
+            - ``organizations/{organization}/locations/{location}``
+            - ``folders/{folder}/locations/{location}``
+            - ``projects/{project}/locations/{location}``
         page_size (int):
             Optional. The maximum number of results to
             return in a single response. Default is 10,
@@ -2082,12 +2091,12 @@ class ListSecurityCenterServicesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    security_center_services: MutableSequence[
-        "SecurityCenterService"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="SecurityCenterService",
+    security_center_services: MutableSequence["SecurityCenterService"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SecurityCenterService",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2106,8 +2115,8 @@ class UpdateSecurityCenterServiceRequest(proto.Message):
             Required. The fields to update. Accepts the following
             values:
 
-            -  ``intended_enablement_state``
-            -  ``modules``
+            - ``intended_enablement_state``
+            - ``modules``
 
             If omitted, then all eligible fields are updated.
         validate_only (bool):
@@ -2120,9 +2129,9 @@ class UpdateSecurityCenterServiceRequest(proto.Message):
             If the request is valid, a subsequent request to update the
             service could still fail for one of the following reasons:
 
-            -  The state of your cloud resources changed; for example,
-               you lost a required IAM permission
-            -  An error occurred during update of the service
+            - The state of your cloud resources changed; for example,
+              you lost a required IAM permission
+            - An error occurred during update of the service
 
             Defaults to ``false``.
     """

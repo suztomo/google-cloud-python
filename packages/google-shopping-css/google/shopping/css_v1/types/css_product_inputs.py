@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.shopping.type.types import types
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
+from google.shopping.type.types import types
 
 from google.shopping.css_v1.types import css_product_common
 
@@ -42,7 +42,7 @@ class CssProductInput(proto.Message):
 
     Attributes:
         name (str):
-            The name of the CSS Product input. Format:
+            Identifier. The name of the CSS Product input. Format:
             ``accounts/{account}/cssProductInputs/{css_product_input}``,
             where the last section ``css_product_input`` consists of 3
             parts: contentLanguage~feedLabel~offerId. Example:
@@ -196,8 +196,8 @@ class UpdateCssProductInputRequest(proto.Message):
             To specify the update mask for custom attributes you need to
             add the ``custom_attribute.`` prefix.
 
-            Providing special "*" value for full CSS product replacement
-            is not supported.
+            Providing special "\*" value for full CSS product
+            replacement is not supported.
     """
 
     css_product_input: "CssProductInput" = proto.Field(

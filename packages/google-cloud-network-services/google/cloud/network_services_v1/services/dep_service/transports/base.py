@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,19 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.network_services_v1 import gapic_version as package_version
 from google.cloud.network_services_v1.types import dep
@@ -70,9 +72,10 @@ class DepServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -83,9 +86,11 @@ class DepServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -101,11 +106,16 @@ class DepServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -128,6 +138,8 @@ class DepServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -183,6 +195,56 @@ class DepServiceTransport(abc.ABC):
             ),
             self.delete_lb_route_extension: gapic_v1.method.wrap_method(
                 self.delete_lb_route_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_lb_edge_extensions: gapic_v1.method.wrap_method(
+                self.list_lb_edge_extensions,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_lb_edge_extension: gapic_v1.method.wrap_method(
+                self.get_lb_edge_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_lb_edge_extension: gapic_v1.method.wrap_method(
+                self.create_lb_edge_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_lb_edge_extension: gapic_v1.method.wrap_method(
+                self.update_lb_edge_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_lb_edge_extension: gapic_v1.method.wrap_method(
+                self.delete_lb_edge_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_authz_extensions: gapic_v1.method.wrap_method(
+                self.list_authz_extensions,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_authz_extension: gapic_v1.method.wrap_method(
+                self.get_authz_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_authz_extension: gapic_v1.method.wrap_method(
+                self.create_authz_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_authz_extension: gapic_v1.method.wrap_method(
+                self.update_authz_extension,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_authz_extension: gapic_v1.method.wrap_method(
+                self.delete_authz_extension,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -344,6 +406,101 @@ class DepServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def list_lb_edge_extensions(
+        self,
+    ) -> Callable[
+        [dep.ListLbEdgeExtensionsRequest],
+        Union[
+            dep.ListLbEdgeExtensionsResponse,
+            Awaitable[dep.ListLbEdgeExtensionsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_lb_edge_extension(
+        self,
+    ) -> Callable[
+        [dep.GetLbEdgeExtensionRequest],
+        Union[dep.LbEdgeExtension, Awaitable[dep.LbEdgeExtension]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_lb_edge_extension(
+        self,
+    ) -> Callable[
+        [dep.CreateLbEdgeExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_lb_edge_extension(
+        self,
+    ) -> Callable[
+        [dep.UpdateLbEdgeExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_lb_edge_extension(
+        self,
+    ) -> Callable[
+        [dep.DeleteLbEdgeExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_authz_extensions(
+        self,
+    ) -> Callable[
+        [dep.ListAuthzExtensionsRequest],
+        Union[
+            dep.ListAuthzExtensionsResponse, Awaitable[dep.ListAuthzExtensionsResponse]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_authz_extension(
+        self,
+    ) -> Callable[
+        [dep.GetAuthzExtensionRequest],
+        Union[dep.AuthzExtension, Awaitable[dep.AuthzExtension]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_authz_extension(
+        self,
+    ) -> Callable[
+        [dep.CreateAuthzExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_authz_extension(
+        self,
+    ) -> Callable[
+        [dep.UpdateAuthzExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_authz_extension(
+        self,
+    ) -> Callable[
+        [dep.DeleteAuthzExtensionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -367,13 +524,19 @@ class DepServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

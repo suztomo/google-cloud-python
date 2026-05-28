@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_update_style_guide():
     # Initialize request argument(s)
     style_guide = apihub_v1.StyleGuide()
     style_guide.linter = "OTHER"
-    style_guide.contents.contents = b'contents_blob'
+    style_guide.contents.contents = b"contents_blob"
     style_guide.contents.mime_type = "mime_type_value"
 
     request = apihub_v1.UpdateStyleGuideRequest(
@@ -53,5 +53,6 @@ def sample_update_style_guide():
 
     # Handle the response
     print(response)
+
 
 # [END apihub_v1_generated_LintingService_UpdateStyleGuide_sync]

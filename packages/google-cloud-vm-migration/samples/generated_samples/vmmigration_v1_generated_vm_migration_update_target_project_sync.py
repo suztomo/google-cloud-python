@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,11 @@ def sample_update_target_project():
     client = vmmigration_v1.VmMigrationClient()
 
     # Initialize request argument(s)
+    target_project = vmmigration_v1.TargetProject()
+    target_project.project = "project_value"
+
     request = vmmigration_v1.UpdateTargetProjectRequest(
+        target_project=target_project,
     )
 
     # Make the request
@@ -51,5 +55,6 @@ def sample_update_target_project():
 
     # Handle the response
     print(response)
+
 
 # [END vmmigration_v1_generated_VmMigration_UpdateTargetProject_sync]

@@ -1,17 +1,15 @@
 {
-    "name": "apigeeconnect",
-    "name_pretty": "Apigee Connect",
-    "product_documentation": "https://cloud.google.com/apigee/docs/hybrid/v1.4/apigee-connect",
+    "api_description": "Apigee Connect allows the Apigee hybrid management plane to connect securely to the MART service in the runtime plane without requiring you to expose the MART endpoint on the internet.",
+    "api_id": "apigeeconnect.googleapis.com",
+    "api_shortname": "apigeeconnect",
     "client_documentation": "https://cloud.google.com/python/docs/reference/apigeeconnect/latest",
-    "issue_tracker": "",
-    "release_level": "stable",
+    "default_version": "v1",
+    "distribution_name": "google-cloud-apigee-connect",
     "language": "python",
     "library_type": "GAPIC_AUTO",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-cloud-apigee-connect",
-    "api_id": "apigeeconnect.googleapis.com",
-    "default_version": "v1",
-    "codeowner_team": "",
-    "api_shortname": "apigeeconnect",
-    "api_description": "allows the Apigee hybrid management plane to connect securely to the MART service in the runtime plane without requiring you to expose the MART endpoint on the internet."
+    "name": "apigeeconnect",
+    "name_pretty": "Apigee Connect",
+    "product_documentation": "https://cloud.google.com/apigee/",
+    "release_level": "stable",
+    "repo": "googleapis/google-cloud-python"
 }

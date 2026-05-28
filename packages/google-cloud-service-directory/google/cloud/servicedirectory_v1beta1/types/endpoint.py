@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -41,11 +41,11 @@ class Endpoint(proto.Message):
             Optional. An IPv4 or IPv6 address. Service Directory rejects
             bad addresses like:
 
-            -  ``8.8.8``
-            -  ``8.8.8.8:53``
-            -  ``test:bad:address``
-            -  ``[::1]``
-            -  ``[::1]:8080``
+            - ``8.8.8``
+            - ``8.8.8.8:53``
+            - ``test:bad:address``
+            - ``[::1]``
+            - ``[::1]:8080``
 
             Limited to 45 characters.
         port (int):
@@ -57,19 +57,19 @@ class Endpoint(proto.Message):
 
             Restrictions:
 
-            -  The entire metadata dictionary may contain up to 512
-               characters, spread accoss all key-value pairs. Metadata
-               that goes beyond this limit are rejected
-            -  Valid metadata keys have two segments: an optional prefix
-               and name, separated by a slash (/). The name segment is
-               required and must be 63 characters or less, beginning and
-               ending with an alphanumeric character ([a-z0-9A-Z]) with
-               dashes (-), underscores (_), dots (.), and alphanumerics
-               between. The prefix is optional. If specified, the prefix
-               must be a DNS subdomain: a series of DNS labels separated
-               by dots (.), not longer than 253 characters in total,
-               followed by a slash (/). Metadata that fails to meet
-               these requirements are rejected
+            - The entire metadata dictionary may contain up to 512
+              characters, spread accoss all key-value pairs. Metadata
+              that goes beyond this limit are rejected
+            - Valid metadata keys have two segments: an optional prefix
+              and name, separated by a slash (/). The name segment is
+              required and must be 63 characters or less, beginning and
+              ending with an alphanumeric character ([a-z0-9A-Z]) with
+              dashes (-), underscores (\_), dots (.), and alphanumerics
+              between. The prefix is optional. If specified, the prefix
+              must be a DNS subdomain: a series of DNS labels separated
+              by dots (.), not longer than 253 characters in total,
+              followed by a slash (/). Metadata that fails to meet these
+              requirements are rejected
 
             Note: This field is equivalent to the ``annotations`` field
             in the v1 API. They have the same syntax and read/write to

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,8 +43,14 @@ async def sample_update_azure_cluster():
     azure_cluster.azure_region = "azure_region_value"
     azure_cluster.resource_group_id = "resource_group_id_value"
     azure_cluster.networking.virtual_network_id = "virtual_network_id_value"
-    azure_cluster.networking.pod_address_cidr_blocks = ['pod_address_cidr_blocks_value1', 'pod_address_cidr_blocks_value2']
-    azure_cluster.networking.service_address_cidr_blocks = ['service_address_cidr_blocks_value1', 'service_address_cidr_blocks_value2']
+    azure_cluster.networking.pod_address_cidr_blocks = [
+        "pod_address_cidr_blocks_value1",
+        "pod_address_cidr_blocks_value2",
+    ]
+    azure_cluster.networking.service_address_cidr_blocks = [
+        "service_address_cidr_blocks_value1",
+        "service_address_cidr_blocks_value2",
+    ]
     azure_cluster.control_plane.version = "version_value"
     azure_cluster.control_plane.ssh_config.authorized_key = "authorized_key_value"
     azure_cluster.fleet.project = "project_value"
@@ -54,13 +60,14 @@ async def sample_update_azure_cluster():
     )
 
     # Make the request
-    operation = client.update_azure_cluster(request=request)
+    operation = await client.update_azure_cluster(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END gkemulticloud_v1_generated_AzureClusters_UpdateAzureCluster_async]

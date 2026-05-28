@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -111,6 +111,7 @@ class Version(proto.Message):
             TYPE_GENERAL_AVAILABILITY (2):
                 Version is available for public use
         """
+
         TYPE_UNSPECIFIED = 0
         TYPE_PREVIEW = 1
         TYPE_GENERAL_AVAILABILITY = 2
@@ -164,6 +165,7 @@ class Accelerator(proto.Message):
                 export pipelines custom built to streamline CCAI
                 Insights processing.
         """
+
         ACCELERATOR_TYPE_UNSPECIFIED = 0
         CDC = 1
         HEALTHCARE = 2
@@ -186,6 +188,7 @@ class Accelerator(proto.Message):
                 unknown. Requests for enable, disable could be
                 retried while in this state
         """
+
         STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -347,6 +350,7 @@ class Instance(proto.Message):
                 help enterprises design and develop their data
                 ingestion and integration pipelines at low cost.
         """
+
         TYPE_UNSPECIFIED = 0
         BASIC = 1
         ENTERPRISE = 2
@@ -381,6 +385,7 @@ class Instance(proto.Message):
             DISABLED (10):
                 Instance is disabled
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -404,6 +409,7 @@ class Instance(proto.Message):
                 The KMS key used by the instance is either
                 revoked or denied access to
         """
+
         DISABLED_REASON_UNSPECIFIED = 0
         KMS_KEY_ISSUE = 1
 

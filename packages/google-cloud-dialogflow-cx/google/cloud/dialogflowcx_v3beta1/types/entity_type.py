@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import inline
@@ -54,23 +54,23 @@ class EntityType(proto.Message):
 
     There are three types of entities:
 
-    -  **System** - entities that are defined by the Dialogflow API for
-       common data types such as date, time, currency, and so on. A
-       system entity is represented by the ``EntityType`` type.
+    - **System** - entities that are defined by the Dialogflow API for
+      common data types such as date, time, currency, and so on. A
+      system entity is represented by the ``EntityType`` type.
 
-    -  **Custom** - entities that are defined by you that represent
-       actionable data that is meaningful to your application. For
-       example, you could define a ``pizza.sauce`` entity for red or
-       white pizza sauce, a ``pizza.cheese`` entity for the different
-       types of cheese on a pizza, a ``pizza.topping`` entity for
-       different toppings, and so on. A custom entity is represented by
-       the ``EntityType`` type.
+    - **Custom** - entities that are defined by you that represent
+      actionable data that is meaningful to your application. For
+      example, you could define a ``pizza.sauce`` entity for red or
+      white pizza sauce, a ``pizza.cheese`` entity for the different
+      types of cheese on a pizza, a ``pizza.topping`` entity for
+      different toppings, and so on. A custom entity is represented by
+      the ``EntityType`` type.
 
-    -  **User** - entities that are built for an individual user such as
-       favorites, preferences, playlists, and so on. A user entity is
-       represented by the
-       [SessionEntityType][google.cloud.dialogflow.cx.v3beta1.SessionEntityType]
-       type.
+    - **User** - entities that are built for an individual user such as
+      favorites, preferences, playlists, and so on. A user entity is
+      represented by the
+      [SessionEntityType][google.cloud.dialogflow.cx.v3beta1.SessionEntityType]
+      type.
 
     For more information about entity types, see the `Dialogflow
     documentation <https://cloud.google.com/dialogflow/docs/entities-overview>`__.
@@ -129,6 +129,7 @@ class EntityType(proto.Message):
                 Regexp entity types allow to specify regular
                 expressions in entries values.
         """
+
         KIND_UNSPECIFIED = 0
         KIND_MAP = 1
         KIND_LIST = 2
@@ -147,6 +148,7 @@ class EntityType(proto.Message):
                 Allows an agent to recognize values that have
                 not been explicitly listed in the entity.
         """
+
         AUTO_EXPANSION_MODE_UNSPECIFIED = 0
         AUTO_EXPANSION_MODE_DEFAULT = 1
 
@@ -161,12 +163,12 @@ class EntityType(proto.Message):
 
                 For ``KIND_MAP`` entity types:
 
-                -  A canonical value to be used in place of synonyms.
+                - A canonical value to be used in place of synonyms.
 
                 For ``KIND_LIST`` entity types:
 
-                -  A string that can contain references to other entity
-                   types (with or without aliases).
+                - A string that can contain references to other entity types
+                  (with or without aliases).
             synonyms (MutableSequence[str]):
                 Required. A collection of value synonyms. For example, if
                 the entity type is *vegetable*, and ``value`` is
@@ -174,8 +176,8 @@ class EntityType(proto.Message):
 
                 For ``KIND_LIST`` entity types:
 
-                -  This collection must contain exactly one synonym equal to
-                   ``value``.
+                - This collection must contain exactly one synonym equal to
+                  ``value``.
         """
 
         value: str = proto.Field(
@@ -282,9 +284,9 @@ class ExportEntityTypesRequest(proto.Message):
             Optional. The language to retrieve the entity type for. The
             following fields are language dependent:
 
-            -  ``EntityType.entities.value``
-            -  ``EntityType.entities.synonyms``
-            -  ``EntityType.excluded_phrases.value``
+            - ``EntityType.entities.value``
+            - ``EntityType.entities.synonyms``
+            - ``EntityType.excluded_phrases.value``
 
             If not specified, all language dependent fields will be
             retrieved. `Many
@@ -305,6 +307,7 @@ class ExportEntityTypesRequest(proto.Message):
                 EntityTypes will be exported in JSON Package
                 format.
         """
+
         DATA_FORMAT_UNSPECIFIED = 0
         BLOB = 1
         JSON_PACKAGE = 5
@@ -461,6 +464,7 @@ class ImportEntityTypesRequest(proto.Message):
                 conflicting new entity type when display name
                 conflicts exist.
         """
+
         MERGE_OPTION_UNSPECIFIED = 0
         REPLACE = 1
         MERGE = 2
@@ -561,9 +565,9 @@ class ListEntityTypesRequest(proto.Message):
             The language to list entity types for. The following fields
             are language dependent:
 
-            -  ``EntityType.entities.value``
-            -  ``EntityType.entities.synonyms``
-            -  ``EntityType.excluded_phrases.value``
+            - ``EntityType.entities.value``
+            - ``EntityType.entities.synonyms``
+            - ``EntityType.excluded_phrases.value``
 
             If not specified, the agent's default language is used.
             `Many
@@ -637,9 +641,9 @@ class GetEntityTypeRequest(proto.Message):
             The language to retrieve the entity type for. The following
             fields are language dependent:
 
-            -  ``EntityType.entities.value``
-            -  ``EntityType.entities.synonyms``
-            -  ``EntityType.excluded_phrases.value``
+            - ``EntityType.entities.value``
+            - ``EntityType.entities.synonyms``
+            - ``EntityType.excluded_phrases.value``
 
             If not specified, the agent's default language is used.
             `Many
@@ -671,9 +675,9 @@ class CreateEntityTypeRequest(proto.Message):
         language_code (str):
             The language of the following fields in ``entity_type``:
 
-            -  ``EntityType.entities.value``
-            -  ``EntityType.entities.synonyms``
-            -  ``EntityType.excluded_phrases.value``
+            - ``EntityType.entities.value``
+            - ``EntityType.entities.synonyms``
+            - ``EntityType.excluded_phrases.value``
 
             If not specified, the agent's default language is used.
             `Many
@@ -707,9 +711,9 @@ class UpdateEntityTypeRequest(proto.Message):
         language_code (str):
             The language of the following fields in ``entity_type``:
 
-            -  ``EntityType.entities.value``
-            -  ``EntityType.entities.synonyms``
-            -  ``EntityType.excluded_phrases.value``
+            - ``EntityType.entities.value``
+            - ``EntityType.entities.synonyms``
+            - ``EntityType.excluded_phrases.value``
 
             If not specified, the agent's default language is used.
             `Many
@@ -748,16 +752,16 @@ class DeleteEntityTypeRequest(proto.Message):
             This field has no effect for entity type not being used. For
             entity types that are used by intents or pages:
 
-            -  If ``force`` is set to false, an error will be returned
-               with message indicating the referencing resources.
-            -  If ``force`` is set to true, Dialogflow will remove the
-               entity type, as well as any references to the entity type
-               (i.e. Page
-               [parameter][google.cloud.dialogflow.cx.v3beta1.Form.Parameter]
-               of the entity type will be changed to '@sys.any' and
-               intent
-               [parameter][google.cloud.dialogflow.cx.v3beta1.Intent.Parameter]
-               of the entity type will be removed).
+            - If ``force`` is set to false, an error will be returned
+              with message indicating the referencing resources.
+            - If ``force`` is set to true, Dialogflow will remove the
+              entity type, as well as any references to the entity type
+              (i.e. Page
+              [parameter][google.cloud.dialogflow.cx.v3beta1.Form.Parameter]
+              of the entity type will be changed to '@sys.any' and
+              intent
+              [parameter][google.cloud.dialogflow.cx.v3beta1.Intent.Parameter]
+              of the entity type will be removed).
     """
 
     name: str = proto.Field(

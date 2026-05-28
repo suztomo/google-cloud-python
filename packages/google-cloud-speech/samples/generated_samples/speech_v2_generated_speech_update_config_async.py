@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_config():
     client = speech_v2.SpeechAsyncClient()
 
     # Initialize request argument(s)
-    request = speech_v2.UpdateConfigRequest(
-    )
+    request = speech_v2.UpdateConfigRequest()
 
     # Make the request
     response = await client.update_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END speech_v2_generated_Speech_UpdateConfig_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,17 +41,18 @@ async def sample_delete_application_instances():
     # Initialize request argument(s)
     request = visionai_v1.DeleteApplicationInstancesRequest(
         name="name_value",
-        instance_ids=['instance_ids_value1', 'instance_ids_value2'],
+        instance_ids=["instance_ids_value1", "instance_ids_value2"],
     )
 
     # Make the request
-    operation = client.delete_application_instances(request=request)
+    operation = await client.delete_application_instances(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END visionai_v1_generated_AppPlatform_DeleteApplicationInstances_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.network_services_v1.types import common
@@ -45,7 +45,7 @@ class EndpointPolicy(proto.Message):
 
     Attributes:
         name (str):
-            Required. Name of the EndpointPolicy resource. It matches
+            Identifier. Name of the EndpointPolicy resource. It matches
             pattern
             ``projects/{project}/locations/global/endpointPolicies/{endpoint_policy}``.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -109,6 +109,7 @@ class EndpointPolicy(proto.Message):
             GRPC_SERVER (2):
                 Represents a proxyless gRPC backend.
         """
+
         ENDPOINT_POLICY_TYPE_UNSPECIFIED = 0
         SIDECAR_PROXY = 1
         GRPC_SERVER = 2
@@ -181,6 +182,12 @@ class ListEndpointPoliciesRequest(proto.Message):
             ``ListEndpointPoliciesResponse`` Indicates that this is a
             continuation of a prior ``ListEndpointPolicies`` call, and
             that the system should return the next page of data.
+        return_partial_success (bool):
+            Optional. If true, allow partial responses
+            for multi-regional Aggregated List requests.
+            Otherwise if one of the locations is down or
+            unreachable, the Aggregated List request will
+            fail.
     """
 
     parent: str = proto.Field(
@@ -195,6 +202,10 @@ class ListEndpointPoliciesRequest(proto.Message):
         proto.STRING,
         number=3,
     )
+    return_partial_success: bool = proto.Field(
+        proto.BOOL,
+        number=4,
+    )
 
 
 class ListEndpointPoliciesResponse(proto.Message):
@@ -208,6 +219,11 @@ class ListEndpointPoliciesResponse(proto.Message):
             response, then ``next_page_token`` is included. To get the
             next set of results, call this method again using the value
             of ``next_page_token`` as ``page_token``.
+        unreachable (MutableSequence[str]):
+            Unreachable resources. Populated when the request opts into
+            [return_partial_success][google.cloud.networkservices.v1.ListEndpointPoliciesRequest.return_partial_success]
+            and reading across collections e.g. when attempting to list
+            all resources across all supported locations.
     """
 
     @property
@@ -222,6 +238,10 @@ class ListEndpointPoliciesResponse(proto.Message):
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+    unreachable: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3,
     )
 
 

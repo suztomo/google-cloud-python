@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_list_info_types():
     client = dlp_v2.DlpServiceClient()
 
     # Initialize request argument(s)
-    request = dlp_v2.ListInfoTypesRequest(
-    )
+    request = dlp_v2.ListInfoTypesRequest()
 
     # Make the request
     response = client.list_info_types(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dlp_v2_generated_DlpService_ListInfoTypes_sync]

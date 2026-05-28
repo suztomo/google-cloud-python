@@ -1,5 +1,73 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-video-transcoder/#history
+
+## [1.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.19.0...google-cloud-video-transcoder-v1.20.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.18.0...google-cloud-video-transcoder-v1.19.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.17.0...google-cloud-video-transcoder-v1.18.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.17.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.16.0...google-cloud-video-transcoder-v1.17.0) (2025-08-29)
+
+
+### Features
+
+* [google-cloud-video-transcoder] add support for automatically generating subtitle for input videos ([#14286](https://github.com/googleapis/google-cloud-python/issues/14286)) ([35069f7](https://github.com/googleapis/google-cloud-python/commit/35069f768bb9755099eec5591f81e2fe53a49384))
+
+## [1.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.15.2...google-cloud-video-transcoder-v1.16.0) (2025-07-23)
+
+
+### Features
+
+* added support for converting the input video to a supported high dynamic range (HDR) formats ([dad1378](https://github.com/googleapis/google-cloud-python/commit/dad137832990f592fc9b90bbe387cee1a8973128))
+* added support for DROP_DUPLICATE frame rate conversion strategy to achieve the exact frame rate on the output video ([dad1378](https://github.com/googleapis/google-cloud-python/commit/dad137832990f592fc9b90bbe387cee1a8973128))
+* added support for fill_content_gaps field to allow processing inputs with significant number of missing frames ([dad1378](https://github.com/googleapis/google-cloud-python/commit/dad137832990f592fc9b90bbe387cee1a8973128))
+* added support for specifying HEVC codec tag ([dad1378](https://github.com/googleapis/google-cloud-python/commit/dad137832990f592fc9b90bbe387cee1a8973128))
+
+
+### Documentation
+
+* improve comment formatting, add links, add references ([dad1378](https://github.com/googleapis/google-cloud-python/commit/dad137832990f592fc9b90bbe387cee1a8973128))
+
+## [1.15.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.15.1...google-cloud-video-transcoder-v1.15.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([0131a33](https://github.com/googleapis/google-cloud-python/commit/0131a33582f84d9be5ecb1c0ef8b56aa3d9e9cf0))
+
 ## [1.15.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-video-transcoder-v1.15.0...google-cloud-video-transcoder-v1.15.1) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -58,10 +58,10 @@ class Workflow(proto.Message):
             a workflow is created as a result of updating the following
             properties of a workflow:
 
-            -  [Service
-               account][google.cloud.workflows.v1beta.Workflow.service_account]
-            -  [Workflow code to be
-               executed][google.cloud.workflows.v1beta.Workflow.source_contents]
+            - [Service
+              account][google.cloud.workflows.v1beta.Workflow.service_account]
+            - [Workflow code to be
+              executed][google.cloud.workflows.v1beta.Workflow.source_contents]
 
             The format is "000001-a4d", where the first 6 characters
             define the zero-padded revision ordinal number. They are
@@ -116,6 +116,7 @@ class Workflow(proto.Message):
                 The workflow has been deployed successfully
                 and is serving.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
 
@@ -295,12 +296,12 @@ class CreateWorkflowRequest(proto.Message):
             Required. The ID of the workflow to be created. It has to
             fulfill the following requirements:
 
-            -  Must contain only letters, numbers, underscores and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-64 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the customer project and location.
+            - Must contain only letters, numbers, underscores and
+              hyphens.
+            - Must start with a letter.
+            - Must be between 1-64 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the customer project and location.
     """
 
     parent: str = proto.Field(

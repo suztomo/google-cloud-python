@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.bigquery_migration_v2alpha.types import migration_entities
@@ -141,12 +141,12 @@ class ListMigrationWorkflowsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    migration_workflows: MutableSequence[
-        migration_entities.MigrationWorkflow
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=migration_entities.MigrationWorkflow,
+    migration_workflows: MutableSequence[migration_entities.MigrationWorkflow] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=migration_entities.MigrationWorkflow,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -275,12 +275,12 @@ class ListMigrationSubtasksResponse(proto.Message):
     def raw_page(self):
         return self
 
-    migration_subtasks: MutableSequence[
-        migration_entities.MigrationSubtask
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=migration_entities.MigrationSubtask,
+    migration_subtasks: MutableSequence[migration_entities.MigrationSubtask] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=migration_entities.MigrationSubtask,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,9 @@ from .agent import (
     SubAgent,
     TrainAgentRequest,
 )
+from .agent_coaching_instruction import (
+    AgentCoachingInstruction,
+)
 from .answer_record import (
     AgentAssistantFeedback,
     AgentAssistantRecord,
@@ -41,6 +44,7 @@ from .answer_record import (
 from .audio_config import (
     AudioEncoding,
     BargeInConfig,
+    CustomPronunciationParams,
     InputAudioConfig,
     OutputAudioConfig,
     OutputAudioEncoding,
@@ -53,6 +57,12 @@ from .audio_config import (
     TelephonyDtmf,
     TelephonyDtmfEvents,
     VoiceSelectionParams,
+)
+from .ces_app import (
+    CesAppSpec,
+)
+from .ces_tool import (
+    CesToolSpec,
 )
 from .context import (
     Context,
@@ -85,12 +95,15 @@ from .conversation import (
     ListMessagesRequest,
     ListMessagesResponse,
     SearchKnowledgeAnswer,
+    SearchKnowledgeDebugInfo,
     SearchKnowledgeRequest,
     SearchKnowledgeResponse,
     SuggestConversationSummaryRequest,
     SuggestConversationSummaryResponse,
 )
-from .conversation_event import ConversationEvent
+from .conversation_event import (
+    ConversationEvent,
+)
 from .conversation_profile import (
     AutomatedAgentConfig,
     ClearSuggestionFeatureConfigOperationMetadata,
@@ -159,9 +172,19 @@ from .environment import (
     TextToSpeechSettings,
     UpdateEnvironmentRequest,
 )
-from .fulfillment import Fulfillment, GetFulfillmentRequest, UpdateFulfillmentRequest
-from .gcs import GcsDestination, GcsSource, GcsSources
+from .fulfillment import (
+    Fulfillment,
+    GetFulfillmentRequest,
+    UpdateFulfillmentRequest,
+)
+from .gcs import (
+    GcsDestination,
+    GcsSource,
+    GcsSources,
+)
 from .generator import (
+    AgentCoachingContext,
+    AgentCoachingSuggestion,
     ConversationContext,
     CreateGeneratorRequest,
     DeleteGeneratorRequest,
@@ -175,6 +198,8 @@ from .generator import (
     ListGeneratorsRequest,
     ListGeneratorsResponse,
     MessageEntry,
+    RaiSettings,
+    SuggestionDedupingConfig,
     SummarizationContext,
     SummarizationSection,
     SummarizationSectionList,
@@ -182,7 +207,20 @@ from .generator import (
     TriggerEvent,
     UpdateGeneratorRequest,
 )
-from .human_agent_assistant_event import HumanAgentAssistantEvent
+from .generator_evaluation import (
+    CreateGeneratorEvaluationRequest,
+    DeleteGeneratorEvaluationRequest,
+    EvaluationStatus,
+    GeneratorEvaluation,
+    GeneratorEvaluationConfig,
+    GetGeneratorEvaluationRequest,
+    ListGeneratorEvaluationsRequest,
+    ListGeneratorEvaluationsResponse,
+    SummarizationEvaluationMetrics,
+)
+from .human_agent_assistant_event import (
+    HumanAgentAssistantEvent,
+)
 from .intent import (
     BatchDeleteIntentsRequest,
     BatchUpdateIntentsRequest,
@@ -206,6 +244,9 @@ from .knowledge_base import (
     ListKnowledgeBasesResponse,
     UpdateKnowledgeBaseRequest,
 )
+from .operations import (
+    GeneratorEvaluationOperationMetadata,
+)
 from .participant import (
     AnalyzeContentRequest,
     AnalyzeContentResponse,
@@ -214,18 +255,23 @@ from .participant import (
     AssistQueryParameters,
     AudioInput,
     AutomatedAgentReply,
+    BidiStreamingAnalyzeContentRequest,
+    BidiStreamingAnalyzeContentResponse,
     CompileSuggestionRequest,
     CompileSuggestionResponse,
     CreateParticipantRequest,
+    DatastoreResponseReason,
     DialogflowAssistAnswer,
     DtmfParameters,
     FaqAnswer,
     GenerateSuggestionsResponse,
     GetParticipantRequest,
+    IngestedContextReferenceDebugInfo,
     InputTextConfig,
     IntentInput,
     IntentSuggestion,
     KnowledgeAssistAnswer,
+    KnowledgeAssistDebugInfo,
     ListParticipantsRequest,
     ListParticipantsResponse,
     ListSuggestionsRequest,
@@ -235,6 +281,7 @@ from .participant import (
     OutputAudio,
     Participant,
     ResponseMessage,
+    ServiceLatency,
     SmartReplyAnswer,
     StreamingAnalyzeContentRequest,
     StreamingAnalyzeContentResponse,
@@ -297,7 +344,26 @@ from .sip_trunk import (
     SipTrunk,
     UpdateSipTrunkRequest,
 )
-from .validation_result import ValidationError, ValidationResult
+from .tool import (
+    CreateToolRequest,
+    DeleteToolRequest,
+    GetToolRequest,
+    ListToolsRequest,
+    ListToolsResponse,
+    Tool,
+    UpdateToolRequest,
+)
+from .tool_call import (
+    ToolCall,
+    ToolCallResult,
+)
+from .toolset import (
+    ToolsetTool,
+)
+from .validation_result import (
+    ValidationError,
+    ValidationResult,
+)
 from .version import (
     CreateVersionRequest,
     DeleteVersionRequest,
@@ -307,7 +373,11 @@ from .version import (
     UpdateVersionRequest,
     Version,
 )
-from .webhook import OriginalDetectIntentRequest, WebhookRequest, WebhookResponse
+from .webhook import (
+    OriginalDetectIntentRequest,
+    WebhookRequest,
+    WebhookResponse,
+)
 
 __all__ = (
     "Agent",
@@ -323,6 +393,7 @@ __all__ = (
     "SetAgentRequest",
     "SubAgent",
     "TrainAgentRequest",
+    "AgentCoachingInstruction",
     "AgentAssistantFeedback",
     "AgentAssistantRecord",
     "AnswerFeedback",
@@ -332,6 +403,7 @@ __all__ = (
     "ListAnswerRecordsResponse",
     "UpdateAnswerRecordRequest",
     "BargeInConfig",
+    "CustomPronunciationParams",
     "InputAudioConfig",
     "OutputAudioConfig",
     "SpeechContext",
@@ -345,6 +417,8 @@ __all__ = (
     "SpeechModelVariant",
     "SsmlVoiceGender",
     "TelephonyDtmf",
+    "CesAppSpec",
+    "CesToolSpec",
     "Context",
     "CreateContextRequest",
     "DeleteAllContextsRequest",
@@ -373,6 +447,7 @@ __all__ = (
     "ListMessagesRequest",
     "ListMessagesResponse",
     "SearchKnowledgeAnswer",
+    "SearchKnowledgeDebugInfo",
     "SearchKnowledgeRequest",
     "SearchKnowledgeResponse",
     "SuggestConversationSummaryRequest",
@@ -442,6 +517,8 @@ __all__ = (
     "GcsDestination",
     "GcsSource",
     "GcsSources",
+    "AgentCoachingContext",
+    "AgentCoachingSuggestion",
     "ConversationContext",
     "CreateGeneratorRequest",
     "DeleteGeneratorRequest",
@@ -455,12 +532,23 @@ __all__ = (
     "ListGeneratorsRequest",
     "ListGeneratorsResponse",
     "MessageEntry",
+    "RaiSettings",
+    "SuggestionDedupingConfig",
     "SummarizationContext",
     "SummarizationSection",
     "SummarizationSectionList",
     "SummarySuggestion",
     "UpdateGeneratorRequest",
     "TriggerEvent",
+    "CreateGeneratorEvaluationRequest",
+    "DeleteGeneratorEvaluationRequest",
+    "EvaluationStatus",
+    "GeneratorEvaluation",
+    "GeneratorEvaluationConfig",
+    "GetGeneratorEvaluationRequest",
+    "ListGeneratorEvaluationsRequest",
+    "ListGeneratorEvaluationsResponse",
+    "SummarizationEvaluationMetrics",
     "HumanAgentAssistantEvent",
     "BatchDeleteIntentsRequest",
     "BatchUpdateIntentsRequest",
@@ -481,6 +569,7 @@ __all__ = (
     "ListKnowledgeBasesRequest",
     "ListKnowledgeBasesResponse",
     "UpdateKnowledgeBaseRequest",
+    "GeneratorEvaluationOperationMetadata",
     "AnalyzeContentRequest",
     "AnalyzeContentResponse",
     "AnnotatedMessagePart",
@@ -488,6 +577,8 @@ __all__ = (
     "AssistQueryParameters",
     "AudioInput",
     "AutomatedAgentReply",
+    "BidiStreamingAnalyzeContentRequest",
+    "BidiStreamingAnalyzeContentResponse",
     "CompileSuggestionRequest",
     "CompileSuggestionResponse",
     "CreateParticipantRequest",
@@ -496,10 +587,12 @@ __all__ = (
     "FaqAnswer",
     "GenerateSuggestionsResponse",
     "GetParticipantRequest",
+    "IngestedContextReferenceDebugInfo",
     "InputTextConfig",
     "IntentInput",
     "IntentSuggestion",
     "KnowledgeAssistAnswer",
+    "KnowledgeAssistDebugInfo",
     "ListParticipantsRequest",
     "ListParticipantsResponse",
     "ListSuggestionsRequest",
@@ -509,6 +602,7 @@ __all__ = (
     "OutputAudio",
     "Participant",
     "ResponseMessage",
+    "ServiceLatency",
     "SmartReplyAnswer",
     "StreamingAnalyzeContentRequest",
     "StreamingAnalyzeContentResponse",
@@ -526,6 +620,7 @@ __all__ = (
     "SuggestSmartRepliesRequest",
     "SuggestSmartRepliesResponse",
     "UpdateParticipantRequest",
+    "DatastoreResponseReason",
     "DeletePhoneNumberRequest",
     "ListPhoneNumbersRequest",
     "ListPhoneNumbersResponse",
@@ -562,6 +657,16 @@ __all__ = (
     "ListSipTrunksResponse",
     "SipTrunk",
     "UpdateSipTrunkRequest",
+    "CreateToolRequest",
+    "DeleteToolRequest",
+    "GetToolRequest",
+    "ListToolsRequest",
+    "ListToolsResponse",
+    "Tool",
+    "UpdateToolRequest",
+    "ToolCall",
+    "ToolCallResult",
+    "ToolsetTool",
     "ValidationError",
     "ValidationResult",
     "CreateVersionRequest",

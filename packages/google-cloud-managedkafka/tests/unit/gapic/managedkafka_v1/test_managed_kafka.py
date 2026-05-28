@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +37,13 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,19 +52,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.managedkafka_v1.services.managed_kafka import (
     ManagedKafkaAsyncClient,
@@ -128,6 +122,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert ManagedKafkaClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -146,6 +141,10 @@ def test__get_default_mtls_endpoint():
         == sandbox_mtls_endpoint
     )
     assert ManagedKafkaClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    assert (
+        ManagedKafkaClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -160,12 +159,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            ManagedKafkaClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                ManagedKafkaClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert ManagedKafkaClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert ManagedKafkaClient._read_environment_variables() == (
@@ -198,6 +204,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert ManagedKafkaClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert ManagedKafkaClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert ManagedKafkaClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                ManagedKafkaClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert ManagedKafkaClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert ManagedKafkaClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -565,17 +670,6 @@ def test_managed_kafka_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -787,6 +881,117 @@ def test_managed_kafka_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -819,10 +1024,9 @@ def test_managed_kafka_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -835,18 +1039,6 @@ def test_managed_kafka_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1073,13 +1265,13 @@ def test_managed_kafka_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1618,11 +1810,7 @@ async def test_list_clusters_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_clusters(request={})
-        ).pages:
+        async for page_ in (await client.list_clusters(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3549,11 +3737,7 @@ async def test_list_topics_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_topics(request={})
-        ).pages:
+        async for page_ in (await client.list_topics(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4970,9 +5154,9 @@ def test_list_consumer_groups_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_consumer_groups
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_consumer_groups] = (
+            mock_rpc
+        )
         request = {}
         client.list_consumer_groups(request)
 
@@ -5413,11 +5597,7 @@ async def test_list_consumer_groups_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_consumer_groups(request={})
-        ).pages:
+        async for page_ in (await client.list_consumer_groups(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5514,9 +5694,9 @@ def test_get_consumer_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_consumer_group] = (
+            mock_rpc
+        )
         request = {}
         client.get_consumer_group(request)
 
@@ -5852,9 +6032,9 @@ def test_update_consumer_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_consumer_group] = (
+            mock_rpc
+        )
         request = {}
         client.update_consumer_group(request)
 
@@ -6202,9 +6382,9 @@ def test_delete_consumer_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_consumer_group] = (
+            mock_rpc
+        )
         request = {}
         client.delete_consumer_group(request)
 
@@ -6951,11 +7131,7 @@ async def test_list_acls_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_acls(request={})
-        ).pages:
+        async for page_ in (await client.list_acls(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -8714,9 +8890,9 @@ def test_remove_acl_entry_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.remove_acl_entry
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.remove_acl_entry] = (
+            mock_rpc
+        )
         request = {}
         client.remove_acl_entry(request)
 
@@ -9078,7 +9254,7 @@ def test_list_clusters_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_clusters_rest_unset_required_fields():
@@ -9326,7 +9502,7 @@ def test_get_cluster_rest_required_fields(request_type=managed_kafka.GetClusterR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_cluster_rest_unset_required_fields():
@@ -9525,7 +9701,7 @@ def test_create_cluster_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_cluster_rest_unset_required_fields():
@@ -9734,7 +9910,7 @@ def test_update_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_cluster_rest_unset_required_fields():
@@ -9942,7 +10118,7 @@ def test_delete_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_cluster_rest_unset_required_fields():
@@ -10122,7 +10298,7 @@ def test_list_topics_rest_required_fields(request_type=managed_kafka.ListTopicsR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_topics_rest_unset_required_fields():
@@ -10371,7 +10547,7 @@ def test_get_topic_rest_required_fields(request_type=managed_kafka.GetTopicReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_topic_rest_unset_required_fields():
@@ -10567,7 +10743,7 @@ def test_create_topic_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_topic_rest_unset_required_fields():
@@ -10758,7 +10934,7 @@ def test_update_topic_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_topic_rest_unset_required_fields():
@@ -10947,7 +11123,7 @@ def test_delete_topic_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_topic_rest_unset_required_fields():
@@ -11040,9 +11216,9 @@ def test_list_consumer_groups_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_consumer_groups
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_consumer_groups] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_consumer_groups(request)
@@ -11136,7 +11312,7 @@ def test_list_consumer_groups_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_consumer_groups_rest_unset_required_fields():
@@ -11304,9 +11480,9 @@ def test_get_consumer_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_consumer_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_consumer_group(request)
@@ -11393,7 +11569,7 @@ def test_get_consumer_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_consumer_group_rest_unset_required_fields():
@@ -11489,9 +11665,9 @@ def test_update_consumer_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_consumer_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_consumer_group(request)
@@ -11576,7 +11752,7 @@ def test_update_consumer_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_consumer_group_rest_unset_required_fields():
@@ -11684,9 +11860,9 @@ def test_delete_consumer_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_consumer_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_consumer_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_consumer_group(request)
@@ -11770,7 +11946,7 @@ def test_delete_consumer_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_consumer_group_rest_unset_required_fields():
@@ -11953,7 +12129,7 @@ def test_list_acls_rest_required_fields(request_type=managed_kafka.ListAclsReque
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_acls_rest_unset_required_fields():
@@ -12202,7 +12378,7 @@ def test_get_acl_rest_required_fields(request_type=managed_kafka.GetAclRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_acl_rest_unset_required_fields():
@@ -12396,7 +12572,7 @@ def test_create_acl_rest_required_fields(request_type=managed_kafka.CreateAclReq
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_acl_rest_unset_required_fields():
@@ -12585,7 +12761,7 @@ def test_update_acl_rest_required_fields(request_type=managed_kafka.UpdateAclReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_acl_rest_unset_required_fields():
@@ -12764,7 +12940,7 @@ def test_delete_acl_rest_required_fields(request_type=managed_kafka.DeleteAclReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_acl_rest_unset_required_fields():
@@ -12943,7 +13119,7 @@ def test_add_acl_entry_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_add_acl_entry_rest_unset_required_fields():
@@ -13046,9 +13222,9 @@ def test_remove_acl_entry_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.remove_acl_entry
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.remove_acl_entry] = (
+            mock_rpc
+        )
 
         request = {}
         client.remove_acl_entry(request)
@@ -13136,7 +13312,7 @@ def test_remove_acl_entry_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_remove_acl_entry_rest_unset_required_fields():
@@ -14380,8 +14556,9 @@ def test_list_clusters_rest_bad_request(request_type=managed_kafka.ListClustersR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14446,17 +14623,19 @@ def test_list_clusters_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_clusters"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_clusters_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_list_clusters"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_clusters"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_clusters_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_list_clusters"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14509,8 +14688,9 @@ def test_get_cluster_rest_bad_request(request_type=managed_kafka.GetClusterReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14579,17 +14759,19 @@ def test_get_cluster_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_cluster"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_get_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_get_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14642,8 +14824,9 @@ def test_create_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14684,6 +14867,10 @@ def test_create_cluster_rest_call_success(request_type):
         "state": 1,
         "satisfies_pzi": True,
         "satisfies_pzs": True,
+        "tls_config": {
+            "trust_config": {"cas_configs": [{"ca_pool": "ca_pool_value"}]},
+            "ssl_principal_mapping_rules": "ssl_principal_mapping_rules_value",
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -14782,19 +14969,20 @@ def test_create_cluster_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_cluster"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_create_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_create_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -14849,8 +15037,9 @@ def test_update_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -14893,6 +15082,10 @@ def test_update_cluster_rest_call_success(request_type):
         "state": 1,
         "satisfies_pzi": True,
         "satisfies_pzs": True,
+        "tls_config": {
+            "trust_config": {"cas_configs": [{"ca_pool": "ca_pool_value"}]},
+            "ssl_principal_mapping_rules": "ssl_principal_mapping_rules_value",
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -14991,19 +15184,20 @@ def test_update_cluster_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_cluster"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_update_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_update_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15056,8 +15250,9 @@ def test_delete_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15114,19 +15309,20 @@ def test_delete_cluster_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_delete_cluster"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_delete_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_delete_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_delete_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_delete_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_delete_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15177,8 +15373,9 @@ def test_list_topics_rest_bad_request(request_type=managed_kafka.ListTopicsReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15241,17 +15438,19 @@ def test_list_topics_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_topics"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_topics_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_list_topics"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_topics"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_topics_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_list_topics"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15306,8 +15505,9 @@ def test_get_topic_rest_bad_request(request_type=managed_kafka.GetTopicRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15376,17 +15576,19 @@ def test_get_topic_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_topic"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_topic_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_get_topic"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_topic"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_topic_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_get_topic"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15435,8 +15637,9 @@ def test_create_topic_rest_bad_request(request_type=managed_kafka.CreateTopicReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15576,17 +15779,19 @@ def test_create_topic_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_topic"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_topic_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_create_topic"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_topic"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_topic_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_create_topic"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15641,8 +15846,9 @@ def test_update_topic_rest_bad_request(request_type=managed_kafka.UpdateTopicReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15786,17 +15992,19 @@ def test_update_topic_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_topic"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_topic_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_update_topic"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_topic"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_topic_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_update_topic"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -15849,8 +16057,9 @@ def test_delete_topic_rest_bad_request(request_type=managed_kafka.DeleteTopicReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -15909,13 +16118,13 @@ def test_delete_topic_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_delete_topic"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_delete_topic"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = managed_kafka.DeleteTopicRequest.pb(
             managed_kafka.DeleteTopicRequest()
@@ -15960,8 +16169,9 @@ def test_list_consumer_groups_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16024,18 +16234,20 @@ def test_list_consumer_groups_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_consumer_groups"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor,
-        "post_list_consumer_groups_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_list_consumer_groups"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_consumer_groups"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor,
+            "post_list_consumer_groups_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_list_consumer_groups"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -16095,8 +16307,9 @@ def test_get_consumer_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16161,17 +16374,20 @@ def test_get_consumer_group_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_consumer_group"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_consumer_group_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_get_consumer_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_consumer_group"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor,
+            "post_get_consumer_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_get_consumer_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -16228,8 +16444,9 @@ def test_update_consumer_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16367,18 +16584,20 @@ def test_update_consumer_group_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_consumer_group"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor,
-        "post_update_consumer_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_update_consumer_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_consumer_group"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor,
+            "post_update_consumer_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_update_consumer_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -16433,8 +16652,9 @@ def test_delete_consumer_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16493,13 +16713,13 @@ def test_delete_consumer_group_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_delete_consumer_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_delete_consumer_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = managed_kafka.DeleteConsumerGroupRequest.pb(
             managed_kafka.DeleteConsumerGroupRequest()
@@ -16542,8 +16762,9 @@ def test_list_acls_rest_bad_request(request_type=managed_kafka.ListAclsRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16606,17 +16827,19 @@ def test_list_acls_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_acls"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_list_acls_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_list_acls"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_acls"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_list_acls_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_list_acls"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -16669,8 +16892,9 @@ def test_get_acl_rest_bad_request(request_type=managed_kafka.GetAclRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16743,17 +16967,17 @@ def test_get_acl_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_acl"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_get_acl_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_get_acl"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_acl"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_get_acl_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(transports.ManagedKafkaRestInterceptor, "pre_get_acl") as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -16802,8 +17026,9 @@ def test_create_acl_rest_bad_request(request_type=managed_kafka.CreateAclRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -16956,17 +17181,19 @@ def test_create_acl_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_acl"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_create_acl_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_create_acl"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_acl"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_create_acl_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_create_acl"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17019,8 +17246,9 @@ def test_update_acl_rest_bad_request(request_type=managed_kafka.UpdateAclRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17177,17 +17405,19 @@ def test_update_acl_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_acl"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_update_acl_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_update_acl"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_acl"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_update_acl_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_update_acl"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17238,8 +17468,9 @@ def test_delete_acl_rest_bad_request(request_type=managed_kafka.DeleteAclRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17298,13 +17529,13 @@ def test_delete_acl_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_delete_acl"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_delete_acl"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = managed_kafka.DeleteAclRequest.pb(managed_kafka.DeleteAclRequest())
         transcode.return_value = {
@@ -17347,8 +17578,9 @@ def test_add_acl_entry_rest_bad_request(request_type=managed_kafka.AddAclEntryRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17486,17 +17718,19 @@ def test_add_acl_entry_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_add_acl_entry"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_add_acl_entry_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_add_acl_entry"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_add_acl_entry"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_add_acl_entry_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_add_acl_entry"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17553,8 +17787,9 @@ def test_remove_acl_entry_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -17691,17 +17926,20 @@ def test_remove_acl_entry_rest_interceptors(null_interceptor):
     )
     client = ManagedKafkaClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_remove_acl_entry"
-    ) as post, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "post_remove_acl_entry_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ManagedKafkaRestInterceptor, "pre_remove_acl_entry"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "post_remove_acl_entry"
+        ) as post,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor,
+            "post_remove_acl_entry_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ManagedKafkaRestInterceptor, "pre_remove_acl_entry"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -17759,8 +17997,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -17819,8 +18058,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -17881,8 +18121,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -17943,8 +18184,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -18005,8 +18247,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -18067,8 +18310,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -18652,11 +18896,14 @@ def test_managed_kafka_base_transport():
 
 def test_managed_kafka_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.managedkafka_v1.services.managed_kafka.transports.ManagedKafkaTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.managedkafka_v1.services.managed_kafka.transports.ManagedKafkaTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ManagedKafkaTransport(
@@ -18673,9 +18920,12 @@ def test_managed_kafka_base_transport_with_credentials_file():
 
 def test_managed_kafka_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.managedkafka_v1.services.managed_kafka.transports.ManagedKafkaTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.managedkafka_v1.services.managed_kafka.transports.ManagedKafkaTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ManagedKafkaTransport()
@@ -18747,11 +18997,12 @@ def test_managed_kafka_transport_auth_gdch_credentials(transport_class):
 def test_managed_kafka_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -18981,6 +19232,7 @@ def test_managed_kafka_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.ManagedKafkaGrpcTransport, transports.ManagedKafkaGrpcAsyncIOTransport],
@@ -19136,10 +19388,36 @@ def test_parse_acl_path():
     assert expected == actual
 
 
-def test_cluster_path():
+def test_ca_pool_path():
     project = "winkle"
     location = "nautilus"
-    cluster = "scallop"
+    ca_pool = "scallop"
+    expected = "projects/{project}/locations/{location}/caPools/{ca_pool}".format(
+        project=project,
+        location=location,
+        ca_pool=ca_pool,
+    )
+    actual = ManagedKafkaClient.ca_pool_path(project, location, ca_pool)
+    assert expected == actual
+
+
+def test_parse_ca_pool_path():
+    expected = {
+        "project": "abalone",
+        "location": "squid",
+        "ca_pool": "clam",
+    }
+    path = ManagedKafkaClient.ca_pool_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = ManagedKafkaClient.parse_ca_pool_path(path)
+    assert expected == actual
+
+
+def test_cluster_path():
+    project = "whelk"
+    location = "octopus"
+    cluster = "oyster"
     expected = "projects/{project}/locations/{location}/clusters/{cluster}".format(
         project=project,
         location=location,
@@ -19151,9 +19429,9 @@ def test_cluster_path():
 
 def test_parse_cluster_path():
     expected = {
-        "project": "abalone",
-        "location": "squid",
-        "cluster": "clam",
+        "project": "nudibranch",
+        "location": "cuttlefish",
+        "cluster": "mussel",
     }
     path = ManagedKafkaClient.cluster_path(**expected)
 
@@ -19163,10 +19441,10 @@ def test_parse_cluster_path():
 
 
 def test_consumer_group_path():
-    project = "whelk"
-    location = "octopus"
-    cluster = "oyster"
-    consumer_group = "nudibranch"
+    project = "winkle"
+    location = "nautilus"
+    cluster = "scallop"
+    consumer_group = "abalone"
     expected = "projects/{project}/locations/{location}/clusters/{cluster}/consumerGroups/{consumer_group}".format(
         project=project,
         location=location,
@@ -19181,10 +19459,10 @@ def test_consumer_group_path():
 
 def test_parse_consumer_group_path():
     expected = {
-        "project": "cuttlefish",
-        "location": "mussel",
-        "cluster": "winkle",
-        "consumer_group": "nautilus",
+        "project": "squid",
+        "location": "clam",
+        "cluster": "whelk",
+        "consumer_group": "octopus",
     }
     path = ManagedKafkaClient.consumer_group_path(**expected)
 
@@ -19194,10 +19472,10 @@ def test_parse_consumer_group_path():
 
 
 def test_crypto_key_path():
-    project = "scallop"
-    location = "abalone"
-    key_ring = "squid"
-    crypto_key = "clam"
+    project = "oyster"
+    location = "nudibranch"
+    key_ring = "cuttlefish"
+    crypto_key = "mussel"
     expected = "projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}".format(
         project=project,
         location=location,
@@ -19210,10 +19488,10 @@ def test_crypto_key_path():
 
 def test_parse_crypto_key_path():
     expected = {
-        "project": "whelk",
-        "location": "octopus",
-        "key_ring": "oyster",
-        "crypto_key": "nudibranch",
+        "project": "winkle",
+        "location": "nautilus",
+        "key_ring": "scallop",
+        "crypto_key": "abalone",
     }
     path = ManagedKafkaClient.crypto_key_path(**expected)
 
@@ -19223,10 +19501,10 @@ def test_parse_crypto_key_path():
 
 
 def test_topic_path():
-    project = "cuttlefish"
-    location = "mussel"
-    cluster = "winkle"
-    topic = "nautilus"
+    project = "squid"
+    location = "clam"
+    cluster = "whelk"
+    topic = "octopus"
     expected = "projects/{project}/locations/{location}/clusters/{cluster}/topics/{topic}".format(
         project=project,
         location=location,
@@ -19239,10 +19517,10 @@ def test_topic_path():
 
 def test_parse_topic_path():
     expected = {
-        "project": "scallop",
-        "location": "abalone",
-        "cluster": "squid",
-        "topic": "clam",
+        "project": "oyster",
+        "location": "nudibranch",
+        "cluster": "cuttlefish",
+        "topic": "mussel",
     }
     path = ManagedKafkaClient.topic_path(**expected)
 
@@ -19252,7 +19530,7 @@ def test_parse_topic_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "whelk"
+    billing_account = "winkle"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -19262,7 +19540,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "octopus",
+        "billing_account": "nautilus",
     }
     path = ManagedKafkaClient.common_billing_account_path(**expected)
 
@@ -19272,7 +19550,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "oyster"
+    folder = "scallop"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -19282,7 +19560,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "nudibranch",
+        "folder": "abalone",
     }
     path = ManagedKafkaClient.common_folder_path(**expected)
 
@@ -19292,7 +19570,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "cuttlefish"
+    organization = "squid"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -19302,7 +19580,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "mussel",
+        "organization": "clam",
     }
     path = ManagedKafkaClient.common_organization_path(**expected)
 
@@ -19312,7 +19590,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "winkle"
+    project = "whelk"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -19322,7 +19600,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "nautilus",
+        "project": "octopus",
     }
     path = ManagedKafkaClient.common_project_path(**expected)
 
@@ -19332,8 +19610,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "scallop"
-    location = "abalone"
+    project = "oyster"
+    location = "nudibranch"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -19344,8 +19622,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "squid",
-        "location": "clam",
+        "project": "cuttlefish",
+        "location": "mussel",
     }
     path = ManagedKafkaClient.common_location_path(**expected)
 
@@ -19516,6 +19794,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = ManagedKafkaClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -19653,6 +19963,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -19800,6 +20142,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = ManagedKafkaClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -19943,6 +20319,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -20090,6 +20500,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = ManagedKafkaClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -20229,6 +20673,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = ManagedKafkaClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = ManagedKafkaAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

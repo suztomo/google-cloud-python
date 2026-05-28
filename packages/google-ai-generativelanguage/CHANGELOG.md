@@ -1,5 +1,97 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-ai-generativelanguage/#history
+
+## [0.11.0](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.10.0...google-ai-generativelanguage-v0.11.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.10.0](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.9.0...google-ai-generativelanguage-v0.10.0) (2026-01-08)
+
+
+### Features
+
+* add support for GoogleMaps and FileSearch tools ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* add support for RetrievalConfig ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* add IMAGE_RECITATION reason when generation is stopped due to recitation ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* add json_name for GenerationConfig.response_json_schema_ordered field ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* add support for GroundingMetadata.google_maps_widget_context_token ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.8.0...google-ai-generativelanguage-v0.9.0) (2025-10-20)
+
+
+### Documentation
+
+* deprecation notice for HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+
+### Features
+
+* add support for additional reasons to stop image generation  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add support for finish_message that contain details the reason why the model stopped generating tokens  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add URL_RETRIEVAL_STATUS_UNSAFE and URL_RETRIEVAL_STATUS_PAYWALL statuses for url retrieval  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add log_probability_sum  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add Computer Use tool type  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add support for FunctionResponsePart  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add support for image generation features  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add support for additional reasons to stop image generation  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add support for raw media bytes for function response  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add log_probability_sum  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+* add URL_RETRIEVAL_STATUS_UNSAFE and URL_RETRIEVAL_STATUS_PAYWALL statuses for url retrieval  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+
+### Bug Fixes
+
+* replaced GenerateVideoResponse by PredictLongRunningGeneratedVideoResponse field  ([84be9032eb7ba04bb305870160699d2bc12e0dac](https://github.com/googleapis/google-cloud-python/commit/84be9032eb7ba04bb305870160699d2bc12e0dac))
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.7.0...google-ai-generativelanguage-v0.8.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.6.18...google-ai-generativelanguage-v0.7.0) (2025-08-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* add support for video_metadata
+
+### Features
+
+* add a flag whether the model supports thinking ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add a flag whether the model supports thinking ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add AudioTranscriptionConfig ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add MultiSpeakerVoiceConfig to speech config ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add support for function response scheduling in the conversation ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add support for thought_signature ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add support for UrlContextMetadata ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add support for video_metadata ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add time_range_filter to GoogleSearch tool type ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add UNEXPECTED_TOOL_CALL to the Candidate.FinishReason enum ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+* add url_context to GoogleSearch tool type ([4d08928](https://github.com/googleapis/google-cloud-python/commit/4d08928433140722727f7953d5caefa5fc676c47))
+
 ## [0.6.18](https://github.com/googleapis/google-cloud-python/compare/google-ai-generativelanguage-v0.6.17...google-ai-generativelanguage-v0.6.18) (2025-04-29)
 
 

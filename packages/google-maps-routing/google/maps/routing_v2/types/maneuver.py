@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ class Maneuver(proto.Enum):
         NAME_CHANGE (20):
             Used to indicate a street name change.
     """
+
     MANEUVER_UNSPECIFIED = 0
     TURN_SLIGHT_LEFT = 1
     TURN_SHARP_LEFT = 2

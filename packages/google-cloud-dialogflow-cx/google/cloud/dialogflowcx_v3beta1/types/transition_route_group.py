@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import page
@@ -95,7 +95,7 @@ class ListTransitionRouteGroupsRequest(proto.Message):
             The language to list transition route groups for. The
             following fields are language dependent:
 
-            -  ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
+            - ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
             -
 
             ``TransitionRouteGroup.transition_routes.trigger_fulfillment.conditional_cases``
@@ -146,12 +146,12 @@ class ListTransitionRouteGroupsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    transition_route_groups: MutableSequence[
-        "TransitionRouteGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="TransitionRouteGroup",
+    transition_route_groups: MutableSequence["TransitionRouteGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="TransitionRouteGroup",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -175,7 +175,7 @@ class GetTransitionRouteGroupRequest(proto.Message):
             The language to retrieve the transition route group for. The
             following fields are language dependent:
 
-            -  ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
+            - ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
             -
 
             ``TransitionRouteGroup.transition_routes.trigger_fulfillment.conditional_cases``
@@ -217,7 +217,7 @@ class CreateTransitionRouteGroupRequest(proto.Message):
             The language of the following fields in
             ``TransitionRouteGroup``:
 
-            -  ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
+            - ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
             -
 
             ``TransitionRouteGroup.transition_routes.trigger_fulfillment.conditional_cases``
@@ -258,7 +258,7 @@ class UpdateTransitionRouteGroupRequest(proto.Message):
             The language of the following fields in
             ``TransitionRouteGroup``:
 
-            -  ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
+            - ``TransitionRouteGroup.transition_routes.trigger_fulfillment.messages``
             -
 
             ``TransitionRouteGroup.transition_routes.trigger_fulfillment.conditional_cases``
@@ -303,11 +303,11 @@ class DeleteTransitionRouteGroupRequest(proto.Message):
             page is using. If the transition route group is referenced
             by any page:
 
-            -  If ``force`` is set to false, an error will be returned
-               with message indicating pages that reference the
-               transition route group.
-            -  If ``force`` is set to true, Dialogflow will remove the
-               transition route group, as well as any reference to it.
+            - If ``force`` is set to false, an error will be returned
+              with message indicating pages that reference the
+              transition route group.
+            - If ``force`` is set to true, Dialogflow will remove the
+              transition route group, as well as any reference to it.
     """
 
     name: str = proto.Field(

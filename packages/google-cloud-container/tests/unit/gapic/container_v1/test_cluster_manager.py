@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,19 +37,26 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.container_v1.services.cluster_manager import (
     ClusterManagerAsyncClient,
@@ -119,6 +120,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert ClusterManagerClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -139,6 +141,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         ClusterManagerClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        ClusterManagerClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -162,12 +168,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            ClusterManagerClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                ClusterManagerClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert ClusterManagerClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert ClusterManagerClient._read_environment_variables() == (
@@ -204,6 +217,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert ClusterManagerClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert ClusterManagerClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert ClusterManagerClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                ClusterManagerClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert ClusterManagerClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert ClusterManagerClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -571,17 +683,6 @@ def test_cluster_manager_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -797,6 +898,117 @@ def test_cluster_manager_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -829,10 +1041,9 @@ def test_cluster_manager_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -845,18 +1056,6 @@ def test_cluster_manager_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1087,13 +1286,13 @@ def test_cluster_manager_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1104,7 +1303,11 @@ def test_cluster_manager_client_create_channel_credentials_file(
             credentials=file_creds,
             credentials_file=None,
             quota_project_id=None,
-            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            default_scopes=(
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/container",
+                "https://www.googleapis.com/auth/container.read-only",
+            ),
             scopes=None,
             default_host="container.googleapis.com",
             ssl_credentials=None,
@@ -2890,9 +3093,9 @@ def test_update_node_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_node_pool] = (
+            mock_rpc
+        )
         request = {}
         client.update_node_pool(request)
 
@@ -3492,9 +3695,9 @@ def test_set_logging_service_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_logging_service
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_logging_service] = (
+            mock_rpc
+        )
         request = {}
         client.set_logging_service(request)
 
@@ -3923,9 +4126,9 @@ def test_set_monitoring_service_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_monitoring_service
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_monitoring_service] = (
+            mock_rpc
+        )
         request = {}
         client.set_monitoring_service(request)
 
@@ -4349,9 +4552,9 @@ def test_set_addons_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_addons_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_addons_config] = (
+            mock_rpc
+        )
         request = {}
         client.set_addons_config(request)
 
@@ -7011,9 +7214,9 @@ def test_cancel_operation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.cancel_operation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.cancel_operation] = (
+            mock_rpc
+        )
         request = {}
         client.cancel_operation(request)
 
@@ -7373,9 +7576,9 @@ def test_get_server_config_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_server_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_server_config] = (
+            mock_rpc
+        )
         request = {}
         client.get_server_config(request)
 
@@ -7737,9 +7940,9 @@ def test_get_json_web_keys_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_json_web_keys
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_json_web_keys] = (
+            mock_rpc
+        )
         request = {}
         client.get_json_web_keys(request)
 
@@ -8769,9 +8972,9 @@ def test_create_node_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_node_pool] = (
+            mock_rpc
+        )
         request = {}
         client.create_node_pool(request)
 
@@ -9182,9 +9385,9 @@ def test_delete_node_pool_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_node_pool] = (
+            mock_rpc
+        )
         request = {}
         client.delete_node_pool(request)
 
@@ -11276,9 +11479,9 @@ def test_start_ip_rotation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.start_ip_rotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.start_ip_rotation] = (
+            mock_rpc
+        )
         request = {}
         client.start_ip_rotation(request)
 
@@ -11693,9 +11896,9 @@ def test_complete_ip_rotation_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.complete_ip_rotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.complete_ip_rotation] = (
+            mock_rpc
+        )
         request = {}
         client.complete_ip_rotation(request)
 
@@ -12113,9 +12316,9 @@ def test_set_node_pool_size_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_node_pool_size
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_node_pool_size] = (
+            mock_rpc
+        )
         request = {}
         client.set_node_pool_size(request)
 
@@ -12414,9 +12617,9 @@ def test_set_network_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_network_policy] = (
+            mock_rpc
+        )
         request = {}
         client.set_network_policy(request)
 
@@ -12855,9 +13058,9 @@ def test_set_maintenance_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_maintenance_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_maintenance_policy] = (
+            mock_rpc
+        )
         request = {}
         client.set_maintenance_policy(request)
 
@@ -13655,11 +13858,7 @@ async def test_list_usable_subnetworks_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_usable_subnetworks(request={})
-        ).pages:
+        async for page_ in (await client.list_usable_subnetworks(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15008,7 +15207,7 @@ def test_create_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_cluster_rest_unset_required_fields():
@@ -15187,7 +15386,7 @@ def test_update_cluster_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_cluster_rest_unset_required_fields():
@@ -15289,9 +15488,9 @@ def test_update_node_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_node_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_node_pool(request)
@@ -15383,7 +15582,7 @@ def test_update_node_pool_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_node_pool_rest_unset_required_fields():
@@ -15512,7 +15711,7 @@ def test_set_node_pool_autoscaling_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_node_pool_autoscaling_rest_unset_required_fields():
@@ -15547,9 +15746,9 @@ def test_set_logging_service_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_logging_service
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_logging_service] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_logging_service(request)
@@ -15637,7 +15836,7 @@ def test_set_logging_service_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_logging_service_rest_unset_required_fields():
@@ -15739,9 +15938,9 @@ def test_set_monitoring_service_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_monitoring_service
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_monitoring_service] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_monitoring_service(request)
@@ -15829,7 +16028,7 @@ def test_set_monitoring_service_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_monitoring_service_rest_unset_required_fields():
@@ -15928,9 +16127,9 @@ def test_set_addons_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_addons_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_addons_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_addons_config(request)
@@ -16013,7 +16212,7 @@ def test_set_addons_config_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_addons_config_rest_unset_required_fields():
@@ -16204,7 +16403,7 @@ def test_set_locations_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_locations_rest_unset_required_fields():
@@ -16391,7 +16590,7 @@ def test_update_master_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_master_rest_unset_required_fields():
@@ -16573,7 +16772,7 @@ def test_set_master_auth_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_master_auth_rest_unset_required_fields():
@@ -16911,9 +17110,9 @@ def test_cancel_operation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.cancel_operation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.cancel_operation] = (
+            mock_rpc
+        )
 
         request = {}
         client.cancel_operation(request)
@@ -17013,9 +17212,9 @@ def test_get_server_config_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_server_config
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_server_config] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_server_config(request)
@@ -17112,9 +17311,9 @@ def test_get_json_web_keys_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_json_web_keys
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_json_web_keys] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_json_web_keys(request)
@@ -17356,9 +17555,9 @@ def test_create_node_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_node_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_node_pool(request)
@@ -17441,7 +17640,7 @@ def test_create_node_pool_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_node_pool_rest_unset_required_fields():
@@ -17542,9 +17741,9 @@ def test_delete_node_pool_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_node_pool
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_node_pool] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_node_pool(request)
@@ -17886,7 +18085,7 @@ def test_set_node_pool_management_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_node_pool_management_rest_unset_required_fields():
@@ -18005,7 +18204,7 @@ def test_set_labels_rest_required_fields(request_type=cluster_service.SetLabelsR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_labels_rest_unset_required_fields():
@@ -18134,7 +18333,7 @@ def test_set_legacy_abac_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_legacy_abac_rest_unset_required_fields():
@@ -18233,9 +18432,9 @@ def test_start_ip_rotation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.start_ip_rotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.start_ip_rotation] = (
+            mock_rpc
+        )
 
         request = {}
         client.start_ip_rotation(request)
@@ -18337,9 +18536,9 @@ def test_complete_ip_rotation_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.complete_ip_rotation
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.complete_ip_rotation] = (
+            mock_rpc
+        )
 
         request = {}
         client.complete_ip_rotation(request)
@@ -18441,9 +18640,9 @@ def test_set_node_pool_size_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_node_pool_size
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_node_pool_size] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_node_pool_size(request)
@@ -18531,7 +18730,7 @@ def test_set_node_pool_size_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_node_pool_size_rest_unset_required_fields():
@@ -18566,9 +18765,9 @@ def test_set_network_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_network_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_network_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_network_policy(request)
@@ -18651,7 +18850,7 @@ def test_set_network_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_network_policy_rest_unset_required_fields():
@@ -18757,9 +18956,9 @@ def test_set_maintenance_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.set_maintenance_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.set_maintenance_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.set_maintenance_policy(request)
@@ -18855,7 +19054,7 @@ def test_set_maintenance_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_set_maintenance_policy_rest_unset_required_fields():
@@ -19215,7 +19414,7 @@ def test_fetch_cluster_upgrade_info_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_fetch_cluster_upgrade_info_rest_unset_required_fields():
@@ -19400,7 +19599,7 @@ def test_fetch_node_pool_upgrade_info_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_fetch_node_pool_upgrade_info_rest_unset_required_fields():
@@ -21691,8 +21890,9 @@ def test_list_clusters_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21755,17 +21955,19 @@ def test_list_clusters_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_clusters"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_clusters_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_list_clusters"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_list_clusters"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_list_clusters_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_list_clusters"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -21821,8 +22023,9 @@ def test_get_cluster_rest_bad_request(request_type=cluster_service.GetClusterReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -21949,17 +22152,19 @@ def test_get_cluster_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_cluster"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_get_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_cluster_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_get_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22012,8 +22217,9 @@ def test_create_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22096,17 +22302,20 @@ def test_create_cluster_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_create_cluster"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_create_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_create_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_create_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_create_cluster_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_create_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22159,8 +22368,9 @@ def test_update_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22243,17 +22453,20 @@ def test_update_cluster_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_cluster"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_update_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_update_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_update_cluster_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_update_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22308,8 +22521,9 @@ def test_update_node_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22394,17 +22608,20 @@ def test_update_node_pool_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_node_pool"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_node_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_update_node_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_update_node_pool"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_update_node_pool_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_update_node_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22459,8 +22676,9 @@ def test_set_node_pool_autoscaling_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22545,18 +22763,20 @@ def test_set_node_pool_autoscaling_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_node_pool_autoscaling"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_node_pool_autoscaling_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_node_pool_autoscaling"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_node_pool_autoscaling"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_node_pool_autoscaling_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_node_pool_autoscaling"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22609,8 +22829,9 @@ def test_set_logging_service_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22693,18 +22914,20 @@ def test_set_logging_service_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_logging_service"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_logging_service_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_logging_service"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_logging_service"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_logging_service_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_logging_service"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22757,8 +22980,9 @@ def test_set_monitoring_service_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22841,18 +23065,20 @@ def test_set_monitoring_service_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_monitoring_service"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_monitoring_service_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_monitoring_service"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_monitoring_service"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_monitoring_service_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_monitoring_service"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -22905,8 +23131,9 @@ def test_set_addons_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -22989,17 +23216,20 @@ def test_set_addons_config_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_addons_config"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_addons_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_addons_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_addons_config"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_addons_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_addons_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23052,8 +23282,9 @@ def test_set_locations_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23136,17 +23367,19 @@ def test_set_locations_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_locations"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_locations_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_locations"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_locations"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_locations_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_locations"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23199,8 +23432,9 @@ def test_update_master_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23283,17 +23517,19 @@ def test_update_master_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_master"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_update_master_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_update_master"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_update_master"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_update_master_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_update_master"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23346,8 +23582,9 @@ def test_set_master_auth_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23430,17 +23667,20 @@ def test_set_master_auth_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_master_auth"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_master_auth_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_master_auth"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_master_auth"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_master_auth_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_master_auth"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23493,8 +23733,9 @@ def test_delete_cluster_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23577,17 +23818,20 @@ def test_delete_cluster_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_delete_cluster"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_delete_cluster_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_delete_cluster"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_delete_cluster"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_delete_cluster_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_delete_cluster"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23640,8 +23884,9 @@ def test_list_operations_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23704,17 +23949,20 @@ def test_list_operations_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_operations"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_operations_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_list_operations"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_list_operations"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_list_operations_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_list_operations"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23772,8 +24020,9 @@ def test_get_operation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23856,17 +24105,19 @@ def test_get_operation_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_operation"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_operation_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_get_operation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_operation"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_operation_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_get_operation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -23919,8 +24170,9 @@ def test_cancel_operation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -23977,13 +24229,13 @@ def test_cancel_operation_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_cancel_operation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_cancel_operation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = cluster_service.CancelOperationRequest.pb(
             cluster_service.CancelOperationRequest()
@@ -24028,8 +24280,9 @@ def test_get_server_config_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24100,17 +24353,20 @@ def test_get_server_config_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_server_config"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_server_config_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_get_server_config"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_server_config"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_get_server_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_get_server_config"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24165,8 +24421,9 @@ def test_get_json_web_keys_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24226,17 +24483,20 @@ def test_get_json_web_keys_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_json_web_keys"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_json_web_keys_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_get_json_web_keys"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_json_web_keys"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_get_json_web_keys_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_get_json_web_keys"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24294,8 +24554,9 @@ def test_list_node_pools_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24355,17 +24616,20 @@ def test_list_node_pools_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_node_pools"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_node_pools_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_list_node_pools"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_list_node_pools"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_list_node_pools_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_list_node_pools"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24425,8 +24689,9 @@ def test_get_node_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24509,17 +24774,19 @@ def test_get_node_pool_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_node_pool"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_get_node_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_get_node_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_node_pool"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_get_node_pool_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_get_node_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24572,8 +24839,9 @@ def test_create_node_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24656,17 +24924,20 @@ def test_create_node_pool_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_create_node_pool"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_create_node_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_create_node_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_create_node_pool"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_create_node_pool_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_create_node_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24721,8 +24992,9 @@ def test_delete_node_pool_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24807,17 +25079,20 @@ def test_delete_node_pool_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_delete_node_pool"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_delete_node_pool_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_delete_node_pool"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_delete_node_pool"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_delete_node_pool_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_delete_node_pool"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -24872,8 +25147,9 @@ def test_complete_node_pool_upgrade_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -24932,13 +25208,13 @@ def test_complete_node_pool_upgrade_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_complete_node_pool_upgrade"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_complete_node_pool_upgrade"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = cluster_service.CompleteNodePoolUpgradeRequest.pb(
             cluster_service.CompleteNodePoolUpgradeRequest()
@@ -24985,8 +25261,9 @@ def test_rollback_node_pool_upgrade_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25071,18 +25348,20 @@ def test_rollback_node_pool_upgrade_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_rollback_node_pool_upgrade"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_rollback_node_pool_upgrade_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_rollback_node_pool_upgrade"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_rollback_node_pool_upgrade"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_rollback_node_pool_upgrade_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_rollback_node_pool_upgrade"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25137,8 +25416,9 @@ def test_set_node_pool_management_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25223,18 +25503,20 @@ def test_set_node_pool_management_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_node_pool_management"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_node_pool_management_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_node_pool_management"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_node_pool_management"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_node_pool_management_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_node_pool_management"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25285,8 +25567,9 @@ def test_set_labels_rest_bad_request(request_type=cluster_service.SetLabelsReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25369,17 +25652,19 @@ def test_set_labels_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_labels"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_labels_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_labels"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_labels"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_labels_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_labels"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25432,8 +25717,9 @@ def test_set_legacy_abac_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25516,17 +25802,20 @@ def test_set_legacy_abac_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_legacy_abac"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_legacy_abac_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_legacy_abac"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_legacy_abac"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_legacy_abac_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_legacy_abac"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25579,8 +25868,9 @@ def test_start_ip_rotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25663,17 +25953,20 @@ def test_start_ip_rotation_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_start_ip_rotation"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_start_ip_rotation_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_start_ip_rotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_start_ip_rotation"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_start_ip_rotation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_start_ip_rotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25726,8 +26019,9 @@ def test_complete_ip_rotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25810,18 +26104,20 @@ def test_complete_ip_rotation_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_complete_ip_rotation"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_complete_ip_rotation_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_complete_ip_rotation"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_complete_ip_rotation"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_complete_ip_rotation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_complete_ip_rotation"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -25876,8 +26172,9 @@ def test_set_node_pool_size_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -25962,18 +26259,20 @@ def test_set_node_pool_size_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_node_pool_size"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_node_pool_size_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_node_pool_size"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_node_pool_size"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_node_pool_size_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_node_pool_size"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26026,8 +26325,9 @@ def test_set_network_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26110,18 +26410,20 @@ def test_set_network_policy_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_network_policy"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_network_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_network_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_network_policy"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_network_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_network_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26174,8 +26476,9 @@ def test_set_maintenance_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26258,18 +26561,20 @@ def test_set_maintenance_policy_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_set_maintenance_policy"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_set_maintenance_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_set_maintenance_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_set_maintenance_policy"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_set_maintenance_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_set_maintenance_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26322,8 +26627,9 @@ def test_list_usable_subnetworks_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26386,18 +26692,20 @@ def test_list_usable_subnetworks_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_list_usable_subnetworks"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_list_usable_subnetworks_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_list_usable_subnetworks"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_list_usable_subnetworks"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_list_usable_subnetworks_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_list_usable_subnetworks"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26455,8 +26763,9 @@ def test_check_autopilot_compatibility_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26521,18 +26830,22 @@ def test_check_autopilot_compatibility_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_check_autopilot_compatibility"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_check_autopilot_compatibility_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_check_autopilot_compatibility"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_check_autopilot_compatibility",
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_check_autopilot_compatibility_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "pre_check_autopilot_compatibility",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26590,8 +26903,9 @@ def test_fetch_cluster_upgrade_info_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26678,18 +26992,20 @@ def test_fetch_cluster_upgrade_info_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_fetch_cluster_upgrade_info"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_fetch_cluster_upgrade_info_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_fetch_cluster_upgrade_info"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "post_fetch_cluster_upgrade_info"
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_fetch_cluster_upgrade_info_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_fetch_cluster_upgrade_info"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26746,8 +27062,9 @@ def test_fetch_node_pool_upgrade_info_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26836,18 +27153,21 @@ def test_fetch_node_pool_upgrade_info_rest_interceptors(null_interceptor):
     )
     client = ClusterManagerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "post_fetch_node_pool_upgrade_info"
-    ) as post, mock.patch.object(
-        transports.ClusterManagerRestInterceptor,
-        "post_fetch_node_pool_upgrade_info_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.ClusterManagerRestInterceptor, "pre_fetch_node_pool_upgrade_info"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_fetch_node_pool_upgrade_info",
+        ) as post,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor,
+            "post_fetch_node_pool_upgrade_info_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.ClusterManagerRestInterceptor, "pre_fetch_node_pool_upgrade_info"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27745,11 +28065,14 @@ def test_cluster_manager_base_transport():
 
 def test_cluster_manager_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.container_v1.services.cluster_manager.transports.ClusterManagerTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.container_v1.services.cluster_manager.transports.ClusterManagerTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ClusterManagerTransport(
@@ -27759,16 +28082,23 @@ def test_cluster_manager_base_transport_with_credentials_file():
         load_creds.assert_called_once_with(
             "credentials.json",
             scopes=None,
-            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            default_scopes=(
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/container",
+                "https://www.googleapis.com/auth/container.read-only",
+            ),
             quota_project_id="octopus",
         )
 
 
 def test_cluster_manager_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.container_v1.services.cluster_manager.transports.ClusterManagerTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.container_v1.services.cluster_manager.transports.ClusterManagerTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.ClusterManagerTransport()
@@ -27782,7 +28112,11 @@ def test_cluster_manager_auth_adc():
         ClusterManagerClient()
         adc.assert_called_once_with(
             scopes=None,
-            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            default_scopes=(
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/container",
+                "https://www.googleapis.com/auth/container.read-only",
+            ),
             quota_project_id=None,
         )
 
@@ -27802,7 +28136,11 @@ def test_cluster_manager_transport_auth_adc(transport_class):
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
         adc.assert_called_once_with(
             scopes=["1", "2"],
-            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            default_scopes=(
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/container",
+                "https://www.googleapis.com/auth/container.read-only",
+            ),
             quota_project_id="octopus",
         )
 
@@ -27840,11 +28178,12 @@ def test_cluster_manager_transport_auth_gdch_credentials(transport_class):
 def test_cluster_manager_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -27854,7 +28193,11 @@ def test_cluster_manager_transport_create_channel(transport_class, grpc_helpers)
             credentials=creds,
             credentials_file=None,
             quota_project_id="octopus",
-            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            default_scopes=(
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/container",
+                "https://www.googleapis.com/auth/container.read-only",
+            ),
             scopes=["1", "2"],
             default_host="container.googleapis.com",
             ssl_credentials=None,
@@ -28122,6 +28465,7 @@ def test_cluster_manager_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -28280,9 +28624,35 @@ def test_parse_crypto_key_version_path():
     assert expected == actual
 
 
-def test_topic_path():
+def test_subnetwork_path():
     project = "oyster"
-    topic = "nudibranch"
+    region = "nudibranch"
+    subnetwork = "cuttlefish"
+    expected = "projects/{project}/regions/{region}/subnetworks/{subnetwork}".format(
+        project=project,
+        region=region,
+        subnetwork=subnetwork,
+    )
+    actual = ClusterManagerClient.subnetwork_path(project, region, subnetwork)
+    assert expected == actual
+
+
+def test_parse_subnetwork_path():
+    expected = {
+        "project": "mussel",
+        "region": "winkle",
+        "subnetwork": "nautilus",
+    }
+    path = ClusterManagerClient.subnetwork_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = ClusterManagerClient.parse_subnetwork_path(path)
+    assert expected == actual
+
+
+def test_topic_path():
+    project = "scallop"
+    topic = "abalone"
     expected = "projects/{project}/topics/{topic}".format(
         project=project,
         topic=topic,
@@ -28293,8 +28663,8 @@ def test_topic_path():
 
 def test_parse_topic_path():
     expected = {
-        "project": "cuttlefish",
-        "topic": "mussel",
+        "project": "squid",
+        "topic": "clam",
     }
     path = ClusterManagerClient.topic_path(**expected)
 
@@ -28304,7 +28674,7 @@ def test_parse_topic_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "winkle"
+    billing_account = "whelk"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -28314,7 +28684,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "nautilus",
+        "billing_account": "octopus",
     }
     path = ClusterManagerClient.common_billing_account_path(**expected)
 
@@ -28324,7 +28694,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "scallop"
+    folder = "oyster"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -28334,7 +28704,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "abalone",
+        "folder": "nudibranch",
     }
     path = ClusterManagerClient.common_folder_path(**expected)
 
@@ -28344,7 +28714,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "squid"
+    organization = "cuttlefish"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -28354,7 +28724,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "clam",
+        "organization": "mussel",
     }
     path = ClusterManagerClient.common_organization_path(**expected)
 
@@ -28364,7 +28734,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "whelk"
+    project = "winkle"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -28374,7 +28744,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "octopus",
+        "project": "nautilus",
     }
     path = ClusterManagerClient.common_project_path(**expected)
 
@@ -28384,8 +28754,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "oyster"
-    location = "nudibranch"
+    project = "scallop"
+    location = "abalone"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -28396,8 +28766,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "cuttlefish",
-        "location": "mussel",
+        "project": "squid",
+        "location": "clam",
     }
     path = ClusterManagerClient.common_location_path(**expected)
 

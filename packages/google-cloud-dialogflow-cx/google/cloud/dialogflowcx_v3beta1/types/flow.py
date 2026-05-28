@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,18 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import (
-    import_strategy,
-    page,
-    validation_message,
+    advanced_settings as gcdc_advanced_settings,
 )
 from google.cloud.dialogflowcx_v3beta1.types import (
-    advanced_settings as gcdc_advanced_settings,
+    import_strategy,
+    page,
+    parameter_definition,
+    validation_message,
 )
 
 __protobuf__ = proto.module(
@@ -87,6 +88,7 @@ class NluSettings(proto.Message):
             MODEL_TYPE_ADVANCED (3):
                 Use advanced NLU model.
         """
+
         MODEL_TYPE_UNSPECIFIED = 0
         MODEL_TYPE_STANDARD = 1
         MODEL_TYPE_ADVANCED = 3
@@ -107,6 +109,7 @@ class NluSettings(proto.Message):
                 training. Best for large flows whose models take
                 long time to train.
         """
+
         MODEL_TRAINING_MODE_UNSPECIFIED = 0
         MODEL_TRAINING_MODE_AUTOMATIC = 1
         MODEL_TRAINING_MODE_MANUAL = 2
@@ -159,32 +162,32 @@ class Flow(proto.Message):
         transition_routes (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.TransitionRoute]):
             A flow's transition routes serve two purposes:
 
-            -  They are responsible for matching the user's first
-               utterances in the flow.
-            -  They are inherited by every page's [transition
-               routes][Page.transition_routes] and can support use cases
-               such as the user saying "help" or "can I talk to a
-               human?", which can be handled in a common way regardless
-               of the current page. Transition routes defined in the
-               page have higher priority than those defined in the flow.
+            - They are responsible for matching the user's first
+              utterances in the flow.
+            - They are inherited by every page's [transition
+              routes][Page.transition_routes] and can support use cases
+              such as the user saying "help" or "can I talk to a
+              human?", which can be handled in a common way regardless
+              of the current page. Transition routes defined in the page
+              have higher priority than those defined in the flow.
 
             TransitionRoutes are evaluated in the following order:
 
-            -  TransitionRoutes with intent specified.
-            -  TransitionRoutes with only condition specified.
+            - TransitionRoutes with intent specified.
+            - TransitionRoutes with only condition specified.
 
             TransitionRoutes with intent specified are inherited by
             pages in the flow.
         event_handlers (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.EventHandler]):
             A flow's event handlers serve two purposes:
 
-            -  They are responsible for handling events (e.g. no match,
-               webhook errors) in the flow.
-            -  They are inherited by every page's [event
-               handlers][Page.event_handlers], which can be used to
-               handle common events regardless of the current page.
-               Event handlers defined in the page have higher priority
-               than those defined in the flow.
+            - They are responsible for handling events (e.g. no match,
+              webhook errors) in the flow.
+            - They are inherited by every page's [event
+              handlers][Page.event_handlers], which can be used to
+              handle common events regardless of the current page. Event
+              handlers defined in the page have higher priority than
+              those defined in the flow.
 
             Unlike
             [transition_routes][google.cloud.dialogflow.cx.v3beta1.Flow.transition_routes],
@@ -194,14 +197,14 @@ class Flow(proto.Message):
         transition_route_groups (MutableSequence[str]):
             A flow's transition route group serve two purposes:
 
-            -  They are responsible for matching the user's first
-               utterances in the flow.
-            -  They are inherited by every page's [transition route
-               groups][Page.transition_route_groups]. Transition route
-               groups defined in the page have higher priority than
-               those defined in the flow.
+            - They are responsible for matching the user's first
+              utterances in the flow.
+            - They are inherited by every page's [transition route
+              groups][Page.transition_route_groups]. Transition route
+              groups defined in the page have higher priority than those
+              defined in the flow.
 
-            Format:\ ``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/flows/<FlowID>/transitionRouteGroups/<TransitionRouteGroupID>``
+            Format:``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/flows/<FlowID>/transitionRouteGroups/<TransitionRouteGroupID>``
             or
             ``projects/<ProjectID>/locations/<LocationID>/agents/<AgentID>/transitionRouteGroups/<TransitionRouteGroupID>``
             for agent-level groups.
@@ -214,6 +217,12 @@ class Flow(proto.Message):
             level.
         knowledge_connector_settings (google.cloud.dialogflowcx_v3beta1.types.KnowledgeConnectorSettings):
             Optional. Knowledge connector configuration.
+        input_parameter_definitions (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.ParameterDefinition]):
+            Optional. Defined structured input parameters
+            for this flow.
+        output_parameter_definitions (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.ParameterDefinition]):
+            Optional. Defined structured output
+            parameters for this flow.
         multi_language_settings (google.cloud.dialogflowcx_v3beta1.types.Flow.MultiLanguageSettings):
             Optional. Multi-lingual agent settings for
             this flow.
@@ -293,6 +302,20 @@ class Flow(proto.Message):
         number=18,
         message=page.KnowledgeConnectorSettings,
     )
+    input_parameter_definitions: MutableSequence[
+        parameter_definition.ParameterDefinition
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=26,
+        message=parameter_definition.ParameterDefinition,
+    )
+    output_parameter_definitions: MutableSequence[
+        parameter_definition.ParameterDefinition
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=27,
+        message=parameter_definition.ParameterDefinition,
+    )
     multi_language_settings: MultiLanguageSettings = proto.Field(
         proto.MESSAGE,
         number=28,
@@ -317,10 +340,10 @@ class CreateFlowRequest(proto.Message):
         language_code (str):
             The language of the following fields in ``flow``:
 
-            -  ``Flow.event_handlers.trigger_fulfillment.messages``
-            -  ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
-            -  ``Flow.transition_routes.trigger_fulfillment.messages``
-            -  ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
+            - ``Flow.event_handlers.trigger_fulfillment.messages``
+            - ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
+            - ``Flow.transition_routes.trigger_fulfillment.messages``
+            - ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
 
             If not specified, the agent's default language is used.
             `Many
@@ -356,14 +379,13 @@ class DeleteFlowRequest(proto.Message):
             This field has no effect for flows with no incoming
             transitions. For flows with incoming transitions:
 
-            -  If ``force`` is set to false, an error will be returned
-               with message indicating the incoming transitions.
-            -  If ``force`` is set to true, Dialogflow will remove the
-               flow, as well as any transitions to the flow (i.e.
-               [Target flow][EventHandler.target_flow] in event handlers
-               or [Target flow][TransitionRoute.target_flow] in
-               transition routes that point to this flow will be
-               cleared).
+            - If ``force`` is set to false, an error will be returned
+              with message indicating the incoming transitions.
+            - If ``force`` is set to true, Dialogflow will remove the
+              flow, as well as any transitions to the flow (i.e. [Target
+              flow][EventHandler.target_flow] in event handlers or
+              [Target flow][TransitionRoute.target_flow] in transition
+              routes that point to this flow will be cleared).
     """
 
     name: str = proto.Field(
@@ -394,10 +416,10 @@ class ListFlowsRequest(proto.Message):
             The language to list flows for. The following fields are
             language dependent:
 
-            -  ``Flow.event_handlers.trigger_fulfillment.messages``
-            -  ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
-            -  ``Flow.transition_routes.trigger_fulfillment.messages``
-            -  ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
+            - ``Flow.event_handlers.trigger_fulfillment.messages``
+            - ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
+            - ``Flow.transition_routes.trigger_fulfillment.messages``
+            - ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
 
             If not specified, the agent's default language is used.
             `Many
@@ -465,10 +487,10 @@ class GetFlowRequest(proto.Message):
             The language to retrieve the flow for. The following fields
             are language dependent:
 
-            -  ``Flow.event_handlers.trigger_fulfillment.messages``
-            -  ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
-            -  ``Flow.transition_routes.trigger_fulfillment.messages``
-            -  ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
+            - ``Flow.event_handlers.trigger_fulfillment.messages``
+            - ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
+            - ``Flow.transition_routes.trigger_fulfillment.messages``
+            - ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
 
             If not specified, the agent's default language is used.
             `Many
@@ -501,10 +523,10 @@ class UpdateFlowRequest(proto.Message):
         language_code (str):
             The language of the following fields in ``flow``:
 
-            -  ``Flow.event_handlers.trigger_fulfillment.messages``
-            -  ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
-            -  ``Flow.transition_routes.trigger_fulfillment.messages``
-            -  ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
+            - ``Flow.event_handlers.trigger_fulfillment.messages``
+            - ``Flow.event_handlers.trigger_fulfillment.conditional_cases``
+            - ``Flow.transition_routes.trigger_fulfillment.messages``
+            - ``Flow.transition_routes.trigger_fulfillment.conditional_cases``
 
             If not specified, the agent's default language is used.
             `Many
@@ -609,12 +631,12 @@ class FlowValidationResult(proto.Message):
         proto.STRING,
         number=1,
     )
-    validation_messages: MutableSequence[
-        validation_message.ValidationMessage
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=validation_message.ValidationMessage,
+    validation_messages: MutableSequence[validation_message.ValidationMessage] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=validation_message.ValidationMessage,
+        )
     )
     update_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
@@ -679,6 +701,7 @@ class ImportFlowRequest(proto.Message):
                 E.g. Standard NLU will be used if custom NLU is
                 not available.
         """
+
         IMPORT_OPTION_UNSPECIFIED = 0
         KEEP = 1
         FALLBACK = 2

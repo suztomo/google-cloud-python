@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,6 +29,7 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
@@ -43,7 +44,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.orgpolicy_v2.services.org_policy import pagers
 from google.cloud.orgpolicy_v2.types import constraint, orgpolicy
@@ -136,7 +137,10 @@ class OrgPolicyAsyncClient:
         Returns:
             OrgPolicyAsyncClient: The constructed client.
         """
-        return OrgPolicyClient.from_service_account_info.__func__(OrgPolicyAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            OrgPolicyClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(OrgPolicyAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -152,7 +156,10 @@ class OrgPolicyAsyncClient:
         Returns:
             OrgPolicyAsyncClient: The constructed client.
         """
-        return OrgPolicyClient.from_service_account_file.__func__(OrgPolicyAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            OrgPolicyClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(OrgPolicyAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -202,7 +209,7 @@ class OrgPolicyAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -358,10 +365,10 @@ class OrgPolicyAsyncClient:
                 Required. The Google Cloud resource that parents the
                 constraint. Must be in one of the following forms:
 
-                -  ``projects/{project_number}``
-                -  ``projects/{project_id}``
-                -  ``folders/{folder_id}``
-                -  ``organizations/{organization_id}``
+                - ``projects/{project_number}``
+                - ``projects/{project_id}``
+                - ``folders/{folder_id}``
+                - ``organizations/{organization_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -494,10 +501,10 @@ class OrgPolicyAsyncClient:
                 returned from this call. Must be in one of the following
                 forms:
 
-                -  ``projects/{project_number}``
-                -  ``projects/{project_id}``
-                -  ``folders/{folder_id}``
-                -  ``organizations/{organization_id}``
+                - ``projects/{project_number}``
+                - ``projects/{project_id}``
+                - ``folders/{folder_id}``
+                - ``organizations/{organization_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -872,10 +879,10 @@ class OrgPolicyAsyncClient:
                 Required. The Google Cloud resource that will parent the
                 new policy. Must be in one of the following forms:
 
-                -  ``projects/{project_number}``
-                -  ``projects/{project_id}``
-                -  ``folders/{folder_id}``
-                -  ``organizations/{organization_id}``
+                - ``projects/{project_number}``
+                - ``projects/{project_id}``
+                - ``folders/{folder_id}``
+                - ``organizations/{organization_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1231,7 +1238,7 @@ class OrgPolicyAsyncClient:
             parent (:class:`str`):
                 Required. Must be in the following form:
 
-                -  ``organizations/{organization_id}``
+                - ``organizations/{organization_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1607,7 +1614,7 @@ class OrgPolicyAsyncClient:
                 the set of custom constraints that will be returned from
                 this call. Must be in one of the following forms:
 
-                -  ``organizations/{organization_id}``
+                - ``organizations/{organization_id}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1805,6 +1812,9 @@ class OrgPolicyAsyncClient:
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
+
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 
 __all__ = ("OrgPolicyAsyncClient",)

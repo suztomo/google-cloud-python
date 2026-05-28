@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.datalabeling_v1beta1 import gapic_version as package_version
 
@@ -44,27 +44,30 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.datalabeling_v1beta1.services.data_labeling_service import pagers
-from google.cloud.datalabeling_v1beta1.types import data_labeling_service, data_payloads
+from google.cloud.datalabeling_v1beta1.types import (
+    annotation,
+    annotation_spec_set,
+    data_labeling_service,
+    data_payloads,
+    dataset,
+    evaluation,
+    evaluation_job,
+    human_annotation_config,
+    instruction,
+    operations,
+)
 from google.cloud.datalabeling_v1beta1.types import (
     annotation_spec_set as gcd_annotation_spec_set,
 )
+from google.cloud.datalabeling_v1beta1.types import dataset as gcd_dataset
 from google.cloud.datalabeling_v1beta1.types import evaluation_job as gcd_evaluation_job
 from google.cloud.datalabeling_v1beta1.types import instruction as gcd_instruction
-from google.cloud.datalabeling_v1beta1.types import annotation
-from google.cloud.datalabeling_v1beta1.types import annotation_spec_set
-from google.cloud.datalabeling_v1beta1.types import dataset
-from google.cloud.datalabeling_v1beta1.types import dataset as gcd_dataset
-from google.cloud.datalabeling_v1beta1.types import evaluation
-from google.cloud.datalabeling_v1beta1.types import evaluation_job
-from google.cloud.datalabeling_v1beta1.types import human_annotation_config
-from google.cloud.datalabeling_v1beta1.types import instruction
-from google.cloud.datalabeling_v1beta1.types import operations
 
 from .client import DataLabelingServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, DataLabelingServiceTransport
@@ -160,7 +163,10 @@ class DataLabelingServiceAsyncClient:
         Returns:
             DataLabelingServiceAsyncClient: The constructed client.
         """
-        return DataLabelingServiceClient.from_service_account_info.__func__(DataLabelingServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DataLabelingServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DataLabelingServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -176,7 +182,10 @@ class DataLabelingServiceAsyncClient:
         Returns:
             DataLabelingServiceAsyncClient: The constructed client.
         """
-        return DataLabelingServiceClient.from_service_account_file.__func__(DataLabelingServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DataLabelingServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DataLabelingServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -214,7 +223,9 @@ class DataLabelingServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return DataLabelingServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return DataLabelingServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> DataLabelingServiceTransport:
@@ -226,7 +237,7 @@ class DataLabelingServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -849,11 +860,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_data(request=request)
+                operation = await client.import_data(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -987,11 +998,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.export_data(request=request)
+                operation = await client.export_data(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1738,11 +1749,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.label_image(request=request)
+                operation = await client.label_image(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1895,11 +1906,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.label_video(request=request)
+                operation = await client.label_video(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2051,11 +2062,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.label_text(request=request)
+                operation = await client.label_text(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2950,11 +2961,11 @@ class DataLabelingServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_instruction(request=request)
+                operation = await client.create_instruction(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3578,23 +3589,23 @@ class DataLabelingServiceAsyncClient:
                 Optional. To search evaluations, you can filter by the
                 following:
 
-                -  evaluation\_job.evaluation_job_id (the last part of
-                   [EvaluationJob.name][google.cloud.datalabeling.v1beta1.EvaluationJob.name])
-                -  evaluation\_job.model_id (the {model_name} portion of
-                   [EvaluationJob.modelVersion][google.cloud.datalabeling.v1beta1.EvaluationJob.model_version])
-                -  evaluation\_job.evaluation_job_run_time_start
-                   (Minimum threshold for the
-                   [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
-                   that created the evaluation)
-                -  evaluation\_job.evaluation_job_run_time_end (Maximum
-                   threshold for the
-                   [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
-                   that created the evaluation)
-                -  evaluation\_job.job_state
-                   ([EvaluationJob.state][google.cloud.datalabeling.v1beta1.EvaluationJob.state])
-                -  annotation\_spec.display_name (the Evaluation
-                   contains a metric for the annotation spec with this
-                   [displayName][google.cloud.datalabeling.v1beta1.AnnotationSpec.display_name])
+                - evaluation\_job.evaluation_job_id (the last part of
+                  [EvaluationJob.name][google.cloud.datalabeling.v1beta1.EvaluationJob.name])
+                - evaluation\_job.model_id (the {model_name} portion of
+                  [EvaluationJob.modelVersion][google.cloud.datalabeling.v1beta1.EvaluationJob.model_version])
+                - evaluation\_job.evaluation_job_run_time_start (Minimum
+                  threshold for the
+                  [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
+                  that created the evaluation)
+                - evaluation\_job.evaluation_job_run_time_end (Maximum
+                  threshold for the
+                  [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
+                  that created the evaluation)
+                - evaluation\_job.job_state
+                  ([EvaluationJob.state][google.cloud.datalabeling.v1beta1.EvaluationJob.state])
+                - annotation\_spec.display_name (the Evaluation contains
+                  a metric for the annotation spec with this
+                  [displayName][google.cloud.datalabeling.v1beta1.AnnotationSpec.display_name])
 
                 To filter by multiple critiera, use the ``AND`` operator
                 or the ``OR`` operator. The following examples shows a
@@ -4015,9 +4026,9 @@ class DataLabelingServiceAsyncClient:
                 Optional. Mask for which fields to update. You can only
                 provide the following fields:
 
-                -  ``evaluationJobConfig.humanAnnotationConfig.instruction``
-                -  ``evaluationJobConfig.exampleCount``
-                -  ``evaluationJobConfig.exampleSamplePercentage``
+                - ``evaluationJobConfig.humanAnnotationConfig.instruction``
+                - ``evaluationJobConfig.exampleCount``
+                - ``evaluationJobConfig.exampleSamplePercentage``
 
                 You can provide more than one of these fields by
                 separating them with commas.

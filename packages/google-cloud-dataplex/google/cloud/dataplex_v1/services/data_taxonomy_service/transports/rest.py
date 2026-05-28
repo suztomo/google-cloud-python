@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -994,6 +996,78 @@ class DataTaxonomyServiceRestInterceptor:
         """
         return response
 
+    def pre_get_iam_policy(
+        self,
+        request: iam_policy_pb2.GetIamPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.GetIamPolicyRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_iam_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the DataTaxonomyService server.
+        """
+        return request, metadata
+
+    def post_get_iam_policy(self, response: policy_pb2.Policy) -> policy_pb2.Policy:
+        """Post-rpc interceptor for get_iam_policy
+
+        Override in a subclass to manipulate the response
+        after it is returned by the DataTaxonomyService server but before
+        it is returned to user code.
+        """
+        return response
+
+    def pre_set_iam_policy(
+        self,
+        request: iam_policy_pb2.SetIamPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.SetIamPolicyRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for set_iam_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the DataTaxonomyService server.
+        """
+        return request, metadata
+
+    def post_set_iam_policy(self, response: policy_pb2.Policy) -> policy_pb2.Policy:
+        """Post-rpc interceptor for set_iam_policy
+
+        Override in a subclass to manipulate the response
+        after it is returned by the DataTaxonomyService server but before
+        it is returned to user code.
+        """
+        return response
+
+    def pre_test_iam_permissions(
+        self,
+        request: iam_policy_pb2.TestIamPermissionsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        iam_policy_pb2.TestIamPermissionsRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the DataTaxonomyService server.
+        """
+        return request, metadata
+
+    def post_test_iam_permissions(
+        self, response: iam_policy_pb2.TestIamPermissionsResponse
+    ) -> iam_policy_pb2.TestIamPermissionsResponse:
+        """Post-rpc interceptor for test_iam_permissions
+
+        Override in a subclass to manipulate the response
+        after it is returned by the DataTaxonomyService server but before
+        it is returned to user code.
+        """
+        return response
+
     def pre_cancel_operation(
         self,
         request: operations_pb2.CancelOperationRequest,
@@ -1138,9 +1212,10 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1158,6 +1233,12 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[DataTaxonomyServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1229,7 +1310,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                     },
                     {
                         "method": "get",
-                        "uri": "/v1/{name=organizations/*/locations/*/operations/*}",
+                        "uri": "/v1/{name=organizations/*/locations/*}/operations",
                     },
                 ],
             }
@@ -1309,9 +1390,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseCreateDataAttribute._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseCreateDataAttribute._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_attribute(
                 request, metadata
@@ -1337,7 +1416,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1466,9 +1545,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseCreateDataAttributeBinding._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseCreateDataAttributeBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_attribute_binding(
                 request, metadata
@@ -1494,7 +1571,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1535,11 +1612,10 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             resp = self._interceptor.post_create_data_attribute_binding(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_data_attribute_binding_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_data_attribute_binding_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1623,9 +1699,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseCreateDataTaxonomy._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseCreateDataTaxonomy._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_taxonomy(
                 request, metadata
@@ -1651,7 +1725,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1778,9 +1852,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataAttribute._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataAttribute._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_attribute(
                 request, metadata
@@ -1802,7 +1874,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1929,9 +2001,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataAttributeBinding._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataAttributeBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_attribute_binding(
                 request, metadata
@@ -1953,7 +2023,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1993,11 +2063,10 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             resp = self._interceptor.post_delete_data_attribute_binding(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_delete_data_attribute_binding_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_delete_data_attribute_binding_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -2080,9 +2149,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataTaxonomy._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseDeleteDataTaxonomy._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_taxonomy(
                 request, metadata
@@ -2104,7 +2171,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2239,9 +2306,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseGetDataAttribute._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetDataAttribute._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_attribute(
                 request, metadata
@@ -2391,9 +2456,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseGetDataAttributeBinding._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetDataAttributeBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_attribute_binding(
                 request, metadata
@@ -2548,9 +2611,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseGetDataTaxonomy._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetDataTaxonomy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_taxonomy(
                 request, metadata
@@ -2696,9 +2757,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                         List DataAttributeBindings response.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseListDataAttributeBindings._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseListDataAttributeBindings._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_attribute_bindings(
                 request, metadata
@@ -2847,9 +2906,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                     List DataAttributes response.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseListDataAttributes._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseListDataAttributes._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_attributes(
                 request, metadata
@@ -2998,9 +3055,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                     List DataTaxonomies response.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseListDataTaxonomies._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseListDataTaxonomies._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_taxonomies(
                 request, metadata
@@ -3153,9 +3208,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataAttribute._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataAttribute._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_attribute(
                 request, metadata
@@ -3181,7 +3234,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3310,9 +3363,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataAttributeBinding._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataAttributeBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_attribute_binding(
                 request, metadata
@@ -3338,7 +3389,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3379,11 +3430,10 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             resp = self._interceptor.post_update_data_attribute_binding(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_data_attribute_binding_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_data_attribute_binding_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3467,9 +3517,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataTaxonomy._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseUpdateDataTaxonomy._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_taxonomy(
                 request, metadata
@@ -3495,7 +3543,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3580,7 +3628,9 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateDataAttributeBinding(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateDataAttributeBinding(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_data_taxonomy(
@@ -3608,7 +3658,9 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteDataAttributeBinding(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteDataAttributeBinding(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_data_taxonomy(
@@ -3635,7 +3687,9 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetDataAttributeBinding(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetDataAttributeBinding(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_data_taxonomy(
@@ -3654,7 +3708,9 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListDataAttributeBindings(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListDataAttributeBindings(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_data_attributes(
@@ -3694,7 +3750,9 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateDataAttributeBinding(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateDataAttributeBinding(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_data_taxonomy(
@@ -3764,9 +3822,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -3905,9 +3961,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseListLocations._get_transcoded_request(
@@ -3989,6 +4043,439 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
             return resp
 
     @property
+    def get_iam_policy(self):
+        return self._GetIamPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _GetIamPolicy(
+        _BaseDataTaxonomyServiceRestTransport._BaseGetIamPolicy,
+        DataTaxonomyServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("DataTaxonomyServiceRestTransport.GetIamPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.GetIamPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> policy_pb2.Policy:
+            r"""Call the get iam policy method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.GetIamPolicyRequest):
+                    The request object for GetIamPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                policy_pb2.Policy: Response from GetIamPolicy method.
+            """
+
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetIamPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
+            transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseDataTaxonomyServiceRestTransport._BaseGetIamPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.DataTaxonomyServiceClient.GetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "GetIamPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = DataTaxonomyServiceRestTransport._GetIamPolicy._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = policy_pb2.Policy()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_get_iam_policy(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.DataTaxonomyServiceAsyncClient.GetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "GetIamPolicy",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
+    def set_iam_policy(self):
+        return self._SetIamPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _SetIamPolicy(
+        _BaseDataTaxonomyServiceRestTransport._BaseSetIamPolicy,
+        DataTaxonomyServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("DataTaxonomyServiceRestTransport.SetIamPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.SetIamPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> policy_pb2.Policy:
+            r"""Call the set iam policy method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.SetIamPolicyRequest):
+                    The request object for SetIamPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                policy_pb2.Policy: Response from SetIamPolicy method.
+            """
+
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseSetIamPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
+            transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseDataTaxonomyServiceRestTransport._BaseSetIamPolicy._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseDataTaxonomyServiceRestTransport._BaseSetIamPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.DataTaxonomyServiceClient.SetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "SetIamPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = DataTaxonomyServiceRestTransport._SetIamPolicy._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = policy_pb2.Policy()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_set_iam_policy(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.DataTaxonomyServiceAsyncClient.SetIamPolicy",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "SetIamPolicy",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
+    def test_iam_permissions(self):
+        return self._TestIamPermissions(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _TestIamPermissions(
+        _BaseDataTaxonomyServiceRestTransport._BaseTestIamPermissions,
+        DataTaxonomyServiceRestStub,
+    ):
+        def __hash__(self):
+            return hash("DataTaxonomyServiceRestTransport.TestIamPermissions")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: iam_policy_pb2.TestIamPermissionsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> iam_policy_pb2.TestIamPermissionsResponse:
+            r"""Call the test iam permissions method over HTTP.
+
+            Args:
+                request (iam_policy_pb2.TestIamPermissionsRequest):
+                    The request object for TestIamPermissions method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
+            """
+
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseTestIamPermissions._get_http_options()
+
+            request, metadata = self._interceptor.pre_test_iam_permissions(
+                request, metadata
+            )
+            transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseTestIamPermissions._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseDataTaxonomyServiceRestTransport._BaseTestIamPermissions._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseDataTaxonomyServiceRestTransport._BaseTestIamPermissions._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.dataplex_v1.DataTaxonomyServiceClient.TestIamPermissions",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "TestIamPermissions",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                DataTaxonomyServiceRestTransport._TestIamPermissions._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                    body,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = iam_policy_pb2.TestIamPermissionsResponse()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_test_iam_permissions(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.dataplex_v1.DataTaxonomyServiceAsyncClient.TestIamPermissions",
+                    extra={
+                        "serviceName": "google.cloud.dataplex.v1.DataTaxonomyService",
+                        "rpcName": "TestIamPermissions",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
     def cancel_operation(self):
         return self._CancelOperation(self._session, self._host, self._interceptor)  # type: ignore
 
@@ -4044,9 +4531,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -4164,9 +4649,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -4282,9 +4765,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseGetOperation._get_transcoded_request(
@@ -4423,9 +4904,7 @@ class DataTaxonomyServiceRestTransport(_BaseDataTaxonomyServiceRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseDataTaxonomyServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseDataTaxonomyServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseDataTaxonomyServiceRestTransport._BaseListOperations._get_transcoded_request(

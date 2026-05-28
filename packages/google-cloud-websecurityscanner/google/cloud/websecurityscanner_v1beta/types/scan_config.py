@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.websecurityscanner_v1beta.types import scan_run
@@ -89,6 +89,7 @@ class ScanConfig(proto.Message):
             SAFARI_IPHONE (3):
                 Safari on IPhone.
         """
+
         USER_AGENT_UNSPECIFIED = 0
         CHROME_LINUX = 1
         CHROME_ANDROID = 2
@@ -106,6 +107,7 @@ class ScanConfig(proto.Message):
             COMPUTE (2):
                 Google Compute Engine service.
         """
+
         TARGET_PLATFORM_UNSPECIFIED = 0
         APP_ENGINE = 1
         COMPUTE = 2
@@ -124,6 +126,7 @@ class ScanConfig(proto.Message):
             LOW (2):
                 Lower impact scanning
         """
+
         RISK_LEVEL_UNSPECIFIED = 0
         NORMAL = 1
         LOW = 2
@@ -142,6 +145,7 @@ class ScanConfig(proto.Message):
                 Do not export results of this scan to Cloud
                 Security Command Center.
         """
+
         EXPORT_TO_SECURITY_COMMAND_CENTER_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2

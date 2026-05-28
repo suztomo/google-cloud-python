@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_purge_documents():
 
     # Initialize request argument(s)
     gcs_source = discoveryengine_v1alpha.GcsSource()
-    gcs_source.input_uris = ['input_uris_value1', 'input_uris_value2']
+    gcs_source.input_uris = ["input_uris_value1", "input_uris_value2"]
 
     request = discoveryengine_v1alpha.PurgeDocumentsRequest(
         gcs_source=gcs_source,
@@ -49,13 +49,14 @@ async def sample_purge_documents():
     )
 
     # Make the request
-    operation = client.purge_documents(request=request)
+    operation = await client.purge_documents(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END discoveryengine_v1alpha_generated_DocumentService_PurgeDocuments_async]

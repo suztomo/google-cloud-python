@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.apps.chat_v1.types import history_state
@@ -26,12 +26,15 @@ from google.apps.chat_v1.types import history_state
 __protobuf__ = proto.module(
     package="google.chat.v1",
     manifest={
+        "SpaceView",
         "Space",
         "CreateSpaceRequest",
         "ListSpacesRequest",
         "ListSpacesResponse",
         "GetSpaceRequest",
         "FindDirectMessageRequest",
+        "FindGroupChatsRequest",
+        "FindGroupChatsResponse",
         "UpdateSpaceRequest",
         "SearchSpacesRequest",
         "SearchSpacesResponse",
@@ -40,6 +43,31 @@ __protobuf__ = proto.module(
         "CompleteImportSpaceResponse",
     },
 )
+
+
+class SpaceView(proto.Enum):
+    r"""A view that specifies which fields should be populated on the
+    ```Space`` <https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces>`__
+    resource. To ensure compatibility with future releases, we recommend
+    that your code account for additional values.
+
+    Values:
+        SPACE_VIEW_UNSPECIFIED (0):
+            The default / unset value.
+        SPACE_VIEW_RESOURCE_NAME_ONLY (3):
+            Populates only the Space resource name.
+        SPACE_VIEW_EXPANDED (4):
+            Populates Space resource fields. Note: the
+            ``permissionSettings`` field will not be populated. Requests
+            that specify SPACE_VIEW_EXPANDED must include scopes that
+            allow reading space data, for example,
+            https://www.googleapis.com/auth/chat.spaces or
+            https://www.googleapis.com/auth/chat.spaces.readonly.
+    """
+
+    SPACE_VIEW_UNSPECIFIED = 0
+    SPACE_VIEW_RESOURCE_NAME_ONLY = 3
+    SPACE_VIEW_EXPANDED = 4
 
 
 class Space(proto.Message):
@@ -98,9 +126,9 @@ class Space(proto.Message):
             Google Workspace organization. Omit this field when creating
             spaces in the following conditions:
 
-            -  The authenticated user uses a consumer account (unmanaged
-               user account). By default, a space created by a consumer
-               account permits any Google Chat user.
+            - The authenticated user uses a consumer account (unmanaged
+              user account). By default, a space created by a consumer
+              account permits any Google Chat user.
 
             For existing spaces, this field is output only.
         space_threading_state (google.apps.chat_v1.types.Space.SpaceThreadingState):
@@ -153,6 +181,23 @@ class Space(proto.Message):
             setting <https://support.google.com/chat/answer/11971020>`__
             of the space. Only populated when the ``space_type`` is
             ``SPACE``.
+        customer (str):
+            Optional. Immutable. The customer id of the domain of the
+            space. Required only when creating a space with `app
+            authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+            and ``SpaceType`` is ``SPACE``, otherwise should not be set.
+
+            In the format ``customers/{customer}``, where ``customer``
+            is the ``id`` from the `Admin SDK customer
+            resource <https://developers.google.com/admin-sdk/directory/reference/rest/v1/customers>`__.
+            Private apps can also use the ``customers/my_customer``
+            alias to create the space in the same Google Workspace
+            organization as the app.
+
+            This field isn't populated for direct messages (DMs) or when
+            the space is created by non-Google Workspace users.
+
+            This field is a member of `oneof`_ ``_customer``.
         space_uri (str):
             Output only. The URI for a user to access the
             space.
@@ -162,13 +207,36 @@ class Space(proto.Message):
             collaboration space is created. After you create the space,
             settings are populated in the ``PermissionSettings`` field.
 
+            Setting predefined permission settings supports:
+
+            - `App
+              authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+              with `administrator
+              approval <https://support.google.com/a?p=chat-app-auth>`__
+              with the ``chat.app.spaces`` or ``chat.app.spaces.create``
+              scopes.
+
+            - `User
+              authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+
             This field is a member of `oneof`_ ``space_permission_settings``.
         permission_settings (google.apps.chat_v1.types.Space.PermissionSettings):
-            Optional. Space permission settings for
-            existing spaces. Input for updating exact space
-            permission settings, where existing permission
-            settings are replaced. Output lists current
-            permission settings.
+            Optional. Space permission settings for existing spaces.
+            Input for updating exact space permission settings, where
+            existing permission settings are replaced. Output lists
+            current permission settings.
+
+            Reading and updating permission settings supports:
+
+            - `App
+              authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+              with `administrator
+              approval <https://support.google.com/a?p=chat-app-auth>`__
+              with the ``chat.app.spaces`` scope. Only populated and
+              settable when the Chat app created the space.
+
+            - `User
+              authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
 
             This field is a member of `oneof`_ ``space_permission_settings``.
         import_mode_expire_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -196,6 +264,7 @@ class Space(proto.Message):
                 doesn't include direct messages between two
                 humans.
         """
+
         TYPE_UNSPECIFIED = 0
         ROOM = 1
         DM = 2
@@ -217,6 +286,7 @@ class Space(proto.Message):
                 1:1 messages between two humans or a human
                 and a Chat app.
         """
+
         SPACE_TYPE_UNSPECIFIED = 0
         SPACE = 1
         GROUP_CHAT = 2
@@ -241,6 +311,7 @@ class Space(proto.Message):
                 Direct messages (DMs) between two people and
                 group conversations between 3 or more people.
         """
+
         SPACE_THREADING_STATE_UNSPECIFIED = 0
         THREADED_MESSAGES = 2
         GROUPED_MESSAGES = 3
@@ -263,6 +334,7 @@ class Space(proto.Message):
                 space where only space managers can post
                 messages.
         """
+
         PREDEFINED_PERMISSION_SETTINGS_UNSPECIFIED = 0
         COLLABORATION_SPACE = 1
         ANNOUNCEMENT_SPACE = 2
@@ -341,15 +413,14 @@ class Space(proto.Message):
 
                 Reading the target audience supports:
 
-                -  `User
-                   authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
+                - `User
+                  authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__
 
-                -  `App
-                   authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
-                   with `administrator
-                   approval <https://support.google.com/a?p=chat-app-auth>`__
-                   with the ``chat.app.spaces`` scope in `Developer
-                   Preview <https://developers.google.com/workspace/preview>`__.
+                - `App
+                  authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
+                  with `administrator
+                  approval <https://support.google.com/a?p=chat-app-auth>`__
+                  with the ``chat.app.spaces`` scope.
 
                 This field is not populated when using the ``chat.bot``
                 scope with `app
@@ -382,6 +453,7 @@ class Space(proto.Message):
                     Creating discoverable spaces requires `user
                     authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-user>`__.
             """
+
             ACCESS_STATE_UNSPECIFIED = 0
             PRIVATE = 1
             DISCOVERABLE = 2
@@ -501,18 +573,33 @@ class Space(proto.Message):
     class PermissionSetting(proto.Message):
         r"""Represents a space permission setting.
 
+        .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
         Attributes:
             managers_allowed (bool):
-                Optional. Whether spaces managers have this
-                permission.
+                Optional. Whether space owners
+                ([``ROLE_MANAGER``][google.chat.v1.Membership.MembershipRole.ROLE_MANAGER])
+                have this permission.
+            assistant_managers_allowed (bool):
+                Optional. Whether space managers
+                [``ROLE_ASSISTANT_MANAGER``][google.chat.v1.Membership.MembershipRole.ROLE_ASSISTANT_MANAGER])
+                have this permission.
+
+                This field is a member of `oneof`_ ``_assistant_managers_allowed``.
             members_allowed (bool):
-                Optional. Whether non-manager members have
-                this permission.
+                Optional. Whether basic space members
+                ([``ROLE_MEMBER``][google.chat.v1.Membership.MembershipRole.ROLE_MEMBER])
+                have this permission.
         """
 
         managers_allowed: bool = proto.Field(
             proto.BOOL,
             number=1,
+        )
+        assistant_managers_allowed: bool = proto.Field(
+            proto.BOOL,
+            number=3,
+            optional=True,
         )
         members_allowed: bool = proto.Field(
             proto.BOOL,
@@ -591,6 +678,11 @@ class Space(proto.Message):
         proto.MESSAGE,
         number=23,
         message=AccessSettings,
+    )
+    customer: str = proto.Field(
+        proto.STRING,
+        number=24,
+        optional=True,
     )
     space_uri: str = proto.Field(
         proto.STRING,
@@ -803,6 +895,106 @@ class FindDirectMessageRequest(proto.Message):
     )
 
 
+class FindGroupChatsRequest(proto.Message):
+    r"""A request to get group chat spaces based on user resources.
+
+    Attributes:
+        users (MutableSequence[str]):
+            Optional. Resource names of all human users in group chat
+            with the calling user. Chat apps can't be included in the
+            request.
+
+            The maximum number of users that can be specified in a
+            single request is ``49``.
+
+            Format: ``users/{user}``, where ``{user}`` is either the
+            ``id`` for the
+            `person <https://developers.google.com/people/api/rest/v1/people>`__
+            from the People API, or the ``id`` for the
+            `user <https://developers.google.com/admin-sdk/directory/reference/rest/v1/users>`__
+            in the Directory API. For example, to find all group chats
+            with the calling user and two other users, with People API
+            profile IDs ``123456789`` and ``987654321``, you can use
+            ``users/123456789`` and ``users/987654321``. You can also
+            use the email as an alias for ``{user}``. For example,
+            ``users/example@gmail.com`` where ``example@gmail.com`` is
+            the email of the Google Chat user.
+        page_size (int):
+            Optional. The maximum number of spaces to return. The
+            service might return fewer than this value.
+
+            If unspecified, at most 10 spaces are returned.
+
+            The maximum value is 30. If you use a value more than 30,
+            it's automatically changed to 30.
+
+            Negative values return an ``INVALID_ARGUMENT`` error.
+        page_token (str):
+            Optional. A page token, received from a
+            previous call to find group chats. Provide this
+            parameter to retrieve the subsequent page.
+
+            When paginating, all other parameters provided
+            should match the call that provided the token.
+            Passing different values may lead to unexpected
+            results.
+        space_view (google.apps.chat_v1.types.SpaceView):
+            Requested space view type. If unset, defaults to
+            ``SPACE_VIEW_RESOURCE_NAME_ONLY``. Requests that specify
+            ``SPACE_VIEW_EXPANDED`` must include scopes that allow
+            reading space data, for example,
+            https://www.googleapis.com/auth/chat.spaces or
+            https://www.googleapis.com/auth/chat.spaces.readonly.
+    """
+
+    users: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=5,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    space_view: "SpaceView" = proto.Field(
+        proto.ENUM,
+        number=4,
+        enum="SpaceView",
+    )
+
+
+class FindGroupChatsResponse(proto.Message):
+    r"""A response containing group chat spaces with exactly the
+    calling user and the requested users.
+
+    Attributes:
+        spaces (MutableSequence[google.apps.chat_v1.types.Space]):
+            List of spaces in the requested (or first)
+            page.
+        next_page_token (str):
+            A token that you can send as ``pageToken`` to retrieve the
+            next page of results. If empty, there are no subsequent
+            pages.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    spaces: MutableSequence["Space"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="Space",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
 class UpdateSpaceRequest(proto.Message):
     r"""A request to update a single space.
 
@@ -817,8 +1009,12 @@ class UpdateSpaceRequest(proto.Message):
 
             You can update the following fields for a space:
 
-            ``space_details``: Updates the space's description. Supports
-            up to 150 characters.
+            ``space_details``: Updates the space's description and
+            guidelines. You must pass both description and guidelines in
+            the update request as
+            [``SpaceDetails``][google.chat.v1.Space.SpaceDetails]. If
+            you only want to update one of the fields, pass the existing
+            value for the other field.
 
             ``display_name``: Only supports updating the display name
             for spaces where ``spaceType`` field is ``SPACE``. If you
@@ -867,17 +1063,16 @@ class UpdateSpaceRequest(proto.Message):
             settings <https://support.google.com/chat/answer/13340792>`__
             of a space. When updating permission settings, you can only
             specify ``permissionSettings`` field masks; you cannot
-            update other field masks at the same time.
-            ``permissionSettings`` is not supported with
-            ``useAdminAccess``. The supported field masks include:
+            update other field masks at the same time. The supported
+            field masks include:
 
-            -  ``permission_settings.manageMembersAndGroups``
-            -  ``permission_settings.modifySpaceDetails``
-            -  ``permission_settings.toggleHistory``
-            -  ``permission_settings.useAtMentionAll``
-            -  ``permission_settings.manageApps``
-            -  ``permission_settings.manageWebhooks``
-            -  ``permission_settings.replyMessages``
+            - ``permission_settings.manageMembersAndGroups``
+            - ``permission_settings.modifySpaceDetails``
+            - ``permission_settings.toggleHistory``
+            - ``permission_settings.useAtMentionAll``
+            - ``permission_settings.manageApps``
+            - ``permission_settings.manageWebhooks``
+            - ``permission_settings.replyMessages``
         use_admin_access (bool):
             Optional. When ``true``, the method runs using the user's
             Google Workspace administrator privileges.
@@ -950,13 +1145,13 @@ class SearchSpacesRequest(proto.Message):
 
             You can search by using the following parameters:
 
-            -  ``create_time``
-            -  ``customer``
-            -  ``display_name``
-            -  ``external_user_allowed``
-            -  ``last_active_time``
-            -  ``space_history_state``
-            -  ``space_type``
+            - ``create_time``
+            - ``customer``
+            - ``display_name``
+            - ``external_user_allowed``
+            - ``last_active_time``
+            - ``space_history_state``
+            - ``space_type``
 
             ``create_time`` and ``last_active_time`` accept a timestamp
             in `RFC-3339 <https://www.rfc-editor.org/rfc/rfc3339>`__
@@ -1027,27 +1222,27 @@ class SearchSpacesRequest(proto.Message):
 
             Supported attributes to order by are:
 
-            -  ``membership_count.joined_direct_human_user_count`` —
-               Denotes the count of human users that have directly
-               joined a space.
-            -  ``last_active_time`` — Denotes the time when last
-               eligible item is added to any topic of this space.
-            -  ``create_time`` — Denotes the time of the space creation.
+            - ``membership_count.joined_direct_human_user_count`` —
+              Denotes the count of human users that have directly joined
+              a space.
+            - ``last_active_time`` — Denotes the time when last eligible
+              item is added to any topic of this space.
+            - ``create_time`` — Denotes the time of the space creation.
 
             Valid ordering operation values are:
 
-            -  ``ASC`` for ascending. Default value.
+            - ``ASC`` for ascending. Default value.
 
-            -  ``DESC`` for descending.
+            - ``DESC`` for descending.
 
             The supported syntax are:
 
-            -  ``membership_count.joined_direct_human_user_count DESC``
-            -  ``membership_count.joined_direct_human_user_count ASC``
-            -  ``last_active_time DESC``
-            -  ``last_active_time ASC``
-            -  ``create_time DESC``
-            -  ``create_time ASC``
+            - ``membership_count.joined_direct_human_user_count DESC``
+            - ``membership_count.joined_direct_human_user_count ASC``
+            - ``last_active_time DESC``
+            - ``last_active_time ASC``
+            - ``create_time DESC``
+            - ``create_time ASC``
     """
 
     use_admin_access: bool = proto.Field(

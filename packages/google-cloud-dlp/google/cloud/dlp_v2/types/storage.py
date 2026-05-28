@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -85,6 +85,7 @@ class Likelihood(proto.Enum):
             Confidence level is high. Lowest chance of a
             false positive.
     """
+
     LIKELIHOOD_UNSPECIFIED = 0
     VERY_UNLIKELY = 1
     UNLIKELY = 2
@@ -163,6 +164,7 @@ class FileType(proto.Enum):
             ``bytes_limit_per_file_percent`` has no effect on Excel
             files.
     """
+
     FILE_TYPE_UNSPECIFIED = 0
     BINARY_FILE = 1
     TEXT_FILE = 2
@@ -244,6 +246,7 @@ class SensitivityScore(proto.Message):
                 Re-identification of users might be possible.
                 Consider limiting usage and or removing SPII.
         """
+
         SENSITIVITY_SCORE_UNSPECIFIED = 0
         SENSITIVITY_LOW = 10
         SENSITIVITY_UNKNOWN = 12
@@ -325,20 +328,23 @@ class CustomInfoType(proto.Message):
 
             This field is a member of `oneof`_ ``type``.
         stored_type (google.cloud.dlp_v2.types.StoredType):
-            Load an existing ``StoredInfoType`` resource for use in
-            ``InspectDataSource``. Not currently supported in
-            ``InspectContent``.
+            Loads an existing ``StoredInfoType`` resource.
+
+            This field is a member of `oneof`_ ``type``.
+        metadata_key_value_expression (google.cloud.dlp_v2.types.CustomInfoType.MetadataKeyValueExpression):
+            Key-value pair to detect in the metadata.
 
             This field is a member of `oneof`_ ``type``.
         detection_rules (MutableSequence[google.cloud.dlp_v2.types.CustomInfoType.DetectionRule]):
             Set of detection rules to apply to all findings of this
-            CustomInfoType. Rules are applied in order that they are
-            specified. Not supported for the ``surrogate_type``
-            CustomInfoType.
+            CustomInfoType. Rules are applied in the order that they are
+            specified. Only supported for the ``dictionary``, ``regex``,
+            and ``stored_type`` CustomInfoTypes.
         exclusion_type (google.cloud.dlp_v2.types.CustomInfoType.ExclusionType):
             If set to EXCLUSION_TYPE_EXCLUDE this infoType will not
             cause a finding to be returned. It still can be used for
-            rules matching.
+            rules matching. Only supported for the ``dictionary``,
+            ``regex``, and ``stored_type`` CustomInfoTypes.
         sensitivity_score (google.cloud.dlp_v2.types.SensitivityScore):
             Sensitivity for this CustomInfoType. If this
             CustomInfoType extends an existing InfoType, the
@@ -360,6 +366,7 @@ class CustomInfoType(proto.Message):
                 excluded from final results, but can still
                 affect rule execution.
         """
+
         EXCLUSION_TYPE_UNSPECIFIED = 0
         EXCLUSION_TYPE_EXCLUDE = 1
 
@@ -474,6 +481,29 @@ class CustomInfoType(proto.Message):
 
         """
 
+    class MetadataKeyValueExpression(proto.Message):
+        r"""Configuration for a custom infoType that detects key-value
+        pairs in the metadata matching the specified regular
+        expressions.
+
+        Attributes:
+            key_regex (str):
+                The regular expression for the key. Key
+                should be non-empty.
+            value_regex (str):
+                The regular expression for the value. Value
+                should be non-empty.
+        """
+
+        key_regex: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        value_regex: str = proto.Field(
+            proto.STRING,
+            number=2,
+        )
+
     class DetectionRule(proto.Message):
         r"""Deprecated; use ``InspectionRuleSet`` instead. Rule for modifying a
         ``CustomInfoType`` to alter behavior under certain circumstances,
@@ -573,8 +603,8 @@ class CustomInfoType(proto.Message):
                     characters. The finding itself will be included in the
                     window, so that hotwords can be used to match substrings of
                     the finding itself. Suppose you want Cloud DLP to promote
-                    the likelihood of the phone number regex "(\d{3})
-                    \\d{3}-\d{4}" if the area code is known to be the area code
+                    the likelihood of the phone number regex "(\\d{3})
+                    \\d{3}-\\d{4}" if the area code is known to be the area code
                     of a company's office. In this case, use the hotword regex
                     "(xxx)", where "xxx" is the area code in question.
 
@@ -643,6 +673,12 @@ class CustomInfoType(proto.Message):
         number=5,
         oneof="type",
         message="StoredType",
+    )
+    metadata_key_value_expression: MetadataKeyValueExpression = proto.Field(
+        proto.MESSAGE,
+        number=10,
+        oneof="type",
+        message=MetadataKeyValueExpression,
     )
     detection_rules: MutableSequence[DetectionRule] = proto.RepeatedField(
         proto.MESSAGE,
@@ -758,25 +794,25 @@ class CloudStorageRegexFileSet(proto.Message):
     For example, given the input
     ``{bucket_name: "mybucket", include_regex: ["directory1/.*"], exclude_regex: ["directory1/excluded.*"]}``:
 
-    -  ``gs://mybucket/directory1/myfile`` will be included
-    -  ``gs://mybucket/directory1/directory2/myfile`` will be included
-       (``.*`` matches across ``/``)
-    -  ``gs://mybucket/directory0/directory1/myfile`` will *not* be
-       included (the full path doesn't match any items in
-       ``include_regex``)
-    -  ``gs://mybucket/directory1/excludedfile`` will *not* be included
-       (the path matches an item in ``exclude_regex``)
+    - ``gs://mybucket/directory1/myfile`` will be included
+    - ``gs://mybucket/directory1/directory2/myfile`` will be included
+      (``.*`` matches across ``/``)
+    - ``gs://mybucket/directory0/directory1/myfile`` will *not* be
+      included (the full path doesn't match any items in
+      ``include_regex``)
+    - ``gs://mybucket/directory1/excludedfile`` will *not* be included
+      (the path matches an item in ``exclude_regex``)
 
     If ``include_regex`` is left empty, it will match all files by
     default (this is equivalent to setting ``include_regex: [".*"]``).
 
     Some other common use cases:
 
-    -  ``{bucket_name: "mybucket", exclude_regex: [".*\.pdf"]}`` will
-       include all files in ``mybucket`` except for .pdf files
-    -  ``{bucket_name: "mybucket", include_regex: ["directory/[^/]+"]}``
-       will include all files directly under
-       ``gs://mybucket/directory/``, without matching across ``/``
+    - ``{bucket_name: "mybucket", exclude_regex: [".*\.pdf"]}`` will
+      include all files in ``mybucket`` except for .pdf files
+    - ``{bucket_name: "mybucket", include_regex: ["directory/[^/]+"]}``
+      will include all files directly under
+      ``gs://mybucket/directory/``, without matching across ``/``
 
     Attributes:
         bucket_name (str):
@@ -879,6 +915,7 @@ class CloudStorageOptions(proto.Message):
                 pick the offset to start scanning. The scanned bytes are
                 contiguous.
         """
+
         SAMPLE_METHOD_UNSPECIFIED = 0
         TOP = 1
         RANDOM_START = 2
@@ -1039,6 +1076,7 @@ class BigQueryOptions(proto.Message):
             RANDOM_START (2):
                 Randomly pick groups of rows to scan.
         """
+
         SAMPLE_METHOD_UNSPECIFIED = 0
         TOP = 1
         RANDOM_START = 2
@@ -1145,9 +1183,9 @@ class StorageConfig(proto.Message):
                 timestamp field. When used with Cloud DLP, these
                 pseudo-column names are case sensitive.
 
-                -  ``_PARTITIONTIME``
-                -  ``_PARTITIONDATE``
-                -  ``_PARTITION_LOAD_TIME``
+                - ``_PARTITIONTIME``
+                - ``_PARTITIONDATE``
+                - ``_PARTITION_LOAD_TIME``
 
                 **For Datastore**
 
@@ -1268,8 +1306,8 @@ class HybridOptions(proto.Message):
 
             Examples:
 
-            -  ``"environment" : "production"``
-            -  ``"pipeline" : "etl"``
+            - ``"environment" : "production"``
+            - ``"pipeline" : "etl"``
         table_options (google.cloud.dlp_v2.types.TableOptions):
             If the container is a table, additional
             information to make findings meaningful such as

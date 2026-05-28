@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_acl_config():
     client = discoveryengine_v1alpha.AclConfigServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = discoveryengine_v1alpha.UpdateAclConfigRequest(
-    )
+    request = discoveryengine_v1alpha.UpdateAclConfigRequest()
 
     # Make the request
     response = await client.update_acl_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END discoveryengine_v1alpha_generated_AclConfigService_UpdateAclConfig_async]

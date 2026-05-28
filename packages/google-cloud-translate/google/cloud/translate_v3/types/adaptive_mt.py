@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.translate_v3.types import common
@@ -58,7 +58,7 @@ class AdaptiveMtDataset(proto.Message):
         display_name (str):
             The name of the dataset to show in the interface. The name
             can be up to 32 characters long and can consist only of
-            ASCII Latin letters A-Z and a-z, underscores (_), and ASCII
+            ASCII Latin letters A-Z and a-z, underscores (\_), and ASCII
             digits 0-9.
         source_language_code (str):
             The BCP-47 language code of the source
@@ -252,6 +252,8 @@ class AdaptiveMtTranslateRequest(proto.Message):
         content (MutableSequence[str]):
             Required. The content of the input in string
             format.
+        mime_type (str):
+            The format of the source text.
         reference_sentence_config (google.cloud.translate_v3.types.AdaptiveMtTranslateRequest.ReferenceSentenceConfig):
             Configuration for caller provided reference
             sentences.
@@ -347,8 +349,8 @@ class AdaptiveMtTranslateRequest(proto.Message):
 
                 The format depends on the glossary:
 
-                -  User-provided custom glossary:
-                   ``projects/{project-number-or-id}/locations/{location-id}/glossaries/{glossary-id}``
+                - User-provided custom glossary:
+                  ``projects/{project-number-or-id}/locations/{location-id}/glossaries/{glossary-id}``
             ignore_case (bool):
                 Optional. Indicates match is case insensitive. The default
                 value is ``false`` if missing.
@@ -381,6 +383,10 @@ class AdaptiveMtTranslateRequest(proto.Message):
     content: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
         number=3,
+    )
+    mime_type: str = proto.Field(
+        proto.STRING,
+        number=4,
     )
     reference_sentence_config: ReferenceSentenceConfig = proto.Field(
         proto.MESSAGE,
@@ -433,12 +439,12 @@ class AdaptiveMtTranslateResponse(proto.Message):
         proto.STRING,
         number=2,
     )
-    glossary_translations: MutableSequence[
-        "AdaptiveMtTranslation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="AdaptiveMtTranslation",
+    glossary_translations: MutableSequence["AdaptiveMtTranslation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="AdaptiveMtTranslation",
+        )
     )
 
 

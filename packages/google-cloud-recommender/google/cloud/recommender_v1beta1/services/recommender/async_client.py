@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.recommender_v1beta1 import gapic_version as package_version
 
@@ -44,23 +44,25 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.recommender_v1beta1.services.recommender import pagers
+from google.cloud.recommender_v1beta1.types import (
+    insight,
+    insight_type_config,
+    recommendation,
+    recommender_config,
+    recommender_service,
+)
 from google.cloud.recommender_v1beta1.types import (
     insight_type_config as gcr_insight_type_config,
 )
 from google.cloud.recommender_v1beta1.types import (
     recommender_config as gcr_recommender_config,
 )
-from google.cloud.recommender_v1beta1.types import insight
-from google.cloud.recommender_v1beta1.types import insight_type_config
-from google.cloud.recommender_v1beta1.types import recommendation
-from google.cloud.recommender_v1beta1.types import recommender_config
-from google.cloud.recommender_v1beta1.types import recommender_service
 
 from .client import RecommenderClient
 from .transports.base import DEFAULT_CLIENT_INFO, RecommenderTransport
@@ -145,7 +147,10 @@ class RecommenderAsyncClient:
         Returns:
             RecommenderAsyncClient: The constructed client.
         """
-        return RecommenderClient.from_service_account_info.__func__(RecommenderAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            RecommenderClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(RecommenderAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -161,7 +166,10 @@ class RecommenderAsyncClient:
         Returns:
             RecommenderAsyncClient: The constructed client.
         """
-        return RecommenderClient.from_service_account_file.__func__(RecommenderAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            RecommenderClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(RecommenderAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -211,7 +219,7 @@ class RecommenderAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -329,7 +337,7 @@ class RecommenderAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListInsightsAsyncPager:
         r"""Lists insights for the specified Cloud Resource. Requires the
-        recommender.*.list IAM permission for the specified insight
+        recommender.\*.list IAM permission for the specified insight
         type.
 
         .. code-block:: python
@@ -366,15 +374,15 @@ class RecommenderAsyncClient:
                 Required. The container resource on which to execute the
                 request. Acceptable formats:
 
-                -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+                - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-                -  ``projects/[PROJECT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+                - ``projects/[PROJECT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-                -  ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+                - ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-                -  ``folders/[FOLDER_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+                - ``folders/[FOLDER_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-                -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+                - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
                 LOCATION here refers to GCP Locations:
                 https://cloud.google.com/about/locations/
@@ -469,7 +477,7 @@ class RecommenderAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> insight.Insight:
-        r"""Gets the requested insight. Requires the recommender.*.get IAM
+        r"""Gets the requested insight. Requires the recommender.\*.get IAM
         permission for the specified insight type.
 
         .. code-block:: python
@@ -590,7 +598,7 @@ class RecommenderAsyncClient:
         being updated.
 
         MarkInsightAccepted can be applied to insights in ACTIVE state.
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified insight.
 
         .. code-block:: python
@@ -725,7 +733,7 @@ class RecommenderAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListRecommendationsAsyncPager:
         r"""Lists recommendations for the specified Cloud Resource. Requires
-        the recommender.*.list IAM permission for the specified
+        the recommender.\*.list IAM permission for the specified
         recommender.
 
         .. code-block:: python
@@ -762,15 +770,15 @@ class RecommenderAsyncClient:
                 Required. The container resource on which to execute the
                 request. Acceptable formats:
 
-                -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+                - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-                -  ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+                - ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-                -  ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+                - ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-                -  ``folders/[FOLDER_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+                - ``folders/[FOLDER_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-                -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+                - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
                 LOCATION here refers to GCP Locations:
                 https://cloud.google.com/about/locations/ RECOMMENDER_ID
@@ -784,21 +792,21 @@ class RecommenderAsyncClient:
                 Filter expression to restrict the recommendations
                 returned. Supported filter fields:
 
-                -  ``state_info.state``
+                - ``state_info.state``
 
-                -  ``recommenderSubtype``
+                - ``recommenderSubtype``
 
-                -  ``priority``
+                - ``priority``
 
                 Examples:
 
-                -  ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
+                - ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
 
-                -  ``recommenderSubtype = REMOVE_ROLE OR recommenderSubtype = REPLACE_ROLE``
+                - ``recommenderSubtype = REMOVE_ROLE OR recommenderSubtype = REPLACE_ROLE``
 
-                -  ``priority = P1 OR priority = P2``
+                - ``priority = P1 OR priority = P2``
 
-                -  ``stateInfo.state = ACTIVE AND (priority = P1 OR priority = P2)``
+                - ``stateInfo.state = ACTIVE AND (priority = P1 OR priority = P2)``
 
                 (These expressions are based on the filter language
                 described at https://google.aip.dev/160)
@@ -896,7 +904,7 @@ class RecommenderAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> recommendation.Recommendation:
         r"""Gets the requested recommendation. Requires the
-        recommender.*.get IAM permission for the specified recommender.
+        recommender.\*.get IAM permission for the specified recommender.
 
         .. code-block:: python
 
@@ -1019,7 +1027,7 @@ class RecommenderAsyncClient:
         MarkRecommendationClaimed can be applied to recommendations in
         CLAIMED or ACTIVE state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         .. code-block:: python
@@ -1168,7 +1176,7 @@ class RecommenderAsyncClient:
         MarkRecommendationSucceeded can be applied to recommendations in
         ACTIVE, CLAIMED, SUCCEEDED, or FAILED state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         .. code-block:: python
@@ -1317,7 +1325,7 @@ class RecommenderAsyncClient:
         MarkRecommendationFailed can be applied to recommendations in
         ACTIVE, CLAIMED, SUCCEEDED, or FAILED state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         .. code-block:: python
@@ -1490,11 +1498,11 @@ class RecommenderAsyncClient:
 
                 Acceptable formats:
 
-                -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+                - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
 
-                -  ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+                - ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
 
-                -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+                - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1728,11 +1736,11 @@ class RecommenderAsyncClient:
 
                 Acceptable formats:
 
-                -  ``projects/[PROJECT_NUMBER]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+                - ``projects/[PROJECT_NUMBER]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
 
-                -  ``projects/[PROJECT_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+                - ``projects/[PROJECT_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
 
-                -  ``organizations/[ORGANIZATION_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+                - ``organizations/[ORGANIZATION_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this

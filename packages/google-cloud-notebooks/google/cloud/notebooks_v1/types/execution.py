@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -53,41 +53,41 @@ class ExecutionTemplate(proto.Message):
             You can use certain Compute Engine machine types directly in
             this field. The following types are supported:
 
-            -  ``n1-standard-4``
-            -  ``n1-standard-8``
-            -  ``n1-standard-16``
-            -  ``n1-standard-32``
-            -  ``n1-standard-64``
-            -  ``n1-standard-96``
-            -  ``n1-highmem-2``
-            -  ``n1-highmem-4``
-            -  ``n1-highmem-8``
-            -  ``n1-highmem-16``
-            -  ``n1-highmem-32``
-            -  ``n1-highmem-64``
-            -  ``n1-highmem-96``
-            -  ``n1-highcpu-16``
-            -  ``n1-highcpu-32``
-            -  ``n1-highcpu-64``
-            -  ``n1-highcpu-96``
+            - ``n1-standard-4``
+            - ``n1-standard-8``
+            - ``n1-standard-16``
+            - ``n1-standard-32``
+            - ``n1-standard-64``
+            - ``n1-standard-96``
+            - ``n1-highmem-2``
+            - ``n1-highmem-4``
+            - ``n1-highmem-8``
+            - ``n1-highmem-16``
+            - ``n1-highmem-32``
+            - ``n1-highmem-64``
+            - ``n1-highmem-96``
+            - ``n1-highcpu-16``
+            - ``n1-highcpu-32``
+            - ``n1-highcpu-64``
+            - ``n1-highcpu-96``
 
             Alternatively, you can use the following legacy machine
             types:
 
-            -  ``standard``
-            -  ``large_model``
-            -  ``complex_model_s``
-            -  ``complex_model_m``
-            -  ``complex_model_l``
-            -  ``standard_gpu``
-            -  ``complex_model_m_gpu``
-            -  ``complex_model_l_gpu``
-            -  ``standard_p100``
-            -  ``complex_model_m_p100``
-            -  ``standard_v100``
-            -  ``large_model_v100``
-            -  ``complex_model_m_v100``
-            -  ``complex_model_l_v100``
+            - ``standard``
+            - ``large_model``
+            - ``complex_model_s``
+            - ``complex_model_m``
+            - ``complex_model_l``
+            - ``standard_gpu``
+            - ``complex_model_m_gpu``
+            - ``complex_model_l_gpu``
+            - ``standard_p100``
+            - ``complex_model_m_p100``
+            - ``standard_v100``
+            - ``large_model_v100``
+            - ``complex_model_m_v100``
+            - ``complex_model_l_v100``
 
             Finally, if you want to use a TPU for training, specify
             ``cloud_tpu`` in this field. Learn more about the `special
@@ -184,10 +184,11 @@ class ExecutionTemplate(proto.Message):
                 set values to configure your processing cluster according to
                 these guidelines:
 
-                -  You *must* set ``ExecutionTemplate.masterType`` to
-                   specify the type of machine to use for your master node.
-                   This is the only required setting.
+                - You *must* set ``ExecutionTemplate.masterType`` to specify
+                  the type of machine to use for your master node. This is
+                  the only required setting.
         """
+
         SCALE_TIER_UNSPECIFIED = 0
         BASIC = 1
         STANDARD_1 = 2
@@ -220,6 +221,7 @@ class ExecutionTemplate(proto.Message):
             TPU_V3 (7):
                 TPU v3.
         """
+
         SCHEDULER_ACCELERATOR_TYPE_UNSPECIFIED = 0
         NVIDIA_TESLA_K80 = 1
         NVIDIA_TESLA_P100 = 2
@@ -244,6 +246,7 @@ class ExecutionTemplate(proto.Message):
                 job.
                 https://cloud.google.com/dataproc/docs/reference/rest/v1/projects.regions.jobs
         """
+
         JOB_TYPE_UNSPECIFIED = 0
         VERTEX_AI = 1
         DATAPROC = 2
@@ -401,7 +404,7 @@ class Execution(proto.Message):
             ``projects/{project_id}/locations/{location}/executions/{execution_id}``
         display_name (str):
             Output only. Name used for UI purposes. Name can only
-            contain alphanumeric characters and underscores '_'.
+            contain alphanumeric characters and underscores '\_'.
         description (str):
             A brief description of this execution.
         create_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -453,6 +456,7 @@ class Execution(proto.Message):
             INITIALIZING (10):
                 The Execution is being created.
         """
+
         STATE_UNSPECIFIED = 0
         QUEUED = 1
         PREPARING = 2

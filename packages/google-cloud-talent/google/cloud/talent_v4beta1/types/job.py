@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.talent_v4beta1.types import common
@@ -172,7 +172,7 @@ class Job(proto.Message):
             Language codes must be in BCP-47 format, such as "en-US" or
             "sr-Latn". For more information, see `Tags for Identifying
             Languages <https://tools.ietf.org/html/bcp47>`__\ {:
-            class="external" target="_blank" }.
+            class="external" target="\_blank" }.
 
             If this field is unspecified and
             [Job.description][google.cloud.talent.v4beta1.Job.description]
@@ -409,11 +409,11 @@ class Job(proto.Message):
                 Option for job HTML content sanitization. Applied fields
                 are:
 
-                -  description
-                -  applicationInfo.instruction
-                -  incentives
-                -  qualifications
-                -  responsibilities
+                - description
+                - applicationInfo.instruction
+                - incentives
+                - qualifications
+                - responsibilities
 
                 HTML tags in these fields may be stripped if sanitiazation
                 isn't disabled.

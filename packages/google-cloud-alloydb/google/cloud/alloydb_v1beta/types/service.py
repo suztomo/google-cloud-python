@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.alloydb_v1beta.types import data_model, resources
@@ -85,6 +85,7 @@ __protobuf__ = proto.module(
         "DeleteUserRequest",
         "ListDatabasesRequest",
         "ListDatabasesResponse",
+        "CreateDatabaseRequest",
     },
 )
 
@@ -99,7 +100,7 @@ class ListClustersRequest(proto.Message):
             Additionally, you can perform an aggregated list operation
             by specifying a value with the following format:
 
-            -  projects/{project}/locations/-
+            - projects/{project}/locations/-
         page_size (int):
             Optional. Requested page size. Server may
             return fewer items than requested. If
@@ -814,6 +815,7 @@ class UpgradeClusterResponse(proto.Message):
             CANCELLED (7):
                 Cancellation complete.
         """
+
         STATUS_UNSPECIFIED = 0
         NOT_STARTED = 4
         IN_PROGRESS = 5
@@ -844,6 +846,7 @@ class UpgradeClusterResponse(proto.Message):
             CLEANUP (7):
                 Cleanup.
         """
+
         STAGE_UNSPECIFIED = 0
         ALLOYDB_PRECHECK = 1
         PG_UPGRADE_CHECK = 2
@@ -885,7 +888,7 @@ class UpgradeClusterResponse(proto.Message):
         )
 
     class InstanceUpgradeDetails(proto.Message):
-        r"""Details regarding the upgrade of instaces associated with a
+        r"""Details regarding the upgrade of instances associated with a
         cluster.
 
         Attributes:
@@ -957,12 +960,12 @@ class UpgradeClusterResponse(proto.Message):
             number=4,
             enum=resources.DatabaseVersion,
         )
-        stage_info: MutableSequence[
-            "UpgradeClusterResponse.StageInfo"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="UpgradeClusterResponse.StageInfo",
+        stage_info: MutableSequence["UpgradeClusterResponse.StageInfo"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="UpgradeClusterResponse.StageInfo",
+            )
         )
         instance_upgrade_details: MutableSequence[
             "UpgradeClusterResponse.InstanceUpgradeDetails"
@@ -981,12 +984,12 @@ class UpgradeClusterResponse(proto.Message):
         proto.STRING,
         number=2,
     )
-    cluster_upgrade_details: MutableSequence[
-        ClusterUpgradeDetails
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ClusterUpgradeDetails,
+    cluster_upgrade_details: MutableSequence[ClusterUpgradeDetails] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ClusterUpgradeDetails,
+        )
     )
 
 
@@ -1163,8 +1166,8 @@ class PromoteClusterRequest(proto.Message):
 
 
 class RestoreClusterRequest(proto.Message):
-    r"""Message for restoring a Cluster from a backup or another
-    cluster at a given point in time.
+    r"""Message for restoring a Cluster from a backup or another cluster at
+    a given point in time. NEXT_ID: 11
 
     This message has `oneof`_ fields (mutually exclusive fields).
     For each oneof, at most one member field can be set at the same time.
@@ -1264,8 +1267,8 @@ class ListInstancesRequest(proto.Message):
             Additionally, you can perform an aggregated list operation
             by specifying a value with one of the following formats:
 
-            -  projects/{project}/locations/-/clusters/-
-            -  projects/{project}/locations/{region}/clusters/-
+            - projects/{project}/locations/-/clusters/-
+            - projects/{project}/locations/{region}/clusters/-
         page_size (int):
             Optional. Requested page size. Server may
             return fewer items than requested. If
@@ -1490,12 +1493,12 @@ class CreateInstanceRequests(proto.Message):
             to be created. This list should not be empty.
     """
 
-    create_instance_requests: MutableSequence[
-        "CreateInstanceRequest"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="CreateInstanceRequest",
+    create_instance_requests: MutableSequence["CreateInstanceRequest"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="CreateInstanceRequest",
+        )
     )
 
 
@@ -1585,13 +1588,13 @@ class BatchCreateInstancesMetadata(proto.Message):
         proto.STRING,
         number=1,
     )
-    instance_statuses: MutableMapping[
-        str, "BatchCreateInstanceStatus"
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=2,
-        message="BatchCreateInstanceStatus",
+    instance_statuses: MutableMapping[str, "BatchCreateInstanceStatus"] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=2,
+            message="BatchCreateInstanceStatus",
+        )
     )
 
 
@@ -1665,6 +1668,7 @@ class BatchCreateInstanceStatus(proto.Message):
                 was rolled back and deleted due to some other
                 failure during BatchCreateInstances operation.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING_CREATE = 1
         READY = 2
@@ -1917,6 +1921,7 @@ class InjectFaultRequest(proto.Message):
             STOP_VM (1):
                 Stop the VM
         """
+
         FAULT_TYPE_UNSPECIFIED = 0
         STOP_VM = 1
 
@@ -2024,6 +2029,10 @@ class ExecuteSqlRequest(proto.Message):
             Required. SQL statement to execute on
             database. Any valid statement is permitted,
             including DDL, DML, DQL statements.
+        validate_only (bool):
+            Optional. If set, validates the sql statement
+            by performing syntax and semantic validation and
+            doesn't execute the query.
     """
 
     password: str = proto.Field(
@@ -2046,6 +2055,10 @@ class ExecuteSqlRequest(proto.Message):
     sql_statement: str = proto.Field(
         proto.STRING,
         number=4,
+    )
+    validate_only: bool = proto.Field(
+        proto.BOOL,
+        number=6,
     )
 
 
@@ -2123,6 +2136,7 @@ class ExecuteSqlMetadata(proto.Message):
                 https://google.aip.dev/193 but will be returned
                 as part of this message.
         """
+
         STATUS_UNSPECIFIED = 0
         OK = 1
         PARTIAL = 2
@@ -2424,7 +2438,7 @@ class ListSupportedDatabaseFlagsRequest(proto.Message):
             Required. The name of the parent resource. The required
             format is:
 
-            -  projects/{project}/locations/{location}
+            - projects/{project}/locations/{location}
 
             Regardless of the parent specified here, as long it is
             contains a valid project and location, the service will
@@ -2477,12 +2491,12 @@ class ListSupportedDatabaseFlagsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    supported_database_flags: MutableSequence[
-        resources.SupportedDatabaseFlag
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.SupportedDatabaseFlag,
+    supported_database_flags: MutableSequence[resources.SupportedDatabaseFlag] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.SupportedDatabaseFlag,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -2499,7 +2513,7 @@ class GenerateClientCertificateRequest(proto.Message):
             Required. The name of the parent resource. The required
             format is:
 
-            -  projects/{project}/locations/{location}/clusters/{cluster}
+            - projects/{project}/locations/{location}/clusters/{cluster}
         request_id (str):
             Optional. An optional request ID to identify
             requests. Specify a unique request ID so that if
@@ -2777,6 +2791,7 @@ class PromoteClusterStatus(proto.Message):
                 The promote operation is completed and the
                 database is available for write.
         """
+
         STATE_UNSPECIFIED = 0
         PROMOTE_CLUSTER_AVAILABLE_FOR_READ = 1
         PROMOTE_CLUSTER_AVAILABLE_FOR_WRITE = 2
@@ -2820,7 +2835,49 @@ class UpgradeClusterStatus(proto.Message):
                 Upgrade stage.
             state (google.cloud.alloydb_v1beta.types.UpgradeClusterResponse.Status):
                 State of this stage.
+            schedule (google.cloud.alloydb_v1beta.types.UpgradeClusterStatus.StageStatus.StageSchedule):
+                Output only. Timing information for the stage
+                execution.
         """
+
+        class StageSchedule(proto.Message):
+            r"""Timing information for the stage execution.
+
+            Attributes:
+                estimated_start_time (google.protobuf.timestamp_pb2.Timestamp):
+                    When the stage is expected to start. Set only
+                    if the stage has not started yet.
+                actual_start_time (google.protobuf.timestamp_pb2.Timestamp):
+                    Actual start time of the stage. Set only if
+                    the stage has started.
+                estimated_end_time (google.protobuf.timestamp_pb2.Timestamp):
+                    When the stage is expected to end. Set only
+                    if the stage has not completed yet.
+                actual_end_time (google.protobuf.timestamp_pb2.Timestamp):
+                    Actual end time of the stage. Set only if the
+                    stage has completed.
+            """
+
+            estimated_start_time: timestamp_pb2.Timestamp = proto.Field(
+                proto.MESSAGE,
+                number=1,
+                message=timestamp_pb2.Timestamp,
+            )
+            actual_start_time: timestamp_pb2.Timestamp = proto.Field(
+                proto.MESSAGE,
+                number=2,
+                message=timestamp_pb2.Timestamp,
+            )
+            estimated_end_time: timestamp_pb2.Timestamp = proto.Field(
+                proto.MESSAGE,
+                number=3,
+                message=timestamp_pb2.Timestamp,
+            )
+            actual_end_time: timestamp_pb2.Timestamp = proto.Field(
+                proto.MESSAGE,
+                number=4,
+                message=timestamp_pb2.Timestamp,
+            )
 
         read_pool_instances_upgrade: "UpgradeClusterStatus.ReadPoolInstancesUpgradeStageStatus" = proto.Field(
             proto.MESSAGE,
@@ -2837,6 +2894,11 @@ class UpgradeClusterStatus(proto.Message):
             proto.ENUM,
             number=2,
             enum="UpgradeClusterResponse.Status",
+        )
+        schedule: "UpgradeClusterStatus.StageStatus.StageSchedule" = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message="UpgradeClusterStatus.StageStatus.StageSchedule",
         )
 
     class ReadPoolInstancesUpgradeStageStatus(proto.Message):
@@ -3175,7 +3237,7 @@ class DeleteUserRequest(proto.Message):
 
 
 class ListDatabasesRequest(proto.Message):
-    r"""Message for requesting list of Databases.
+    r"""Message for ListDatabases request.
 
     Attributes:
         parent (str):
@@ -3216,11 +3278,11 @@ class ListDatabasesRequest(proto.Message):
 
 
 class ListDatabasesResponse(proto.Message):
-    r"""Message for response to listing Databases.
+    r"""Message for ListDatabases response.
 
     Attributes:
         databases (MutableSequence[google.cloud.alloydb_v1beta.types.Database]):
-            The list of databases
+            The list of databases.
         next_page_token (str):
             A token identifying the next page of results
             the server should return. If this field is
@@ -3239,6 +3301,33 @@ class ListDatabasesResponse(proto.Message):
     next_page_token: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+
+
+class CreateDatabaseRequest(proto.Message):
+    r"""Message for CreateDatabase request.
+
+    Attributes:
+        parent (str):
+            Required. Value for parent.
+        database_id (str):
+            Required. ID of the requesting object.
+        database (google.cloud.alloydb_v1beta.types.Database):
+            Required. The resource being created.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    database_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    database: resources.Database = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=resources.Database,
     )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_update_cluster():
     client = visionai_v1.StreamsServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = visionai_v1.UpdateClusterRequest(
-    )
+    request = visionai_v1.UpdateClusterRequest()
 
     # Make the request
-    operation = client.update_cluster(request=request)
+    operation = await client.update_cluster(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END visionai_v1_generated_StreamsService_UpdateCluster_async]

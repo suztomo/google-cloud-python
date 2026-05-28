@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.support_v2beta.types import case as gcs_case
@@ -97,18 +97,18 @@ class ListCasesRequest(proto.Message):
             Expressions use the following fields separated by ``AND``
             and specified with ``=``:
 
-            -  ``state``: Can be ``OPEN`` or ``CLOSED``.
-            -  ``priority``: Can be ``P0``, ``P1``, ``P2``, ``P3``, or
-               ``P4``. You can specify multiple values for priority
-               using the ``OR`` operator. For example,
-               ``priority=P1 OR priority=P2``.
-            -  ``creator.email``: The email address of the case creator.
+            - ``state``: Can be ``OPEN`` or ``CLOSED``.
+            - ``priority``: Can be ``P0``, ``P1``, ``P2``, ``P3``, or
+              ``P4``. You can specify multiple values for priority using
+              the ``OR`` operator. For example,
+              ``priority=P1 OR priority=P2``.
+            - ``creator.email``: The email address of the case creator.
 
             EXAMPLES:
 
-            -  ``state=CLOSED``
-            -  ``state=OPEN AND creator.email="tester@example.com"``
-            -  ``state=OPEN AND (priority=P0 OR priority=P1)``
+            - ``state=CLOSED``
+            - ``state=OPEN AND creator.email="tester@example.com"``
+            - ``state=OPEN AND (priority=P0 OR priority=P1)``
         page_size (int):
             The maximum number of cases fetched with each
             request. Defaults to 10.
@@ -190,16 +190,16 @@ class SearchCasesRequest(proto.Message):
             Expressions use the following fields separated by ``AND``
             and specified with ``=``:
 
-            -  ``organization``: An organization name in the form
-               ``organizations/<organization_id>``.
-            -  ``project``: A project name in the form
-               ``projects/<project_id>``.
-            -  ``state``: Can be ``OPEN`` or ``CLOSED``.
-            -  ``priority``: Can be ``P0``, ``P1``, ``P2``, ``P3``, or
-               ``P4``. You can specify multiple values for priority
-               using the ``OR`` operator. For example,
-               ``priority=P1 OR priority=P2``.
-            -  ``creator.email``: The email address of the case creator.
+            - ``organization``: An organization name in the form
+              ``organizations/<organization_id>``.
+            - ``project``: A project name in the form
+              ``projects/<project_id>``.
+            - ``state``: Can be ``OPEN`` or ``CLOSED``.
+            - ``priority``: Can be ``P0``, ``P1``, ``P2``, ``P3``, or
+              ``P4``. You can specify multiple values for priority using
+              the ``OR`` operator. For example,
+              ``priority=P1 OR priority=P2``.
+            - ``creator.email``: The email address of the case creator.
 
             You must specify either ``organization`` or ``project``.
 
@@ -215,12 +215,12 @@ class SearchCasesRequest(proto.Message):
 
             Examples:
 
-            -  ``organization="organizations/123456789"``
-            -  ``project="projects/my-project-id"``
-            -  ``project="projects/123456789"``
-            -  ``organization="organizations/123456789" AND state=CLOSED``
-            -  ``project="projects/my-project-id" AND creator.email="tester@example.com"``
-            -  ``project="projects/my-project-id" AND (priority=P0 OR priority=P1)``
+            - ``organization="organizations/123456789"``
+            - ``project="projects/my-project-id"``
+            - ``project="projects/123456789"``
+            - ``organization="organizations/123456789" AND state=CLOSED``
+            - ``project="projects/my-project-id" AND creator.email="tester@example.com"``
+            - ``project="projects/my-project-id" AND (priority=P0 OR priority=P1)``
         page_size (int):
             The maximum number of cases fetched with each
             request. The default page size is 10.
@@ -404,12 +404,12 @@ class SearchCaseClassificationsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    case_classifications: MutableSequence[
-        gcs_case.CaseClassification
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcs_case.CaseClassification,
+    case_classifications: MutableSequence[gcs_case.CaseClassification] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcs_case.CaseClassification,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

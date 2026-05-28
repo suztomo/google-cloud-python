@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import postal_address_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -67,6 +67,7 @@ class PowerSupply(proto.Enum):
         POWER_SUPPLY_DC (2):
             DC power supply.
     """
+
     POWER_SUPPLY_UNSPECIFIED = 0
     POWER_SUPPLY_AC = 1
     POWER_SUPPLY_DC = 2
@@ -85,6 +86,7 @@ class Entity(proto.Enum):
         VENDOR (3):
             Vendor.
     """
+
     ENTITY_UNSPECIFIED = 0
     GOOGLE = 1
     CUSTOMER = 2
@@ -126,8 +128,11 @@ class Order(proto.Message):
             motivation for this order. The length of this
             field must be <= 1000 characters.
         fulfillment_time (google.protobuf.timestamp_pb2.Timestamp):
-            Required. Customer specified deadline by when
-            this order should be fulfilled.
+            Deprecated: Please use customer_requested_installation_date
+            instead.
+        customer_requested_installation_date (google.type.date_pb2.Date):
+            Optional. Customer requested installation
+            date for this order.
         region_code (str):
             Required. `Unicode CLDR <http://cldr.unicode.org/>`__ region
             code where this order will be deployed. For a list of valid
@@ -157,6 +162,25 @@ class Order(proto.Message):
         estimated_installation_date (google.type.date_pb2.Date):
             Output only. Estimated installation date for
             this order.
+        estimated_delivery_date (google.type.date_pb2.Date):
+            Output only. Estimated delivery date for this
+            order.
+        migration (bool):
+            Optional. Whether this order is a migration
+            from customer's existing infrastructure.
+        accepted_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The time when the order was
+            moved to ACCEPTED state.
+        requested_date_change (google.type.date_pb2.Date):
+            Output only. The date to which the customer
+            or Google wants to set the scheduled
+            installation date.
+        vendor_notes (str):
+            Output only. Notes for this order, provided
+            by the vendor.
+        vendor_contact (google.cloud.gdchardwaremanagement_v1alpha.types.OrganizationContact):
+            Output only. Contact information of the SI
+            assigned to this order.
     """
 
     class State(proto.Enum):
@@ -197,6 +221,7 @@ class Order(proto.Message):
             CANCELLED (11):
                 Order has been cancelled.
         """
+
         STATE_UNSPECIFIED = 0
         DRAFT = 1
         SUBMITTED = 2
@@ -224,6 +249,7 @@ class Order(proto.Message):
             UNPAID (2):
                 Not billed.
         """
+
         _pb_options = {"allow_alias": True}
         TYPE_UNSPECIFIED = 0
         PAID = 1
@@ -248,6 +274,7 @@ class Order(proto.Message):
                 Customer lab deployment that we support as
                 though it's prod.
         """
+
         DEPLOYMENT_TYPE_UNSPECIFIED = 0
         FULL_PRODUCTION = 1
         PROOF_OF_CONCEPT = 2
@@ -300,6 +327,11 @@ class Order(proto.Message):
         number=9,
         message=timestamp_pb2.Timestamp,
     )
+    customer_requested_installation_date: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message=date_pb2.Date,
+    )
     region_code: str = proto.Field(
         proto.STRING,
         number=10,
@@ -341,6 +373,34 @@ class Order(proto.Message):
         proto.MESSAGE,
         number=20,
         message=date_pb2.Date,
+    )
+    estimated_delivery_date: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=22,
+        message=date_pb2.Date,
+    )
+    migration: bool = proto.Field(
+        proto.BOOL,
+        number=23,
+    )
+    accepted_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=24,
+        message=timestamp_pb2.Timestamp,
+    )
+    requested_date_change: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=25,
+        message=date_pb2.Date,
+    )
+    vendor_notes: str = proto.Field(
+        proto.STRING,
+        number=26,
+    )
+    vendor_contact: "OrganizationContact" = proto.Field(
+        proto.MESSAGE,
+        number=27,
+        message="OrganizationContact",
     )
 
 
@@ -387,14 +447,13 @@ class Site(proto.Message):
             Optional. Any additional notes for this Site.
             Please include information about:
 
-            - security or access restrictions
-            - any regulations affecting the technicians
+             - security or access restrictions
+             - any regulations affecting the technicians
               visiting the site
-            - any special process or approval required to
+             - any special process or approval required to
               move the equipment
-            - whether a representative will be available
+             - whether a representative will be available
               during site visits
-
         customer_site_id (str):
             Optional. Customer defined identifier for
             this Site. This can be used to identify the site
@@ -489,9 +548,9 @@ class HardwareGroup(proto.Message):
             HardwareGroup belongs to. Format:
             ``projects/{project}/locations/{location}/zones/{zone}``
         requested_installation_date (google.type.date_pb2.Date):
-            Optional. Requested installation date for the
-            hardware in this HardwareGroup. Filled in by the
-            customer.
+            Deprecated: This value is not used. Use the
+            requested_installation_date field in the Order resource
+            instead.
     """
 
     class State(proto.Enum):
@@ -521,6 +580,7 @@ class HardwareGroup(proto.Message):
                 An error occurred and customer intervention
                 is required.
         """
+
         STATE_UNSPECIFIED = 0
         ADDITIONAL_INFO_NEEDED = 1
         BUILDING = 2
@@ -641,6 +701,9 @@ class Hardware(proto.Message):
         machine_infos (MutableSequence[google.cloud.gdchardwaremanagement_v1alpha.types.Hardware.MachineInfo]):
             Output only. Per machine asset information
             needed for turnup.
+        estimated_delivery_date (google.type.date_pb2.Date):
+            Output only. The estimated delivery date of
+            the hardware.
     """
 
     class State(proto.Enum):
@@ -666,6 +729,7 @@ class Hardware(proto.Message):
                 An error occurred and customer intervention
                 is required.
         """
+
         STATE_UNSPECIFIED = 0
         ADDITIONAL_INFO_NEEDED = 1
         BUILDING = 2
@@ -702,6 +766,7 @@ class Hardware(proto.Message):
                 VIRTUAL (3):
                     Address of a virtual interface.
             """
+
             ADDRESS_TYPE_UNSPECIFIED = 0
             NIC = 1
             BMC = 2
@@ -882,6 +947,11 @@ class Hardware(proto.Message):
         number=20,
         message=MachineInfo,
     )
+    estimated_delivery_date: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message=date_pb2.Date,
+    )
 
 
 class Comment(proto.Message):
@@ -1042,6 +1112,7 @@ class Sku(proto.Message):
             SERVER (2):
                 Server SKU.
         """
+
         TYPE_UNSPECIFIED = 0
         RACK = 1
         SERVER = 2
@@ -1160,6 +1231,25 @@ class Zone(proto.Message):
         provisioning_state (google.cloud.gdchardwaremanagement_v1alpha.types.Zone.ProvisioningState):
             Output only. Provisioning state for
             configurations like MAC addresses.
+        skip_cluster_provisioning (bool):
+            Optional. Whether to skip the cluster
+            provisioning step during factory turnup. If
+            true, indicates that the Kubernetes cluster will
+            be created after the zone's hardware is
+            installed at the customer site.
+        cluster_intent_required (bool):
+            Output only. Indicates whether a valid
+            cluster intent must be provided by the customer
+            before accepting the order. If true, the order
+            cannot be accepted until cluster intent is
+            present. This is used to enforce early
+            validation and prevent delays caused by missing
+            configuration.
+        cluster_intent_verified (bool):
+            Output only. Indicates whether the provided
+            cluster intent has been successfully verified.
+            This flag ensures cluster intent exists before
+            order can be accepted.
     """
 
     class State(proto.Enum):
@@ -1179,6 +1269,8 @@ class Zone(proto.Message):
                 The Zone is running factory turnup checks.
             READY_FOR_SITE_TURNUP (6):
                 The Zone is ready for site turnup.
+            OFFLINE (9):
+                The Zone is offline.
             CUSTOMER_FACTORY_TURNUP_CHECKS_FAILED (7):
                 The Zone failed in factory turnup checks.
             ACTIVE (3):
@@ -1186,12 +1278,14 @@ class Zone(proto.Message):
             CANCELLED (4):
                 The Zone has been cancelled.
         """
+
         STATE_UNSPECIFIED = 0
         ADDITIONAL_INFO_NEEDED = 1
         PREPARING = 2
         READY_FOR_CUSTOMER_FACTORY_TURNUP_CHECKS = 5
         CUSTOMER_FACTORY_TURNUP_CHECKS_STARTED = 8
         READY_FOR_SITE_TURNUP = 6
+        OFFLINE = 9
         CUSTOMER_FACTORY_TURNUP_CHECKS_FAILED = 7
         ACTIVE = 3
         CANCELLED = 4
@@ -1210,6 +1304,7 @@ class Zone(proto.Message):
             PROVISIONING_COMPLETE (3):
                 Provisioning is complete. Set by customer.
         """
+
         PROVISIONING_STATE_UNSPECIFIED = 0
         PROVISIONING_REQUIRED = 1
         PROVISIONING_IN_PROGRESS = 2
@@ -1270,6 +1365,18 @@ class Zone(proto.Message):
         proto.ENUM,
         number=14,
         enum=ProvisioningState,
+    )
+    skip_cluster_provisioning: bool = proto.Field(
+        proto.BOOL,
+        number=16,
+    )
+    cluster_intent_required: bool = proto.Field(
+        proto.BOOL,
+        number=17,
+    )
+    cluster_intent_verified: bool = proto.Field(
+        proto.BOOL,
+        number=18,
     )
 
 
@@ -1493,12 +1600,26 @@ class HardwarePhysicalInfo(proto.Message):
             C_13 (2):
                 C13.
             STANDARD_EU (3):
-                Standard european receptacle.
+                Deprecated: Please use TYPE_G_BS1363, CEE_7_3, CEE_7_5 or
+                TYPE_F instead.
+            TYPE_G_BS1363 (4):
+                Type G / BS1363.
+            CEE_7_3 (5):
+                C 7/3.
+            CEE_7_5 (6):
+                C 7/5.
+            TYPE_F (7):
+                Type F.
         """
+
         POWER_RECEPTACLE_TYPE_UNSPECIFIED = 0
         NEMA_5_15 = 1
         C_13 = 2
         STANDARD_EU = 3
+        TYPE_G_BS1363 = 4
+        CEE_7_3 = 5
+        CEE_7_5 = 6
+        TYPE_F = 7
 
     class NetworkUplinkType(proto.Enum):
         r"""Valid network uplink types.
@@ -1509,6 +1630,7 @@ class HardwarePhysicalInfo(proto.Message):
             RJ_45 (1):
                 RJ-45.
         """
+
         NETWORK_UPLINK_TYPE_UNSPECIFIED = 0
         RJ_45 = 1
 
@@ -1523,6 +1645,7 @@ class HardwarePhysicalInfo(proto.Message):
             VOLTAGE_220 (3):
                 220V.
         """
+
         VOLTAGE_UNSPECIFIED = 0
         VOLTAGE_110 = 1
         VOLTAGE_220 = 3
@@ -1536,6 +1659,7 @@ class HardwarePhysicalInfo(proto.Message):
             AMPERES_15 (1):
                 15A.
         """
+
         AMPERES_UNSPECIFIED = 0
         AMPERES_15 = 1
 
@@ -1594,6 +1718,7 @@ class HardwareInstallationInfo(proto.Message):
             FOUR_POST (2):
                 Four post rack.
         """
+
         RACK_TYPE_UNSPECIFIED = 0
         TWO_POST = 1
         FOUR_POST = 2
@@ -1872,6 +1997,7 @@ class SubscriptionConfig(proto.Message):
                 The subscription has been completed, because
                 it has reached the end date.
         """
+
         SUBSCRIPTION_STATE_UNSPECIFIED = 0
         ACTIVE = 1
         INACTIVE = 2

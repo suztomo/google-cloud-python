@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ def sample_batch_update_entity_signals_mappings():
     # Initialize request argument(s)
     requests = admanager_v1.UpdateEntitySignalsMappingRequest()
     requests.entity_signals_mapping.audience_segment_id = 1980
-    requests.entity_signals_mapping.taxonomy_category_ids = [2268, 2269]
 
     request = admanager_v1.BatchUpdateEntitySignalsMappingsRequest(
         parent="parent_value",
@@ -53,5 +52,6 @@ def sample_batch_update_entity_signals_mappings():
 
     # Handle the response
     print(response)
+
 
 # [END admanager_v1_generated_EntitySignalsMappingService_BatchUpdateEntitySignalsMappings_sync]

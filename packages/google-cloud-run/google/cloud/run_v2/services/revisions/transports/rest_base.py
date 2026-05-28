@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,6 +110,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                     "method": "delete",
                     "uri": "/v2/{name=projects/*/locations/*/services/*/revisions/*}",
                 },
+                {
+                    "method": "delete",
+                    "uri": "/v2/{name=projects/*/locations/*/workerPools/*/revisions/*}",
+                },
             ]
             return http_options
 
@@ -157,6 +161,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                     "method": "get",
                     "uri": "/v2/{name=projects/*/locations/*/services/*/revisions/*}",
                 },
+                {
+                    "method": "get",
+                    "uri": "/v2/{name=projects/*/locations/*/workerPools/*/revisions/*}",
+                },
             ]
             return http_options
 
@@ -203,6 +211,10 @@ class _BaseRevisionsRestTransport(RevisionsTransport):
                 {
                     "method": "get",
                     "uri": "/v2/{parent=projects/*/locations/*/services/*}/revisions",
+                },
+                {
+                    "method": "get",
+                    "uri": "/v2/{parent=projects/*/locations/*/workerPools/*}/revisions",
                 },
             ]
             return http_options

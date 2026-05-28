@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1alpha.types import search_service
@@ -92,6 +92,7 @@ class Evaluation(proto.Message):
             FAILED (4):
                 The evaluation failed.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         RUNNING = 2
@@ -112,13 +113,13 @@ class Evaluation(proto.Message):
                 supported; if any other fields are provided, an UNSUPPORTED
                 error will be returned:
 
-                -  [SearchRequest.serving_config][google.cloud.discoveryengine.v1alpha.SearchRequest.serving_config]
-                -  [SearchRequest.branch][google.cloud.discoveryengine.v1alpha.SearchRequest.branch]
-                -  [SearchRequest.canonical_filter][google.cloud.discoveryengine.v1alpha.SearchRequest.canonical_filter]
-                -  [SearchRequest.query_expansion_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.query_expansion_spec]
-                -  [SearchRequest.spell_correction_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.spell_correction_spec]
-                -  [SearchRequest.content_search_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.content_search_spec]
-                -  [SearchRequest.user_pseudo_id][google.cloud.discoveryengine.v1alpha.SearchRequest.user_pseudo_id]
+                - [SearchRequest.serving_config][google.cloud.discoveryengine.v1alpha.SearchRequest.serving_config]
+                - [SearchRequest.branch][google.cloud.discoveryengine.v1alpha.SearchRequest.branch]
+                - [SearchRequest.canonical_filter][google.cloud.discoveryengine.v1alpha.SearchRequest.canonical_filter]
+                - [SearchRequest.query_expansion_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.query_expansion_spec]
+                - [SearchRequest.spell_correction_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.spell_correction_spec]
+                - [SearchRequest.content_search_spec][google.cloud.discoveryengine.v1alpha.SearchRequest.content_search_spec]
+                - [SearchRequest.user_pseudo_id][google.cloud.discoveryengine.v1alpha.SearchRequest.user_pseudo_id]
 
                 This field is a member of `oneof`_ ``search_spec``.
             query_set_spec (google.cloud.discoveryengine_v1alpha.types.Evaluation.EvaluationSpec.QuerySetSpec):
@@ -206,10 +207,10 @@ class QualityMetrics(proto.Message):
 
             Example (top-5):
 
-            -  For a single
-               [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
-               If 3 out of 5 relevant documents are retrieved in the
-               top-5, recall@5 = 3/5 = 0.6
+            - For a single
+              [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
+              If 3 out of 5 relevant documents are retrieved in the
+              top-5, recall@5 = 3/5 = 0.6
         doc_precision (google.cloud.discoveryengine_v1alpha.types.QualityMetrics.TopkMetrics):
             Precision per document, at various top-k cutoff levels.
 
@@ -218,10 +219,10 @@ class QualityMetrics(proto.Message):
 
             Example (top-5):
 
-            -  For a single
-               [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
-               If 4 out of 5 retrieved documents in the top-5 are
-               relevant, precision@5 = 4/5 = 0.8
+            - For a single
+              [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
+              If 4 out of 5 retrieved documents in the top-5 are
+              relevant, precision@5 = 4/5 = 0.8
         doc_ndcg (google.cloud.discoveryengine_v1alpha.types.QualityMetrics.TopkMetrics):
             Normalized discounted cumulative gain (NDCG) per document,
             at various top-k cutoff levels.
@@ -250,10 +251,10 @@ class QualityMetrics(proto.Message):
 
             Example (top-5):
 
-            -  For a single
-               [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
-               if 3 out of 5 relevant pages are retrieved in the top-5,
-               recall@5 = 3/5 = 0.6
+            - For a single
+              [SampleQuery][google.cloud.discoveryengine.v1alpha.SampleQuery],
+              if 3 out of 5 relevant pages are retrieved in the top-5,
+              recall@5 = 3/5 = 0.6
         page_ndcg (google.cloud.discoveryengine_v1alpha.types.QualityMetrics.TopkMetrics):
             Normalized discounted cumulative gain (NDCG) per page, at
             various top-k cutoff levels.

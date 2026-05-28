@@ -1,5 +1,64 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/googleapis-common-protos/#history
+
+## [1.75.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.74.0...googleapis-common-protos-v1.75.0) (2026-05-06)
+
+## [1.74.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.73.1...googleapis-common-protos-v1.74.0) (2026-04-02)
+
+
+### Documentation
+
+* update SelectiveGapicGeneration usage doc ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* update API common type documentation ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* update various comments ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* update license year ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* fix documentation formatting ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Features
+
+* add origin to AttributeContext.Request ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* publish client batch config schema ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* publish new error reasons ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [1.73.1](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.73.0...googleapis-common-protos-v1.73.1) (2026-03-26)
+
+
+### Documentation
+
+* Update changelog entry for release (#16093) ([51a96200324965f071dd9542d25b907c1420b3f6](https://github.com/googleapis/google-cloud-python/commit/51a96200324965f071dd9542d25b907c1420b3f6))
+
+
+### Bug Fixes
+
+* Allow Protobuf 7.x, require Python 3.9 (#16102) ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+* Require Python 3.9 ([ec9262c45055d3d2b596cdde1649d3ce90b4347d](https://github.com/googleapis/google-cloud-python/commit/ec9262c45055d3d2b596cdde1649d3ce90b4347d))
+
+## [1.73.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.72.0...googleapis-common-protos-v1.73.0) (2026-03-05)
+
+
+### Chores
+
+* code formatting (#16023) ([6120fb0db084f5e8d1502fb1bb37594ac9976f6e](https://github.com/googleapis/google-cloud-python/commit/6120fb0db084f5e8d1502fb1bb37594ac9976f6e))
+
+## [1.72.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.71.0...googleapis-common-protos-v1.72.0) (2025-11-06)
+
+
+### Features
+
+* add common_resources.proto (#14851) ([e4e0e2a93c3db14324c1d9f799283ffe4f2bec09](https://github.com/googleapis/google-cloud-python/commit/e4e0e2a93c3db14324c1d9f799283ffe4f2bec09))
+* add field api_version to message ServiceForTransport (#14843) ([81812fde4f1e43d568d53d6a993cf423b38d6728](https://github.com/googleapis/google-cloud-python/commit/81812fde4f1e43d568d53d6a993cf423b38d6728))
+
+## [1.71.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.70.0...googleapis-common-protos-v1.71.0) (2025-10-20)
+
+
+### Features
+
+* add support for Python 3.14 (#14699) Towards b/375664027 ([8b69540bf6fd862bc1aebb3baf423c419b1556d4](https://github.com/googleapis/google-cloud-python/commit/8b69540bf6fd862bc1aebb3baf423c419b1556d4))
+
 ## [1.70.0](https://github.com/googleapis/google-cloud-python/compare/googleapis-common-protos-v1.69.2...googleapis-common-protos-v1.70.0) (2025-04-12)
 
 

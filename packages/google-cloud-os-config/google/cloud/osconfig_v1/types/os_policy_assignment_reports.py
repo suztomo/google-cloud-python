@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -131,12 +131,12 @@ class ListOSPolicyAssignmentReportsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    os_policy_assignment_reports: MutableSequence[
-        "OSPolicyAssignmentReport"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="OSPolicyAssignmentReport",
+    os_policy_assignment_reports: MutableSequence["OSPolicyAssignmentReport"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="OSPolicyAssignmentReport",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -197,26 +197,26 @@ class OSPolicyAssignmentReport(proto.Message):
                 If populated, the field can contain one of the following
                 values:
 
-                -  ``vm-not-running``: The VM was not running.
-                -  ``os-policies-not-supported-by-agent``: The version of
-                   the OS Config agent running on the VM does not support
-                   running OS policies.
-                -  ``no-agent-detected``: The OS Config agent is not
-                   detected for the VM.
-                -  ``resource-execution-errors``: The OS Config agent
-                   encountered errors while executing one or more resources
-                   in the policy. See ``os_policy_resource_compliances`` for
-                   details.
-                -  ``task-timeout``: The task sent to the agent to apply the
-                   policy timed out.
-                -  ``unexpected-agent-state``: The OS Config agent did not
-                   report the final status of the task that attempted to
-                   apply the policy. Instead, the agent unexpectedly started
-                   working on a different task. This mostly happens when the
-                   agent or VM unexpectedly restarts while applying OS
-                   policies.
-                -  ``internal-service-errors``: Internal service errors were
-                   encountered while attempting to apply the policy.
+                - ``vm-not-running``: The VM was not running.
+                - ``os-policies-not-supported-by-agent``: The version of the
+                  OS Config agent running on the VM does not support running
+                  OS policies.
+                - ``no-agent-detected``: The OS Config agent is not detected
+                  for the VM.
+                - ``resource-execution-errors``: The OS Config agent
+                  encountered errors while executing one or more resources
+                  in the policy. See ``os_policy_resource_compliances`` for
+                  details.
+                - ``task-timeout``: The task sent to the agent to apply the
+                  policy timed out.
+                - ``unexpected-agent-state``: The OS Config agent did not
+                  report the final status of the task that attempted to
+                  apply the policy. Instead, the agent unexpectedly started
+                  working on a different task. This mostly happens when the
+                  agent or VM unexpectedly restarts while applying OS
+                  policies.
+                - ``internal-service-errors``: Internal service errors were
+                  encountered while attempting to apply the policy.
             os_policy_resource_compliances (MutableSequence[google.cloud.osconfig_v1.types.OSPolicyAssignmentReport.OSPolicyCompliance.OSPolicyResourceCompliance]):
                 Compliance data for each resource within the
                 policy that is applied to the VM.
@@ -242,6 +242,7 @@ class OSPolicyAssignmentReport(proto.Message):
                     The policy is non-compliant if one or more
                     underlying resources are non-compliant.
             """
+
             UNKNOWN = 0
             COMPLIANT = 1
             NON_COMPLIANT = 2
@@ -267,15 +268,15 @@ class OSPolicyAssignmentReport(proto.Message):
                     The following values are supported when
                     ``compliance_state == UNKNOWN``
 
-                    -  ``execution-errors``: Errors were encountered by the
-                       agent while executing the resource and the compliance
-                       state couldn't be determined.
-                    -  ``execution-skipped-by-agent``: Resource execution was
-                       skipped by the agent because errors were encountered
-                       while executing prior resources in the OS policy.
-                    -  ``os-policy-execution-attempt-failed``: The execution of
-                       the OS policy containing this resource failed and the
-                       compliance state couldn't be determined.
+                    - ``execution-errors``: Errors were encountered by the agent
+                      while executing the resource and the compliance state
+                      couldn't be determined.
+                    - ``execution-skipped-by-agent``: Resource execution was
+                      skipped by the agent because errors were encountered while
+                      executing prior resources in the OS policy.
+                    - ``os-policy-execution-attempt-failed``: The execution of
+                      the OS policy containing this resource failed and the
+                      compliance state couldn't be determined.
                 exec_resource_output (google.cloud.osconfig_v1.types.OSPolicyAssignmentReport.OSPolicyCompliance.OSPolicyResourceCompliance.ExecResourceOutput):
                     ExecResource specific output.
 
@@ -296,6 +297,7 @@ class OSPolicyAssignmentReport(proto.Message):
                     NON_COMPLIANT (2):
                         Resource is non-compliant.
                 """
+
                 UNKNOWN = 0
                 COMPLIANT = 1
                 NON_COMPLIANT = 2
@@ -339,6 +341,7 @@ class OSPolicyAssignmentReport(proto.Message):
                             desired state due to side effects from executing
                             other resources.
                     """
+
                     TYPE_UNSPECIFIED = 0
                     VALIDATION = 1
                     DESIRED_STATE_CHECK = 2

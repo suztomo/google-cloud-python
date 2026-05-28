@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,19 +37,24 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
 
 from google.analytics.admin_v1alpha.services.analytics_admin_service import (
     AnalyticsAdminServiceAsyncClient,
@@ -63,6 +62,17 @@ from google.analytics.admin_v1alpha.services.analytics_admin_service import (
     pagers,
     transports,
 )
+from google.analytics.admin_v1alpha.types import (
+    access_report,
+    analytics_admin,
+    audience,
+    channel_group,
+    event_create_and_edit,
+    expanded_data_set,
+    resources,
+    subproperty_event_filter,
+)
+from google.analytics.admin_v1alpha.types import audience as gaa_audience
 from google.analytics.admin_v1alpha.types import channel_group as gaa_channel_group
 from google.analytics.admin_v1alpha.types import (
     expanded_data_set as gaa_expanded_data_set,
@@ -70,14 +80,6 @@ from google.analytics.admin_v1alpha.types import (
 from google.analytics.admin_v1alpha.types import (
     subproperty_event_filter as gaa_subproperty_event_filter,
 )
-from google.analytics.admin_v1alpha.types import access_report, analytics_admin
-from google.analytics.admin_v1alpha.types import audience
-from google.analytics.admin_v1alpha.types import audience as gaa_audience
-from google.analytics.admin_v1alpha.types import channel_group
-from google.analytics.admin_v1alpha.types import event_create_and_edit
-from google.analytics.admin_v1alpha.types import expanded_data_set
-from google.analytics.admin_v1alpha.types import resources
-from google.analytics.admin_v1alpha.types import subproperty_event_filter
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -133,6 +135,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert AnalyticsAdminServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -154,6 +157,10 @@ def test__get_default_mtls_endpoint():
     assert (
         AnalyticsAdminServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        AnalyticsAdminServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -181,12 +188,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            AnalyticsAdminServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                AnalyticsAdminServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert AnalyticsAdminServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert AnalyticsAdminServiceClient._read_environment_variables() == (
@@ -223,6 +237,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                AnalyticsAdminServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert AnalyticsAdminServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -614,17 +727,6 @@ def test_analytics_admin_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -860,6 +962,117 @@ def test_analytics_admin_service_client_get_mtls_endpoint_and_cert_source(client
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -892,10 +1105,9 @@ def test_analytics_admin_service_client_get_mtls_endpoint_and_cert_source(client
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -908,18 +1120,6 @@ def test_analytics_admin_service_client_get_mtls_endpoint_and_cert_source(client
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1163,13 +1363,13 @@ def test_analytics_admin_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1892,11 +2092,7 @@ async def test_list_accounts_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_accounts(request={})
-        ).pages:
+        async for page_ in (await client.list_accounts(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -2838,9 +3034,9 @@ def test_list_account_summaries_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_account_summaries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_account_summaries] = (
+            mock_rpc
+        )
         request = {}
         client.list_account_summaries(request)
 
@@ -3127,11 +3323,7 @@ async def test_list_account_summaries_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_account_summaries(request={})
-        ).pages:
+        async for page_ in (await client.list_account_summaries(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3851,11 +4043,7 @@ async def test_list_properties_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_properties(request={})
-        ).pages:
+        async for page_ in (await client.list_properties(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4950,9 +5138,9 @@ def test_create_firebase_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_firebase_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_firebase_link] = (
+            mock_rpc
+        )
         request = {}
         client.create_firebase_link(request)
 
@@ -5301,9 +5489,9 @@ def test_delete_firebase_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_firebase_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_firebase_link] = (
+            mock_rpc
+        )
         request = {}
         client.delete_firebase_link(request)
 
@@ -5636,9 +5824,9 @@ def test_list_firebase_links_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_firebase_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_firebase_links] = (
+            mock_rpc
+        )
         request = {}
         client.list_firebase_links(request)
 
@@ -6079,11 +6267,7 @@ async def test_list_firebase_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_firebase_links(request={})
-        ).pages:
+        async for page_ in (await client.list_firebase_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -6182,9 +6366,9 @@ def test_get_global_site_tag_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_global_site_tag
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_global_site_tag] = (
+            mock_rpc
+        )
         request = {}
         client.get_global_site_tag(request)
 
@@ -6533,9 +6717,9 @@ def test_create_google_ads_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_google_ads_link] = (
+            mock_rpc
+        )
         request = {}
         client.create_google_ads_link(request)
 
@@ -6894,9 +7078,9 @@ def test_update_google_ads_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_google_ads_link] = (
+            mock_rpc
+        )
         request = {}
         client.update_google_ads_link(request)
 
@@ -7250,9 +7434,9 @@ def test_delete_google_ads_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_google_ads_link] = (
+            mock_rpc
+        )
         request = {}
         client.delete_google_ads_link(request)
 
@@ -7586,9 +7770,9 @@ def test_list_google_ads_links_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_google_ads_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_google_ads_links] = (
+            mock_rpc
+        )
         request = {}
         client.list_google_ads_links(request)
 
@@ -8029,11 +8213,7 @@ async def test_list_google_ads_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_google_ads_links(request={})
-        ).pages:
+        async for page_ in (await client.list_google_ads_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -9294,9 +9474,7 @@ async def test_list_measurement_protocol_secrets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_measurement_protocol_secrets(request={})
         ).pages:
             pages.append(page_)
@@ -12595,9 +12773,7 @@ async def test_list_sk_ad_network_conversion_value_schemas_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_sk_ad_network_conversion_value_schemas(request={})
         ).pages:
             pages.append(page_)
@@ -13060,9 +13236,7 @@ async def test_search_change_history_events_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.search_change_history_events(request={})
         ).pages:
             pages.append(page_)
@@ -14638,9 +14812,9 @@ def test_get_conversion_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_conversion_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_conversion_event] = (
+            mock_rpc
+        )
         request = {}
         client.get_conversion_event(request)
 
@@ -15325,9 +15499,9 @@ def test_list_conversion_events_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_conversion_events
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_conversion_events] = (
+            mock_rpc
+        )
         request = {}
         client.list_conversion_events(request)
 
@@ -15768,11 +15942,7 @@ async def test_list_conversion_events_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_conversion_events(request={})
-        ).pages:
+        async for page_ in (await client.list_conversion_events(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15871,9 +16041,9 @@ def test_create_key_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_key_event] = (
+            mock_rpc
+        )
         request = {}
         client.create_key_event(request)
 
@@ -16214,9 +16384,9 @@ def test_update_key_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_key_event] = (
+            mock_rpc
+        )
         request = {}
         client.update_key_event(request)
 
@@ -16885,9 +17055,9 @@ def test_delete_key_event_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_key_event] = (
+            mock_rpc
+        )
         request = {}
         client.delete_key_event(request)
 
@@ -17625,11 +17795,7 @@ async def test_list_key_events_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_key_events(request={})
-        ).pages:
+        async for page_ in (await client.list_key_events(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -18529,9 +18695,7 @@ async def test_list_display_video360_advertiser_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_display_video360_advertiser_links(request={})
         ).pages:
             pages.append(page_)
@@ -20537,9 +20701,7 @@ async def test_list_display_video360_advertiser_link_proposals_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_display_video360_advertiser_link_proposals(request={})
         ).pages:
             pages.append(page_)
@@ -22665,9 +22827,9 @@ def test_list_custom_dimensions_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_custom_dimensions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_custom_dimensions] = (
+            mock_rpc
+        )
         request = {}
         client.list_custom_dimensions(request)
 
@@ -23108,11 +23270,7 @@ async def test_list_custom_dimensions_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_custom_dimensions(request={})
-        ).pages:
+        async for page_ in (await client.list_custom_dimensions(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -23550,9 +23708,9 @@ def test_get_custom_dimension_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_custom_dimension
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_custom_dimension] = (
+            mock_rpc
+        )
         request = {}
         client.get_custom_dimension(request)
 
@@ -23918,9 +24076,9 @@ def test_create_custom_metric_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_custom_metric] = (
+            mock_rpc
+        )
         request = {}
         client.create_custom_metric(request)
 
@@ -24298,9 +24456,9 @@ def test_update_custom_metric_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_custom_metric] = (
+            mock_rpc
+        )
         request = {}
         client.update_custom_metric(request)
 
@@ -24668,9 +24826,9 @@ def test_list_custom_metrics_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_custom_metrics
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_custom_metrics] = (
+            mock_rpc
+        )
         request = {}
         client.list_custom_metrics(request)
 
@@ -25111,11 +25269,7 @@ async def test_list_custom_metrics_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_custom_metrics(request={})
-        ).pages:
+        async for page_ in (await client.list_custom_metrics(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -25210,9 +25364,9 @@ def test_archive_custom_metric_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.archive_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.archive_custom_metric] = (
+            mock_rpc
+        )
         request = {}
         client.archive_custom_metric(request)
 
@@ -25557,9 +25711,9 @@ def test_get_custom_metric_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_custom_metric] = (
+            mock_rpc
+        )
         request = {}
         client.get_custom_metric(request)
 
@@ -26658,9 +26812,9 @@ def test_create_data_stream_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_data_stream] = (
+            mock_rpc
+        )
         request = {}
         client.create_data_stream(request)
 
@@ -27035,9 +27189,9 @@ def test_delete_data_stream_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_data_stream] = (
+            mock_rpc
+        )
         request = {}
         client.delete_data_stream(request)
 
@@ -27368,9 +27522,9 @@ def test_update_data_stream_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_data_stream] = (
+            mock_rpc
+        )
         request = {}
         client.update_data_stream(request)
 
@@ -27748,9 +27902,9 @@ def test_list_data_streams_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_data_streams
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_data_streams] = (
+            mock_rpc
+        )
         request = {}
         client.list_data_streams(request)
 
@@ -28190,11 +28344,7 @@ async def test_list_data_streams_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_data_streams(request={})
-        ).pages:
+        async for page_ in (await client.list_data_streams(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -29385,11 +29535,7 @@ async def test_list_audiences_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_audiences(request={})
-        ).pages:
+        async for page_ in (await client.list_audiences(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -30191,9 +30337,9 @@ def test_archive_audience_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.archive_audience
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.archive_audience] = (
+            mock_rpc
+        )
         request = {}
         client.archive_audience(request)
 
@@ -30438,9 +30584,9 @@ def test_get_search_ads360_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_search_ads360_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_search_ads360_link] = (
+            mock_rpc
+        )
         request = {}
         client.get_search_ads360_link(request)
 
@@ -31232,11 +31378,7 @@ async def test_list_search_ads360_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_search_ads360_links(request={})
-        ).pages:
+        async for page_ in (await client.list_search_ads360_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -33154,9 +33296,9 @@ def test_run_access_report_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.run_access_report
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.run_access_report] = (
+            mock_rpc
+        )
         request = {}
         client.run_access_report(request)
 
@@ -33413,9 +33555,9 @@ def test_create_access_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_access_binding] = (
+            mock_rpc
+        )
         request = {}
         client.create_access_binding(request)
 
@@ -33770,9 +33912,9 @@ def test_get_access_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_access_binding] = (
+            mock_rpc
+        )
         request = {}
         client.get_access_binding(request)
 
@@ -34114,9 +34256,9 @@ def test_update_access_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_access_binding] = (
+            mock_rpc
+        )
         request = {}
         client.update_access_binding(request)
 
@@ -34456,9 +34598,9 @@ def test_delete_access_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_access_binding] = (
+            mock_rpc
+        )
         request = {}
         client.delete_access_binding(request)
 
@@ -34791,9 +34933,9 @@ def test_list_access_bindings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_access_bindings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_access_bindings] = (
+            mock_rpc
+        )
         request = {}
         client.list_access_bindings(request)
 
@@ -35234,11 +35376,7 @@ async def test_list_access_bindings_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_access_bindings(request={})
-        ).pages:
+        async for page_ in (await client.list_access_bindings(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -36344,9 +36482,9 @@ def test_get_expanded_data_set_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_expanded_data_set
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_expanded_data_set] = (
+            mock_rpc
+        )
         request = {}
         client.get_expanded_data_set(request)
 
@@ -37140,11 +37278,7 @@ async def test_list_expanded_data_sets_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_expanded_data_sets(request={})
-        ).pages:
+        async for page_ in (await client.list_expanded_data_sets(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -38312,9 +38446,9 @@ def test_get_channel_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_channel_group] = (
+            mock_rpc
+        )
         request = {}
         client.get_channel_group(request)
 
@@ -38663,9 +38797,9 @@ def test_list_channel_groups_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_channel_groups
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_channel_groups] = (
+            mock_rpc
+        )
         request = {}
         client.list_channel_groups(request)
 
@@ -39106,11 +39240,7 @@ async def test_list_channel_groups_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_channel_groups(request={})
-        ).pages:
+        async for page_ in (await client.list_channel_groups(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -39215,9 +39345,9 @@ def test_create_channel_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_channel_group] = (
+            mock_rpc
+        )
         request = {}
         client.create_channel_group(request)
 
@@ -39579,9 +39709,9 @@ def test_update_channel_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_channel_group] = (
+            mock_rpc
+        )
         request = {}
         client.update_channel_group(request)
 
@@ -39936,9 +40066,9 @@ def test_delete_channel_group_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_channel_group] = (
+            mock_rpc
+        )
         request = {}
         client.delete_channel_group(request)
 
@@ -40181,396 +40311,6 @@ async def test_delete_channel_group_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_set_automated_ga4_configuration_opt_out(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        response = client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-def test_set_automated_ga4_configuration_opt_out_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.set_automated_ga4_configuration_opt_out(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest(
-            property="property_value",
-        )
-
-
-def test_set_automated_ga4_configuration_opt_out_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.set_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-        request = {}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.set_automated_ga4_configuration_opt_out
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        )
-        response = await client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-@pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_async_from_dict():
-    await test_set_automated_ga4_configuration_opt_out_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_fetch_automated_ga4_configuration_opt_out(
-    request_type, transport: str = "grpc"
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-def test_fetch_automated_ga4_configuration_opt_out_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.fetch_automated_ga4_configuration_opt_out(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest(
-            property="property_value",
-        )
-
-
-def test_fetch_automated_ga4_configuration_opt_out_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-        request = {}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        response = await client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_async_from_dict():
-    await test_fetch_automated_ga4_configuration_opt_out_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
         analytics_admin.CreateBigQueryLinkRequest,
         dict,
     ],
@@ -40676,9 +40416,9 @@ def test_create_big_query_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_big_query_link] = (
+            mock_rpc
+        )
         request = {}
         client.create_big_query_link(request)
 
@@ -41060,9 +40800,9 @@ def test_get_big_query_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_big_query_link] = (
+            mock_rpc
+        )
         request = {}
         client.get_big_query_link(request)
 
@@ -41419,9 +41159,9 @@ def test_list_big_query_links_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_big_query_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_big_query_links] = (
+            mock_rpc
+        )
         request = {}
         client.list_big_query_links(request)
 
@@ -41862,11 +41602,7 @@ async def test_list_big_query_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_big_query_links(request={})
-        ).pages:
+        async for page_ in (await client.list_big_query_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -41961,9 +41697,9 @@ def test_delete_big_query_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_big_query_link] = (
+            mock_rpc
+        )
         request = {}
         client.delete_big_query_link(request)
 
@@ -42307,9 +42043,9 @@ def test_update_big_query_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_big_query_link] = (
+            mock_rpc
+        )
         request = {}
         client.update_big_query_link(request)
 
@@ -43367,756 +43103,6 @@ async def test_update_enhanced_measurement_settings_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
-        analytics_admin.CreateConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_create_connected_site_tag(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        response = client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-def test_create_connected_site_tag_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.CreateConnectedSiteTagRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.create_connected_site_tag(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.CreateConnectedSiteTagRequest(
-            property="property_value",
-        )
-
-
-def test_create_connected_site_tag_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_connected_site_tag
-        ] = mock_rpc
-        request = {}
-        client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.create_connected_site_tag
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.create_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        await client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        response = await client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_async_from_dict():
-    await test_create_connected_site_tag_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.DeleteConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_delete_connected_site_tag(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = None
-        response = client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-def test_delete_connected_site_tag_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.DeleteConnectedSiteTagRequest(
-        property="property_value",
-        tag_id="tag_id_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.delete_connected_site_tag(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.DeleteConnectedSiteTagRequest(
-            property="property_value",
-            tag_id="tag_id_value",
-        )
-
-
-def test_delete_connected_site_tag_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_connected_site_tag
-        ] = mock_rpc
-        request = {}
-        client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.delete_connected_site_tag
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.delete_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        await client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.DeleteConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
-        response = await client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_async_from_dict():
-    await test_delete_connected_site_tag_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.ListConnectedSiteTagsRequest,
-        dict,
-    ],
-)
-def test_list_connected_site_tags(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        response = client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-def test_list_connected_site_tags_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.ListConnectedSiteTagsRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.list_connected_site_tags(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.ListConnectedSiteTagsRequest(
-            property="property_value",
-        )
-
-
-def test_list_connected_site_tags_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.list_connected_site_tags
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_connected_site_tags
-        ] = mock_rpc
-        request = {}
-        client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.list_connected_site_tags
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.list_connected_site_tags
-        ] = mock_rpc
-
-        request = {}
-        await client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.ListConnectedSiteTagsRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        response = await client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_async_from_dict():
-    await test_list_connected_site_tags_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchConnectedGa4PropertyRequest,
-        dict,
-    ],
-)
-def test_fetch_connected_ga4_property(request_type, transport: str = "grpc"):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = analytics_admin.FetchConnectedGa4PropertyResponse(
-            property="property_value",
-        )
-        response = client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls) == 1
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-def test_fetch_connected_ga4_property_non_empty_request_with_auto_populated_field():
-    # This test is a coverage failsafe to make sure that UUID4 fields are
-    # automatically populated, according to AIP-4235, with non-empty requests.
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Populate all string fields in the request which are not UUID4
-    # since we want to check that UUID4 are populated automatically
-    # if they meet the requirements of AIP 4235.
-    request = analytics_admin.FetchConnectedGa4PropertyRequest(
-        property="property_value",
-    )
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        call.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client.fetch_connected_ga4_property(request=request)
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        assert args[0] == analytics_admin.FetchConnectedGa4PropertyRequest(
-            property="property_value",
-        )
-
-
-def test_fetch_connected_ga4_property_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="grpc",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_connected_ga4_property
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-        request = {}
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async_use_cached_wrapped_rpc(
-    transport: str = "grpc_asyncio",
-):
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceAsyncClient(
-            credentials=async_anonymous_credentials(),
-            transport=transport,
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._client._transport.fetch_connected_ga4_property
-            in client._client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.AsyncMock()
-        mock_rpc.return_value = mock.Mock()
-        client._client._transport._wrapped_methods[
-            client._client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-
-        request = {}
-        await client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        await client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async(
-    transport: str = "grpc_asyncio",
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport=transport,
-    )
-
-    # Everything is optional in proto3 as far as the runtime is concerned,
-    # and we are mocking out the actual API, so just send an empty request.
-    request = request_type()
-
-    # Mock the actual call within the gRPC stub, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchConnectedGa4PropertyResponse(
-                property="property_value",
-            )
-        )
-        response = await client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert len(call.mock_calls)
-        _, args, _ = call.mock_calls[0]
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        assert args[0] == request
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_async_from_dict():
-    await test_fetch_connected_ga4_property_async(request_type=dict)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
         analytics_admin.GetAdSenseLinkRequest,
         dict,
     ],
@@ -44205,9 +43191,9 @@ def test_get_ad_sense_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_ad_sense_link] = (
+            mock_rpc
+        )
         request = {}
         client.get_ad_sense_link(request)
 
@@ -44550,9 +43536,9 @@ def test_create_ad_sense_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_ad_sense_link] = (
+            mock_rpc
+        )
         request = {}
         client.create_ad_sense_link(request)
 
@@ -44901,9 +43887,9 @@ def test_delete_ad_sense_link_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_ad_sense_link] = (
+            mock_rpc
+        )
         request = {}
         client.delete_ad_sense_link(request)
 
@@ -45236,9 +44222,9 @@ def test_list_ad_sense_links_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_ad_sense_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_ad_sense_links] = (
+            mock_rpc
+        )
         request = {}
         client.list_ad_sense_links(request)
 
@@ -45679,11 +44665,7 @@ async def test_list_ad_sense_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_ad_sense_links(request={})
-        ).pages:
+        async for page_ in (await client.list_ad_sense_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -45785,9 +44767,9 @@ def test_get_event_create_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_event_create_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_event_create_rule] = (
+            mock_rpc
+        )
         request = {}
         client.get_event_create_rule(request)
 
@@ -46581,11 +45563,7 @@ async def test_list_event_create_rules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_event_create_rules(request={})
-        ).pages:
+        async for page_ in (await client.list_event_create_rules(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -47735,9 +46713,9 @@ def test_get_event_edit_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_event_edit_rule] = (
+            mock_rpc
+        )
         request = {}
         client.get_event_edit_rule(request)
 
@@ -48084,9 +47062,9 @@ def test_list_event_edit_rules_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_event_edit_rules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_event_edit_rules] = (
+            mock_rpc
+        )
         request = {}
         client.list_event_edit_rules(request)
 
@@ -48529,11 +47507,7 @@ async def test_list_event_edit_rules_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_event_edit_rules(request={})
-        ).pages:
+        async for page_ in (await client.list_event_edit_rules(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -48635,9 +47609,9 @@ def test_create_event_edit_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_event_edit_rule] = (
+            mock_rpc
+        )
         request = {}
         client.create_event_edit_rule(request)
 
@@ -48992,9 +47966,9 @@ def test_update_event_edit_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_event_edit_rule] = (
+            mock_rpc
+        )
         request = {}
         client.update_event_edit_rule(request)
 
@@ -49346,9 +48320,9 @@ def test_delete_event_edit_rule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_event_edit_rule] = (
+            mock_rpc
+        )
         request = {}
         client.delete_event_edit_rule(request)
 
@@ -50661,9 +49635,9 @@ def test_get_calculated_metric_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_calculated_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_calculated_metric] = (
+            mock_rpc
+        )
         request = {}
         client.get_calculated_metric(request)
 
@@ -51868,11 +50842,7 @@ async def test_list_calculated_metrics_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_calculated_metrics(request={})
-        ).pages:
+        async for page_ in (await client.list_calculated_metrics(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -52679,9 +51649,9 @@ def test_create_rollup_property_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_rollup_property
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_rollup_property] = (
+            mock_rpc
+        )
         request = {}
         client.create_rollup_property(request)
 
@@ -53662,9 +52632,7 @@ async def test_list_rollup_property_source_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_rollup_property_source_links(request={})
         ).pages:
             pages.append(page_)
@@ -54453,9 +53421,9 @@ def test_provision_subproperty_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.provision_subproperty
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.provision_subproperty] = (
+            mock_rpc
+        )
         request = {}
         client.provision_subproperty(request)
 
@@ -55811,9 +54779,7 @@ async def test_list_subproperty_event_filters_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_subproperty_event_filters(request={})
         ).pages:
             pages.append(page_)
@@ -57798,9 +56764,7 @@ async def test_list_reporting_data_annotations_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_reporting_data_annotations(request={})
         ).pages:
             pages.append(page_)
@@ -58612,9 +57576,9 @@ def test_submit_user_deletion_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.submit_user_deletion
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.submit_user_deletion] = (
+            mock_rpc
+        )
         request = {}
         client.submit_user_deletion(request)
 
@@ -58860,6 +57824,1977 @@ async def test_submit_user_deletion_flattened_error_async():
         )
 
 
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.ListSubpropertySyncConfigsRequest,
+        dict,
+    ],
+)
+def test_list_subproperty_sync_configs(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = analytics_admin.ListSubpropertySyncConfigsResponse(
+            next_page_token="next_page_token_value",
+        )
+        response = client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.ListSubpropertySyncConfigsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListSubpropertySyncConfigsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+def test_list_subproperty_sync_configs_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.ListSubpropertySyncConfigsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_subproperty_sync_configs(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.ListSubpropertySyncConfigsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_subproperty_sync_configs_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_subproperty_sync_configs
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_subproperty_sync_configs
+        ] = mock_rpc
+        request = {}
+        client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_subproperty_sync_configs(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_subproperty_sync_configs
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_subproperty_sync_configs
+        ] = mock_rpc
+
+        request = {}
+        await client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_subproperty_sync_configs(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.ListSubpropertySyncConfigsRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                next_page_token="next_page_token_value",
+            )
+        )
+        response = await client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.ListSubpropertySyncConfigsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListSubpropertySyncConfigsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_async_from_dict():
+    await test_list_subproperty_sync_configs_async(request_type=dict)
+
+
+def test_list_subproperty_sync_configs_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.ListSubpropertySyncConfigsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        call.return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+        client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.ListSubpropertySyncConfigsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            analytics_admin.ListSubpropertySyncConfigsResponse()
+        )
+        await client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_subproperty_sync_configs_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_subproperty_sync_configs(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_subproperty_sync_configs_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_subproperty_sync_configs(
+            analytics_admin.ListSubpropertySyncConfigsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            analytics_admin.ListSubpropertySyncConfigsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_subproperty_sync_configs(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_subproperty_sync_configs(
+            analytics_admin.ListSubpropertySyncConfigsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_subproperty_sync_configs_pager(transport_name: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[],
+                next_page_token="def",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_subproperty_sync_configs(
+            request={}, retry=retry, timeout=timeout
+        )
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, resources.SubpropertySyncConfig) for i in results)
+
+
+def test_list_subproperty_sync_configs_pages(transport_name: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[],
+                next_page_token="def",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_subproperty_sync_configs(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_async_pager():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[],
+                next_page_token="def",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_subproperty_sync_configs(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, resources.SubpropertySyncConfig) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_async_pages():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[],
+                next_page_token="def",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (
+            await client.list_subproperty_sync_configs(request={})
+        ).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.UpdateSubpropertySyncConfigRequest,
+        dict,
+    ],
+)
+def test_update_subproperty_sync_config(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig(
+            name="name_value",
+            apply_to_property="apply_to_property_value",
+            custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+        )
+        response = client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+def test_update_subproperty_sync_config_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.update_subproperty_sync_config(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+
+def test_update_subproperty_sync_config_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_subproperty_sync_config
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.update_subproperty_sync_config
+        ] = mock_rpc
+        request = {}
+        client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.update_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.update_subproperty_sync_config
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.update_subproperty_sync_config
+        ] = mock_rpc
+
+        request = {}
+        await client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.update_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.UpdateSubpropertySyncConfigRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig(
+                name="name_value",
+                apply_to_property="apply_to_property_value",
+                custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+            )
+        )
+        response = await client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_async_from_dict():
+    await test_update_subproperty_sync_config_async(request_type=dict)
+
+
+def test_update_subproperty_sync_config_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+    request.subproperty_sync_config.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = resources.SubpropertySyncConfig()
+        client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "subproperty_sync_config.name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+    request.subproperty_sync_config.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig()
+        )
+        await client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "subproperty_sync_config.name=name_value",
+    ) in kw["metadata"]
+
+
+def test_update_subproperty_sync_config_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.update_subproperty_sync_config(
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].subproperty_sync_config
+        mock_val = resources.SubpropertySyncConfig(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+def test_update_subproperty_sync_config_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_subproperty_sync_config(
+            analytics_admin.UpdateSubpropertySyncConfigRequest(),
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.update_subproperty_sync_config(
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].subproperty_sync_config
+        mock_val = resources.SubpropertySyncConfig(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.update_subproperty_sync_config(
+            analytics_admin.UpdateSubpropertySyncConfigRequest(),
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetSubpropertySyncConfigRequest,
+        dict,
+    ],
+)
+def test_get_subproperty_sync_config(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig(
+            name="name_value",
+            apply_to_property="apply_to_property_value",
+            custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+        )
+        response = client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetSubpropertySyncConfigRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+def test_get_subproperty_sync_config_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.GetSubpropertySyncConfigRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_subproperty_sync_config(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.GetSubpropertySyncConfigRequest(
+            name="name_value",
+        )
+
+
+def test_get_subproperty_sync_config_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_subproperty_sync_config
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_subproperty_sync_config
+        ] = mock_rpc
+        request = {}
+        client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_subproperty_sync_config
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_subproperty_sync_config
+        ] = mock_rpc
+
+        request = {}
+        await client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.GetSubpropertySyncConfigRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig(
+                name="name_value",
+                apply_to_property="apply_to_property_value",
+                custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+            )
+        )
+        response = await client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetSubpropertySyncConfigRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_async_from_dict():
+    await test_get_subproperty_sync_config_async(request_type=dict)
+
+
+def test_get_subproperty_sync_config_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetSubpropertySyncConfigRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = resources.SubpropertySyncConfig()
+        client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetSubpropertySyncConfigRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig()
+        )
+        await client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_subproperty_sync_config_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_subproperty_sync_config(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_subproperty_sync_config_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_subproperty_sync_config(
+            analytics_admin.GetSubpropertySyncConfigRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.SubpropertySyncConfig()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_subproperty_sync_config(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_subproperty_sync_config(
+            analytics_admin.GetSubpropertySyncConfigRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetReportingIdentitySettingsRequest,
+        dict,
+    ],
+)
+def test_get_reporting_identity_settings(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings(
+            name="name_value",
+            reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+        )
+        response = client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+def test_get_reporting_identity_settings_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.GetReportingIdentitySettingsRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_reporting_identity_settings(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.GetReportingIdentitySettingsRequest(
+            name="name_value",
+        )
+
+
+def test_get_reporting_identity_settings_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_reporting_identity_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+        request = {}
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_reporting_identity_settings
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+
+        request = {}
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings(
+                name="name_value",
+                reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+            )
+        )
+        response = await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_async_from_dict():
+    await test_get_reporting_identity_settings_async(request_type=dict)
+
+
+def test_get_reporting_identity_settings_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetReportingIdentitySettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = resources.ReportingIdentitySettings()
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetReportingIdentitySettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings()
+        )
+        await client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_reporting_identity_settings_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_reporting_identity_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_reporting_identity_settings_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.ReportingIdentitySettings()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_reporting_identity_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetUserProvidedDataSettingsRequest,
+        dict,
+    ],
+)
+def test_get_user_provided_data_settings(request_type, transport: str = "grpc"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.UserProvidedDataSettings(
+            name="name_value",
+            user_provided_data_collection_enabled=True,
+            automatically_detected_data_collection_enabled=True,
+        )
+        response = client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetUserProvidedDataSettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.UserProvidedDataSettings)
+    assert response.name == "name_value"
+    assert response.user_provided_data_collection_enabled is True
+    assert response.automatically_detected_data_collection_enabled is True
+
+
+def test_get_user_provided_data_settings_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = analytics_admin.GetUserProvidedDataSettingsRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_user_provided_data_settings(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == analytics_admin.GetUserProvidedDataSettingsRequest(
+            name="name_value",
+        )
+
+
+def test_get_user_provided_data_settings_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_user_provided_data_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_user_provided_data_settings
+        ] = mock_rpc
+        request = {}
+        client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_user_provided_data_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_user_provided_data_settings
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_user_provided_data_settings
+        ] = mock_rpc
+
+        request = {}
+        await client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_user_provided_data_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_async(
+    transport: str = "grpc_asyncio",
+    request_type=analytics_admin.GetUserProvidedDataSettingsRequest,
+):
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.UserProvidedDataSettings(
+                name="name_value",
+                user_provided_data_collection_enabled=True,
+                automatically_detected_data_collection_enabled=True,
+            )
+        )
+        response = await client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = analytics_admin.GetUserProvidedDataSettingsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.UserProvidedDataSettings)
+    assert response.name == "name_value"
+    assert response.user_provided_data_collection_enabled is True
+    assert response.automatically_detected_data_collection_enabled is True
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_async_from_dict():
+    await test_get_user_provided_data_settings_async(request_type=dict)
+
+
+def test_get_user_provided_data_settings_field_headers():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetUserProvidedDataSettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        call.return_value = resources.UserProvidedDataSettings()
+        client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_field_headers_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = analytics_admin.GetUserProvidedDataSettingsRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.UserProvidedDataSettings()
+        )
+        await client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_user_provided_data_settings_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.UserProvidedDataSettings()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_user_provided_data_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_user_provided_data_settings_flattened_error():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_user_provided_data_settings(
+            analytics_admin.GetUserProvidedDataSettingsRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_flattened_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = resources.UserProvidedDataSettings()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.UserProvidedDataSettings()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_user_provided_data_settings(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_flattened_error_async():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_user_provided_data_settings(
+            analytics_admin.GetUserProvidedDataSettingsRequest(),
+            name="name_value",
+        )
+
+
 def test_get_account_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -58968,7 +59903,7 @@ def test_get_account_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_account_rest_unset_required_fields():
@@ -59240,7 +60175,7 @@ def test_delete_account_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_account_rest_unset_required_fields():
@@ -59412,7 +60347,7 @@ def test_update_account_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_account_rest_unset_required_fields():
@@ -59555,9 +60490,9 @@ def test_list_account_summaries_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_account_summaries
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_account_summaries] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_account_summaries(request)
@@ -59743,7 +60678,7 @@ def test_get_property_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_property_rest_unset_required_fields():
@@ -59937,7 +60872,7 @@ def test_list_properties_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_properties_rest_unset_required_fields():
@@ -60126,7 +61061,7 @@ def test_create_property_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_property_rest_unset_required_fields():
@@ -60302,7 +61237,7 @@ def test_delete_property_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_property_rest_unset_required_fields():
@@ -60476,7 +61411,7 @@ def test_update_property_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_property_rest_unset_required_fields():
@@ -60577,9 +61512,9 @@ def test_create_firebase_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_firebase_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_firebase_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_firebase_link(request)
@@ -60667,7 +61602,7 @@ def test_create_firebase_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_firebase_link_rest_unset_required_fields():
@@ -60769,9 +61704,9 @@ def test_delete_firebase_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_firebase_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_firebase_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_firebase_link(request)
@@ -60855,7 +61790,7 @@ def test_delete_firebase_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_firebase_link_rest_unset_required_fields():
@@ -60945,9 +61880,9 @@ def test_list_firebase_links_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_firebase_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_firebase_links] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_firebase_links(request)
@@ -61041,7 +61976,7 @@ def test_list_firebase_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_firebase_links_rest_unset_required_fields():
@@ -61204,9 +62139,9 @@ def test_get_global_site_tag_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_global_site_tag
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_global_site_tag] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_global_site_tag(request)
@@ -61293,7 +62228,7 @@ def test_get_global_site_tag_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_global_site_tag_rest_unset_required_fields():
@@ -61389,9 +62324,9 @@ def test_create_google_ads_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_google_ads_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_google_ads_link(request)
@@ -61479,7 +62414,7 @@ def test_create_google_ads_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_google_ads_link_rest_unset_required_fields():
@@ -61582,9 +62517,9 @@ def test_update_google_ads_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_google_ads_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_google_ads_link(request)
@@ -61669,7 +62604,7 @@ def test_update_google_ads_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_google_ads_link_rest_unset_required_fields():
@@ -61767,9 +62702,9 @@ def test_delete_google_ads_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_google_ads_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_google_ads_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_google_ads_link(request)
@@ -61853,7 +62788,7 @@ def test_delete_google_ads_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_google_ads_link_rest_unset_required_fields():
@@ -61944,9 +62879,9 @@ def test_list_google_ads_links_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_google_ads_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_google_ads_links] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_google_ads_links(request)
@@ -62040,7 +62975,7 @@ def test_list_google_ads_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_google_ads_links_rest_unset_required_fields():
@@ -62293,7 +63228,7 @@ def test_get_data_sharing_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_data_sharing_settings_rest_unset_required_fields():
@@ -62475,7 +63410,7 @@ def test_get_measurement_protocol_secret_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_measurement_protocol_secret_rest_unset_required_fields():
@@ -62671,7 +63606,7 @@ def test_list_measurement_protocol_secrets_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_measurement_protocol_secrets_rest_unset_required_fields():
@@ -62935,7 +63870,7 @@ def test_create_measurement_protocol_secret_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_measurement_protocol_secret_rest_unset_required_fields():
@@ -63133,7 +64068,7 @@ def test_delete_measurement_protocol_secret_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_measurement_protocol_secret_rest_unset_required_fields():
@@ -63318,7 +64253,7 @@ def test_update_measurement_protocol_secret_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_measurement_protocol_secret_rest_unset_required_fields():
@@ -63530,7 +64465,7 @@ def test_acknowledge_user_data_collection_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_acknowledge_user_data_collection_rest_unset_required_fields():
@@ -63669,7 +64604,7 @@ def test_get_sk_ad_network_conversion_value_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_sk_ad_network_conversion_value_schema_rest_unset_required_fields():
@@ -63865,7 +64800,7 @@ def test_create_sk_ad_network_conversion_value_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_sk_ad_network_conversion_value_schema_rest_unset_required_fields():
@@ -64067,7 +65002,7 @@ def test_delete_sk_ad_network_conversion_value_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_sk_ad_network_conversion_value_schema_rest_unset_required_fields():
@@ -64256,7 +65191,7 @@ def test_update_sk_ad_network_conversion_value_schema_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_sk_ad_network_conversion_value_schema_rest_unset_required_fields():
@@ -64476,7 +65411,7 @@ def test_list_sk_ad_network_conversion_value_schemas_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_sk_ad_network_conversion_value_schemas_rest_unset_required_fields():
@@ -64750,7 +65685,7 @@ def test_search_change_history_events_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_search_change_history_events_rest_unset_required_fields():
@@ -64939,7 +65874,7 @@ def test_get_google_signals_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_google_signals_settings_rest_unset_required_fields():
@@ -65120,7 +66055,7 @@ def test_update_google_signals_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_google_signals_settings_rest_unset_required_fields():
@@ -65320,7 +66255,7 @@ def test_create_conversion_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_conversion_event_rest_unset_required_fields():
@@ -65511,7 +66446,7 @@ def test_update_conversion_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_conversion_event_rest_unset_required_fields():
@@ -65616,9 +66551,9 @@ def test_get_conversion_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_conversion_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_conversion_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_conversion_event(request)
@@ -65705,7 +66640,7 @@ def test_get_conversion_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_conversion_event_rest_unset_required_fields():
@@ -65885,7 +66820,7 @@ def test_delete_conversion_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_conversion_event_rest_unset_required_fields():
@@ -65977,9 +66912,9 @@ def test_list_conversion_events_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_conversion_events
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_conversion_events] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_conversion_events(request)
@@ -66073,7 +67008,7 @@ def test_list_conversion_events_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_conversion_events_rest_unset_required_fields():
@@ -66235,9 +67170,9 @@ def test_create_key_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_key_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_key_event(request)
@@ -66325,7 +67260,7 @@ def test_create_key_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_key_event_rest_unset_required_fields():
@@ -66425,9 +67360,9 @@ def test_update_key_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_key_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_key_event(request)
@@ -66512,7 +67447,7 @@ def test_update_key_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_key_event_rest_unset_required_fields():
@@ -66700,7 +67635,7 @@ def test_get_key_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_key_event_rest_unset_required_fields():
@@ -66790,9 +67725,9 @@ def test_delete_key_event_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_key_event
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_key_event] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_key_event(request)
@@ -66876,7 +67811,7 @@ def test_delete_key_event_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_key_event_rest_unset_required_fields():
@@ -67058,7 +67993,7 @@ def test_list_key_events_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_key_events_rest_unset_required_fields():
@@ -67311,7 +68246,7 @@ def test_get_display_video360_advertiser_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_display_video360_advertiser_link_rest_unset_required_fields():
@@ -67515,7 +68450,7 @@ def test_list_display_video360_advertiser_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_display_video360_advertiser_links_rest_unset_required_fields():
@@ -67785,7 +68720,7 @@ def test_create_display_video360_advertiser_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_display_video360_advertiser_link_rest_unset_required_fields():
@@ -67987,7 +68922,7 @@ def test_delete_display_video360_advertiser_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_display_video360_advertiser_link_rest_unset_required_fields():
@@ -68176,7 +69111,7 @@ def test_update_display_video360_advertiser_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_display_video360_advertiser_link_rest_unset_required_fields():
@@ -68379,7 +69314,7 @@ def test_get_display_video360_advertiser_link_proposal_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_display_video360_advertiser_link_proposal_rest_unset_required_fields():
@@ -68583,7 +69518,7 @@ def test_list_display_video360_advertiser_link_proposals_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_display_video360_advertiser_link_proposals_rest_unset_required_fields():
@@ -68868,7 +69803,7 @@ def test_create_display_video360_advertiser_link_proposal_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_display_video360_advertiser_link_proposal_rest_unset_required_fields():
@@ -69070,7 +70005,7 @@ def test_delete_display_video360_advertiser_link_proposal_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_display_video360_advertiser_link_proposal_rest_unset_required_fields():
@@ -69268,7 +70203,7 @@ def test_approve_display_video360_advertiser_link_proposal_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_approve_display_video360_advertiser_link_proposal_rest_unset_required_fields():
@@ -69402,7 +70337,7 @@ def test_cancel_display_video360_advertiser_link_proposal_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_cancel_display_video360_advertiser_link_proposal_rest_unset_required_fields():
@@ -69530,7 +70465,7 @@ def test_create_custom_dimension_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_custom_dimension_rest_unset_required_fields():
@@ -69721,7 +70656,7 @@ def test_update_custom_dimension_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_custom_dimension_rest_unset_required_fields():
@@ -69819,9 +70754,9 @@ def test_list_custom_dimensions_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_custom_dimensions
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_custom_dimensions] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_custom_dimensions(request)
@@ -69915,7 +70850,7 @@ def test_list_custom_dimensions_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_custom_dimensions_rest_unset_required_fields():
@@ -70167,7 +71102,7 @@ def test_archive_custom_dimension_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_archive_custom_dimension_rest_unset_required_fields():
@@ -70258,9 +71193,9 @@ def test_get_custom_dimension_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_custom_dimension
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_custom_dimension] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_custom_dimension(request)
@@ -70347,7 +71282,7 @@ def test_get_custom_dimension_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_custom_dimension_rest_unset_required_fields():
@@ -70440,9 +71375,9 @@ def test_create_custom_metric_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_custom_metric] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_custom_metric(request)
@@ -70530,7 +71465,7 @@ def test_create_custom_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_custom_metric_rest_unset_required_fields():
@@ -70632,9 +71567,9 @@ def test_update_custom_metric_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_custom_metric] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_custom_metric(request)
@@ -70719,7 +71654,7 @@ def test_update_custom_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_custom_metric_rest_unset_required_fields():
@@ -70816,9 +71751,9 @@ def test_list_custom_metrics_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_custom_metrics
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_custom_metrics] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_custom_metrics(request)
@@ -70912,7 +71847,7 @@ def test_list_custom_metrics_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_custom_metrics_rest_unset_required_fields():
@@ -71076,9 +72011,9 @@ def test_archive_custom_metric_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.archive_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.archive_custom_metric] = (
+            mock_rpc
+        )
 
         request = {}
         client.archive_custom_metric(request)
@@ -71163,7 +72098,7 @@ def test_archive_custom_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_archive_custom_metric_rest_unset_required_fields():
@@ -71252,9 +72187,9 @@ def test_get_custom_metric_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_custom_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_custom_metric] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_custom_metric(request)
@@ -71341,7 +72276,7 @@ def test_get_custom_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_custom_metric_rest_unset_required_fields():
@@ -71523,7 +72458,7 @@ def test_get_data_retention_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_data_retention_settings_rest_unset_required_fields():
@@ -71704,7 +72639,7 @@ def test_update_data_retention_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_data_retention_settings_rest_unset_required_fields():
@@ -71813,9 +72748,9 @@ def test_create_data_stream_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_data_stream] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_data_stream(request)
@@ -71903,7 +72838,7 @@ def test_create_data_stream_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_data_stream_rest_unset_required_fields():
@@ -72013,9 +72948,9 @@ def test_delete_data_stream_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_data_stream] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_data_stream(request)
@@ -72099,7 +73034,7 @@ def test_delete_data_stream_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_data_stream_rest_unset_required_fields():
@@ -72189,9 +73124,9 @@ def test_update_data_stream_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_data_stream
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_data_stream] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_data_stream(request)
@@ -72276,7 +73211,7 @@ def test_update_data_stream_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_data_stream_rest_unset_required_fields():
@@ -72379,9 +73314,9 @@ def test_list_data_streams_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_data_streams
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_data_streams] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_data_streams(request)
@@ -72475,7 +73410,7 @@ def test_list_data_streams_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_data_streams_rest_unset_required_fields():
@@ -72723,7 +73658,7 @@ def test_get_data_stream_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_data_stream_rest_unset_required_fields():
@@ -72900,7 +73835,7 @@ def test_get_audience_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_audience_rest_unset_required_fields():
@@ -73084,7 +74019,7 @@ def test_list_audiences_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_audiences_rest_unset_required_fields():
@@ -73333,7 +74268,7 @@ def test_create_audience_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_audience_rest_unset_required_fields():
@@ -73518,7 +74453,7 @@ def test_update_audience_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_audience_rest_unset_required_fields():
@@ -73619,9 +74554,9 @@ def test_archive_audience_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.archive_audience
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.archive_audience] = (
+            mock_rpc
+        )
 
         request = {}
         client.archive_audience(request)
@@ -73706,7 +74641,7 @@ def test_archive_audience_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_archive_audience_rest_unset_required_fields():
@@ -73742,9 +74677,9 @@ def test_get_search_ads360_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_search_ads360_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_search_ads360_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_search_ads360_link(request)
@@ -73831,7 +74766,7 @@ def test_get_search_ads360_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_search_ads360_link_rest_unset_required_fields():
@@ -74023,7 +74958,7 @@ def test_list_search_ads360_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_search_ads360_links_rest_unset_required_fields():
@@ -74278,7 +75213,7 @@ def test_create_search_ads360_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_search_ads360_link_rest_unset_required_fields():
@@ -74468,7 +75403,7 @@ def test_delete_search_ads360_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_search_ads360_link_rest_unset_required_fields():
@@ -74647,7 +75582,7 @@ def test_update_search_ads360_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_search_ads360_link_rest_unset_required_fields():
@@ -74836,7 +75771,7 @@ def test_get_attribution_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_attribution_settings_rest_unset_required_fields():
@@ -75017,7 +75952,7 @@ def test_update_attribution_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_attribution_settings_rest_unset_required_fields():
@@ -75120,9 +76055,9 @@ def test_run_access_report_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.run_access_report
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.run_access_report] = (
+            mock_rpc
+        )
 
         request = {}
         client.run_access_report(request)
@@ -75161,9 +76096,9 @@ def test_create_access_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_access_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_access_binding(request)
@@ -75251,7 +76186,7 @@ def test_create_access_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_access_binding_rest_unset_required_fields():
@@ -75353,9 +76288,9 @@ def test_get_access_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_access_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_access_binding(request)
@@ -75442,7 +76377,7 @@ def test_get_access_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_access_binding_rest_unset_required_fields():
@@ -75535,9 +76470,9 @@ def test_update_access_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_access_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_access_binding(request)
@@ -75620,7 +76555,7 @@ def test_update_access_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_access_binding_rest_unset_required_fields():
@@ -75716,9 +76651,9 @@ def test_delete_access_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_access_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_access_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_access_binding(request)
@@ -75802,7 +76737,7 @@ def test_delete_access_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_access_binding_rest_unset_required_fields():
@@ -75892,9 +76827,9 @@ def test_list_access_bindings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_access_bindings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_access_bindings] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_access_bindings(request)
@@ -75988,7 +76923,7 @@ def test_list_access_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_access_bindings_rest_unset_required_fields():
@@ -76244,7 +77179,7 @@ def test_batch_create_access_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_create_access_bindings_rest_unset_required_fields():
@@ -76394,7 +77329,7 @@ def test_batch_get_access_bindings_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_get_access_bindings_rest_unset_required_fields():
@@ -76530,7 +77465,7 @@ def test_batch_update_access_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_update_access_bindings_rest_unset_required_fields():
@@ -76661,7 +77596,7 @@ def test_batch_delete_access_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_batch_delete_access_bindings_rest_unset_required_fields():
@@ -76705,9 +77640,9 @@ def test_get_expanded_data_set_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_expanded_data_set
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_expanded_data_set] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_expanded_data_set(request)
@@ -76794,7 +77729,7 @@ def test_get_expanded_data_set_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_expanded_data_set_rest_unset_required_fields():
@@ -76984,7 +77919,7 @@ def test_list_expanded_data_sets_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_expanded_data_sets_rest_unset_required_fields():
@@ -77239,7 +78174,7 @@ def test_create_expanded_data_set_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_expanded_data_set_rest_unset_required_fields():
@@ -77430,7 +78365,7 @@ def test_update_expanded_data_set_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_expanded_data_set_rest_unset_required_fields():
@@ -77622,7 +78557,7 @@ def test_delete_expanded_data_set_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_expanded_data_set_rest_unset_required_fields():
@@ -77711,9 +78646,9 @@ def test_get_channel_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_channel_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_channel_group(request)
@@ -77800,7 +78735,7 @@ def test_get_channel_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_channel_group_rest_unset_required_fields():
@@ -77892,9 +78827,9 @@ def test_list_channel_groups_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_channel_groups
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_channel_groups] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_channel_groups(request)
@@ -77988,7 +78923,7 @@ def test_list_channel_groups_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_channel_groups_rest_unset_required_fields():
@@ -78151,9 +79086,9 @@ def test_create_channel_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_channel_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_channel_group(request)
@@ -78241,7 +79176,7 @@ def test_create_channel_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_channel_group_rest_unset_required_fields():
@@ -78343,9 +79278,9 @@ def test_update_channel_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_channel_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_channel_group(request)
@@ -78430,7 +79365,7 @@ def test_update_channel_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_channel_group_rest_unset_required_fields():
@@ -78535,9 +79470,9 @@ def test_delete_channel_group_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_channel_group
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_channel_group] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_channel_group(request)
@@ -78621,7 +79556,7 @@ def test_delete_channel_group_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_channel_group_rest_unset_required_fields():
@@ -78688,280 +79623,6 @@ def test_delete_channel_group_rest_flattened_error(transport: str = "rest"):
         )
 
 
-def test_set_automated_ga4_configuration_opt_out_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.set_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.set_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.set_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_set_automated_ga4_configuration_opt_out_rest_required_fields(
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).set_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).set_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = (
-                analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.pb(
-                    return_value
-                )
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.set_automated_ga4_configuration_opt_out(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_set_automated_ga4_configuration_opt_out_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = (
-        transport.set_automated_ga4_configuration_opt_out._get_unset_required_fields({})
-    )
-    assert set(unset_fields) == (set(()) & set(("property",)))
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_automated_ga4_configuration_opt_out
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_automated_ga4_configuration_opt_out
-        ] = mock_rpc
-
-        request = {}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_required_fields(
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-        jsonified_request
-    )
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = (
-                analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.pb(
-                    return_value
-                )
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = (
-        transport.fetch_automated_ga4_configuration_opt_out._get_unset_required_fields(
-            {}
-        )
-    )
-    assert set(unset_fields) == (set(()) & set(("property",)))
-
-
 def test_create_big_query_link_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -78986,9 +79647,9 @@ def test_create_big_query_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_big_query_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_big_query_link(request)
@@ -79076,7 +79737,7 @@ def test_create_big_query_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_big_query_link_rest_unset_required_fields():
@@ -79178,9 +79839,9 @@ def test_get_big_query_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_big_query_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_big_query_link(request)
@@ -79267,7 +79928,7 @@ def test_get_big_query_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_big_query_link_rest_unset_required_fields():
@@ -79359,9 +80020,9 @@ def test_list_big_query_links_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_big_query_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_big_query_links] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_big_query_links(request)
@@ -79455,7 +80116,7 @@ def test_list_big_query_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_big_query_links_rest_unset_required_fields():
@@ -79619,9 +80280,9 @@ def test_delete_big_query_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_big_query_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_big_query_link(request)
@@ -79705,7 +80366,7 @@ def test_delete_big_query_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_big_query_link_rest_unset_required_fields():
@@ -79796,9 +80457,9 @@ def test_update_big_query_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_big_query_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_big_query_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_big_query_link(request)
@@ -79883,7 +80544,7 @@ def test_update_big_query_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_big_query_link_rest_unset_required_fields():
@@ -80078,7 +80739,7 @@ def test_get_enhanced_measurement_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_enhanced_measurement_settings_rest_unset_required_fields():
@@ -80265,7 +80926,7 @@ def test_update_enhanced_measurement_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_enhanced_measurement_settings_rest_unset_required_fields():
@@ -80357,349 +81018,6 @@ def test_update_enhanced_measurement_settings_rest_flattened_error(
         )
 
 
-def test_create_connected_site_tag_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.create_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.create_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        client.create_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.create_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_create_connected_site_tag_rest_required_fields(
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_connected_site_tag._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).create_connected_site_tag._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.CreateConnectedSiteTagResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "post",
-                "query_params": pb_request,
-            }
-            transcode_result["body"] = pb_request
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = analytics_admin.CreateConnectedSiteTagResponse.pb(
-                return_value
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.create_connected_site_tag(request)
-
-            expected_params = [("$alt", "json;enum-encoding=int")]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_create_connected_site_tag_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.create_connected_site_tag._get_unset_required_fields({})
-    assert set(unset_fields) == (set(()) & set(("connectedSiteTag",)))
-
-
-def test_delete_connected_site_tag_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.delete_connected_site_tag
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.delete_connected_site_tag
-        ] = mock_rpc
-
-        request = {}
-        client.delete_connected_site_tag(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.delete_connected_site_tag(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_list_connected_site_tags_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.list_connected_site_tags
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.list_connected_site_tags
-        ] = mock_rpc
-
-        request = {}
-        client.list_connected_site_tags(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.list_connected_site_tags(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_connected_ga4_property_rest_use_cached_wrapped_rpc():
-    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
-    # instead of constructing them on each call
-    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
-        client = AnalyticsAdminServiceClient(
-            credentials=ga_credentials.AnonymousCredentials(),
-            transport="rest",
-        )
-
-        # Should wrap all calls on client creation
-        assert wrapper_fn.call_count > 0
-        wrapper_fn.reset_mock()
-
-        # Ensure method has been cached
-        assert (
-            client._transport.fetch_connected_ga4_property
-            in client._transport._wrapped_methods
-        )
-
-        # Replace cached wrapped function with mock
-        mock_rpc = mock.Mock()
-        mock_rpc.return_value.name = (
-            "foo"  # operation_request.operation in compute client(s) expect a string.
-        )
-        client._transport._wrapped_methods[
-            client._transport.fetch_connected_ga4_property
-        ] = mock_rpc
-
-        request = {}
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that the underlying gRPC stub method was called.
-        assert mock_rpc.call_count == 1
-
-        client.fetch_connected_ga4_property(request)
-
-        # Establish that a new wrapper was not created for this call
-        assert wrapper_fn.call_count == 0
-        assert mock_rpc.call_count == 2
-
-
-def test_fetch_connected_ga4_property_rest_required_fields(
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    transport_class = transports.AnalyticsAdminServiceRestTransport
-
-    request_init = {}
-    request_init["property"] = ""
-    request = request_type(**request_init)
-    pb_request = request_type.pb(request)
-    jsonified_request = json.loads(
-        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
-    )
-
-    # verify fields with default values are dropped
-    assert "property" not in jsonified_request
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_connected_ga4_property._get_unset_required_fields(jsonified_request)
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with default values are now present
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == request_init["property"]
-
-    jsonified_request["property"] = "property_value"
-
-    unset_fields = transport_class(
-        credentials=ga_credentials.AnonymousCredentials()
-    ).fetch_connected_ga4_property._get_unset_required_fields(jsonified_request)
-    # Check that path parameters and body parameters are not mixing in.
-    assert not set(unset_fields) - set(("property",))
-    jsonified_request.update(unset_fields)
-
-    # verify required fields with non-default values are left alone
-    assert "property" in jsonified_request
-    assert jsonified_request["property"] == "property_value"
-
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-    request = request_type(**request_init)
-
-    # Designate an appropriate value for the returned response.
-    return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(Session, "request") as req:
-        # We need to mock transcode() because providing default values
-        # for required fields will fail the real version if the http_options
-        # expect actual values for those fields.
-        with mock.patch.object(path_template, "transcode") as transcode:
-            # A uri without fields and an empty body will force all the
-            # request fields to show up in the query_params.
-            pb_request = request_type.pb(request)
-            transcode_result = {
-                "uri": "v1/sample_method",
-                "method": "get",
-                "query_params": pb_request,
-            }
-            transcode.return_value = transcode_result
-
-            response_value = Response()
-            response_value.status_code = 200
-
-            # Convert return value to protobuf type
-            return_value = analytics_admin.FetchConnectedGa4PropertyResponse.pb(
-                return_value
-            )
-            json_return_value = json_format.MessageToJson(return_value)
-
-            response_value._content = json_return_value.encode("UTF-8")
-            req.return_value = response_value
-            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-            response = client.fetch_connected_ga4_property(request)
-
-            expected_params = [
-                (
-                    "property",
-                    "",
-                ),
-                ("$alt", "json;enum-encoding=int"),
-            ]
-            actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
-
-
-def test_fetch_connected_ga4_property_rest_unset_required_fields():
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials
-    )
-
-    unset_fields = transport.fetch_connected_ga4_property._get_unset_required_fields({})
-    assert set(unset_fields) == (set(("property",)) & set(("property",)))
-
-
 def test_get_ad_sense_link_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -80721,9 +81039,9 @@ def test_get_ad_sense_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_ad_sense_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_ad_sense_link(request)
@@ -80810,7 +81128,7 @@ def test_get_ad_sense_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_ad_sense_link_rest_unset_required_fields():
@@ -80902,9 +81220,9 @@ def test_create_ad_sense_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_ad_sense_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_ad_sense_link(request)
@@ -80992,7 +81310,7 @@ def test_create_ad_sense_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_ad_sense_link_rest_unset_required_fields():
@@ -81094,9 +81412,9 @@ def test_delete_ad_sense_link_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_ad_sense_link
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_ad_sense_link] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_ad_sense_link(request)
@@ -81180,7 +81498,7 @@ def test_delete_ad_sense_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_ad_sense_link_rest_unset_required_fields():
@@ -81270,9 +81588,9 @@ def test_list_ad_sense_links_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_ad_sense_links
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_ad_sense_links] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_ad_sense_links(request)
@@ -81366,7 +81684,7 @@ def test_list_ad_sense_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_ad_sense_links_rest_unset_required_fields():
@@ -81530,9 +81848,9 @@ def test_get_event_create_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_event_create_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_event_create_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_event_create_rule(request)
@@ -81619,7 +81937,7 @@ def test_get_event_create_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_event_create_rule_rest_unset_required_fields():
@@ -81811,7 +82129,7 @@ def test_list_event_create_rules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_event_create_rules_rest_unset_required_fields():
@@ -82068,7 +82386,7 @@ def test_create_event_create_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_event_create_rule_rest_unset_required_fields():
@@ -82259,7 +82577,7 @@ def test_update_event_create_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_event_create_rule_rest_unset_required_fields():
@@ -82453,7 +82771,7 @@ def test_delete_event_create_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_event_create_rule_rest_unset_required_fields():
@@ -82546,9 +82864,9 @@ def test_get_event_edit_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_event_edit_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_event_edit_rule(request)
@@ -82635,7 +82953,7 @@ def test_get_event_edit_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_event_edit_rule_rest_unset_required_fields():
@@ -82731,9 +83049,9 @@ def test_list_event_edit_rules_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_event_edit_rules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_event_edit_rules] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_event_edit_rules(request)
@@ -82827,7 +83145,7 @@ def test_list_event_edit_rules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_event_edit_rules_rest_unset_required_fields():
@@ -82992,9 +83310,9 @@ def test_create_event_edit_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_event_edit_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_event_edit_rule(request)
@@ -83082,7 +83400,7 @@ def test_create_event_edit_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_event_edit_rule_rest_unset_required_fields():
@@ -83186,9 +83504,9 @@ def test_update_event_edit_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_event_edit_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_event_edit_rule(request)
@@ -83273,7 +83591,7 @@ def test_update_event_edit_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_event_edit_rule_rest_unset_required_fields():
@@ -83381,9 +83699,9 @@ def test_delete_event_edit_rule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_event_edit_rule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_event_edit_rule] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_event_edit_rule(request)
@@ -83467,7 +83785,7 @@ def test_delete_event_edit_rule_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_event_edit_rule_rest_unset_required_fields():
@@ -83652,7 +83970,7 @@ def test_reorder_event_edit_rules_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_reorder_event_edit_rules_rest_unset_required_fields():
@@ -83783,7 +84101,7 @@ def test_update_data_redaction_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_data_redaction_settings_rest_unset_required_fields():
@@ -83982,7 +84300,7 @@ def test_get_data_redaction_settings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_data_redaction_settings_rest_unset_required_fields():
@@ -84078,9 +84396,9 @@ def test_get_calculated_metric_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_calculated_metric
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_calculated_metric] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_calculated_metric(request)
@@ -84167,7 +84485,7 @@ def test_get_calculated_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_calculated_metric_rest_unset_required_fields():
@@ -84368,7 +84686,7 @@ def test_create_calculated_metric_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_calculated_metric_rest_unset_required_fields():
@@ -84573,7 +84891,7 @@ def test_list_calculated_metrics_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_calculated_metrics_rest_unset_required_fields():
@@ -84825,7 +85143,7 @@ def test_update_calculated_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_calculated_metric_rest_unset_required_fields():
@@ -85019,7 +85337,7 @@ def test_delete_calculated_metric_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_calculated_metric_rest_unset_required_fields():
@@ -85111,9 +85429,9 @@ def test_create_rollup_property_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_rollup_property
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_rollup_property] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_rollup_property(request)
@@ -85196,7 +85514,7 @@ def test_create_rollup_property_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_rollup_property_rest_unset_required_fields():
@@ -85321,7 +85639,7 @@ def test_get_rollup_property_source_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_rollup_property_source_link_rest_unset_required_fields():
@@ -85517,7 +85835,7 @@ def test_list_rollup_property_source_links_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_rollup_property_source_links_rest_unset_required_fields():
@@ -85781,7 +86099,7 @@ def test_create_rollup_property_source_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_rollup_property_source_link_rest_unset_required_fields():
@@ -85979,7 +86297,7 @@ def test_delete_rollup_property_source_link_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_rollup_property_source_link_rest_unset_required_fields():
@@ -86077,9 +86395,9 @@ def test_provision_subproperty_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.provision_subproperty
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.provision_subproperty] = (
+            mock_rpc
+        )
 
         request = {}
         client.provision_subproperty(request)
@@ -86162,7 +86480,7 @@ def test_provision_subproperty_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_provision_subproperty_rest_unset_required_fields():
@@ -86290,7 +86608,7 @@ def test_create_subproperty_event_filter_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_subproperty_event_filter_rest_unset_required_fields():
@@ -86493,7 +86811,7 @@ def test_get_subproperty_event_filter_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_subproperty_event_filter_rest_unset_required_fields():
@@ -86685,7 +87003,7 @@ def test_list_subproperty_event_filters_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_subproperty_event_filters_rest_unset_required_fields():
@@ -86949,7 +87267,7 @@ def test_update_subproperty_event_filter_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_subproperty_event_filter_rest_unset_required_fields():
@@ -87151,7 +87469,7 @@ def test_delete_subproperty_event_filter_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_subproperty_event_filter_rest_unset_required_fields():
@@ -87335,7 +87653,7 @@ def test_create_reporting_data_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_reporting_data_annotation_rest_unset_required_fields():
@@ -87534,7 +87852,7 @@ def test_get_reporting_data_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_reporting_data_annotation_rest_unset_required_fields():
@@ -87729,7 +88047,7 @@ def test_list_reporting_data_annotations_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_reporting_data_annotations_rest_unset_required_fields():
@@ -87989,7 +88307,7 @@ def test_update_reporting_data_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_reporting_data_annotation_rest_unset_required_fields():
@@ -88183,7 +88501,7 @@ def test_delete_reporting_data_annotation_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_reporting_data_annotation_rest_unset_required_fields():
@@ -88276,9 +88594,9 @@ def test_submit_user_deletion_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.submit_user_deletion
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.submit_user_deletion] = (
+            mock_rpc
+        )
 
         request = {}
         client.submit_user_deletion(request)
@@ -88366,7 +88684,7 @@ def test_submit_user_deletion_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_submit_user_deletion_rest_unset_required_fields():
@@ -88432,6 +88750,1016 @@ def test_submit_user_deletion_rest_flattened_error(transport: str = "rest"):
     with pytest.raises(ValueError):
         client.submit_user_deletion(
             analytics_admin.SubmitUserDeletionRequest(),
+            name="name_value",
+        )
+
+
+def test_list_subproperty_sync_configs_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_subproperty_sync_configs
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_subproperty_sync_configs
+        ] = mock_rpc
+
+        request = {}
+        client.list_subproperty_sync_configs(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_subproperty_sync_configs(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_subproperty_sync_configs_rest_required_fields(
+    request_type=analytics_admin.ListSubpropertySyncConfigsRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_subproperty_sync_configs._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_subproperty_sync_configs._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = analytics_admin.ListSubpropertySyncConfigsResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_subproperty_sync_configs(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_subproperty_sync_configs_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_subproperty_sync_configs._get_unset_required_fields(
+        {}
+    )
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_subproperty_sync_configs_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "properties/sample1"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = analytics_admin.ListSubpropertySyncConfigsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_subproperty_sync_configs(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{parent=properties/*}/subpropertySyncConfigs"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_subproperty_sync_configs_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_subproperty_sync_configs(
+            analytics_admin.ListSubpropertySyncConfigsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_subproperty_sync_configs_rest_pager(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="abc",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[],
+                next_page_token="def",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                ],
+                next_page_token="ghi",
+            ),
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                subproperty_sync_configs=[
+                    resources.SubpropertySyncConfig(),
+                    resources.SubpropertySyncConfig(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            analytics_admin.ListSubpropertySyncConfigsResponse.to_json(x)
+            for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "properties/sample1"}
+
+        pager = client.list_subproperty_sync_configs(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, resources.SubpropertySyncConfig) for i in results)
+
+        pages = list(client.list_subproperty_sync_configs(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_update_subproperty_sync_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_subproperty_sync_config
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.update_subproperty_sync_config
+        ] = mock_rpc
+
+        request = {}
+        client.update_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.update_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_subproperty_sync_config_rest_required_fields(
+    request_type=analytics_admin.UpdateSubpropertySyncConfigRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_subproperty_sync_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_subproperty_sync_config._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = resources.SubpropertySyncConfig()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = resources.SubpropertySyncConfig.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_subproperty_sync_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_subproperty_sync_config_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_subproperty_sync_config._get_unset_required_fields(
+        {}
+    )
+    assert set(unset_fields) == (set(("updateMask",)) & set(("subpropertySyncConfig",)))
+
+
+def test_update_subproperty_sync_config_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.SubpropertySyncConfig()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "subproperty_sync_config": {
+                "name": "properties/sample1/subpropertySyncConfigs/sample2"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = resources.SubpropertySyncConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_subproperty_sync_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{subproperty_sync_config.name=properties/*/subpropertySyncConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_subproperty_sync_config_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_subproperty_sync_config(
+            analytics_admin.UpdateSubpropertySyncConfigRequest(),
+            subproperty_sync_config=resources.SubpropertySyncConfig(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_get_subproperty_sync_config_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_subproperty_sync_config
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_subproperty_sync_config
+        ] = mock_rpc
+
+        request = {}
+        client.get_subproperty_sync_config(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_subproperty_sync_config(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_subproperty_sync_config_rest_required_fields(
+    request_type=analytics_admin.GetSubpropertySyncConfigRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_subproperty_sync_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_subproperty_sync_config._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = resources.SubpropertySyncConfig()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = resources.SubpropertySyncConfig.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_subproperty_sync_config(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_subproperty_sync_config_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_subproperty_sync_config._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_subproperty_sync_config_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.SubpropertySyncConfig()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "properties/sample1/subpropertySyncConfigs/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = resources.SubpropertySyncConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_subproperty_sync_config(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{name=properties/*/subpropertySyncConfigs/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_subproperty_sync_config_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_subproperty_sync_config(
+            analytics_admin.GetSubpropertySyncConfigRequest(),
+            name="name_value",
+        )
+
+
+def test_get_reporting_identity_settings_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_reporting_identity_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_reporting_identity_settings
+        ] = mock_rpc
+
+        request = {}
+        client.get_reporting_identity_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_reporting_identity_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_reporting_identity_settings_rest_required_fields(
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_reporting_identity_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_reporting_identity_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = resources.ReportingIdentitySettings()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = resources.ReportingIdentitySettings.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_reporting_identity_settings(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_reporting_identity_settings_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_reporting_identity_settings._get_unset_required_fields(
+        {}
+    )
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_reporting_identity_settings_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.ReportingIdentitySettings()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "properties/sample1/reportingIdentitySettings"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = resources.ReportingIdentitySettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_reporting_identity_settings(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{name=properties/*/reportingIdentitySettings}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_reporting_identity_settings_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_reporting_identity_settings(
+            analytics_admin.GetReportingIdentitySettingsRequest(),
+            name="name_value",
+        )
+
+
+def test_get_user_provided_data_settings_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = AnalyticsAdminServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_user_provided_data_settings
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_user_provided_data_settings
+        ] = mock_rpc
+
+        request = {}
+        client.get_user_provided_data_settings(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_user_provided_data_settings(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_user_provided_data_settings_rest_required_fields(
+    request_type=analytics_admin.GetUserProvidedDataSettingsRequest,
+):
+    transport_class = transports.AnalyticsAdminServiceRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_user_provided_data_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_user_provided_data_settings._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = resources.UserProvidedDataSettings()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = resources.UserProvidedDataSettings.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_user_provided_data_settings(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_user_provided_data_settings_rest_unset_required_fields():
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_user_provided_data_settings._get_unset_required_fields(
+        {}
+    )
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_user_provided_data_settings_rest_flattened():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.UserProvidedDataSettings()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"name": "properties/sample1/userProvidedDataSettings"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = resources.UserProvidedDataSettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_user_provided_data_settings(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1alpha/{name=properties/*/userProvidedDataSettings}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_user_provided_data_settings_rest_flattened_error(transport: str = "rest"):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_user_provided_data_settings(
+            analytics_admin.GetUserProvidedDataSettingsRequest(),
             name="name_value",
         )
 
@@ -90917,54 +92245,6 @@ def test_delete_channel_group_empty_call_grpc():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
-def test_set_automated_ga4_configuration_opt_out_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_automated_ga4_configuration_opt_out_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        call.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-        )
-        client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
 def test_create_big_query_link_empty_call_grpc():
     client = AnalyticsAdminServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -91120,98 +92400,6 @@ def test_update_enhanced_measurement_settings_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_connected_site_tag_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_connected_site_tag_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        call.return_value = None
-        client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_connected_site_tags_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_connected_ga4_property_empty_call_grpc():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="grpc",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        call.return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-        client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -92109,6 +93297,121 @@ def test_submit_user_deletion_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.SubmitUserDeletionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_subproperty_sync_configs_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        call.return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+        client.list_subproperty_sync_configs(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.ListSubpropertySyncConfigsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_subproperty_sync_config_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = resources.SubpropertySyncConfig()
+        client.update_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_subproperty_sync_config_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        call.return_value = resources.SubpropertySyncConfig()
+        client.get_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_reporting_identity_settings_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        call.return_value = resources.ReportingIdentitySettings()
+        client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_user_provided_data_settings_empty_call_grpc():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        call.return_value = resources.UserProvidedDataSettings()
+        client.get_user_provided_data_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetUserProvidedDataSettingsRequest()
 
         assert args[0] == request_msg
 
@@ -95251,62 +96554,6 @@ async def test_delete_channel_group_empty_call_grpc_asyncio():
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
 @pytest.mark.asyncio
-async def test_set_automated_ga4_configuration_opt_out_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        )
-        await client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_fetch_automated_ga4_configuration_opt_out_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-                opt_out=True,
-            )
-        )
-        await client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
 async def test_create_big_query_link_empty_call_grpc_asyncio():
     client = AnalyticsAdminServiceAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -95543,114 +96790,6 @@ async def test_update_enhanced_measurement_settings_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_create_connected_site_tag_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        await client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_delete_connected_site_tag_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
-        await client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_list_connected_site_tags_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        await client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-@pytest.mark.asyncio
-async def test_fetch_connected_ga4_property_empty_call_grpc_asyncio():
-    client = AnalyticsAdminServiceAsyncClient(
-        credentials=async_anonymous_credentials(),
-        transport="grpc_asyncio",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        # Designate an appropriate return value for the call.
-        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
-            analytics_admin.FetchConnectedGa4PropertyResponse(
-                property="property_value",
-            )
-        )
-        await client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -96812,6 +97951,158 @@ async def test_submit_user_deletion_empty_call_grpc_asyncio():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_subproperty_sync_configs_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            analytics_admin.ListSubpropertySyncConfigsResponse(
+                next_page_token="next_page_token_value",
+            )
+        )
+        await client.list_subproperty_sync_configs(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.ListSubpropertySyncConfigsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_update_subproperty_sync_config_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig(
+                name="name_value",
+                apply_to_property="apply_to_property_value",
+                custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+            )
+        )
+        await client.update_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_subproperty_sync_config_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.SubpropertySyncConfig(
+                name="name_value",
+                apply_to_property="apply_to_property_value",
+                custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+            )
+        )
+        await client.get_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_reporting_identity_settings_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.ReportingIdentitySettings(
+                name="name_value",
+                reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+            )
+        )
+        await client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_user_provided_data_settings_empty_call_grpc_asyncio():
+    client = AnalyticsAdminServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            resources.UserProvidedDataSettings(
+                name="name_value",
+                user_provided_data_collection_enabled=True,
+                automatically_detected_data_collection_enabled=True,
+            )
+        )
+        await client.get_user_provided_data_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetUserProvidedDataSettingsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_transport_kind_rest():
     transport = AnalyticsAdminServiceClient.get_transport_class("rest")(
         credentials=ga_credentials.AnonymousCredentials()
@@ -96828,8 +98119,9 @@ def test_get_account_rest_bad_request(request_type=analytics_admin.GetAccountReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -96900,18 +98192,20 @@ def test_get_account_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_account"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_account_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_account"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_account"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_account_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_account"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -96964,8 +98258,9 @@ def test_list_accounts_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97028,18 +98323,20 @@ def test_list_accounts_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_accounts"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_accounts_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_accounts"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_accounts"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_accounts_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_accounts"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97097,8 +98394,9 @@ def test_delete_account_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97155,13 +98453,13 @@ def test_delete_account_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_account"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_account"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteAccountRequest.pb(
             analytics_admin.DeleteAccountRequest()
@@ -97206,8 +98504,9 @@ def test_update_account_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97354,18 +98653,20 @@ def test_update_account_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_account"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_account_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_account"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_account"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_account_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_account"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97418,8 +98719,9 @@ def test_provision_account_ticket_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97482,18 +98784,22 @@ def test_provision_account_ticket_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_provision_account_ticket"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_provision_account_ticket_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_provision_account_ticket"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_provision_account_ticket",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_provision_account_ticket_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_provision_account_ticket",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97551,8 +98857,9 @@ def test_list_account_summaries_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97615,18 +98922,22 @@ def test_list_account_summaries_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_account_summaries"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_account_summaries_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_account_summaries"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_account_summaries",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_account_summaries_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_account_summaries",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97682,8 +98993,9 @@ def test_get_property_rest_bad_request(request_type=analytics_admin.GetPropertyR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97762,18 +99074,20 @@ def test_get_property_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_property"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_property"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_property"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_property_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_property"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97826,8 +99140,9 @@ def test_list_properties_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -97890,18 +99205,20 @@ def test_list_properties_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_properties"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_properties_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_properties"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_properties"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_properties_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_properties"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -97959,8 +99276,9 @@ def test_create_property_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98121,18 +99439,20 @@ def test_create_property_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_property"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_property"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_property"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_property_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_property"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -98185,8 +99505,9 @@ def test_delete_property_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98265,18 +99586,20 @@ def test_delete_property_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_delete_property"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_delete_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_property"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_delete_property"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_delete_property_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_property"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -98329,8 +99652,9 @@ def test_update_property_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98491,18 +99815,20 @@ def test_update_property_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_property"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_property"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_property"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_property_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_property"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -98555,8 +99881,9 @@ def test_create_firebase_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98693,18 +100020,20 @@ def test_create_firebase_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_firebase_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_firebase_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_firebase_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_firebase_link"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_firebase_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_firebase_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -98757,8 +100086,9 @@ def test_delete_firebase_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98815,13 +100145,13 @@ def test_delete_firebase_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_firebase_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_firebase_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteFirebaseLinkRequest.pb(
             analytics_admin.DeleteFirebaseLinkRequest()
@@ -98866,8 +100196,9 @@ def test_list_firebase_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -98930,18 +100261,20 @@ def test_list_firebase_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_firebase_links"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_firebase_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_firebase_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_firebase_links"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_firebase_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_firebase_links"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -98999,8 +100332,9 @@ def test_get_global_site_tag_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99065,18 +100399,20 @@ def test_get_global_site_tag_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_global_site_tag"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_global_site_tag_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_global_site_tag"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_global_site_tag"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_global_site_tag_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_global_site_tag"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -99129,8 +100465,9 @@ def test_create_google_ads_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99277,18 +100614,22 @@ def test_create_google_ads_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_google_ads_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_google_ads_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_google_ads_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_google_ads_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_google_ads_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_google_ads_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -99343,8 +100684,9 @@ def test_update_google_ads_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99493,18 +100835,22 @@ def test_update_google_ads_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_google_ads_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_google_ads_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_google_ads_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_google_ads_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_google_ads_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_google_ads_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -99557,8 +100903,9 @@ def test_delete_google_ads_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99615,13 +100962,14 @@ def test_delete_google_ads_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_google_ads_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_google_ads_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteGoogleAdsLinkRequest.pb(
             analytics_admin.DeleteGoogleAdsLinkRequest()
@@ -99666,8 +101014,9 @@ def test_list_google_ads_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99730,18 +101079,21 @@ def test_list_google_ads_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_google_ads_links"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_google_ads_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_google_ads_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_google_ads_links",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_google_ads_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_google_ads_links"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -99799,8 +101151,9 @@ def test_get_data_sharing_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -99873,19 +101226,22 @@ def test_get_data_sharing_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_sharing_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_sharing_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_data_sharing_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_sharing_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_sharing_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_data_sharing_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -99942,8 +101298,9 @@ def test_get_measurement_protocol_secret_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100012,20 +101369,22 @@ def test_get_measurement_protocol_secret_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_measurement_protocol_secret",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_measurement_protocol_secret_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_measurement_protocol_secret",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_measurement_protocol_secret",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_measurement_protocol_secret_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_measurement_protocol_secret",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -100083,8 +101442,9 @@ def test_list_measurement_protocol_secrets_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100149,20 +101509,22 @@ def test_list_measurement_protocol_secrets_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_measurement_protocol_secrets",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_measurement_protocol_secrets_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_measurement_protocol_secrets",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_measurement_protocol_secrets",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_measurement_protocol_secrets_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_measurement_protocol_secrets",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -100220,8 +101582,9 @@ def test_create_measurement_protocol_secret_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100366,20 +101729,22 @@ def test_create_measurement_protocol_secret_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_measurement_protocol_secret",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_measurement_protocol_secret_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_measurement_protocol_secret",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_measurement_protocol_secret",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_measurement_protocol_secret_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_measurement_protocol_secret",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -100439,8 +101804,9 @@ def test_delete_measurement_protocol_secret_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100499,14 +101865,14 @@ def test_delete_measurement_protocol_secret_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_measurement_protocol_secret",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_measurement_protocol_secret",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteMeasurementProtocolSecretRequest.pb(
             analytics_admin.DeleteMeasurementProtocolSecretRequest()
@@ -100555,8 +101921,9 @@ def test_update_measurement_protocol_secret_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100705,20 +102072,22 @@ def test_update_measurement_protocol_secret_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_measurement_protocol_secret",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_measurement_protocol_secret_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_measurement_protocol_secret",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_measurement_protocol_secret",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_measurement_protocol_secret_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_measurement_protocol_secret",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -100776,8 +102145,9 @@ def test_acknowledge_user_data_collection_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100839,20 +102209,22 @@ def test_acknowledge_user_data_collection_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_acknowledge_user_data_collection",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_acknowledge_user_data_collection_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_acknowledge_user_data_collection",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_acknowledge_user_data_collection",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_acknowledge_user_data_collection_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_acknowledge_user_data_collection",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -100912,8 +102284,9 @@ def test_get_sk_ad_network_conversion_value_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -100980,20 +102353,22 @@ def test_get_sk_ad_network_conversion_value_schema_rest_interceptors(null_interc
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_sk_ad_network_conversion_value_schema",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_sk_ad_network_conversion_value_schema_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_sk_ad_network_conversion_value_schema",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_sk_ad_network_conversion_value_schema",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_sk_ad_network_conversion_value_schema_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_sk_ad_network_conversion_value_schema",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -101051,8 +102426,9 @@ def test_create_sk_ad_network_conversion_value_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -101222,20 +102598,22 @@ def test_create_sk_ad_network_conversion_value_schema_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_sk_ad_network_conversion_value_schema",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_sk_ad_network_conversion_value_schema_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_sk_ad_network_conversion_value_schema",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_sk_ad_network_conversion_value_schema",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_sk_ad_network_conversion_value_schema_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_sk_ad_network_conversion_value_schema",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -101295,8 +102673,9 @@ def test_delete_sk_ad_network_conversion_value_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -101357,14 +102736,14 @@ def test_delete_sk_ad_network_conversion_value_schema_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_sk_ad_network_conversion_value_schema",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_sk_ad_network_conversion_value_schema",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteSKAdNetworkConversionValueSchemaRequest.pb(
             analytics_admin.DeleteSKAdNetworkConversionValueSchemaRequest()
@@ -101413,8 +102792,9 @@ def test_update_sk_ad_network_conversion_value_schema_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -101588,20 +102968,22 @@ def test_update_sk_ad_network_conversion_value_schema_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_sk_ad_network_conversion_value_schema",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_sk_ad_network_conversion_value_schema_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_sk_ad_network_conversion_value_schema",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_sk_ad_network_conversion_value_schema",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_sk_ad_network_conversion_value_schema_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_sk_ad_network_conversion_value_schema",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -101659,8 +103041,9 @@ def test_list_sk_ad_network_conversion_value_schemas_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -101727,20 +103110,22 @@ def test_list_sk_ad_network_conversion_value_schemas_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_sk_ad_network_conversion_value_schemas",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_sk_ad_network_conversion_value_schemas_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_sk_ad_network_conversion_value_schemas",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_sk_ad_network_conversion_value_schemas",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_sk_ad_network_conversion_value_schemas_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_sk_ad_network_conversion_value_schemas",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -101802,8 +103187,9 @@ def test_search_change_history_events_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -101868,20 +103254,22 @@ def test_search_change_history_events_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_search_change_history_events",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_search_change_history_events_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_search_change_history_events",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_search_change_history_events",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_search_change_history_events_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_search_change_history_events",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -101939,8 +103327,9 @@ def test_get_google_signals_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102010,20 +103399,22 @@ def test_get_google_signals_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_google_signals_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_google_signals_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_google_signals_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_google_signals_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_google_signals_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_google_signals_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -102080,8 +103471,9 @@ def test_update_google_signals_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102229,20 +103621,22 @@ def test_update_google_signals_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_google_signals_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_google_signals_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_google_signals_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_google_signals_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_google_signals_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_google_signals_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -102297,8 +103691,9 @@ def test_create_conversion_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102453,18 +103848,22 @@ def test_create_conversion_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_conversion_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_conversion_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_conversion_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_conversion_event",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_conversion_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_conversion_event",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -102519,8 +103918,9 @@ def test_update_conversion_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102677,18 +104077,22 @@ def test_update_conversion_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_conversion_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_conversion_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_conversion_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_conversion_event",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_conversion_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_conversion_event",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -102741,8 +104145,9 @@ def test_get_conversion_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102816,18 +104221,20 @@ def test_get_conversion_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_conversion_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_conversion_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_conversion_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_conversion_event"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_conversion_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_conversion_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -102880,8 +104287,9 @@ def test_delete_conversion_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -102938,13 +104346,14 @@ def test_delete_conversion_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_conversion_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_conversion_event",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteConversionEventRequest.pb(
             analytics_admin.DeleteConversionEventRequest()
@@ -102989,8 +104398,9 @@ def test_list_conversion_events_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103053,18 +104463,22 @@ def test_list_conversion_events_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_conversion_events"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_conversion_events_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_conversion_events"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_conversion_events",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_conversion_events_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_conversion_events",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -103122,8 +104536,9 @@ def test_create_key_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103273,18 +104688,20 @@ def test_create_key_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_key_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_key_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_key_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_key_event"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_key_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_key_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -103337,8 +104754,9 @@ def test_update_key_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103488,18 +104906,20 @@ def test_update_key_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_key_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_key_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_key_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_key_event"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_key_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_key_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -103552,8 +104972,9 @@ def test_get_key_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103624,18 +105045,20 @@ def test_get_key_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_key_event"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_key_event_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_key_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_key_event"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_key_event_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_key_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -103688,8 +105111,9 @@ def test_delete_key_event_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103746,13 +105170,13 @@ def test_delete_key_event_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_key_event"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_key_event"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteKeyEventRequest.pb(
             analytics_admin.DeleteKeyEventRequest()
@@ -103797,8 +105221,9 @@ def test_list_key_events_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103861,18 +105286,20 @@ def test_list_key_events_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_key_events"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_key_events_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_key_events"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_key_events"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_key_events_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_key_events"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -103930,8 +105357,9 @@ def test_get_display_video360_advertiser_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -103998,20 +105426,22 @@ def test_get_display_video360_advertiser_link_rest_interceptors(null_interceptor
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_display_video360_advertiser_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_display_video360_advertiser_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_display_video360_advertiser_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_display_video360_advertiser_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_display_video360_advertiser_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_display_video360_advertiser_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -104069,8 +105499,9 @@ def test_list_display_video360_advertiser_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104135,20 +105566,22 @@ def test_list_display_video360_advertiser_links_rest_interceptors(null_intercept
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_display_video360_advertiser_links",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_display_video360_advertiser_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_display_video360_advertiser_links",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_display_video360_advertiser_links",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_display_video360_advertiser_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_display_video360_advertiser_links",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -104208,8 +105641,9 @@ def test_create_display_video360_advertiser_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104359,20 +105793,22 @@ def test_create_display_video360_advertiser_link_rest_interceptors(null_intercep
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_display_video360_advertiser_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_display_video360_advertiser_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_display_video360_advertiser_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_display_video360_advertiser_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_display_video360_advertiser_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_display_video360_advertiser_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -104430,8 +105866,9 @@ def test_delete_display_video360_advertiser_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104488,14 +105925,14 @@ def test_delete_display_video360_advertiser_link_rest_interceptors(null_intercep
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_display_video360_advertiser_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_display_video360_advertiser_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteDisplayVideo360AdvertiserLinkRequest.pb(
             analytics_admin.DeleteDisplayVideo360AdvertiserLinkRequest()
@@ -104544,8 +105981,9 @@ def test_update_display_video360_advertiser_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104699,20 +106137,22 @@ def test_update_display_video360_advertiser_link_rest_interceptors(null_intercep
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_display_video360_advertiser_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_display_video360_advertiser_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_display_video360_advertiser_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_display_video360_advertiser_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_display_video360_advertiser_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_display_video360_advertiser_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -104772,8 +106212,9 @@ def test_get_display_video360_advertiser_link_proposal_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104846,20 +106287,22 @@ def test_get_display_video360_advertiser_link_proposal_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_display_video360_advertiser_link_proposal",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_display_video360_advertiser_link_proposal_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_display_video360_advertiser_link_proposal",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_display_video360_advertiser_link_proposal",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_display_video360_advertiser_link_proposal_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_display_video360_advertiser_link_proposal",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -104917,8 +106360,9 @@ def test_list_display_video360_advertiser_link_proposals_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -104991,20 +106435,22 @@ def test_list_display_video360_advertiser_link_proposals_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_display_video360_advertiser_link_proposals",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_display_video360_advertiser_link_proposals_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_display_video360_advertiser_link_proposals",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_display_video360_advertiser_link_proposals",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_display_video360_advertiser_link_proposals_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_display_video360_advertiser_link_proposals",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -105068,8 +106514,9 @@ def test_create_display_video360_advertiser_link_proposal_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -105240,20 +106687,22 @@ def test_create_display_video360_advertiser_link_proposal_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_display_video360_advertiser_link_proposal",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_display_video360_advertiser_link_proposal_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_display_video360_advertiser_link_proposal",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_display_video360_advertiser_link_proposal",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_display_video360_advertiser_link_proposal_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_display_video360_advertiser_link_proposal",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -105315,8 +106764,9 @@ def test_delete_display_video360_advertiser_link_proposal_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -105379,14 +106829,14 @@ def test_delete_display_video360_advertiser_link_proposal_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_display_video360_advertiser_link_proposal",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_display_video360_advertiser_link_proposal",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = (
             analytics_admin.DeleteDisplayVideo360AdvertiserLinkProposalRequest.pb(
@@ -105435,8 +106885,9 @@ def test_approve_display_video360_advertiser_link_proposal_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -105510,20 +106961,22 @@ def test_approve_display_video360_advertiser_link_proposal_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_approve_display_video360_advertiser_link_proposal",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_approve_display_video360_advertiser_link_proposal_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_approve_display_video360_advertiser_link_proposal",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_approve_display_video360_advertiser_link_proposal",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_approve_display_video360_advertiser_link_proposal_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_approve_display_video360_advertiser_link_proposal",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -105587,8 +107040,9 @@ def test_cancel_display_video360_advertiser_link_proposal_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -105663,20 +107117,22 @@ def test_cancel_display_video360_advertiser_link_proposal_rest_interceptors(
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_cancel_display_video360_advertiser_link_proposal",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_cancel_display_video360_advertiser_link_proposal_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_cancel_display_video360_advertiser_link_proposal",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_cancel_display_video360_advertiser_link_proposal",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_cancel_display_video360_advertiser_link_proposal_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_cancel_display_video360_advertiser_link_proposal",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -105736,8 +107192,9 @@ def test_create_custom_dimension_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -105887,18 +107344,22 @@ def test_create_custom_dimension_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_custom_dimension"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_custom_dimension_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_custom_dimension"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_custom_dimension",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_custom_dimension_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_custom_dimension",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -105953,8 +107414,9 @@ def test_update_custom_dimension_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106106,18 +107568,22 @@ def test_update_custom_dimension_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_custom_dimension"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_custom_dimension_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_custom_dimension"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_custom_dimension",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_custom_dimension_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_custom_dimension",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -106170,8 +107636,9 @@ def test_list_custom_dimensions_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106234,18 +107701,22 @@ def test_list_custom_dimensions_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_custom_dimensions"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_custom_dimensions_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_custom_dimensions"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_custom_dimensions",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_custom_dimensions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_custom_dimensions",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -106303,8 +107774,9 @@ def test_archive_custom_dimension_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106361,13 +107833,14 @@ def test_archive_custom_dimension_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_archive_custom_dimension"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_archive_custom_dimension",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.ArchiveCustomDimensionRequest.pb(
             analytics_admin.ArchiveCustomDimensionRequest()
@@ -106412,8 +107885,9 @@ def test_get_custom_dimension_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106486,18 +107960,20 @@ def test_get_custom_dimension_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_custom_dimension"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_custom_dimension_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_custom_dimension"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_custom_dimension"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_custom_dimension_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_custom_dimension"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -106550,8 +108026,9 @@ def test_create_custom_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106706,18 +108183,20 @@ def test_create_custom_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_custom_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_custom_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_custom_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_custom_metric"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_custom_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_custom_metric"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -106772,8 +108251,9 @@ def test_update_custom_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -106930,18 +108410,20 @@ def test_update_custom_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_custom_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_custom_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_custom_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_custom_metric"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_custom_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_custom_metric"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -106994,8 +108476,9 @@ def test_list_custom_metrics_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107058,18 +108541,20 @@ def test_list_custom_metrics_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_custom_metrics"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_custom_metrics_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_custom_metrics"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_custom_metrics"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_custom_metrics_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_custom_metrics"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -107127,8 +108612,9 @@ def test_archive_custom_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107185,13 +108671,13 @@ def test_archive_custom_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_archive_custom_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_archive_custom_metric"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.ArchiveCustomMetricRequest.pb(
             analytics_admin.ArchiveCustomMetricRequest()
@@ -107236,8 +108722,9 @@ def test_get_custom_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107316,18 +108803,20 @@ def test_get_custom_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_custom_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_custom_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_custom_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_custom_metric"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_custom_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_custom_metric"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -107380,8 +108869,9 @@ def test_get_data_retention_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107456,20 +108946,22 @@ def test_get_data_retention_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_retention_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_retention_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_data_retention_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_retention_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_retention_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_data_retention_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -107526,8 +109018,9 @@ def test_update_data_retention_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107681,20 +109174,22 @@ def test_update_data_retention_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_data_retention_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_data_retention_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_data_retention_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_data_retention_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_data_retention_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_data_retention_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -107749,8 +109244,9 @@ def test_create_data_stream_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -107904,18 +109400,20 @@ def test_create_data_stream_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_data_stream"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_data_stream_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_data_stream"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_data_stream"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_data_stream_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_data_stream"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -107968,8 +109466,9 @@ def test_delete_data_stream_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108026,13 +109525,13 @@ def test_delete_data_stream_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_data_stream"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_data_stream"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteDataStreamRequest.pb(
             analytics_admin.DeleteDataStreamRequest()
@@ -108077,8 +109576,9 @@ def test_update_data_stream_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108232,18 +109732,20 @@ def test_update_data_stream_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_data_stream"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_data_stream_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_data_stream"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_data_stream"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_data_stream_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_data_stream"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -108296,8 +109798,9 @@ def test_list_data_streams_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108360,18 +109863,20 @@ def test_list_data_streams_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_data_streams"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_data_streams_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_data_streams"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_data_streams"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_data_streams_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_data_streams"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -108429,8 +109934,9 @@ def test_get_data_stream_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108497,18 +110003,20 @@ def test_get_data_stream_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_data_stream"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_stream_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_data_stream"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_data_stream"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_stream_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_data_stream"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -108559,8 +110067,9 @@ def test_get_audience_rest_bad_request(request_type=analytics_admin.GetAudienceR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108636,18 +110145,20 @@ def test_get_audience_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_audience"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_audience_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_audience"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_audience"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_audience_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_audience"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -108700,8 +110211,9 @@ def test_list_audiences_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -108764,18 +110276,20 @@ def test_list_audiences_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_audiences"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_audiences_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_audiences"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_audiences"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_audiences_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_audiences"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -108833,8 +110347,9 @@ def test_create_audience_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109038,18 +110553,20 @@ def test_create_audience_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_audience"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_audience_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_audience"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_audience"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_audience_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_audience"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -109102,8 +110619,9 @@ def test_update_audience_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109307,18 +110825,20 @@ def test_update_audience_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_audience"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_audience_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_audience"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_audience"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_audience_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_audience"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -109371,8 +110891,9 @@ def test_archive_audience_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109429,13 +110950,13 @@ def test_archive_audience_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_archive_audience"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_archive_audience"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.ArchiveAudienceRequest.pb(
             analytics_admin.ArchiveAudienceRequest()
@@ -109480,8 +111001,9 @@ def test_get_search_ads360_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109548,18 +111070,22 @@ def test_get_search_ads360_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_search_ads360_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_search_ads360_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_search_ads360_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_search_ads360_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_search_ads360_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_search_ads360_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -109612,8 +111138,9 @@ def test_list_search_ads360_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109676,18 +111203,22 @@ def test_list_search_ads360_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_search_ads360_links"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_search_ads360_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_search_ads360_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_search_ads360_links",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_search_ads360_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_search_ads360_links",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -109745,8 +111276,9 @@ def test_create_search_ads360_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -109891,19 +111423,22 @@ def test_create_search_ads360_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_search_ads360_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_search_ads360_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_search_ads360_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_search_ads360_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_search_ads360_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_search_ads360_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -109956,8 +111491,9 @@ def test_delete_search_ads360_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110014,13 +111550,14 @@ def test_delete_search_ads360_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_search_ads360_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_search_ads360_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteSearchAds360LinkRequest.pb(
             analytics_admin.DeleteSearchAds360LinkRequest()
@@ -110067,8 +111604,9 @@ def test_update_search_ads360_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110215,19 +111753,22 @@ def test_update_search_ads360_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_search_ads360_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_search_ads360_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_search_ads360_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_search_ads360_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_search_ads360_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_search_ads360_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -110280,8 +111821,9 @@ def test_get_attribution_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110364,18 +111906,22 @@ def test_get_attribution_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_attribution_settings"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_attribution_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_attribution_settings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_attribution_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_attribution_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_attribution_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -110432,8 +111978,9 @@ def test_update_attribution_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110596,20 +112143,22 @@ def test_update_attribution_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_attribution_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_attribution_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_attribution_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_attribution_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_attribution_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_attribution_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -110664,8 +112213,9 @@ def test_run_access_report_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110728,18 +112278,20 @@ def test_run_access_report_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_run_access_report"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_run_access_report_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_run_access_report"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_run_access_report"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_run_access_report_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_run_access_report"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -110797,8 +112349,9 @@ def test_create_access_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -110938,18 +112491,21 @@ def test_create_access_binding_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_access_binding"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_access_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_access_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_access_binding",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_access_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_access_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111002,8 +112558,9 @@ def test_get_access_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111069,18 +112626,20 @@ def test_get_access_binding_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_access_binding"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_access_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_access_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_access_binding"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_access_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_access_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111135,8 +112694,9 @@ def test_update_access_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111278,18 +112838,21 @@ def test_update_access_binding_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_access_binding"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_access_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_access_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_access_binding",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_access_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_access_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111342,8 +112905,9 @@ def test_delete_access_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111400,13 +112964,13 @@ def test_delete_access_binding_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_access_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_access_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteAccessBindingRequest.pb(
             analytics_admin.DeleteAccessBindingRequest()
@@ -111451,8 +113015,9 @@ def test_list_access_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111515,18 +113080,20 @@ def test_list_access_bindings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_access_bindings"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_access_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_access_bindings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_access_bindings"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_access_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_access_bindings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111584,8 +113151,9 @@ def test_batch_create_access_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111647,20 +113215,22 @@ def test_batch_create_access_bindings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_create_access_bindings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_create_access_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_batch_create_access_bindings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_create_access_bindings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_create_access_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_batch_create_access_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111718,8 +113288,9 @@ def test_batch_get_access_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111779,19 +113350,22 @@ def test_batch_get_access_bindings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_get_access_bindings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_get_access_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_batch_get_access_bindings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_get_access_bindings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_get_access_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_batch_get_access_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111849,8 +113423,9 @@ def test_batch_update_access_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -111912,20 +113487,22 @@ def test_batch_update_access_bindings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_update_access_bindings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_batch_update_access_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_batch_update_access_bindings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_update_access_bindings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_batch_update_access_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_batch_update_access_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -111983,8 +113560,9 @@ def test_batch_delete_access_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112041,14 +113619,14 @@ def test_batch_delete_access_bindings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_batch_delete_access_bindings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_batch_delete_access_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.BatchDeleteAccessBindingsRequest.pb(
             analytics_admin.BatchDeleteAccessBindingsRequest()
@@ -112093,8 +113671,9 @@ def test_get_expanded_data_set_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112165,18 +113744,21 @@ def test_get_expanded_data_set_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_expanded_data_set"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_expanded_data_set_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_expanded_data_set"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_expanded_data_set",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_expanded_data_set_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_expanded_data_set"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -112231,8 +113813,9 @@ def test_list_expanded_data_sets_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112295,18 +113878,22 @@ def test_list_expanded_data_sets_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_expanded_data_sets"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_expanded_data_sets_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_expanded_data_sets"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_expanded_data_sets",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_expanded_data_sets_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_expanded_data_sets",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -112364,8 +113951,9 @@ def test_create_expanded_data_set_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112529,18 +114117,22 @@ def test_create_expanded_data_set_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_expanded_data_set"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_expanded_data_set_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_expanded_data_set"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_expanded_data_set",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_expanded_data_set_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_expanded_data_set",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -112600,8 +114192,9 @@ def test_update_expanded_data_set_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112767,18 +114360,22 @@ def test_update_expanded_data_set_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_expanded_data_set"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_expanded_data_set_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_expanded_data_set"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_expanded_data_set",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_expanded_data_set_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_expanded_data_set",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -112836,8 +114433,9 @@ def test_delete_expanded_data_set_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -112894,13 +114492,14 @@ def test_delete_expanded_data_set_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_expanded_data_set"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_expanded_data_set",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteExpandedDataSetRequest.pb(
             analytics_admin.DeleteExpandedDataSetRequest()
@@ -112945,8 +114544,9 @@ def test_get_channel_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -113017,18 +114617,20 @@ def test_get_channel_group_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_channel_group"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_channel_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_channel_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_channel_group"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_channel_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_channel_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -113081,8 +114683,9 @@ def test_list_channel_groups_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -113145,18 +114748,20 @@ def test_list_channel_groups_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_channel_groups"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_channel_groups_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_channel_groups"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_channel_groups"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_channel_groups_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_channel_groups"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -113214,8 +114819,9 @@ def test_create_channel_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -113377,18 +114983,20 @@ def test_create_channel_group_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_channel_group"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_channel_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_channel_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_channel_group"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_channel_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_channel_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -113445,8 +115053,9 @@ def test_update_channel_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -113610,18 +115219,20 @@ def test_update_channel_group_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_channel_group"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_channel_group_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_channel_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_update_channel_group"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_channel_group_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_channel_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -113676,8 +115287,9 @@ def test_delete_channel_group_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -113734,13 +115346,13 @@ def test_delete_channel_group_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_channel_group"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_channel_group"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteChannelGroupRequest.pb(
             analytics_admin.DeleteChannelGroupRequest()
@@ -113774,287 +115386,6 @@ def test_delete_channel_group_rest_interceptors(null_interceptor):
         pre.assert_called_once()
 
 
-def test_set_automated_ga4_configuration_opt_out_rest_bad_request(
-    request_type=analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.set_automated_ga4_configuration_opt_out(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_set_automated_ga4_configuration_opt_out_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.set_automated_ga4_configuration_opt_out(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse
-    )
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_set_automated_ga4_configuration_opt_out_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_set_automated_ga4_configuration_opt_out",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_set_automated_ga4_configuration_opt_out_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_set_automated_ga4_configuration_opt_out",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest.pb(
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = (
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse.to_json(
-                analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-            )
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse(),
-            metadata,
-        )
-
-        client.set_automated_ga4_configuration_opt_out(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_fetch_automated_ga4_configuration_opt_out_rest_bad_request(
-    request_type=analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.fetch_automated_ga4_configuration_opt_out(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest,
-        dict,
-    ],
-)
-def test_fetch_automated_ga4_configuration_opt_out_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(
-            opt_out=True,
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.fetch_automated_ga4_configuration_opt_out(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(
-        response, analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse
-    )
-    assert response.opt_out is True
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_fetch_automated_ga4_configuration_opt_out_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_automated_ga4_configuration_opt_out",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_automated_ga4_configuration_opt_out_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_fetch_automated_ga4_configuration_opt_out",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest.pb(
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse.to_json(
-                analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-            )
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse()
-        )
-        post_with_metadata.return_value = (
-            analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse(),
-            metadata,
-        )
-
-        client.fetch_automated_ga4_configuration_opt_out(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
 def test_create_big_query_link_rest_bad_request(
     request_type=analytics_admin.CreateBigQueryLinkRequest,
 ):
@@ -114066,8 +115397,9 @@ def test_create_big_query_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114225,18 +115557,21 @@ def test_create_big_query_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_big_query_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_big_query_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_big_query_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_big_query_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_big_query_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_big_query_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -114289,8 +115624,9 @@ def test_get_big_query_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114369,18 +115705,20 @@ def test_get_big_query_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_big_query_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_big_query_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_big_query_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_big_query_link"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_big_query_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_big_query_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -114433,8 +115771,9 @@ def test_list_big_query_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114497,18 +115836,20 @@ def test_list_big_query_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_big_query_links"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_big_query_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_big_query_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_big_query_links"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_big_query_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_big_query_links"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -114566,8 +115907,9 @@ def test_delete_big_query_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114624,13 +115966,13 @@ def test_delete_big_query_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_big_query_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_big_query_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteBigQueryLinkRequest.pb(
             analytics_admin.DeleteBigQueryLinkRequest()
@@ -114677,8 +116019,9 @@ def test_update_big_query_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114838,18 +116181,21 @@ def test_update_big_query_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_big_query_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_big_query_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_big_query_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_big_query_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_big_query_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_update_big_query_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -114904,8 +116250,9 @@ def test_get_enhanced_measurement_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -114990,20 +116337,22 @@ def test_get_enhanced_measurement_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_enhanced_measurement_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_enhanced_measurement_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_enhanced_measurement_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_enhanced_measurement_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_enhanced_measurement_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_enhanced_measurement_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -115065,8 +116414,9 @@ def test_update_enhanced_measurement_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -115241,20 +116591,22 @@ def test_update_enhanced_measurement_settings_rest_interceptors(null_interceptor
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_enhanced_measurement_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_enhanced_measurement_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_enhanced_measurement_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_enhanced_measurement_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_enhanced_measurement_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_enhanced_measurement_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -115301,513 +116653,6 @@ def test_update_enhanced_measurement_settings_rest_interceptors(null_interceptor
         post_with_metadata.assert_called_once()
 
 
-def test_create_connected_site_tag_rest_bad_request(
-    request_type=analytics_admin.CreateConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.create_connected_site_tag(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.CreateConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_create_connected_site_tag_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.CreateConnectedSiteTagResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.CreateConnectedSiteTagResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.create_connected_site_tag(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.CreateConnectedSiteTagResponse)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_create_connected_site_tag_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_connected_site_tag",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_connected_site_tag_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_connected_site_tag"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.CreateConnectedSiteTagRequest.pb(
-            analytics_admin.CreateConnectedSiteTagRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.CreateConnectedSiteTagResponse.to_json(
-            analytics_admin.CreateConnectedSiteTagResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.CreateConnectedSiteTagRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.CreateConnectedSiteTagResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.CreateConnectedSiteTagResponse(),
-            metadata,
-        )
-
-        client.create_connected_site_tag(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_delete_connected_site_tag_rest_bad_request(
-    request_type=analytics_admin.DeleteConnectedSiteTagRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.delete_connected_site_tag(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.DeleteConnectedSiteTagRequest,
-        dict,
-    ],
-)
-def test_delete_connected_site_tag_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = None
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-        json_return_value = ""
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.delete_connected_site_tag(request)
-
-    # Establish that the response is the type that we expect.
-    assert response is None
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_delete_connected_site_tag_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_connected_site_tag"
-    ) as pre:
-        pre.assert_not_called()
-        pb_message = analytics_admin.DeleteConnectedSiteTagRequest.pb(
-            analytics_admin.DeleteConnectedSiteTagRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-
-        request = analytics_admin.DeleteConnectedSiteTagRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-
-        client.delete_connected_site_tag(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-
-
-def test_list_connected_site_tags_rest_bad_request(
-    request_type=analytics_admin.ListConnectedSiteTagsRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.list_connected_site_tags(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.ListConnectedSiteTagsRequest,
-        dict,
-    ],
-)
-def test_list_connected_site_tags_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.ListConnectedSiteTagsResponse()
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.ListConnectedSiteTagsResponse.pb(return_value)
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.list_connected_site_tags(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.ListConnectedSiteTagsResponse)
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_list_connected_site_tags_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_connected_site_tags"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_connected_site_tags_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_connected_site_tags"
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.ListConnectedSiteTagsRequest.pb(
-            analytics_admin.ListConnectedSiteTagsRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.ListConnectedSiteTagsResponse.to_json(
-            analytics_admin.ListConnectedSiteTagsResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.ListConnectedSiteTagsRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.ListConnectedSiteTagsResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.ListConnectedSiteTagsResponse(),
-            metadata,
-        )
-
-        client.list_connected_site_tags(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
-def test_fetch_connected_ga4_property_rest_bad_request(
-    request_type=analytics_admin.FetchConnectedGa4PropertyRequest,
-):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
-    ):
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        json_return_value = ""
-        response_value.json = mock.Mock(return_value={})
-        response_value.status_code = 400
-        response_value.request = mock.Mock()
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        client.fetch_connected_ga4_property(request)
-
-
-@pytest.mark.parametrize(
-    "request_type",
-    [
-        analytics_admin.FetchConnectedGa4PropertyRequest,
-        dict,
-    ],
-)
-def test_fetch_connected_ga4_property_rest_call_success(request_type):
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
-    )
-
-    # send a request that will satisfy transcoding
-    request_init = {}
-    request = request_type(**request_init)
-
-    # Mock the http request call within the method and fake a response.
-    with mock.patch.object(type(client.transport._session), "request") as req:
-        # Designate an appropriate value for the returned response.
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse(
-            property="property_value",
-        )
-
-        # Wrap the value into a proper Response obj
-        response_value = mock.Mock()
-        response_value.status_code = 200
-
-        # Convert return value to protobuf type
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse.pb(
-            return_value
-        )
-        json_return_value = json_format.MessageToJson(return_value)
-        response_value.content = json_return_value.encode("UTF-8")
-        req.return_value = response_value
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        response = client.fetch_connected_ga4_property(request)
-
-    # Establish that the response is the type that we expect.
-    assert isinstance(response, analytics_admin.FetchConnectedGa4PropertyResponse)
-    assert response.property == "property_value"
-
-
-@pytest.mark.parametrize("null_interceptor", [True, False])
-def test_fetch_connected_ga4_property_rest_interceptors(null_interceptor):
-    transport = transports.AnalyticsAdminServiceRestTransport(
-        credentials=ga_credentials.AnonymousCredentials(),
-        interceptor=None
-        if null_interceptor
-        else transports.AnalyticsAdminServiceRestInterceptor(),
-    )
-    client = AnalyticsAdminServiceClient(transport=transport)
-
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_connected_ga4_property",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_fetch_connected_ga4_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_fetch_connected_ga4_property",
-    ) as pre:
-        pre.assert_not_called()
-        post.assert_not_called()
-        post_with_metadata.assert_not_called()
-        pb_message = analytics_admin.FetchConnectedGa4PropertyRequest.pb(
-            analytics_admin.FetchConnectedGa4PropertyRequest()
-        )
-        transcode.return_value = {
-            "method": "post",
-            "uri": "my_uri",
-            "body": pb_message,
-            "query_params": pb_message,
-        }
-
-        req.return_value = mock.Mock()
-        req.return_value.status_code = 200
-        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
-        return_value = analytics_admin.FetchConnectedGa4PropertyResponse.to_json(
-            analytics_admin.FetchConnectedGa4PropertyResponse()
-        )
-        req.return_value.content = return_value
-
-        request = analytics_admin.FetchConnectedGa4PropertyRequest()
-        metadata = [
-            ("key", "val"),
-            ("cephalopod", "squid"),
-        ]
-        pre.return_value = request, metadata
-        post.return_value = analytics_admin.FetchConnectedGa4PropertyResponse()
-        post_with_metadata.return_value = (
-            analytics_admin.FetchConnectedGa4PropertyResponse(),
-            metadata,
-        )
-
-        client.fetch_connected_ga4_property(
-            request,
-            metadata=[
-                ("key", "val"),
-                ("cephalopod", "squid"),
-            ],
-        )
-
-        pre.assert_called_once()
-        post.assert_called_once()
-        post_with_metadata.assert_called_once()
-
-
 def test_get_ad_sense_link_rest_bad_request(
     request_type=analytics_admin.GetAdSenseLinkRequest,
 ):
@@ -115819,8 +116664,9 @@ def test_get_ad_sense_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -115885,18 +116731,20 @@ def test_get_ad_sense_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_ad_sense_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_ad_sense_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_ad_sense_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_ad_sense_link"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_ad_sense_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_ad_sense_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -115949,8 +116797,9 @@ def test_create_ad_sense_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116086,18 +116935,20 @@ def test_create_ad_sense_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_ad_sense_link"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_ad_sense_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_ad_sense_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_create_ad_sense_link"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_ad_sense_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_create_ad_sense_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -116150,8 +117001,9 @@ def test_delete_ad_sense_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116208,13 +117060,13 @@ def test_delete_ad_sense_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_ad_sense_link"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_ad_sense_link"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteAdSenseLinkRequest.pb(
             analytics_admin.DeleteAdSenseLinkRequest()
@@ -116259,8 +117111,9 @@ def test_list_ad_sense_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116323,18 +117176,20 @@ def test_list_ad_sense_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_ad_sense_links"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_ad_sense_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_ad_sense_links"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_list_ad_sense_links"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_ad_sense_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_ad_sense_links"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -116394,8 +117249,9 @@ def test_get_event_create_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116464,18 +117320,21 @@ def test_get_event_create_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_event_create_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_event_create_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_event_create_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_event_create_rule",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_event_create_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_event_create_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -116533,8 +117392,9 @@ def test_list_event_create_rules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116597,18 +117457,22 @@ def test_list_event_create_rules_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_event_create_rules"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_event_create_rules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_event_create_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_event_create_rules",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_event_create_rules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_event_create_rules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -116666,8 +117530,9 @@ def test_create_event_create_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -116819,18 +117684,22 @@ def test_create_event_create_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_event_create_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_event_create_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_event_create_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_event_create_rule",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_event_create_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_event_create_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -116892,8 +117761,9 @@ def test_update_event_create_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117049,18 +117919,22 @@ def test_update_event_create_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_event_create_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_event_create_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_event_create_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_event_create_rule",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_event_create_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_event_create_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -117120,8 +117994,9 @@ def test_delete_event_create_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117180,13 +118055,14 @@ def test_delete_event_create_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_event_create_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_event_create_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteEventCreateRuleRequest.pb(
             analytics_admin.DeleteEventCreateRuleRequest()
@@ -117233,8 +118109,9 @@ def test_get_event_edit_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117303,18 +118180,20 @@ def test_get_event_edit_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_event_edit_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_event_edit_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_event_edit_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_get_event_edit_rule"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_event_edit_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_event_edit_rule"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -117372,8 +118251,9 @@ def test_list_event_edit_rules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117436,18 +118316,21 @@ def test_list_event_edit_rules_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_event_edit_rules"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_event_edit_rules_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_event_edit_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_event_edit_rules",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_event_edit_rules_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_list_event_edit_rules"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -117505,8 +118388,9 @@ def test_create_event_edit_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117658,18 +118542,22 @@ def test_create_event_edit_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_event_edit_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_event_edit_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_event_edit_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_event_edit_rule",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_event_edit_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_event_edit_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -117731,8 +118619,9 @@ def test_update_event_edit_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -117888,18 +118777,22 @@ def test_update_event_edit_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_event_edit_rule"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_event_edit_rule_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_event_edit_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_event_edit_rule",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_event_edit_rule_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_event_edit_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -117959,8 +118852,9 @@ def test_delete_event_edit_rule_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118019,13 +118913,14 @@ def test_delete_event_edit_rule_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_event_edit_rule"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_event_edit_rule",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteEventEditRuleRequest.pb(
             analytics_admin.DeleteEventEditRuleRequest()
@@ -118070,8 +118965,9 @@ def test_reorder_event_edit_rules_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118128,13 +119024,14 @@ def test_reorder_event_edit_rules_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_reorder_event_edit_rules"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_reorder_event_edit_rules",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.ReorderEventEditRulesRequest.pb(
             analytics_admin.ReorderEventEditRulesRequest()
@@ -118183,8 +119080,9 @@ def test_update_data_redaction_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118337,20 +119235,22 @@ def test_update_data_redaction_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_data_redaction_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_data_redaction_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_data_redaction_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_data_redaction_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_data_redaction_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_data_redaction_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -118407,8 +119307,9 @@ def test_get_data_redaction_settings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118479,20 +119380,22 @@ def test_get_data_redaction_settings_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_redaction_settings",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_data_redaction_settings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_data_redaction_settings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_redaction_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_data_redaction_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_data_redaction_settings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -118547,8 +119450,9 @@ def test_get_calculated_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118629,18 +119533,21 @@ def test_get_calculated_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_get_calculated_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_calculated_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_get_calculated_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_calculated_metric",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_calculated_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_get_calculated_metric"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -118693,8 +119600,9 @@ def test_create_calculated_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118854,18 +119762,22 @@ def test_create_calculated_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_calculated_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_calculated_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_calculated_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_calculated_metric",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_calculated_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_calculated_metric",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -118918,8 +119830,9 @@ def test_list_calculated_metrics_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -118982,18 +119895,22 @@ def test_list_calculated_metrics_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_list_calculated_metrics"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_calculated_metrics_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_list_calculated_metrics"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_calculated_metrics",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_calculated_metrics_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_calculated_metrics",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -119053,8 +119970,9 @@ def test_update_calculated_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119216,18 +120134,22 @@ def test_update_calculated_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_update_calculated_metric"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_calculated_metric_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_update_calculated_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_calculated_metric",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_calculated_metric_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_calculated_metric",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -119280,8 +120202,9 @@ def test_delete_calculated_metric_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119338,13 +120261,14 @@ def test_delete_calculated_metric_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_delete_calculated_metric"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_calculated_metric",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteCalculatedMetricRequest.pb(
             analytics_admin.DeleteCalculatedMetricRequest()
@@ -119389,8 +120313,9 @@ def test_create_rollup_property_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119450,18 +120375,22 @@ def test_create_rollup_property_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_create_rollup_property"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_rollup_property_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_create_rollup_property"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_rollup_property",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_rollup_property_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_rollup_property",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -119519,8 +120448,9 @@ def test_get_rollup_property_source_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119585,20 +120515,22 @@ def test_get_rollup_property_source_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_rollup_property_source_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_rollup_property_source_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_rollup_property_source_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_rollup_property_source_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_rollup_property_source_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_rollup_property_source_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -119653,8 +120585,9 @@ def test_list_rollup_property_source_links_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119719,20 +120652,22 @@ def test_list_rollup_property_source_links_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_rollup_property_source_links",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_rollup_property_source_links_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_rollup_property_source_links",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_rollup_property_source_links",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_rollup_property_source_links_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_rollup_property_source_links",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -119790,8 +120725,9 @@ def test_create_rollup_property_source_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -119933,20 +120869,22 @@ def test_create_rollup_property_source_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_rollup_property_source_link",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_rollup_property_source_link_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_rollup_property_source_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_rollup_property_source_link",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_rollup_property_source_link_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_rollup_property_source_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120001,8 +120939,9 @@ def test_delete_rollup_property_source_link_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120059,14 +120998,14 @@ def test_delete_rollup_property_source_link_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_rollup_property_source_link",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_rollup_property_source_link",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteRollupPropertySourceLinkRequest.pb(
             analytics_admin.DeleteRollupPropertySourceLinkRequest()
@@ -120111,8 +121050,9 @@ def test_provision_subproperty_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120172,18 +121112,21 @@ def test_provision_subproperty_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_provision_subproperty"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_provision_subproperty_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_provision_subproperty"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_provision_subproperty",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_provision_subproperty_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_provision_subproperty"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120241,8 +121184,9 @@ def test_create_subproperty_event_filter_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120402,20 +121346,22 @@ def test_create_subproperty_event_filter_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_subproperty_event_filter",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_subproperty_event_filter_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_subproperty_event_filter",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_subproperty_event_filter",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_subproperty_event_filter_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_subproperty_event_filter",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120473,8 +121419,9 @@ def test_get_subproperty_event_filter_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120539,20 +121486,22 @@ def test_get_subproperty_event_filter_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_subproperty_event_filter",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_subproperty_event_filter_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_subproperty_event_filter",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_subproperty_event_filter",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_subproperty_event_filter_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_subproperty_event_filter",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120610,8 +121559,9 @@ def test_list_subproperty_event_filters_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120676,20 +121626,22 @@ def test_list_subproperty_event_filters_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_subproperty_event_filters",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_subproperty_event_filters_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_subproperty_event_filters",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_subproperty_event_filters",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_subproperty_event_filters_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_subproperty_event_filters",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120751,8 +121703,9 @@ def test_update_subproperty_event_filter_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -120916,20 +121869,22 @@ def test_update_subproperty_event_filter_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_subproperty_event_filter",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_subproperty_event_filter_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_subproperty_event_filter",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_subproperty_event_filter",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_subproperty_event_filter_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_subproperty_event_filter",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -120987,8 +121942,9 @@ def test_delete_subproperty_event_filter_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121045,14 +122001,14 @@ def test_delete_subproperty_event_filter_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_subproperty_event_filter",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_subproperty_event_filter",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteSubpropertyEventFilterRequest.pb(
             analytics_admin.DeleteSubpropertyEventFilterRequest()
@@ -121097,8 +122053,9 @@ def test_create_reporting_data_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121251,20 +122208,22 @@ def test_create_reporting_data_annotation_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_reporting_data_annotation",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_create_reporting_data_annotation_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_create_reporting_data_annotation",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_reporting_data_annotation",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_create_reporting_data_annotation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_create_reporting_data_annotation",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -121319,8 +122278,9 @@ def test_get_reporting_data_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121391,20 +122351,22 @@ def test_get_reporting_data_annotation_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_reporting_data_annotation",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_get_reporting_data_annotation_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_get_reporting_data_annotation",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_reporting_data_annotation",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_reporting_data_annotation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_reporting_data_annotation",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -121459,8 +122421,9 @@ def test_list_reporting_data_annotations_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121525,20 +122488,22 @@ def test_list_reporting_data_annotations_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_reporting_data_annotations",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_list_reporting_data_annotations_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_list_reporting_data_annotations",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_reporting_data_annotations",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_reporting_data_annotations_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_reporting_data_annotations",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -121600,8 +122565,9 @@ def test_update_reporting_data_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121758,20 +122724,22 @@ def test_update_reporting_data_annotation_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_reporting_data_annotation",
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_update_reporting_data_annotation_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_update_reporting_data_annotation",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_reporting_data_annotation",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_reporting_data_annotation_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_reporting_data_annotation",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -121826,8 +122794,9 @@ def test_delete_reporting_data_annotation_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121884,14 +122853,14 @@ def test_delete_reporting_data_annotation_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "pre_delete_reporting_data_annotation",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_delete_reporting_data_annotation",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = analytics_admin.DeleteReportingDataAnnotationRequest.pb(
             analytics_admin.DeleteReportingDataAnnotationRequest()
@@ -121936,8 +122905,9 @@ def test_submit_user_deletion_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -121997,18 +122967,20 @@ def test_submit_user_deletion_rest_interceptors(null_interceptor):
     )
     client = AnalyticsAdminServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "post_submit_user_deletion"
-    ) as post, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor,
-        "post_submit_user_deletion_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.AnalyticsAdminServiceRestInterceptor, "pre_submit_user_deletion"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "post_submit_user_deletion"
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_submit_user_deletion_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor, "pre_submit_user_deletion"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -122043,6 +123015,796 @@ def test_submit_user_deletion_rest_interceptors(null_interceptor):
         )
 
         client.submit_user_deletion(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_subproperty_sync_configs_rest_bad_request(
+    request_type=analytics_admin.ListSubpropertySyncConfigsRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "properties/sample1"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_subproperty_sync_configs(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.ListSubpropertySyncConfigsRequest,
+        dict,
+    ],
+)
+def test_list_subproperty_sync_configs_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "properties/sample1"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = analytics_admin.ListSubpropertySyncConfigsResponse(
+            next_page_token="next_page_token_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = analytics_admin.ListSubpropertySyncConfigsResponse.pb(
+            return_value
+        )
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_subproperty_sync_configs(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListSubpropertySyncConfigsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_subproperty_sync_configs_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_subproperty_sync_configs",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_list_subproperty_sync_configs_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_list_subproperty_sync_configs",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.ListSubpropertySyncConfigsRequest.pb(
+            analytics_admin.ListSubpropertySyncConfigsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = analytics_admin.ListSubpropertySyncConfigsResponse.to_json(
+            analytics_admin.ListSubpropertySyncConfigsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.ListSubpropertySyncConfigsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = analytics_admin.ListSubpropertySyncConfigsResponse()
+        post_with_metadata.return_value = (
+            analytics_admin.ListSubpropertySyncConfigsResponse(),
+            metadata,
+        )
+
+        client.list_subproperty_sync_configs(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_subproperty_sync_config_rest_bad_request(
+    request_type=analytics_admin.UpdateSubpropertySyncConfigRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "subproperty_sync_config": {
+            "name": "properties/sample1/subpropertySyncConfigs/sample2"
+        }
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_subproperty_sync_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.UpdateSubpropertySyncConfigRequest,
+        dict,
+    ],
+)
+def test_update_subproperty_sync_config_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "subproperty_sync_config": {
+            "name": "properties/sample1/subpropertySyncConfigs/sample2"
+        }
+    }
+    request_init["subproperty_sync_config"] = {
+        "name": "properties/sample1/subpropertySyncConfigs/sample2",
+        "apply_to_property": "apply_to_property_value",
+        "custom_dimension_and_metric_sync_mode": 1,
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = analytics_admin.UpdateSubpropertySyncConfigRequest.meta.fields[
+        "subproperty_sync_config"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init[
+        "subproperty_sync_config"
+    ].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["subproperty_sync_config"][field])):
+                    del request_init["subproperty_sync_config"][field][i][subfield]
+            else:
+                del request_init["subproperty_sync_config"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.SubpropertySyncConfig(
+            name="name_value",
+            apply_to_property="apply_to_property_value",
+            custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = resources.SubpropertySyncConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_subproperty_sync_config(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_subproperty_sync_config_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_subproperty_sync_config",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_update_subproperty_sync_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_update_subproperty_sync_config",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.UpdateSubpropertySyncConfigRequest.pb(
+            analytics_admin.UpdateSubpropertySyncConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = resources.SubpropertySyncConfig.to_json(
+            resources.SubpropertySyncConfig()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.UpdateSubpropertySyncConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = resources.SubpropertySyncConfig()
+        post_with_metadata.return_value = resources.SubpropertySyncConfig(), metadata
+
+        client.update_subproperty_sync_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_subproperty_sync_config_rest_bad_request(
+    request_type=analytics_admin.GetSubpropertySyncConfigRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/subpropertySyncConfigs/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_subproperty_sync_config(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetSubpropertySyncConfigRequest,
+        dict,
+    ],
+)
+def test_get_subproperty_sync_config_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/subpropertySyncConfigs/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.SubpropertySyncConfig(
+            name="name_value",
+            apply_to_property="apply_to_property_value",
+            custom_dimension_and_metric_sync_mode=resources.SubpropertySyncConfig.SynchronizationMode.NONE,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = resources.SubpropertySyncConfig.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_subproperty_sync_config(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.SubpropertySyncConfig)
+    assert response.name == "name_value"
+    assert response.apply_to_property == "apply_to_property_value"
+    assert (
+        response.custom_dimension_and_metric_sync_mode
+        == resources.SubpropertySyncConfig.SynchronizationMode.NONE
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_subproperty_sync_config_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_subproperty_sync_config",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_subproperty_sync_config_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_subproperty_sync_config",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.GetSubpropertySyncConfigRequest.pb(
+            analytics_admin.GetSubpropertySyncConfigRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = resources.SubpropertySyncConfig.to_json(
+            resources.SubpropertySyncConfig()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.GetSubpropertySyncConfigRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = resources.SubpropertySyncConfig()
+        post_with_metadata.return_value = resources.SubpropertySyncConfig(), metadata
+
+        client.get_subproperty_sync_config(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_reporting_identity_settings_rest_bad_request(
+    request_type=analytics_admin.GetReportingIdentitySettingsRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/reportingIdentitySettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_reporting_identity_settings(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetReportingIdentitySettingsRequest,
+        dict,
+    ],
+)
+def test_get_reporting_identity_settings_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/reportingIdentitySettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.ReportingIdentitySettings(
+            name="name_value",
+            reporting_identity=resources.ReportingIdentitySettings.ReportingIdentity.BLENDED,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = resources.ReportingIdentitySettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_reporting_identity_settings(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.ReportingIdentitySettings)
+    assert response.name == "name_value"
+    assert (
+        response.reporting_identity
+        == resources.ReportingIdentitySettings.ReportingIdentity.BLENDED
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_reporting_identity_settings_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_reporting_identity_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_reporting_identity_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_reporting_identity_settings",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.GetReportingIdentitySettingsRequest.pb(
+            analytics_admin.GetReportingIdentitySettingsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = resources.ReportingIdentitySettings.to_json(
+            resources.ReportingIdentitySettings()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.GetReportingIdentitySettingsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = resources.ReportingIdentitySettings()
+        post_with_metadata.return_value = (
+            resources.ReportingIdentitySettings(),
+            metadata,
+        )
+
+        client.get_reporting_identity_settings(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_user_provided_data_settings_rest_bad_request(
+    request_type=analytics_admin.GetUserProvidedDataSettingsRequest,
+):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/userProvidedDataSettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_user_provided_data_settings(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        analytics_admin.GetUserProvidedDataSettingsRequest,
+        dict,
+    ],
+)
+def test_get_user_provided_data_settings_rest_call_success(request_type):
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "properties/sample1/userProvidedDataSettings"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = resources.UserProvidedDataSettings(
+            name="name_value",
+            user_provided_data_collection_enabled=True,
+            automatically_detected_data_collection_enabled=True,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = resources.UserProvidedDataSettings.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_user_provided_data_settings(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, resources.UserProvidedDataSettings)
+    assert response.name == "name_value"
+    assert response.user_provided_data_collection_enabled is True
+    assert response.automatically_detected_data_collection_enabled is True
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_user_provided_data_settings_rest_interceptors(null_interceptor):
+    transport = transports.AnalyticsAdminServiceRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.AnalyticsAdminServiceRestInterceptor(),
+    )
+    client = AnalyticsAdminServiceClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_user_provided_data_settings",
+        ) as post,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "post_get_user_provided_data_settings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.AnalyticsAdminServiceRestInterceptor,
+            "pre_get_user_provided_data_settings",
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = analytics_admin.GetUserProvidedDataSettingsRequest.pb(
+            analytics_admin.GetUserProvidedDataSettingsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = resources.UserProvidedDataSettings.to_json(
+            resources.UserProvidedDataSettings()
+        )
+        req.return_value.content = return_value
+
+        request = analytics_admin.GetUserProvidedDataSettingsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = resources.UserProvidedDataSettings()
+        post_with_metadata.return_value = resources.UserProvidedDataSettings(), metadata
+
+        client.get_user_provided_data_settings(
             request,
             metadata=[
                 ("key", "val"),
@@ -124327,50 +126089,6 @@ def test_delete_channel_group_empty_call_rest():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
-def test_set_automated_ga4_configuration_opt_out_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.set_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        client.set_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_automated_ga4_configuration_opt_out_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_automated_ga4_configuration_opt_out), "__call__"
-    ) as call:
-        client.fetch_automated_ga4_configuration_opt_out(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
 def test_create_big_query_link_empty_call_rest():
     client = AnalyticsAdminServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -124519,94 +126237,6 @@ def test_update_enhanced_measurement_settings_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = analytics_admin.UpdateEnhancedMeasurementSettingsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_create_connected_site_tag_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.create_connected_site_tag), "__call__"
-    ) as call:
-        client.create_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.CreateConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_delete_connected_site_tag_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.delete_connected_site_tag), "__call__"
-    ) as call:
-        client.delete_connected_site_tag(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.DeleteConnectedSiteTagRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_list_connected_site_tags_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.list_connected_site_tags), "__call__"
-    ) as call:
-        client.list_connected_site_tags(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.ListConnectedSiteTagsRequest()
-
-        assert args[0] == request_msg
-
-
-# This test is a coverage failsafe to make sure that totally empty calls,
-# i.e. request == None and no flattened fields passed, work.
-def test_fetch_connected_ga4_property_empty_call_rest():
-    client = AnalyticsAdminServiceClient(
-        credentials=ga_credentials.AnonymousCredentials(),
-        transport="rest",
-    )
-
-    # Mock the actual call, and fake the request.
-    with mock.patch.object(
-        type(client.transport.fetch_connected_ga4_property), "__call__"
-    ) as call:
-        client.fetch_connected_ga4_property(request=None)
-
-        # Establish that the underlying stub method was called.
-        call.assert_called()
-        _, args, _ = call.mock_calls[0]
-        request_msg = analytics_admin.FetchConnectedGa4PropertyRequest()
 
         assert args[0] == request_msg
 
@@ -125469,6 +127099,116 @@ def test_submit_user_deletion_empty_call_rest():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_subproperty_sync_configs_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_subproperty_sync_configs), "__call__"
+    ) as call:
+        client.list_subproperty_sync_configs(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.ListSubpropertySyncConfigsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_subproperty_sync_config_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_subproperty_sync_config), "__call__"
+    ) as call:
+        client.update_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.UpdateSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_subproperty_sync_config_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_subproperty_sync_config), "__call__"
+    ) as call:
+        client.get_subproperty_sync_config(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetSubpropertySyncConfigRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_reporting_identity_settings_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_reporting_identity_settings), "__call__"
+    ) as call:
+        client.get_reporting_identity_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetReportingIdentitySettingsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_user_provided_data_settings_empty_call_rest():
+    client = AnalyticsAdminServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_user_provided_data_settings), "__call__"
+    ) as call:
+        client.get_user_provided_data_settings(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = analytics_admin.GetUserProvidedDataSettingsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_transport_grpc_default():
     # A client should use the gRPC transport by default.
     client = AnalyticsAdminServiceClient(
@@ -125606,8 +127346,6 @@ def test_analytics_admin_service_base_transport():
         "create_channel_group",
         "update_channel_group",
         "delete_channel_group",
-        "set_automated_ga4_configuration_opt_out",
-        "fetch_automated_ga4_configuration_opt_out",
         "create_big_query_link",
         "get_big_query_link",
         "list_big_query_links",
@@ -125615,10 +127353,6 @@ def test_analytics_admin_service_base_transport():
         "update_big_query_link",
         "get_enhanced_measurement_settings",
         "update_enhanced_measurement_settings",
-        "create_connected_site_tag",
-        "delete_connected_site_tag",
-        "list_connected_site_tags",
-        "fetch_connected_ga4_property",
         "get_ad_sense_link",
         "create_ad_sense_link",
         "delete_ad_sense_link",
@@ -125658,6 +127392,11 @@ def test_analytics_admin_service_base_transport():
         "update_reporting_data_annotation",
         "delete_reporting_data_annotation",
         "submit_user_deletion",
+        "list_subproperty_sync_configs",
+        "update_subproperty_sync_config",
+        "get_subproperty_sync_config",
+        "get_reporting_identity_settings",
+        "get_user_provided_data_settings",
     )
     for method in methods:
         with pytest.raises(NotImplementedError):
@@ -125677,11 +127416,14 @@ def test_analytics_admin_service_base_transport():
 
 def test_analytics_admin_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.analytics.admin_v1alpha.services.analytics_admin_service.transports.AnalyticsAdminServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.analytics.admin_v1alpha.services.analytics_admin_service.transports.AnalyticsAdminServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AnalyticsAdminServiceTransport(
@@ -125703,9 +127445,12 @@ def test_analytics_admin_service_base_transport_with_credentials_file():
 
 def test_analytics_admin_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.analytics.admin_v1alpha.services.analytics_admin_service.transports.AnalyticsAdminServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.analytics.admin_v1alpha.services.analytics_admin_service.transports.AnalyticsAdminServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.AnalyticsAdminServiceTransport()
@@ -125789,11 +127534,12 @@ def test_analytics_admin_service_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -126272,12 +128018,6 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     session1 = client1.transport.delete_channel_group._session
     session2 = client2.transport.delete_channel_group._session
     assert session1 != session2
-    session1 = client1.transport.set_automated_ga4_configuration_opt_out._session
-    session2 = client2.transport.set_automated_ga4_configuration_opt_out._session
-    assert session1 != session2
-    session1 = client1.transport.fetch_automated_ga4_configuration_opt_out._session
-    session2 = client2.transport.fetch_automated_ga4_configuration_opt_out._session
-    assert session1 != session2
     session1 = client1.transport.create_big_query_link._session
     session2 = client2.transport.create_big_query_link._session
     assert session1 != session2
@@ -126298,18 +128038,6 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     assert session1 != session2
     session1 = client1.transport.update_enhanced_measurement_settings._session
     session2 = client2.transport.update_enhanced_measurement_settings._session
-    assert session1 != session2
-    session1 = client1.transport.create_connected_site_tag._session
-    session2 = client2.transport.create_connected_site_tag._session
-    assert session1 != session2
-    session1 = client1.transport.delete_connected_site_tag._session
-    session2 = client2.transport.delete_connected_site_tag._session
-    assert session1 != session2
-    session1 = client1.transport.list_connected_site_tags._session
-    session2 = client2.transport.list_connected_site_tags._session
-    assert session1 != session2
-    session1 = client1.transport.fetch_connected_ga4_property._session
-    session2 = client2.transport.fetch_connected_ga4_property._session
     assert session1 != session2
     session1 = client1.transport.get_ad_sense_link._session
     session2 = client2.transport.get_ad_sense_link._session
@@ -126428,6 +128156,21 @@ def test_analytics_admin_service_client_transport_session_collision(transport_na
     session1 = client1.transport.submit_user_deletion._session
     session2 = client2.transport.submit_user_deletion._session
     assert session1 != session2
+    session1 = client1.transport.list_subproperty_sync_configs._session
+    session2 = client2.transport.list_subproperty_sync_configs._session
+    assert session1 != session2
+    session1 = client1.transport.update_subproperty_sync_config._session
+    session2 = client2.transport.update_subproperty_sync_config._session
+    assert session1 != session2
+    session1 = client1.transport.get_subproperty_sync_config._session
+    session2 = client2.transport.get_subproperty_sync_config._session
+    assert session1 != session2
+    session1 = client1.transport.get_reporting_identity_settings._session
+    session2 = client2.transport.get_reporting_identity_settings._session
+    assert session1 != session2
+    session1 = client1.transport.get_user_provided_data_settings._session
+    session2 = client2.transport.get_user_provided_data_settings._session
+    assert session1 != session2
 
 
 def test_analytics_admin_service_grpc_transport_channel():
@@ -126458,6 +128201,7 @@ def test_analytics_admin_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -127286,9 +129030,29 @@ def test_parse_reporting_data_annotation_path():
     assert expected == actual
 
 
-def test_rollup_property_source_link_path():
+def test_reporting_identity_settings_path():
     property = "cuttlefish"
-    rollup_property_source_link = "mussel"
+    expected = "properties/{property}/reportingIdentitySettings".format(
+        property=property,
+    )
+    actual = AnalyticsAdminServiceClient.reporting_identity_settings_path(property)
+    assert expected == actual
+
+
+def test_parse_reporting_identity_settings_path():
+    expected = {
+        "property": "mussel",
+    }
+    path = AnalyticsAdminServiceClient.reporting_identity_settings_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AnalyticsAdminServiceClient.parse_reporting_identity_settings_path(path)
+    assert expected == actual
+
+
+def test_rollup_property_source_link_path():
+    property = "winkle"
+    rollup_property_source_link = "nautilus"
     expected = "properties/{property}/rollupPropertySourceLinks/{rollup_property_source_link}".format(
         property=property,
         rollup_property_source_link=rollup_property_source_link,
@@ -127301,8 +129065,8 @@ def test_rollup_property_source_link_path():
 
 def test_parse_rollup_property_source_link_path():
     expected = {
-        "property": "winkle",
-        "rollup_property_source_link": "nautilus",
+        "property": "scallop",
+        "rollup_property_source_link": "abalone",
     }
     path = AnalyticsAdminServiceClient.rollup_property_source_link_path(**expected)
 
@@ -127312,8 +129076,8 @@ def test_parse_rollup_property_source_link_path():
 
 
 def test_search_ads360_link_path():
-    property = "scallop"
-    search_ads_360_link = "abalone"
+    property = "squid"
+    search_ads_360_link = "clam"
     expected = "properties/{property}/searchAds360Links/{search_ads_360_link}".format(
         property=property,
         search_ads_360_link=search_ads_360_link,
@@ -127326,8 +129090,8 @@ def test_search_ads360_link_path():
 
 def test_parse_search_ads360_link_path():
     expected = {
-        "property": "squid",
-        "search_ads_360_link": "clam",
+        "property": "whelk",
+        "search_ads_360_link": "octopus",
     }
     path = AnalyticsAdminServiceClient.search_ads360_link_path(**expected)
 
@@ -127337,9 +129101,9 @@ def test_parse_search_ads360_link_path():
 
 
 def test_sk_ad_network_conversion_value_schema_path():
-    property = "whelk"
-    data_stream = "octopus"
-    skadnetwork_conversion_value_schema = "oyster"
+    property = "oyster"
+    data_stream = "nudibranch"
+    skadnetwork_conversion_value_schema = "cuttlefish"
     expected = "properties/{property}/dataStreams/{data_stream}/sKAdNetworkConversionValueSchema/{skadnetwork_conversion_value_schema}".format(
         property=property,
         data_stream=data_stream,
@@ -127353,9 +129117,9 @@ def test_sk_ad_network_conversion_value_schema_path():
 
 def test_parse_sk_ad_network_conversion_value_schema_path():
     expected = {
-        "property": "nudibranch",
-        "data_stream": "cuttlefish",
-        "skadnetwork_conversion_value_schema": "mussel",
+        "property": "mussel",
+        "data_stream": "winkle",
+        "skadnetwork_conversion_value_schema": "nautilus",
     }
     path = AnalyticsAdminServiceClient.sk_ad_network_conversion_value_schema_path(
         **expected
@@ -127371,8 +129135,8 @@ def test_parse_sk_ad_network_conversion_value_schema_path():
 
 
 def test_subproperty_event_filter_path():
-    property = "winkle"
-    sub_property_event_filter = "nautilus"
+    property = "scallop"
+    sub_property_event_filter = "abalone"
     expected = "properties/{property}/subpropertyEventFilters/{sub_property_event_filter}".format(
         property=property,
         sub_property_event_filter=sub_property_event_filter,
@@ -127385,8 +129149,8 @@ def test_subproperty_event_filter_path():
 
 def test_parse_subproperty_event_filter_path():
     expected = {
-        "property": "scallop",
-        "sub_property_event_filter": "abalone",
+        "property": "squid",
+        "sub_property_event_filter": "clam",
     }
     path = AnalyticsAdminServiceClient.subproperty_event_filter_path(**expected)
 
@@ -127395,8 +129159,55 @@ def test_parse_subproperty_event_filter_path():
     assert expected == actual
 
 
+def test_subproperty_sync_config_path():
+    property = "whelk"
+    subproperty_sync_config = "octopus"
+    expected = (
+        "properties/{property}/subpropertySyncConfigs/{subproperty_sync_config}".format(
+            property=property,
+            subproperty_sync_config=subproperty_sync_config,
+        )
+    )
+    actual = AnalyticsAdminServiceClient.subproperty_sync_config_path(
+        property, subproperty_sync_config
+    )
+    assert expected == actual
+
+
+def test_parse_subproperty_sync_config_path():
+    expected = {
+        "property": "oyster",
+        "subproperty_sync_config": "nudibranch",
+    }
+    path = AnalyticsAdminServiceClient.subproperty_sync_config_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AnalyticsAdminServiceClient.parse_subproperty_sync_config_path(path)
+    assert expected == actual
+
+
+def test_user_provided_data_settings_path():
+    property = "cuttlefish"
+    expected = "properties/{property}/userProvidedDataSettings".format(
+        property=property,
+    )
+    actual = AnalyticsAdminServiceClient.user_provided_data_settings_path(property)
+    assert expected == actual
+
+
+def test_parse_user_provided_data_settings_path():
+    expected = {
+        "property": "mussel",
+    }
+    path = AnalyticsAdminServiceClient.user_provided_data_settings_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AnalyticsAdminServiceClient.parse_user_provided_data_settings_path(path)
+    assert expected == actual
+
+
 def test_common_billing_account_path():
-    billing_account = "squid"
+    billing_account = "winkle"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -127406,7 +129217,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "clam",
+        "billing_account": "nautilus",
     }
     path = AnalyticsAdminServiceClient.common_billing_account_path(**expected)
 
@@ -127416,7 +129227,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "whelk"
+    folder = "scallop"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -127426,7 +129237,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "octopus",
+        "folder": "abalone",
     }
     path = AnalyticsAdminServiceClient.common_folder_path(**expected)
 
@@ -127436,7 +129247,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "oyster"
+    organization = "squid"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -127446,7 +129257,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "nudibranch",
+        "organization": "clam",
     }
     path = AnalyticsAdminServiceClient.common_organization_path(**expected)
 
@@ -127456,7 +129267,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "cuttlefish"
+    project = "whelk"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -127466,7 +129277,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "mussel",
+        "project": "octopus",
     }
     path = AnalyticsAdminServiceClient.common_project_path(**expected)
 
@@ -127476,8 +129287,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "winkle"
-    location = "nautilus"
+    project = "oyster"
+    location = "nudibranch"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -127488,8 +129299,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "scallop",
-        "location": "abalone",
+        "project": "cuttlefish",
+        "location": "mussel",
     }
     path = AnalyticsAdminServiceClient.common_location_path(**expected)
 

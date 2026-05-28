@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ class CreateSSHKeyRequest(proto.Message):
             Required. The ID to use for the key, which will become the
             final component of the key's resource name.
 
-            This value must match the regex: [a-zA-Z0-9@.-_]{1,64}
+            This value must match the regex: [a-zA-Z0-9@.-\_]{1,64}
     """
 
     parent: str = proto.Field(

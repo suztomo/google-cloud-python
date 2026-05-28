@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,12 +131,12 @@ class PredictResponse(proto.Message):
             API.
     """
 
-    payload: MutableSequence[
-        annotation_payload.AnnotationPayload
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=annotation_payload.AnnotationPayload,
+    payload: MutableSequence[annotation_payload.AnnotationPayload] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=annotation_payload.AnnotationPayload,
+        )
     )
     preprocessed_input: data_items.ExamplePayload = proto.Field(
         proto.MESSAGE,

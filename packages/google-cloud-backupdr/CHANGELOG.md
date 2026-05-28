@@ -1,5 +1,126 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-backupdr/#history
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.8.0...google-cloud-backupdr-v0.9.0) (2026-03-26)
+
+
+### Features
+
+* Adding new workload specific fields for AlloyDB ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.7.0...google-cloud-backupdr-v0.8.0) (2026-02-05)
+
+
+### Documentation
+
+* A comment for field `log_retention_days` in message `.google.cloud.backupdr.v1.BackupPlan` is changed ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+
+### Features
+
+* Add support for AlloyDB backup and restore ([fe0a0b4638a8f5301c30be43fd2f2898ddc6db37](https://github.com/googleapis/google-cloud-python/commit/fe0a0b4638a8f5301c30be43fd2f2898ddc6db37))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.6.0...google-cloud-backupdr-v0.7.0) (2026-01-15)
+
+
+### Features
+
+* A new service `BackupDrProtectionSummary` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `BackupDrTemplateConfig` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `BackupLocation` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `PitrSettings` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `ListResourceBackupConfigsResponse` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `BackupConfigDetails` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `ResourceBackupConfig` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `BackupDrPlanConfig` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `BackupDrPlanRule` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new resource_definition `backupdr.googleapis.com/ResourceBackupConfig` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+* A new message `ListResourceBackupConfigsRequest` is added ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.5.0...google-cloud-backupdr-v0.6.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.4.0...google-cloud-backupdr-v0.5.0) (2025-12-04)
+
+
+### Features
+
+* Adding new fields for CMEK and Retention Inheritance features ([c958ebdfe9351d3d4e80d388a6e95804b515d030](https://github.com/googleapis/google-cloud-python/commit/c958ebdfe9351d3d4e80d388a6e95804b515d030))
+* Adding `unreachable` field to `ListDataSourceReferences` API ([03e69912a61695deefca6ffaae1add8119f026e4](https://github.com/googleapis/google-cloud-python/commit/03e69912a61695deefca6ffaae1add8119f026e4))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.3.0...google-cloud-backupdr-v0.4.0) (2025-11-06)
+
+
+### Features
+
+* Adding `source_resource` fields to Backup resource  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Adding `ListDataSourceReferences` API  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Adding new workload specific fields for Cloud SQL  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Adding `FetchBackupsForResourceType` API  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.2.5...google-cloud-backupdr-v0.3.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.2.5](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.2.4...google-cloud-backupdr-v0.2.5) (2025-07-23)
+
+
+### Features
+
+* Add BackupPlanRevision resource and associated RPCs ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add DataSourceReference resource and associated RPCs ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add FetchBackupPlanAssociationsForResourceType RPC ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add new states to resources (UPDATING, UPLOADING) ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add ON_DEMAND_OPERATIONAL backup type ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add support for Cloud SQL backup and restore ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add support for GCE Disk backup and restore ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Add Update RPCs for BackupPlan and BackupPlanAssociation ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* Change BackupRule.standard_schedule to be OPTIONAL ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+
+
+### Documentation
+
+* A comment for field backup_retention_days in message .google.cloud.backupdr.v1.BackupRule is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field disks in message .google.cloud.backupdr.v1.ComputeInstanceRestoreProperties is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field hourly_frequency in message .google.cloud.backupdr.v1.StandardSchedule is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field network_interfaces in message .google.cloud.backupdr.v1.ComputeInstanceRestoreProperties is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field resource in message .google.cloud.backupdr.v1.BackupPlanAssociation is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field resource_policies in message .google.cloud.backupdr.v1.ComputeInstanceRestoreProperties is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field resource_type in message .google.cloud.backupdr.v1.BackupPlan is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+* A comment for field resource_type in message .google.cloud.backupdr.v1.BackupPlanAssociation is changed ([0393818](https://github.com/googleapis/google-cloud-python/commit/03938180ed28d9f3f272a4fe7952ea9c0e31ec22))
+
+## [0.2.4](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.2.3...google-cloud-backupdr-v0.2.4) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([eea9e6f](https://github.com/googleapis/google-cloud-python/commit/eea9e6f798406fec17a17dfd71e40fbeea42cf6a))
+
 ## [0.2.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-backupdr-v0.2.2...google-cloud-backupdr-v0.2.3) (2025-03-15)
 
 

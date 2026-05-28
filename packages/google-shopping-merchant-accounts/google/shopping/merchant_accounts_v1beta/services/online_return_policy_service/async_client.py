@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.shopping.merchant_accounts_v1beta import gapic_version as package_version
 
@@ -44,15 +44,15 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 
 from google.shopping.merchant_accounts_v1beta.services.online_return_policy_service import (
     pagers,
 )
+from google.shopping.merchant_accounts_v1beta.types import online_return_policy
 from google.shopping.merchant_accounts_v1beta.types import (
     online_return_policy as gsma_online_return_policy,
 )
-from google.shopping.merchant_accounts_v1beta.types import online_return_policy
 
 from .client import OnlineReturnPolicyServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, OnlineReturnPolicyServiceTransport
@@ -74,8 +74,9 @@ class OnlineReturnPolicyServiceAsyncClient:
     ads and free listings
 
     programs. This API defines the following resource model:
+    --------------------------------------------------------
 
-    - `OnlineReturnPolicy </merchant/api/reference/rpc/google.shopping.merchant.accounts.v1beta#google.shopping.merchant.accounts.v1beta.OnlineReturnPolicy>`__
+    `OnlineReturnPolicy </merchant/api/reference/rpc/google.shopping.merchant.accounts.v1beta#google.shopping.merchant.accounts.v1beta.OnlineReturnPolicy>`__
     """
 
     _client: OnlineReturnPolicyServiceClient
@@ -139,7 +140,10 @@ class OnlineReturnPolicyServiceAsyncClient:
         Returns:
             OnlineReturnPolicyServiceAsyncClient: The constructed client.
         """
-        return OnlineReturnPolicyServiceClient.from_service_account_info.__func__(OnlineReturnPolicyServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            OnlineReturnPolicyServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(OnlineReturnPolicyServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -155,7 +159,12 @@ class OnlineReturnPolicyServiceAsyncClient:
         Returns:
             OnlineReturnPolicyServiceAsyncClient: The constructed client.
         """
-        return OnlineReturnPolicyServiceClient.from_service_account_file.__func__(OnlineReturnPolicyServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            OnlineReturnPolicyServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(
+            OnlineReturnPolicyServiceAsyncClient, filename, *args, **kwargs
+        )
 
     from_service_account_json = from_service_account_file
 
@@ -193,7 +202,9 @@ class OnlineReturnPolicyServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return OnlineReturnPolicyServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return OnlineReturnPolicyServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> OnlineReturnPolicyServiceTransport:
@@ -205,7 +216,7 @@ class OnlineReturnPolicyServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -378,7 +389,7 @@ class OnlineReturnPolicyServiceAsyncClient:
 
         Returns:
             google.shopping.merchant_accounts_v1beta.types.OnlineReturnPolicy:
-                [Online return policy](\ https://support.google.com/merchants/answer/10220642)
+                [Online return policy](https://support.google.com/merchants/answer/10220642)
                    object. This is currently used to represent return
                    policies for ads and free listings programs.
 
@@ -639,7 +650,7 @@ class OnlineReturnPolicyServiceAsyncClient:
 
         Returns:
             google.shopping.merchant_accounts_v1beta.types.OnlineReturnPolicy:
-                [Online return policy](\ https://support.google.com/merchants/answer/10220642)
+                [Online return policy](https://support.google.com/merchants/answer/10220642)
                    object. This is currently used to represent return
                    policies for ads and free listings programs.
 
@@ -765,15 +776,15 @@ class OnlineReturnPolicyServiceAsyncClient:
                 The following fields are supported (in both
                 ``snake_case`` and ``lowerCamelCase``):
 
-                -  ``accept_defective_only``
-                -  ``accept_exchange``
-                -  ``item_conditions``
-                -  ``policy``
-                -  ``process_refund_days``
-                -  ``restocking_fee``
-                -  ``return_methods``
-                -  ``return_policy_uri``
-                -  ``return_shipping_fee``
+                - ``accept_defective_only``
+                - ``accept_exchange``
+                - ``item_conditions``
+                - ``policy``
+                - ``process_refund_days``
+                - ``restocking_fee``
+                - ``return_methods``
+                - ``return_policy_uri``
+                - ``return_shipping_fee``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -788,7 +799,7 @@ class OnlineReturnPolicyServiceAsyncClient:
 
         Returns:
             google.shopping.merchant_accounts_v1beta.types.OnlineReturnPolicy:
-                [Online return policy](\ https://support.google.com/merchants/answer/10220642)
+                [Online return policy](https://support.google.com/merchants/answer/10220642)
                    object. This is currently used to represent return
                    policies for ads and free listings programs.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -65,6 +65,7 @@ class JobType(proto.Enum):
             data is read, processed, and written
             continuously.
     """
+
     JOB_TYPE_UNKNOWN = 0
     JOB_TYPE_BATCH = 1
     JOB_TYPE_STREAMING = 2
@@ -82,6 +83,7 @@ class FlexResourceSchedulingGoal(proto.Enum):
         FLEXRS_COST_OPTIMIZED (2):
             Optimize for lower cost.
     """
+
     FLEXRS_UNSPECIFIED = 0
     FLEXRS_SPEED_OPTIMIZED = 1
     FLEXRS_COST_OPTIMIZED = 2
@@ -105,6 +107,7 @@ class TeardownPolicy(proto.Enum):
             Never teardown the resource. This is useful
             for debugging and development.
     """
+
     TEARDOWN_POLICY_UNKNOWN = 0
     TEARDOWN_ALWAYS = 1
     TEARDOWN_ON_SUCCESS = 2
@@ -130,6 +133,7 @@ class DefaultPackageSet(proto.Enum):
             Stage packages typically useful to workers
             written in Python.
     """
+
     DEFAULT_PACKAGE_SET_UNKNOWN = 0
     DEFAULT_PACKAGE_SET_NONE = 1
     DEFAULT_PACKAGE_SET_JAVA = 2
@@ -151,6 +155,7 @@ class AutoscalingAlgorithm(proto.Enum):
             Increase worker count over time to reduce job
             execution time.
     """
+
     AUTOSCALING_ALGORITHM_UNKNOWN = 0
     AUTOSCALING_ALGORITHM_NONE = 1
     AUTOSCALING_ALGORITHM_BASIC = 2
@@ -170,6 +175,7 @@ class WorkerIPAddressConfiguration(proto.Enum):
         WORKER_IP_PRIVATE (2):
             Workers should have private IP addresses.
     """
+
     WORKER_IP_UNSPECIFIED = 0
     WORKER_IP_PUBLIC = 1
     WORKER_IP_PRIVATE = 2
@@ -189,6 +195,7 @@ class ShuffleMode(proto.Enum):
         SERVICE_BASED (2):
             Shuffle is done on the service side.
     """
+
     SHUFFLE_MODE_UNSPECIFIED = 0
     VM_BASED = 1
     SERVICE_BASED = 2
@@ -218,6 +225,7 @@ class StreamingMode(proto.Enum):
             Setting this value also enables Streaming Engine
             and Streaming Engine resource-based billing.
     """
+
     STREAMING_MODE_UNSPECIFIED = 0
     STREAMING_MODE_EXACTLY_ONCE = 1
     STREAMING_MODE_AT_LEAST_ONCE = 2
@@ -271,8 +279,8 @@ class Environment(proto.Message):
             worker pool must be specified in order for the
             job to have workers.
         user_agent (google.protobuf.struct_pb2.Struct):
-            A description of the process that generated
-            the request.
+            Optional. A description of the process that
+            generated the request.
         version (google.protobuf.struct_pb2.Struct):
             A structure describing which components and
             their versions of the service are required in
@@ -334,6 +342,9 @@ class Environment(proto.Message):
             canonical use case. For more information, see `Set the
             pipeline streaming
             mode <https://cloud.google.com/dataflow/docs/guides/streaming-modes>`__.
+        use_public_ips (bool):
+            Optional. True when any worker pool that uses
+            public IPs is present.
     """
 
     temp_storage_prefix: str = proto.Field(
@@ -421,6 +432,10 @@ class Environment(proto.Message):
         number=19,
         enum="StreamingMode",
     )
+    use_public_ips: bool = proto.Field(
+        proto.BOOL,
+        number=20,
+    )
 
 
 class Package(proto.Message):
@@ -444,6 +459,12 @@ class Package(proto.Message):
 
               storage.googleapis.com/{bucket}
               bucket.storage.googleapis.com/
+        sha256 (str):
+            Optional. The hex-encoded SHA256 checksum of
+            the package. If the checksum is provided, the
+            worker will verify the checksum of the package
+            before using it. If the checksum does not match,
+            the worker will fail to start.
     """
 
     name: str = proto.Field(
@@ -453,6 +474,10 @@ class Package(proto.Message):
     location: str = proto.Field(
         proto.STRING,
         number=2,
+    )
+    sha256: str = proto.Field(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -851,6 +876,12 @@ class WorkerPool(proto.Message):
             Type of root disk for VMs.  If empty or
             unspecified, the service will attempt to choose
             a reasonable default.
+        disk_provisioned_iops (int):
+            Optional. IOPS provisioned for the root disk
+            for VMs.
+        disk_provisioned_throughput_mibps (int):
+            Optional. Throughput provisioned for the root
+            disk for VMs.
         disk_source_image (str):
             Fully qualified source image for disks.
         zone (str):
@@ -941,6 +972,14 @@ class WorkerPool(proto.Message):
         proto.STRING,
         number=16,
     )
+    disk_provisioned_iops: int = proto.Field(
+        proto.INT64,
+        number=23,
+    )
+    disk_provisioned_throughput_mibps: int = proto.Field(
+        proto.INT64,
+        number=24,
+    )
     disk_source_image: str = proto.Field(
         proto.STRING,
         number=8,
@@ -999,12 +1038,12 @@ class WorkerPool(proto.Message):
         number=21,
         enum="WorkerIPAddressConfiguration",
     )
-    sdk_harness_container_images: MutableSequence[
-        "SdkHarnessContainerImage"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=22,
-        message="SdkHarnessContainerImage",
+    sdk_harness_container_images: MutableSequence["SdkHarnessContainerImage"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=22,
+            message="SdkHarnessContainerImage",
+        )
     )
 
 
@@ -1043,6 +1082,7 @@ class DataSamplingConfig(proto.Message):
                 When given, enables sampling input elements
                 when a user-defined DoFn causes an exception.
         """
+
         DATA_SAMPLING_BEHAVIOR_UNSPECIFIED = 0
         DISABLED = 1
         ALWAYS_ON = 2

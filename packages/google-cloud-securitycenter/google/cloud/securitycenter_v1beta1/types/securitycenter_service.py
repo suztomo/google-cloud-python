@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,20 +17,20 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.securitycenter_v1beta1.types import asset as gcs_asset
+from google.cloud.securitycenter_v1beta1.types import finding as gcs_finding
 from google.cloud.securitycenter_v1beta1.types import (
     organization_settings as gcs_organization_settings,
 )
 from google.cloud.securitycenter_v1beta1.types import (
     security_marks as gcs_security_marks,
 )
-from google.cloud.securitycenter_v1beta1.types import asset as gcs_asset
-from google.cloud.securitycenter_v1beta1.types import finding as gcs_finding
 from google.cloud.securitycenter_v1beta1.types import source as gcs_source
 
 __protobuf__ = proto.module(
@@ -170,22 +170,22 @@ class GroupAssetsRequest(proto.Message):
             negation. The fields map to those defined in the Asset
             resource. Examples include:
 
-            -  name
-            -  security_center_properties.resource_name
-            -  resource_properties.a_property
-            -  security_marks.marks.marka
+            - name
+            - security_center_properties.resource_name
+            - resource_properties.a_property
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             For example, ``resource_properties.size = 100`` is a valid
             filter string.
@@ -198,14 +198,14 @@ class GroupAssetsRequest(proto.Message):
             The following fields are supported when compare_duration is
             not set:
 
-            -  security_center_properties.resource_project
-            -  security_center_properties.resource_type
-            -  security_center_properties.resource_parent
+            - security_center_properties.resource_project
+            - security_center_properties.resource_type
+            - security_center_properties.resource_parent
 
             The following fields are supported when compare_duration is
             set:
 
-            -  security_center_properties.resource_type
+            - security_center_properties.resource_type
         compare_duration (google.protobuf.duration_pb2.Duration):
             When compare_duration is set, the Asset's "state" property
             is updated to indicate whether the asset was added, removed,
@@ -221,14 +221,14 @@ class GroupAssetsRequest(proto.Message):
 
             Possible "state" values when compare_duration is specified:
 
-            -  "ADDED": indicates that the asset was not present before
-               compare_duration, but present at reference_time.
-            -  "REMOVED": indicates that the asset was present at the
-               start of compare_duration, but not present at
-               reference_time.
-            -  "ACTIVE": indicates that the asset was present at both
-               the start and the end of the time period defined by
-               compare_duration and reference_time.
+            - "ADDED": indicates that the asset was not present before
+              compare_duration, but present at reference_time.
+            - "REMOVED": indicates that the asset was present at the
+              start of compare_duration, but not present at
+              reference_time.
+            - "ACTIVE": indicates that the asset was present at both the
+              start and the end of the time period defined by
+              compare_duration and reference_time.
 
             This field is ignored if ``state`` is not a field in
             ``group_by``.
@@ -338,21 +338,21 @@ class GroupFindingsRequest(proto.Message):
             and may have a ``-`` character in front of them to indicate
             negation. Examples include:
 
-            -  name
-            -  source_properties.a_property
-            -  security_marks.marks.marka
+            - name
+            - source_properties.a_property
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             For example, ``source_properties.size = 100`` is a valid
             filter string.
@@ -364,10 +364,10 @@ class GroupFindingsRequest(proto.Message):
 
             The following fields are supported:
 
-            -  resource_name
-            -  category
-            -  state
-            -  parent
+            - resource_name
+            - category
+            - state
+            - parent
         read_time (google.protobuf.timestamp_pb2.Timestamp):
             Time used as a reference point when filtering
             findings. The filter is limited to findings
@@ -551,22 +551,22 @@ class ListAssetsRequest(proto.Message):
             negation. The fields map to those defined in the Asset
             resource. Examples include:
 
-            -  name
-            -  security_center_properties.resource_name
-            -  resource_properties.a_property
-            -  security_marks.marks.marka
+            - name
+            - security_center_properties.resource_name
+            - resource_properties.a_property
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             For example, ``resource_properties.size = 100`` is a valid
             filter string.
@@ -603,13 +603,13 @@ class ListAssetsRequest(proto.Message):
 
             Possible "state" values when compare_duration is specified:
 
-            -  "ADDED": indicates that the asset was not present before
-               compare_duration, but present at read_time.
-            -  "REMOVED": indicates that the asset was present at the
-               start of compare_duration, but not present at read_time.
-            -  "ACTIVE": indicates that the asset was present at both
-               the start and the end of the time period defined by
-               compare_duration and read_time.
+            - "ADDED": indicates that the asset was not present before
+              compare_duration, but present at read_time.
+            - "REMOVED": indicates that the asset was present at the
+              start of compare_duration, but not present at read_time.
+            - "ACTIVE": indicates that the asset was present at both the
+              start and the end of the time period defined by
+              compare_duration and read_time.
 
             If compare_duration is not specified, then the only possible
             state is "UNUSED", which indicates that the asset is present
@@ -713,6 +713,7 @@ class ListAssetsResponse(proto.Message):
                 ACTIVE (4):
                     Asset was active at both point(s) in time.
             """
+
             STATE_UNSPECIFIED = 0
             UNUSED = 1
             ADDED = 2
@@ -775,21 +776,21 @@ class ListFindingsRequest(proto.Message):
             and may have a ``-`` character in front of them to indicate
             negation. Examples include:
 
-            -  name
-            -  source_properties.a_property
-            -  security_marks.marks.marka
+            - name
+            - source_properties.a_property
+            - security_marks.marks.marka
 
             The supported operators are:
 
-            -  ``=`` for all value types.
-            -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-            -  ``:``, meaning substring matching, for strings.
+            - ``=`` for all value types.
+            - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+            - ``:``, meaning substring matching, for strings.
 
             The supported value types are:
 
-            -  string literals in quotes.
-            -  integer literals without quotes.
-            -  boolean literals ``true`` and ``false`` without quotes.
+            - string literals in quotes.
+            - integer literals without quotes.
+            - boolean literals ``true`` and ``false`` without quotes.
 
             For example, ``source_properties.size = 100`` is a valid
             filter string.

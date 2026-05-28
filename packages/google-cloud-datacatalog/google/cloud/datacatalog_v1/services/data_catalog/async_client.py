@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.datacatalog_v1 import gapic_version as package_version
 
@@ -45,13 +45,17 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.datacatalog_v1.services.data_catalog import pagers
 from google.cloud.datacatalog_v1.types import (
@@ -149,7 +153,10 @@ class DataCatalogAsyncClient:
         Returns:
             DataCatalogAsyncClient: The constructed client.
         """
-        return DataCatalogClient.from_service_account_info.__func__(DataCatalogAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DataCatalogClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DataCatalogAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -165,7 +172,10 @@ class DataCatalogAsyncClient:
         Returns:
             DataCatalogAsyncClient: The constructed client.
         """
-        return DataCatalogClient.from_service_account_file.__func__(DataCatalogAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DataCatalogClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DataCatalogAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -215,7 +225,7 @@ class DataCatalogAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -403,9 +413,9 @@ class DataCatalogAsyncClient:
                 A query string can be a simple ``xyz`` or qualified by
                 predicates:
 
-                -  ``name:x``
-                -  ``column:y``
-                -  ``description:z``
+                - ``name:x``
+                - ``column:y``
+                - ``description:z``
 
                 This corresponds to the ``query`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -509,10 +519,10 @@ class DataCatalogAsyncClient:
         Data Catalog automatically creates entry groups with names that
         start with the ``@`` symbol for the following resources:
 
-        -  BigQuery entries (``@bigquery``)
-        -  Pub/Sub topics (``@pubsub``)
-        -  Dataproc Metastore services
-           (``@dataproc_metastore_{SERVICE_NAME_HASH}``)
+        - BigQuery entries (``@bigquery``)
+        - Pub/Sub topics (``@pubsub``)
+        - Dataproc Metastore services
+          (``@dataproc_metastore_{SERVICE_NAME_HASH}``)
 
         You can create your own entry groups for Cloud Storage fileset
         entries and custom entries together with the corresponding IAM
@@ -576,7 +586,7 @@ class DataCatalogAsyncClient:
                 Required. The ID of the entry group to create.
 
                 The ID must contain only letters (a-z, A-Z), numbers
-                (0-9), underscores (_), and must start with a letter or
+                (0-9), underscores (\_), and must start with a letter or
                 underscore. The maximum size is 64 bytes when encoded in
                 UTF-8.
 
@@ -1249,8 +1259,8 @@ class DataCatalogAsyncClient:
                 Required. The ID of the entry to create.
 
                 The ID must contain only letters (a-z, A-Z), numbers
-                (0-9), and underscores (_). The maximum size is 64 bytes
-                when encoded in UTF-8.
+                (0-9), and underscores (\_). The maximum size is 64
+                bytes when encoded in UTF-8.
 
                 This corresponds to the ``entry_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1411,25 +1421,25 @@ class DataCatalogAsyncClient:
 
                 For entries with type ``DATA_STREAM``:
 
-                -  ``schema``
+                - ``schema``
 
                 For entries with type ``FILESET``:
 
-                -  ``schema``
-                -  ``display_name``
-                -  ``description``
-                -  ``gcs_fileset_spec``
-                -  ``gcs_fileset_spec.file_patterns``
+                - ``schema``
+                - ``display_name``
+                - ``description``
+                - ``gcs_fileset_spec``
+                - ``gcs_fileset_spec.file_patterns``
 
                 For entries with ``user_specified_type``:
 
-                -  ``schema``
-                -  ``display_name``
-                -  ``description``
-                -  ``user_specified_type``
-                -  ``user_specified_system``
-                -  ``linked_resource``
-                -  ``source_system_timestamps``
+                - ``schema``
+                - ``display_name``
+                - ``description``
+                - ``user_specified_type``
+                - ``user_specified_system``
+                - ``linked_resource``
+                - ``source_system_timestamps``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2232,9 +2242,9 @@ class DataCatalogAsyncClient:
                 Required. The ID of the tag template to create.
 
                 The ID must contain only lowercase letters (a-z),
-                numbers (0-9), or underscores (_), and must start with a
-                letter or underscore. The maximum size is 64 bytes when
-                encoded in UTF-8.
+                numbers (0-9), or underscores (\_), and must start with
+                a letter or underscore. The maximum size is 64 bytes
+                when encoded in UTF-8.
 
                 This corresponds to the ``tag_template_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2798,7 +2808,7 @@ class DataCatalogAsyncClient:
                 *not* allowed.
 
                 Field IDs can contain letters (both uppercase and
-                lowercase), numbers (0-9), underscores (_) and dashes
+                lowercase), numbers (0-9), underscores (\_) and dashes
                 (-). Field IDs must be at least 1 character long and at
                 most 128 characters long. Field IDs must also be unique
                 within their template.
@@ -2958,9 +2968,9 @@ class DataCatalogAsyncClient:
                 an individual field of a tag template. The following
                 fields are modifiable:
 
-                -  ``display_name``
-                -  ``type.enum_type``
-                -  ``is_required``
+                - ``display_name``
+                - ``type.enum_type``
+                - ``is_required``
 
                 If this parameter is absent or empty, all modifiable
                 fields are overwritten. If such fields are non-required
@@ -3450,12 +3460,11 @@ class DataCatalogAsyncClient:
     ) -> tags.Tag:
         r"""Creates a tag and assigns it to:
 
-        -  An [Entry][google.cloud.datacatalog.v1.Entry] if the method
-           name is
-           ``projects.locations.entryGroups.entries.tags.create``.
-        -  Or [EntryGroup][google.cloud.datacatalog.v1.EntryGroup]if the
-           method name is
-           ``projects.locations.entryGroups.tags.create``.
+        - An [Entry][google.cloud.datacatalog.v1.Entry] if the method
+          name is
+          ``projects.locations.entryGroups.entries.tags.create``.
+        - Or [EntryGroup][google.cloud.datacatalog.v1.EntryGroup]if the
+          method name is ``projects.locations.entryGroups.tags.create``.
 
         Note: The project identified by the ``parent`` parameter for the
         [tag]
@@ -3532,7 +3541,7 @@ class DataCatalogAsyncClient:
                    conform with the specification of their tag template.
 
                    See [Data Catalog
-                   IAM](\ https://cloud.google.com/data-catalog/docs/concepts/iam)
+                   IAM](https://cloud.google.com/data-catalog/docs/concepts/iam)
                    for information on the permissions needed to create
                    or view tags.
 
@@ -3672,7 +3681,7 @@ class DataCatalogAsyncClient:
                    conform with the specification of their tag template.
 
                    See [Data Catalog
-                   IAM](\ https://cloud.google.com/data-catalog/docs/concepts/iam)
+                   IAM](https://cloud.google.com/data-catalog/docs/concepts/iam)
                    for information on the permissions needed to create
                    or view tags.
 
@@ -4017,11 +4026,11 @@ class DataCatalogAsyncClient:
                 )
 
                 # Make the request
-                operation = client.reconcile_tags(request=request)
+                operation = await client.reconcile_tags(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4341,8 +4350,8 @@ class DataCatalogAsyncClient:
 
         Supported resources are:
 
-        -  Tag templates
-        -  Entry groups
+        - Tag templates
+        - Entry groups
 
         Note: This method sets policies only within Data Catalog and
         can't be used to manage policies in BigQuery, Pub/Sub, Dataproc
@@ -4352,10 +4361,10 @@ class DataCatalogAsyncClient:
         To call this method, you must have the following Google IAM
         permissions:
 
-        -  ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
-           tag templates.
-        -  ``datacatalog.entryGroups.setIamPolicy`` to set policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.setIamPolicy`` to set policies on
+          tag templates.
+        - ``datacatalog.entryGroups.setIamPolicy`` to set policies on
+          entry groups.
 
         .. code-block:: python
 
@@ -4367,7 +4376,7 @@ class DataCatalogAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_set_iam_policy():
                 # Create a client
@@ -4423,19 +4432,19 @@ class DataCatalogAsyncClient:
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         warnings.warn(
@@ -4501,15 +4510,15 @@ class DataCatalogAsyncClient:
 
         May return:
 
-        -  A\ ``NOT_FOUND`` error if the resource doesn't exist or you
-           don't have the permission to view it.
-        -  An empty policy if the resource exists but doesn't have a set
-           policy.
+        - A\ ``NOT_FOUND`` error if the resource doesn't exist or you
+          don't have the permission to view it.
+        - An empty policy if the resource exists but doesn't have a set
+          policy.
 
         Supported resources are:
 
-        -  Tag templates
-        -  Entry groups
+        - Tag templates
+        - Entry groups
 
         Note: This method doesn't get policies from Google Cloud
         Platform resources ingested into Data Catalog.
@@ -4517,10 +4526,10 @@ class DataCatalogAsyncClient:
         To call this method, you must have the following Google IAM
         permissions:
 
-        -  ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
-           tag templates.
-        -  ``datacatalog.entryGroups.getIamPolicy`` to get policies on
-           entry groups.
+        - ``datacatalog.tagTemplates.getIamPolicy`` to get policies on
+          tag templates.
+        - ``datacatalog.entryGroups.getIamPolicy`` to get policies on
+          entry groups.
 
         .. code-block:: python
 
@@ -4532,7 +4541,7 @@ class DataCatalogAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_get_iam_policy():
                 # Create a client
@@ -4588,19 +4597,19 @@ class DataCatalogAsyncClient:
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         warnings.warn(
@@ -4689,7 +4698,7 @@ class DataCatalogAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import datacatalog_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_test_iam_permissions():
                 # Create a client
@@ -4811,11 +4820,11 @@ class DataCatalogAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_entries(request=request)
+                operation = await client.import_entries(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5181,7 +5190,7 @@ class DataCatalogAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5207,8 +5216,12 @@ class DataCatalogAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5217,7 +5230,7 @@ class DataCatalogAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5225,7 +5238,7 @@ class DataCatalogAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -5236,7 +5249,7 @@ class DataCatalogAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5262,8 +5275,12 @@ class DataCatalogAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5272,7 +5289,7 @@ class DataCatalogAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5280,7 +5297,7 @@ class DataCatalogAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -5291,7 +5308,7 @@ class DataCatalogAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5321,8 +5338,12 @@ class DataCatalogAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5331,7 +5352,7 @@ class DataCatalogAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5339,7 +5360,7 @@ class DataCatalogAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -5347,7 +5368,7 @@ class DataCatalogAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5376,8 +5397,12 @@ class DataCatalogAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5386,7 +5411,7 @@ class DataCatalogAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5394,7 +5419,7 @@ class DataCatalogAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

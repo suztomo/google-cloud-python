@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_version():
     client = dialogflow_v2beta1.VersionsAsyncClient()
 
     # Initialize request argument(s)
-    request = dialogflow_v2beta1.UpdateVersionRequest(
-    )
+    request = dialogflow_v2beta1.UpdateVersionRequest()
 
     # Make the request
     response = await client.update_version(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2beta1_generated_Versions_UpdateVersion_async]

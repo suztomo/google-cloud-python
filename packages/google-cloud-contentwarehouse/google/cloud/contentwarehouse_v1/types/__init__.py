@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,7 +107,9 @@ from .histogram import (
     HistogramQueryPropertyNameFilter,
     HistogramQueryResult,
 )
-from .pipeline_service import RunPipelineRequest
+from .pipeline_service import (
+    RunPipelineRequest,
+)
 from .pipelines import (
     ExportToCdwPipeline,
     GcsIngestPipeline,
@@ -144,7 +146,9 @@ from .ruleset_service_request import (
     ListRuleSetsResponse,
     UpdateRuleSetRequest,
 )
-from .synonymset import SynonymSet
+from .synonymset import (
+    SynonymSet,
+)
 from .synonymset_service_request import (
     CreateSynonymSetRequest,
     DeleteSynonymSetRequest,

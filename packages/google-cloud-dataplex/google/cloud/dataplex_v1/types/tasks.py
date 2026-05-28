@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataplex_v1.types import resources
@@ -286,6 +286,7 @@ class Task(proto.Message):
                 RECURRING (2):
                     The task is scheduled to run periodically.
             """
+
             TYPE_UNSPECIFIED = 0
             ON_DEMAND = 1
             RECURRING = 2
@@ -324,14 +325,14 @@ class Task(proto.Message):
                 key/value string. These will be interpolated before passing
                 the args to the driver. Currently supported placeholders:
 
-                -  ${task_id}
-                -  ${job_time} To pass positional args, set the key as
-                   TASK_ARGS. The value should be a comma-separated string
-                   of all the positional arguments. To use a delimiter other
-                   than comma, refer to
-                   https://cloud.google.com/sdk/gcloud/reference/topic/escaping.
-                   In case of other keys being present in the args, then
-                   TASK_ARGS will be passed as the last argument.
+                - ${task_id}
+                - ${job_time} To pass positional args, set the key as
+                  TASK_ARGS. The value should be a comma-separated string of
+                  all the positional arguments. To use a delimiter other
+                  than comma, refer to
+                  https://cloud.google.com/sdk/gcloud/reference/topic/escaping.
+                  In case of other keys being present in the args, then
+                  TASK_ARGS will be passed as the last argument.
             service_account (str):
                 Required. Service account to use to execute a
                 task. If not provided, the default Compute
@@ -645,6 +646,7 @@ class Job(proto.Message):
             DATAPROC (1):
                 Dataproc service is used to run this job.
         """
+
         SERVICE_UNSPECIFIED = 0
         DATAPROC = 1
 
@@ -665,8 +667,10 @@ class Job(proto.Message):
             FAILED (5):
                 The job is no longer running due to an error.
             ABORTED (6):
-                The job was cancelled outside of Dataplex.
+                The job was cancelled outside of Dataplex
+                Universal Catalog.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         CANCELLING = 2
@@ -682,12 +686,14 @@ class Job(proto.Message):
             TRIGGER_UNSPECIFIED (0):
                 The trigger is unspecified.
             TASK_CONFIG (1):
-                The job was triggered by Dataplex based on
-                trigger spec from task definition.
+                The job was triggered by Dataplex Universal
+                Catalog based on trigger spec from task
+                definition.
             RUN_REQUEST (2):
                 The job was triggered by the explicit call of
                 Task API.
         """
+
         TRIGGER_UNSPECIFIED = 0
         TASK_CONFIG = 1
         RUN_REQUEST = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.recommender_v1beta1.types import insight, recommendation
 from google.cloud.recommender_v1beta1.types import (
     insight_type_config as gcr_insight_type_config,
 )
 from google.cloud.recommender_v1beta1.types import (
     recommender_config as gcr_recommender_config,
 )
-from google.cloud.recommender_v1beta1.types import insight
-from google.cloud.recommender_v1beta1.types import recommendation
 
 __protobuf__ = proto.module(
     package="google.cloud.recommender.v1beta1",
@@ -62,15 +61,15 @@ class ListInsightsRequest(proto.Message):
             Required. The container resource on which to execute the
             request. Acceptable formats:
 
-            -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+            - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-            -  ``projects/[PROJECT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+            - ``projects/[PROJECT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-            -  ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+            - ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-            -  ``folders/[FOLDER_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+            - ``folders/[FOLDER_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
-            -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
+            - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/insightTypes/[INSIGHT_TYPE_ID]``
 
             LOCATION here refers to GCP Locations:
             https://cloud.google.com/about/locations/ INSIGHT_TYPE_ID
@@ -91,21 +90,21 @@ class ListInsightsRequest(proto.Message):
             Optional. Filter expression to restrict the insights
             returned. Supported filter fields:
 
-            -  ``stateInfo.state``
+            - ``stateInfo.state``
 
-            -  ``insightSubtype``
+            - ``insightSubtype``
 
-            -  ``severity``
+            - ``severity``
 
             Examples:
 
-            -  ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
+            - ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
 
-            -  ``insightSubtype = PERMISSIONS_USAGE``
+            - ``insightSubtype = PERMISSIONS_USAGE``
 
-            -  ``severity = CRITICAL OR severity = HIGH``
+            - ``severity = CRITICAL OR severity = HIGH``
 
-            -  ``stateInfo.state = ACTIVE AND (severity = CRITICAL OR severity = HIGH)``
+            - ``stateInfo.state = ACTIVE AND (severity = CRITICAL OR severity = HIGH)``
 
             (These expressions are based on the filter language
             described at https://google.aip.dev/160)
@@ -207,15 +206,15 @@ class ListRecommendationsRequest(proto.Message):
             Required. The container resource on which to execute the
             request. Acceptable formats:
 
-            -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+            - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-            -  ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+            - ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-            -  ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+            - ``billingAccounts/[BILLING_ACCOUNT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-            -  ``folders/[FOLDER_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+            - ``folders/[FOLDER_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
-            -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
+            - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]``
 
             LOCATION here refers to GCP Locations:
             https://cloud.google.com/about/locations/ RECOMMENDER_ID
@@ -236,21 +235,21 @@ class ListRecommendationsRequest(proto.Message):
             Filter expression to restrict the recommendations returned.
             Supported filter fields:
 
-            -  ``state_info.state``
+            - ``state_info.state``
 
-            -  ``recommenderSubtype``
+            - ``recommenderSubtype``
 
-            -  ``priority``
+            - ``priority``
 
             Examples:
 
-            -  ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
+            - ``stateInfo.state = ACTIVE OR stateInfo.state = DISMISSED``
 
-            -  ``recommenderSubtype = REMOVE_ROLE OR recommenderSubtype = REPLACE_ROLE``
+            - ``recommenderSubtype = REMOVE_ROLE OR recommenderSubtype = REPLACE_ROLE``
 
-            -  ``priority = P1 OR priority = P2``
+            - ``priority = P1 OR priority = P2``
 
-            -  ``stateInfo.state = ACTIVE AND (priority = P1 OR priority = P2)``
+            - ``stateInfo.state = ACTIVE AND (priority = P1 OR priority = P2)``
 
             (These expressions are based on the filter language
             described at https://google.aip.dev/160)
@@ -290,12 +289,12 @@ class ListRecommendationsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    recommendations: MutableSequence[
-        recommendation.Recommendation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=recommendation.Recommendation,
+    recommendations: MutableSequence[recommendation.Recommendation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=recommendation.Recommendation,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -419,11 +418,11 @@ class GetRecommenderConfigRequest(proto.Message):
 
             Acceptable formats:
 
-            -  ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+            - ``projects/[PROJECT_NUMBER]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
 
-            -  ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+            - ``projects/[PROJECT_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
 
-            -  ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
+            - ``organizations/[ORGANIZATION_ID]/locations/[LOCATION]/recommenders/[RECOMMENDER_ID]/config``
     """
 
     name: str = proto.Field(
@@ -470,11 +469,11 @@ class GetInsightTypeConfigRequest(proto.Message):
 
             Acceptable formats:
 
-            -  ``projects/[PROJECT_NUMBER]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+            - ``projects/[PROJECT_NUMBER]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
 
-            -  ``projects/[PROJECT_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+            - ``projects/[PROJECT_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
 
-            -  ``organizations/[ORGANIZATION_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
+            - ``organizations/[ORGANIZATION_ID]/locations/global/recommenders/[INSIGHT_TYPE_ID]/config``
     """
 
     name: str = proto.Field(

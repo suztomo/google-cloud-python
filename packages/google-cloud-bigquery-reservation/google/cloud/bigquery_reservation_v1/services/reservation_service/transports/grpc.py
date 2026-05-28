@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
-from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 from google.cloud.bigquery_reservation_v1.types import reservation
+from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 
 from .base import DEFAULT_CLIENT_INFO, ReservationServiceTransport
 
@@ -56,7 +58,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -91,7 +93,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -167,9 +169,10 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -200,6 +203,10 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -302,9 +309,10 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -527,12 +535,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_capacity_commitment" not in self._stubs:
-            self._stubs[
-                "create_capacity_commitment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.bigquery.reservation.v1.ReservationService/CreateCapacityCommitment",
-                request_serializer=reservation.CreateCapacityCommitmentRequest.serialize,
-                response_deserializer=reservation.CapacityCommitment.deserialize,
+            self._stubs["create_capacity_commitment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.bigquery.reservation.v1.ReservationService/CreateCapacityCommitment",
+                    request_serializer=reservation.CreateCapacityCommitmentRequest.serialize,
+                    response_deserializer=reservation.CapacityCommitment.deserialize,
+                )
             )
         return self._stubs["create_capacity_commitment"]
 
@@ -615,12 +623,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_capacity_commitment" not in self._stubs:
-            self._stubs[
-                "delete_capacity_commitment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.bigquery.reservation.v1.ReservationService/DeleteCapacityCommitment",
-                request_serializer=reservation.DeleteCapacityCommitmentRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_capacity_commitment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.bigquery.reservation.v1.ReservationService/DeleteCapacityCommitment",
+                    request_serializer=reservation.DeleteCapacityCommitmentRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_capacity_commitment"]
 
@@ -652,12 +660,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_capacity_commitment" not in self._stubs:
-            self._stubs[
-                "update_capacity_commitment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.bigquery.reservation.v1.ReservationService/UpdateCapacityCommitment",
-                request_serializer=reservation.UpdateCapacityCommitmentRequest.serialize,
-                response_deserializer=reservation.CapacityCommitment.deserialize,
+            self._stubs["update_capacity_commitment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.bigquery.reservation.v1.ReservationService/UpdateCapacityCommitment",
+                    request_serializer=reservation.UpdateCapacityCommitmentRequest.serialize,
+                    response_deserializer=reservation.CapacityCommitment.deserialize,
+                )
             )
         return self._stubs["update_capacity_commitment"]
 
@@ -728,12 +736,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "merge_capacity_commitments" not in self._stubs:
-            self._stubs[
-                "merge_capacity_commitments"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.bigquery.reservation.v1.ReservationService/MergeCapacityCommitments",
-                request_serializer=reservation.MergeCapacityCommitmentsRequest.serialize,
-                response_deserializer=reservation.CapacityCommitment.deserialize,
+            self._stubs["merge_capacity_commitments"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.bigquery.reservation.v1.ReservationService/MergeCapacityCommitments",
+                    request_serializer=reservation.MergeCapacityCommitmentsRequest.serialize,
+                    response_deserializer=reservation.CapacityCommitment.deserialize,
+                )
             )
         return self._stubs["merge_capacity_commitments"]
 
@@ -763,11 +771,11 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
 
         Example:
 
-        -  The organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Assignments for all three entities (``organizationA``,
-           ``project1``, and ``project2``) could all be created and
-           mapped to the same or different reservations.
+        - The organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Assignments for all three entities (``organizationA``,
+          ``project1``, and ``project2``) could all be created and
+          mapped to the same or different reservations.
 
         "None" assignments represent an absence of the assignment.
         Projects assigned to None use on-demand pricing. To create a
@@ -814,12 +822,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
 
         Example:
 
-        -  Organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Reservation ``res1`` exists and was created previously.
-        -  CreateAssignment was used previously to define the following
-           associations between entities and reservations:
-           ``<organizationA, res1>`` and ``<project1, res1>``
+        - Organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Reservation ``res1`` exists and was created previously.
+        - CreateAssignment was used previously to define the following
+          associations between entities and reservations:
+          ``<organizationA, res1>`` and ``<project1, res1>``
 
         In this example, ListAssignments will just return the above two
         assignments for reservation ``res1``, and no expansion/merge
@@ -859,12 +867,12 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
 
         Example:
 
-        -  Organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Reservation ``res1`` exists and was created previously.
-        -  CreateAssignment was used previously to define the following
-           associations between entities and reservations:
-           ``<organizationA, res1>`` and ``<project1, res1>``
+        - Organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Reservation ``res1`` exists and was created previously.
+        - CreateAssignment was used previously to define the following
+          associations between entities and reservations:
+          ``<organizationA, res1>`` and ``<project1, res1>``
 
         In this example, deletion of the ``<organizationA, res1>``
         assignment won't affect the other assignment
@@ -1110,6 +1118,236 @@ class ReservationServiceGrpcTransport(ReservationServiceTransport):
                 response_deserializer=reservation.BiReservation.deserialize,
             )
         return self._stubs["update_bi_reservation"]
+
+    @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[[iam_policy_pb2.GetIamPolicyRequest], policy_pb2.Policy]:
+        r"""Return a callable for the get iam policy method over gRPC.
+
+        Gets the access control policy for a resource. May return:
+
+        - A\ ``NOT_FOUND`` error if the resource doesn't exist or you
+          don't have the permission to view it.
+        - An empty policy if the resource exists but doesn't have a set
+          policy.
+
+        Supported resources are:
+
+        - Reservations
+        - ReservationAssignments
+
+        To call this method, you must have the following Google IAM
+        permissions:
+
+        - ``bigqueryreservation.reservations.getIamPolicy`` to get
+          policies on reservations.
+
+        Returns:
+            Callable[[~.GetIamPolicyRequest],
+                    ~.Policy]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_iam_policy" not in self._stubs:
+            self._stubs["get_iam_policy"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/GetIamPolicy",
+                request_serializer=iam_policy_pb2.GetIamPolicyRequest.SerializeToString,
+                response_deserializer=policy_pb2.Policy.FromString,
+            )
+        return self._stubs["get_iam_policy"]
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[[iam_policy_pb2.SetIamPolicyRequest], policy_pb2.Policy]:
+        r"""Return a callable for the set iam policy method over gRPC.
+
+        Sets an access control policy for a resource. Replaces any
+        existing policy.
+
+        Supported resources are:
+
+        - Reservations
+
+        To call this method, you must have the following Google IAM
+        permissions:
+
+        - ``bigqueryreservation.reservations.setIamPolicy`` to set
+          policies on reservations.
+
+        Returns:
+            Callable[[~.SetIamPolicyRequest],
+                    ~.Policy]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "set_iam_policy" not in self._stubs:
+            self._stubs["set_iam_policy"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/SetIamPolicy",
+                request_serializer=iam_policy_pb2.SetIamPolicyRequest.SerializeToString,
+                response_deserializer=policy_pb2.Policy.FromString,
+            )
+        return self._stubs["set_iam_policy"]
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.TestIamPermissionsRequest],
+        iam_policy_pb2.TestIamPermissionsResponse,
+    ]:
+        r"""Return a callable for the test iam permissions method over gRPC.
+
+        Gets your permissions on a resource. Returns an empty
+        set of permissions if the resource doesn't exist.
+
+        Supported resources are:
+
+        - Reservations
+
+        No Google IAM permissions are required to call this
+        method.
+
+        Returns:
+            Callable[[~.TestIamPermissionsRequest],
+                    ~.TestIamPermissionsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "test_iam_permissions" not in self._stubs:
+            self._stubs["test_iam_permissions"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/TestIamPermissions",
+                request_serializer=iam_policy_pb2.TestIamPermissionsRequest.SerializeToString,
+                response_deserializer=iam_policy_pb2.TestIamPermissionsResponse.FromString,
+            )
+        return self._stubs["test_iam_permissions"]
+
+    @property
+    def create_reservation_group(
+        self,
+    ) -> Callable[
+        [reservation.CreateReservationGroupRequest], reservation.ReservationGroup
+    ]:
+        r"""Return a callable for the create reservation group method over gRPC.
+
+        Creates a new reservation group.
+
+        Returns:
+            Callable[[~.CreateReservationGroupRequest],
+                    ~.ReservationGroup]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "create_reservation_group" not in self._stubs:
+            self._stubs["create_reservation_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/CreateReservationGroup",
+                request_serializer=reservation.CreateReservationGroupRequest.serialize,
+                response_deserializer=reservation.ReservationGroup.deserialize,
+            )
+        return self._stubs["create_reservation_group"]
+
+    @property
+    def get_reservation_group(
+        self,
+    ) -> Callable[
+        [reservation.GetReservationGroupRequest], reservation.ReservationGroup
+    ]:
+        r"""Return a callable for the get reservation group method over gRPC.
+
+        Returns information about the reservation group.
+
+        Returns:
+            Callable[[~.GetReservationGroupRequest],
+                    ~.ReservationGroup]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_reservation_group" not in self._stubs:
+            self._stubs["get_reservation_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/GetReservationGroup",
+                request_serializer=reservation.GetReservationGroupRequest.serialize,
+                response_deserializer=reservation.ReservationGroup.deserialize,
+            )
+        return self._stubs["get_reservation_group"]
+
+    @property
+    def delete_reservation_group(
+        self,
+    ) -> Callable[[reservation.DeleteReservationGroupRequest], empty_pb2.Empty]:
+        r"""Return a callable for the delete reservation group method over gRPC.
+
+        Deletes a reservation. Returns
+        ``google.rpc.Code.FAILED_PRECONDITION`` when reservation has
+        assignments.
+
+        Returns:
+            Callable[[~.DeleteReservationGroupRequest],
+                    ~.Empty]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_reservation_group" not in self._stubs:
+            self._stubs["delete_reservation_group"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/DeleteReservationGroup",
+                request_serializer=reservation.DeleteReservationGroupRequest.serialize,
+                response_deserializer=empty_pb2.Empty.FromString,
+            )
+        return self._stubs["delete_reservation_group"]
+
+    @property
+    def list_reservation_groups(
+        self,
+    ) -> Callable[
+        [reservation.ListReservationGroupsRequest],
+        reservation.ListReservationGroupsResponse,
+    ]:
+        r"""Return a callable for the list reservation groups method over gRPC.
+
+        Lists all the reservation groups for the project in
+        the specified location.
+
+        Returns:
+            Callable[[~.ListReservationGroupsRequest],
+                    ~.ListReservationGroupsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_reservation_groups" not in self._stubs:
+            self._stubs["list_reservation_groups"] = self._logged_channel.unary_unary(
+                "/google.cloud.bigquery.reservation.v1.ReservationService/ListReservationGroups",
+                request_serializer=reservation.ListReservationGroupsRequest.serialize,
+                response_deserializer=reservation.ListReservationGroupsResponse.deserialize,
+            )
+        return self._stubs["list_reservation_groups"]
 
     def close(self):
         self._logged_channel.close()

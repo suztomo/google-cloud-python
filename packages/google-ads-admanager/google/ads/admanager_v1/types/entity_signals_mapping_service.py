@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.ads.admanager_v1.types import entity_signals_mapping_messages
@@ -151,7 +151,7 @@ class UpdateEntitySignalsMappingRequest(proto.Message):
             EntitySignalsMapping to update. Format:
             ``networks/{network_code}/entitySignalsMappings/{entity_signals_mapping}``
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
-            Required. The list of fields to update.
+            Optional. The list of fields to update.
     """
 
     entity_signals_mapping: entity_signals_mapping_messages.EntitySignalsMapping = (
@@ -184,8 +184,8 @@ class ListEntitySignalsMappingsResponse(proto.Message):
             included in the request, this reflects the total number
             after the filtering is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.
@@ -233,12 +233,12 @@ class BatchCreateEntitySignalsMappingsRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    requests: MutableSequence[
-        "CreateEntitySignalsMappingRequest"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="CreateEntitySignalsMappingRequest",
+    requests: MutableSequence["CreateEntitySignalsMappingRequest"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="CreateEntitySignalsMappingRequest",
+        )
     )
 
 
@@ -277,12 +277,12 @@ class BatchUpdateEntitySignalsMappingsRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    requests: MutableSequence[
-        "UpdateEntitySignalsMappingRequest"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="UpdateEntitySignalsMappingRequest",
+    requests: MutableSequence["UpdateEntitySignalsMappingRequest"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="UpdateEntitySignalsMappingRequest",
+        )
     )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,18 @@ from .client_tls_policy import (
     ListClientTlsPoliciesResponse,
     UpdateClientTlsPolicyRequest,
 )
-from .common import OperationMetadata
+from .common import (
+    OperationMetadata,
+)
+from .dns_threat_detector import (
+    CreateDnsThreatDetectorRequest,
+    DeleteDnsThreatDetectorRequest,
+    DnsThreatDetector,
+    GetDnsThreatDetectorRequest,
+    ListDnsThreatDetectorsRequest,
+    ListDnsThreatDetectorsResponse,
+    UpdateDnsThreatDetectorRequest,
+)
 from .server_tls_policy import (
     CreateServerTlsPolicyRequest,
     DeleteServerTlsPolicyRequest,
@@ -64,6 +75,13 @@ __all__ = (
     "ListClientTlsPoliciesResponse",
     "UpdateClientTlsPolicyRequest",
     "OperationMetadata",
+    "CreateDnsThreatDetectorRequest",
+    "DeleteDnsThreatDetectorRequest",
+    "DnsThreatDetector",
+    "GetDnsThreatDetectorRequest",
+    "ListDnsThreatDetectorsRequest",
+    "ListDnsThreatDetectorsResponse",
+    "UpdateDnsThreatDetectorRequest",
     "CreateServerTlsPolicyRequest",
     "DeleteServerTlsPolicyRequest",
     "GetServerTlsPolicyRequest",

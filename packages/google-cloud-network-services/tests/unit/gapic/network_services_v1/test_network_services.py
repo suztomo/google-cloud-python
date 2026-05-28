@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +37,14 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,23 +53,18 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import options_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    options_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.network_services_v1.services.network_services import (
     NetworkServicesAsyncClient,
@@ -77,25 +73,33 @@ from google.cloud.network_services_v1.services.network_services import (
     transports,
 )
 from google.cloud.network_services_v1.types import (
+    common,
+    endpoint_policy,
+    extensibility,
+    gateway,
+    grpc_route,
+    http_route,
+    mesh,
+    route_view,
+    service_binding,
+    service_lb_policy,
+    tcp_route,
+    tls_route,
+)
+from google.cloud.network_services_v1.types import (
     endpoint_policy as gcn_endpoint_policy,
 )
+from google.cloud.network_services_v1.types import gateway as gcn_gateway
+from google.cloud.network_services_v1.types import grpc_route as gcn_grpc_route
+from google.cloud.network_services_v1.types import http_route as gcn_http_route
+from google.cloud.network_services_v1.types import mesh as gcn_mesh
 from google.cloud.network_services_v1.types import (
     service_binding as gcn_service_binding,
 )
-from google.cloud.network_services_v1.types import common
-from google.cloud.network_services_v1.types import endpoint_policy
-from google.cloud.network_services_v1.types import gateway
-from google.cloud.network_services_v1.types import gateway as gcn_gateway
-from google.cloud.network_services_v1.types import grpc_route
-from google.cloud.network_services_v1.types import grpc_route as gcn_grpc_route
-from google.cloud.network_services_v1.types import http_route
-from google.cloud.network_services_v1.types import http_route as gcn_http_route
-from google.cloud.network_services_v1.types import mesh
-from google.cloud.network_services_v1.types import mesh as gcn_mesh
-from google.cloud.network_services_v1.types import service_binding
-from google.cloud.network_services_v1.types import tcp_route
+from google.cloud.network_services_v1.types import (
+    service_lb_policy as gcn_service_lb_policy,
+)
 from google.cloud.network_services_v1.types import tcp_route as gcn_tcp_route
-from google.cloud.network_services_v1.types import tls_route
 from google.cloud.network_services_v1.types import tls_route as gcn_tls_route
 
 CRED_INFO_JSON = {
@@ -152,6 +156,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert NetworkServicesClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -172,6 +177,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         NetworkServicesClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        NetworkServicesClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -195,12 +204,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            NetworkServicesClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                NetworkServicesClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert NetworkServicesClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert NetworkServicesClient._read_environment_variables() == (
@@ -237,6 +253,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert NetworkServicesClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert NetworkServicesClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert NetworkServicesClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                NetworkServicesClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert NetworkServicesClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert NetworkServicesClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -608,17 +723,6 @@ def test_network_services_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -854,6 +958,117 @@ def test_network_services_client_get_mtls_endpoint_and_cert_source(client_class)
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -886,10 +1101,9 @@ def test_network_services_client_get_mtls_endpoint_and_cert_source(client_class)
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -902,18 +1116,6 @@ def test_network_services_client_get_mtls_endpoint_and_cert_source(client_class)
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1144,13 +1346,13 @@ def test_network_services_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1196,6 +1398,7 @@ def test_list_endpoint_policies(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = endpoint_policy.ListEndpointPoliciesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_endpoint_policies(request)
 
@@ -1208,6 +1411,7 @@ def test_list_endpoint_policies(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListEndpointPoliciesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_endpoint_policies_non_empty_request_with_auto_populated_field():
@@ -1266,9 +1470,9 @@ def test_list_endpoint_policies_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_endpoint_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_endpoint_policies] = (
+            mock_rpc
+        )
         request = {}
         client.list_endpoint_policies(request)
 
@@ -1346,6 +1550,7 @@ async def test_list_endpoint_policies_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             endpoint_policy.ListEndpointPoliciesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_endpoint_policies(request)
@@ -1359,6 +1564,7 @@ async def test_list_endpoint_policies_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListEndpointPoliciesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -1709,11 +1915,7 @@ async def test_list_endpoint_policies_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_endpoint_policies(request={})
-        ).pages:
+        async for page_ in (await client.list_endpoint_policies(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1823,9 +2025,9 @@ def test_get_endpoint_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_endpoint_policy] = (
+            mock_rpc
+        )
         request = {}
         client.get_endpoint_policy(request)
 
@@ -2178,9 +2380,9 @@ def test_create_endpoint_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_endpoint_policy] = (
+            mock_rpc
+        )
         request = {}
         client.create_endpoint_policy(request)
 
@@ -2541,9 +2743,9 @@ def test_update_endpoint_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_endpoint_policy] = (
+            mock_rpc
+        )
         request = {}
         client.update_endpoint_policy(request)
 
@@ -2898,9 +3100,9 @@ def test_delete_endpoint_policy_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_endpoint_policy] = (
+            mock_rpc
+        )
         request = {}
         client.delete_endpoint_policy(request)
 
@@ -3159,6 +3361,3580 @@ async def test_delete_endpoint_policy_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
+        extensibility.ListWasmPluginVersionsRequest,
+        dict,
+    ],
+)
+def test_list_wasm_plugin_versions(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginVersionsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.ListWasmPluginVersionsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginVersionsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_wasm_plugin_versions_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.ListWasmPluginVersionsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_wasm_plugin_versions(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.ListWasmPluginVersionsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_wasm_plugin_versions_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_wasm_plugin_versions
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_wasm_plugin_versions
+        ] = mock_rpc
+        request = {}
+        client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_wasm_plugin_versions(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_wasm_plugin_versions
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_wasm_plugin_versions
+        ] = mock_rpc
+
+        request = {}
+        await client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_wasm_plugin_versions(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_async(
+    transport: str = "grpc_asyncio",
+    request_type=extensibility.ListWasmPluginVersionsRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginVersionsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.ListWasmPluginVersionsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginVersionsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_async_from_dict():
+    await test_list_wasm_plugin_versions_async(request_type=dict)
+
+
+def test_list_wasm_plugin_versions_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.ListWasmPluginVersionsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        call.return_value = extensibility.ListWasmPluginVersionsResponse()
+        client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.ListWasmPluginVersionsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginVersionsResponse()
+        )
+        await client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_wasm_plugin_versions_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginVersionsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_wasm_plugin_versions(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_wasm_plugin_versions_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_wasm_plugin_versions(
+            extensibility.ListWasmPluginVersionsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginVersionsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginVersionsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_wasm_plugin_versions(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_wasm_plugin_versions(
+            extensibility.ListWasmPluginVersionsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_wasm_plugin_versions_pager(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_wasm_plugin_versions(
+            request={}, retry=retry, timeout=timeout
+        )
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, extensibility.WasmPluginVersion) for i in results)
+
+
+def test_list_wasm_plugin_versions_pages(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_wasm_plugin_versions(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_async_pager():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_wasm_plugin_versions(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, extensibility.WasmPluginVersion) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_async_pages():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_wasm_plugin_versions(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.GetWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_get_wasm_plugin_version(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPluginVersion(
+            name="name_value",
+            description="description_value",
+            image_uri="image_uri_value",
+            image_digest="image_digest_value",
+            plugin_config_digest="plugin_config_digest_value",
+            plugin_config_data=b"plugin_config_data_blob",
+        )
+        response = client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.GetWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPluginVersion)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.image_uri == "image_uri_value"
+    assert response.image_digest == "image_digest_value"
+    assert response.plugin_config_digest == "plugin_config_digest_value"
+
+
+def test_get_wasm_plugin_version_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.GetWasmPluginVersionRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_wasm_plugin_version(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.GetWasmPluginVersionRequest(
+            name="name_value",
+        )
+
+
+def test_get_wasm_plugin_version_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_wasm_plugin_version
+        ] = mock_rpc
+        request = {}
+        client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_wasm_plugin_version
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        await client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_async(
+    transport: str = "grpc_asyncio",
+    request_type=extensibility.GetWasmPluginVersionRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPluginVersion(
+                name="name_value",
+                description="description_value",
+                image_uri="image_uri_value",
+                image_digest="image_digest_value",
+                plugin_config_digest="plugin_config_digest_value",
+            )
+        )
+        response = await client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.GetWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPluginVersion)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.image_uri == "image_uri_value"
+    assert response.image_digest == "image_digest_value"
+    assert response.plugin_config_digest == "plugin_config_digest_value"
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_async_from_dict():
+    await test_get_wasm_plugin_version_async(request_type=dict)
+
+
+def test_get_wasm_plugin_version_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.GetWasmPluginVersionRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = extensibility.WasmPluginVersion()
+        client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.GetWasmPluginVersionRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPluginVersion()
+        )
+        await client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_wasm_plugin_version_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPluginVersion()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_wasm_plugin_version(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_wasm_plugin_version_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_wasm_plugin_version(
+            extensibility.GetWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPluginVersion()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPluginVersion()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_wasm_plugin_version(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_wasm_plugin_version(
+            extensibility.GetWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.CreateWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_create_wasm_plugin_version(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.CreateWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_create_wasm_plugin_version_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.CreateWasmPluginVersionRequest(
+        parent="parent_value",
+        wasm_plugin_version_id="wasm_plugin_version_id_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.create_wasm_plugin_version(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.CreateWasmPluginVersionRequest(
+            parent="parent_value",
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+
+def test_create_wasm_plugin_version_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.create_wasm_plugin_version
+        ] = mock_rpc
+        request = {}
+        client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.create_wasm_plugin_version
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.create_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        await client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.create_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_async(
+    transport: str = "grpc_asyncio",
+    request_type=extensibility.CreateWasmPluginVersionRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.CreateWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_async_from_dict():
+    await test_create_wasm_plugin_version_async(request_type=dict)
+
+
+def test_create_wasm_plugin_version_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.CreateWasmPluginVersionRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.CreateWasmPluginVersionRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_create_wasm_plugin_version_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.create_wasm_plugin_version(
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_version
+        mock_val = extensibility.WasmPluginVersion(
+            plugin_config_data=b"plugin_config_data_blob"
+        )
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_version_id
+        mock_val = "wasm_plugin_version_id_value"
+        assert arg == mock_val
+
+
+def test_create_wasm_plugin_version_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_wasm_plugin_version(
+            extensibility.CreateWasmPluginVersionRequest(),
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.create_wasm_plugin_version(
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_version
+        mock_val = extensibility.WasmPluginVersion(
+            plugin_config_data=b"plugin_config_data_blob"
+        )
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_version_id
+        mock_val = "wasm_plugin_version_id_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.create_wasm_plugin_version(
+            extensibility.CreateWasmPluginVersionRequest(),
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.DeleteWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_delete_wasm_plugin_version(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.DeleteWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_delete_wasm_plugin_version_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.DeleteWasmPluginVersionRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.delete_wasm_plugin_version(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.DeleteWasmPluginVersionRequest(
+            name="name_value",
+        )
+
+
+def test_delete_wasm_plugin_version_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.delete_wasm_plugin_version
+        ] = mock_rpc
+        request = {}
+        client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.delete_wasm_plugin_version
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.delete_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        await client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.delete_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_async(
+    transport: str = "grpc_asyncio",
+    request_type=extensibility.DeleteWasmPluginVersionRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.DeleteWasmPluginVersionRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_async_from_dict():
+    await test_delete_wasm_plugin_version_async(request_type=dict)
+
+
+def test_delete_wasm_plugin_version_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.DeleteWasmPluginVersionRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.DeleteWasmPluginVersionRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_delete_wasm_plugin_version_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.delete_wasm_plugin_version(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_delete_wasm_plugin_version_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_wasm_plugin_version(
+            extensibility.DeleteWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.delete_wasm_plugin_version(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.delete_wasm_plugin_version(
+            extensibility.DeleteWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.ListWasmPluginsRequest,
+        dict,
+    ],
+)
+def test_list_wasm_plugins(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.ListWasmPluginsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_wasm_plugins_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.ListWasmPluginsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_wasm_plugins(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.ListWasmPluginsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_wasm_plugins_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_wasm_plugins in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_wasm_plugins] = (
+            mock_rpc
+        )
+        request = {}
+        client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_wasm_plugins(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_wasm_plugins
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_wasm_plugins
+        ] = mock_rpc
+
+        request = {}
+        await client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_wasm_plugins(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_async(
+    transport: str = "grpc_asyncio", request_type=extensibility.ListWasmPluginsRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.ListWasmPluginsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_async_from_dict():
+    await test_list_wasm_plugins_async(request_type=dict)
+
+
+def test_list_wasm_plugins_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.ListWasmPluginsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        call.return_value = extensibility.ListWasmPluginsResponse()
+        client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.ListWasmPluginsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginsResponse()
+        )
+        await client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_wasm_plugins_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_wasm_plugins(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_wasm_plugins_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_wasm_plugins(
+            extensibility.ListWasmPluginsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.ListWasmPluginsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_wasm_plugins(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_wasm_plugins(
+            extensibility.ListWasmPluginsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_wasm_plugins_pager(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_wasm_plugins(request={}, retry=retry, timeout=timeout)
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, extensibility.WasmPlugin) for i in results)
+
+
+def test_list_wasm_plugins_pages(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_wasm_plugins(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_async_pager():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_wasm_plugins(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, extensibility.WasmPlugin) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_async_pages():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_wasm_plugins(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.GetWasmPluginRequest,
+        dict,
+    ],
+)
+def test_get_wasm_plugin(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPlugin(
+            name="name_value",
+            description="description_value",
+            main_version_id="main_version_id_value",
+        )
+        response = client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.GetWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPlugin)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.main_version_id == "main_version_id_value"
+
+
+def test_get_wasm_plugin_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.GetWasmPluginRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_wasm_plugin(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.GetWasmPluginRequest(
+            name="name_value",
+        )
+
+
+def test_get_wasm_plugin_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_wasm_plugin in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_wasm_plugin] = mock_rpc
+        request = {}
+        client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_wasm_plugin
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_wasm_plugin
+        ] = mock_rpc
+
+        request = {}
+        await client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_async(
+    transport: str = "grpc_asyncio", request_type=extensibility.GetWasmPluginRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPlugin(
+                name="name_value",
+                description="description_value",
+                main_version_id="main_version_id_value",
+            )
+        )
+        response = await client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.GetWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPlugin)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.main_version_id == "main_version_id_value"
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_async_from_dict():
+    await test_get_wasm_plugin_async(request_type=dict)
+
+
+def test_get_wasm_plugin_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.GetWasmPluginRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        call.return_value = extensibility.WasmPlugin()
+        client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.GetWasmPluginRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPlugin()
+        )
+        await client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_wasm_plugin_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPlugin()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_wasm_plugin(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_wasm_plugin_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_wasm_plugin(
+            extensibility.GetWasmPluginRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = extensibility.WasmPlugin()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPlugin()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_wasm_plugin(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_wasm_plugin(
+            extensibility.GetWasmPluginRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.CreateWasmPluginRequest,
+        dict,
+    ],
+)
+def test_create_wasm_plugin(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.CreateWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_create_wasm_plugin_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.CreateWasmPluginRequest(
+        parent="parent_value",
+        wasm_plugin_id="wasm_plugin_id_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.create_wasm_plugin(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.CreateWasmPluginRequest(
+            parent="parent_value",
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+
+def test_create_wasm_plugin_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_wasm_plugin] = (
+            mock_rpc
+        )
+        request = {}
+        client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.create_wasm_plugin
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.create_wasm_plugin
+        ] = mock_rpc
+
+        request = {}
+        await client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.create_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_async(
+    transport: str = "grpc_asyncio", request_type=extensibility.CreateWasmPluginRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.CreateWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_async_from_dict():
+    await test_create_wasm_plugin_async(request_type=dict)
+
+
+def test_create_wasm_plugin_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.CreateWasmPluginRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.CreateWasmPluginRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_create_wasm_plugin_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.create_wasm_plugin(
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].wasm_plugin
+        mock_val = extensibility.WasmPlugin(name="name_value")
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_id
+        mock_val = "wasm_plugin_id_value"
+        assert arg == mock_val
+
+
+def test_create_wasm_plugin_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_wasm_plugin(
+            extensibility.CreateWasmPluginRequest(),
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.create_wasm_plugin(
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].wasm_plugin
+        mock_val = extensibility.WasmPlugin(name="name_value")
+        assert arg == mock_val
+        arg = args[0].wasm_plugin_id
+        mock_val = "wasm_plugin_id_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.create_wasm_plugin(
+            extensibility.CreateWasmPluginRequest(),
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.UpdateWasmPluginRequest,
+        dict,
+    ],
+)
+def test_update_wasm_plugin(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.UpdateWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_update_wasm_plugin_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.UpdateWasmPluginRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.update_wasm_plugin(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.UpdateWasmPluginRequest()
+
+
+def test_update_wasm_plugin_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_wasm_plugin] = (
+            mock_rpc
+        )
+        request = {}
+        client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.update_wasm_plugin
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.update_wasm_plugin
+        ] = mock_rpc
+
+        request = {}
+        await client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.update_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_async(
+    transport: str = "grpc_asyncio", request_type=extensibility.UpdateWasmPluginRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.UpdateWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_async_from_dict():
+    await test_update_wasm_plugin_async(request_type=dict)
+
+
+def test_update_wasm_plugin_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.UpdateWasmPluginRequest()
+
+    request.wasm_plugin.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "wasm_plugin.name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.UpdateWasmPluginRequest()
+
+    request.wasm_plugin.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "wasm_plugin.name=name_value",
+    ) in kw["metadata"]
+
+
+def test_update_wasm_plugin_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.update_wasm_plugin(
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].wasm_plugin
+        mock_val = extensibility.WasmPlugin(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+def test_update_wasm_plugin_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_wasm_plugin(
+            extensibility.UpdateWasmPluginRequest(),
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.update_wasm_plugin(
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].wasm_plugin
+        mock_val = extensibility.WasmPlugin(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.update_wasm_plugin(
+            extensibility.UpdateWasmPluginRequest(),
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.DeleteWasmPluginRequest,
+        dict,
+    ],
+)
+def test_delete_wasm_plugin(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.DeleteWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_delete_wasm_plugin_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = extensibility.DeleteWasmPluginRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.delete_wasm_plugin(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == extensibility.DeleteWasmPluginRequest(
+            name="name_value",
+        )
+
+
+def test_delete_wasm_plugin_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_wasm_plugin] = (
+            mock_rpc
+        )
+        request = {}
+        client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.delete_wasm_plugin
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.delete_wasm_plugin
+        ] = mock_rpc
+
+        request = {}
+        await client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.delete_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_async(
+    transport: str = "grpc_asyncio", request_type=extensibility.DeleteWasmPluginRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = extensibility.DeleteWasmPluginRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_async_from_dict():
+    await test_delete_wasm_plugin_async(request_type=dict)
+
+
+def test_delete_wasm_plugin_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.DeleteWasmPluginRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = extensibility.DeleteWasmPluginRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_delete_wasm_plugin_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.delete_wasm_plugin(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_delete_wasm_plugin_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_wasm_plugin(
+            extensibility.DeleteWasmPluginRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.delete_wasm_plugin(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.delete_wasm_plugin(
+            extensibility.DeleteWasmPluginRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
         gateway.ListGatewaysRequest,
         dict,
     ],
@@ -3178,6 +6954,7 @@ def test_list_gateways(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = gateway.ListGatewaysResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_gateways(request)
 
@@ -3190,6 +6967,7 @@ def test_list_gateways(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGatewaysPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_gateways_non_empty_request_with_auto_populated_field():
@@ -3318,6 +7096,7 @@ async def test_list_gateways_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             gateway.ListGatewaysResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_gateways(request)
@@ -3331,6 +7110,7 @@ async def test_list_gateways_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGatewaysAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -3665,11 +7445,7 @@ async def test_list_gateways_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_gateways(request={})
-        ).pages:
+        async for page_ in (await client.list_gateways(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -3700,9 +7476,17 @@ def test_get_gateway(request_type, transport: str = "grpc"):
             self_link="self_link_value",
             description="description_value",
             type_=gateway.Gateway.Type.OPEN_MESH,
+            addresses=["addresses_value"],
             ports=[568],
             scope="scope_value",
             server_tls_policy="server_tls_policy_value",
+            certificate_urls=["certificate_urls_value"],
+            gateway_security_policy="gateway_security_policy_value",
+            network="network_value",
+            subnetwork="subnetwork_value",
+            ip_version=gateway.Gateway.IpVersion.IPV4,
+            envoy_headers=common.EnvoyHeaders.NONE,
+            routing_mode=gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE,
         )
         response = client.get_gateway(request)
 
@@ -3718,9 +7502,17 @@ def test_get_gateway(request_type, transport: str = "grpc"):
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.type_ == gateway.Gateway.Type.OPEN_MESH
+    assert response.addresses == ["addresses_value"]
     assert response.ports == [568]
     assert response.scope == "scope_value"
     assert response.server_tls_policy == "server_tls_policy_value"
+    assert response.certificate_urls == ["certificate_urls_value"]
+    assert response.gateway_security_policy == "gateway_security_policy_value"
+    assert response.network == "network_value"
+    assert response.subnetwork == "subnetwork_value"
+    assert response.ip_version == gateway.Gateway.IpVersion.IPV4
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
+    assert response.routing_mode == gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE
 
 
 def test_get_gateway_non_empty_request_with_auto_populated_field():
@@ -3850,9 +7642,17 @@ async def test_get_gateway_async(
                 self_link="self_link_value",
                 description="description_value",
                 type_=gateway.Gateway.Type.OPEN_MESH,
+                addresses=["addresses_value"],
                 ports=[568],
                 scope="scope_value",
                 server_tls_policy="server_tls_policy_value",
+                certificate_urls=["certificate_urls_value"],
+                gateway_security_policy="gateway_security_policy_value",
+                network="network_value",
+                subnetwork="subnetwork_value",
+                ip_version=gateway.Gateway.IpVersion.IPV4,
+                envoy_headers=common.EnvoyHeaders.NONE,
+                routing_mode=gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE,
             )
         )
         response = await client.get_gateway(request)
@@ -3869,9 +7669,17 @@ async def test_get_gateway_async(
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.type_ == gateway.Gateway.Type.OPEN_MESH
+    assert response.addresses == ["addresses_value"]
     assert response.ports == [568]
     assert response.scope == "scope_value"
     assert response.server_tls_policy == "server_tls_policy_value"
+    assert response.certificate_urls == ["certificate_urls_value"]
+    assert response.gateway_security_policy == "gateway_security_policy_value"
+    assert response.network == "network_value"
+    assert response.subnetwork == "subnetwork_value"
+    assert response.ip_version == gateway.Gateway.IpVersion.IPV4
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
+    assert response.routing_mode == gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE
 
 
 @pytest.mark.asyncio
@@ -5049,6 +8857,7 @@ def test_list_grpc_routes(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = grpc_route.ListGrpcRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_grpc_routes(request)
 
@@ -5061,6 +8870,7 @@ def test_list_grpc_routes(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGrpcRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_grpc_routes_non_empty_request_with_auto_populated_field():
@@ -5114,9 +8924,9 @@ def test_list_grpc_routes_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_grpc_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_grpc_routes] = (
+            mock_rpc
+        )
         request = {}
         client.list_grpc_routes(request)
 
@@ -5191,6 +9001,7 @@ async def test_list_grpc_routes_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             grpc_route.ListGrpcRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_grpc_routes(request)
@@ -5204,6 +9015,7 @@ async def test_list_grpc_routes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGrpcRoutesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -5538,11 +9350,7 @@ async def test_list_grpc_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_grpc_routes(request={})
-        ).pages:
+        async for page_ in (await client.list_grpc_routes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5979,9 +9787,9 @@ def test_create_grpc_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_grpc_route] = (
+            mock_rpc
+        )
         request = {}
         client.create_grpc_route(request)
 
@@ -6338,9 +10146,9 @@ def test_update_grpc_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_grpc_route] = (
+            mock_rpc
+        )
         request = {}
         client.update_grpc_route(request)
 
@@ -6691,9 +10499,9 @@ def test_delete_grpc_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_grpc_route] = (
+            mock_rpc
+        )
         request = {}
         client.delete_grpc_route(request)
 
@@ -6970,6 +10778,7 @@ def test_list_http_routes(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = http_route.ListHttpRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_http_routes(request)
 
@@ -6982,6 +10791,7 @@ def test_list_http_routes(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListHttpRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_http_routes_non_empty_request_with_auto_populated_field():
@@ -7035,9 +10845,9 @@ def test_list_http_routes_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_http_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_http_routes] = (
+            mock_rpc
+        )
         request = {}
         client.list_http_routes(request)
 
@@ -7112,6 +10922,7 @@ async def test_list_http_routes_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             http_route.ListHttpRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_http_routes(request)
@@ -7125,6 +10936,7 @@ async def test_list_http_routes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListHttpRoutesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -7459,11 +11271,7 @@ async def test_list_http_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_http_routes(request={})
-        ).pages:
+        async for page_ in (await client.list_http_routes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -7900,9 +11708,9 @@ def test_create_http_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_http_route] = (
+            mock_rpc
+        )
         request = {}
         client.create_http_route(request)
 
@@ -8259,9 +12067,9 @@ def test_update_http_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_http_route] = (
+            mock_rpc
+        )
         request = {}
         client.update_http_route(request)
 
@@ -8612,9 +12420,9 @@ def test_delete_http_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_http_route] = (
+            mock_rpc
+        )
         request = {}
         client.delete_http_route(request)
 
@@ -8891,6 +12699,7 @@ def test_list_tcp_routes(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = tcp_route.ListTcpRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_tcp_routes(request)
 
@@ -8903,6 +12712,7 @@ def test_list_tcp_routes(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTcpRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_tcp_routes_non_empty_request_with_auto_populated_field():
@@ -9031,6 +12841,7 @@ async def test_list_tcp_routes_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             tcp_route.ListTcpRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_tcp_routes(request)
@@ -9044,6 +12855,7 @@ async def test_list_tcp_routes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTcpRoutesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -9378,11 +13190,7 @@ async def test_list_tcp_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_tcp_routes(request={})
-        ).pages:
+        async for page_ in (await client.list_tcp_routes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -9807,9 +13615,9 @@ def test_create_tcp_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_tcp_route] = (
+            mock_rpc
+        )
         request = {}
         client.create_tcp_route(request)
 
@@ -10152,9 +13960,9 @@ def test_update_tcp_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_tcp_route] = (
+            mock_rpc
+        )
         request = {}
         client.update_tcp_route(request)
 
@@ -10491,9 +14299,9 @@ def test_delete_tcp_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_tcp_route] = (
+            mock_rpc
+        )
         request = {}
         client.delete_tcp_route(request)
 
@@ -10760,6 +14568,7 @@ def test_list_tls_routes(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = tls_route.ListTlsRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_tls_routes(request)
 
@@ -10772,6 +14581,7 @@ def test_list_tls_routes(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTlsRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_tls_routes_non_empty_request_with_auto_populated_field():
@@ -10900,6 +14710,7 @@ async def test_list_tls_routes_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             tls_route.ListTlsRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_tls_routes(request)
@@ -10913,6 +14724,7 @@ async def test_list_tls_routes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTlsRoutesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -11247,11 +15059,7 @@ async def test_list_tls_routes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_tls_routes(request={})
-        ).pages:
+        async for page_ in (await client.list_tls_routes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -11676,9 +15484,9 @@ def test_create_tls_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_tls_route] = (
+            mock_rpc
+        )
         request = {}
         client.create_tls_route(request)
 
@@ -12021,9 +15829,9 @@ def test_update_tls_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_tls_route] = (
+            mock_rpc
+        )
         request = {}
         client.update_tls_route(request)
 
@@ -12360,9 +16168,9 @@ def test_delete_tls_route_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_tls_route] = (
+            mock_rpc
+        )
         request = {}
         client.delete_tls_route(request)
 
@@ -12631,6 +16439,7 @@ def test_list_service_bindings(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = service_binding.ListServiceBindingsResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_service_bindings(request)
 
@@ -12643,6 +16452,7 @@ def test_list_service_bindings(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServiceBindingsPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_service_bindings_non_empty_request_with_auto_populated_field():
@@ -12701,9 +16511,9 @@ def test_list_service_bindings_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_service_bindings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_service_bindings] = (
+            mock_rpc
+        )
         request = {}
         client.list_service_bindings(request)
 
@@ -12781,6 +16591,7 @@ async def test_list_service_bindings_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             service_binding.ListServiceBindingsResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_service_bindings(request)
@@ -12794,6 +16605,7 @@ async def test_list_service_bindings_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServiceBindingsAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -13144,11 +16956,7 @@ async def test_list_service_bindings_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_service_bindings(request={})
-        ).pages:
+        async for page_ in (await client.list_service_bindings(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -13180,6 +16988,7 @@ def test_get_service_binding(request_type, transport: str = "grpc"):
             name="name_value",
             description="description_value",
             service="service_value",
+            service_id="service_id_value",
         )
         response = client.get_service_binding(request)
 
@@ -13194,6 +17003,7 @@ def test_get_service_binding(request_type, transport: str = "grpc"):
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.service == "service_value"
+    assert response.service_id == "service_id_value"
 
 
 def test_get_service_binding_non_empty_request_with_auto_populated_field():
@@ -13249,9 +17059,9 @@ def test_get_service_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_service_binding] = (
+            mock_rpc
+        )
         request = {}
         client.get_service_binding(request)
 
@@ -13331,6 +17141,7 @@ async def test_get_service_binding_async(
                 name="name_value",
                 description="description_value",
                 service="service_value",
+                service_id="service_id_value",
             )
         )
         response = await client.get_service_binding(request)
@@ -13346,6 +17157,7 @@ async def test_get_service_binding_async(
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.service == "service_value"
+    assert response.service_id == "service_id_value"
 
 
 @pytest.mark.asyncio
@@ -13595,9 +17407,9 @@ def test_create_service_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_service_binding] = (
+            mock_rpc
+        )
         request = {}
         client.create_service_binding(request)
 
@@ -13876,6 +17688,359 @@ async def test_create_service_binding_flattened_error_async():
 @pytest.mark.parametrize(
     "request_type",
     [
+        gcn_service_binding.UpdateServiceBindingRequest,
+        dict,
+    ],
+)
+def test_update_service_binding(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_binding.UpdateServiceBindingRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_update_service_binding_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = gcn_service_binding.UpdateServiceBindingRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.update_service_binding(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == gcn_service_binding.UpdateServiceBindingRequest()
+
+
+def test_update_service_binding_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_service_binding
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_service_binding] = (
+            mock_rpc
+        )
+        request = {}
+        client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_service_binding(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.update_service_binding
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.update_service_binding
+        ] = mock_rpc
+
+        request = {}
+        await client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.update_service_binding(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_async(
+    transport: str = "grpc_asyncio",
+    request_type=gcn_service_binding.UpdateServiceBindingRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_binding.UpdateServiceBindingRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_async_from_dict():
+    await test_update_service_binding_async(request_type=dict)
+
+
+def test_update_service_binding_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_binding.UpdateServiceBindingRequest()
+
+    request.service_binding.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "service_binding.name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_binding.UpdateServiceBindingRequest()
+
+    request.service_binding.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "service_binding.name=name_value",
+    ) in kw["metadata"]
+
+
+def test_update_service_binding_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.update_service_binding(
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].service_binding
+        mock_val = gcn_service_binding.ServiceBinding(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+def test_update_service_binding_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_service_binding(
+            gcn_service_binding.UpdateServiceBindingRequest(),
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.update_service_binding(
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].service_binding
+        mock_val = gcn_service_binding.ServiceBinding(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_update_service_binding_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.update_service_binding(
+            gcn_service_binding.UpdateServiceBindingRequest(),
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
         service_binding.DeleteServiceBindingRequest,
         dict,
     ],
@@ -13962,9 +18127,9 @@ def test_delete_service_binding_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_service_binding] = (
+            mock_rpc
+        )
         request = {}
         client.delete_service_binding(request)
 
@@ -14242,6 +18407,7 @@ def test_list_meshes(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = mesh.ListMeshesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_meshes(request)
 
@@ -14254,6 +18420,7 @@ def test_list_meshes(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListMeshesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_meshes_non_empty_request_with_auto_populated_field():
@@ -14382,6 +18549,7 @@ async def test_list_meshes_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             mesh.ListMeshesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_meshes(request)
@@ -14395,6 +18563,7 @@ async def test_list_meshes_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListMeshesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -14729,11 +18898,7 @@ async def test_list_meshes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_meshes(request={})
-        ).pages:
+        async for page_ in (await client.list_meshes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -14764,6 +18929,7 @@ def test_get_mesh(request_type, transport: str = "grpc"):
             self_link="self_link_value",
             description="description_value",
             interception_port=1848,
+            envoy_headers=common.EnvoyHeaders.NONE,
         )
         response = client.get_mesh(request)
 
@@ -14779,6 +18945,7 @@ def test_get_mesh(request_type, transport: str = "grpc"):
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.interception_port == 1848
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
 
 
 def test_get_mesh_non_empty_request_with_auto_populated_field():
@@ -14906,6 +19073,7 @@ async def test_get_mesh_async(
                 self_link="self_link_value",
                 description="description_value",
                 interception_port=1848,
+                envoy_headers=common.EnvoyHeaders.NONE,
             )
         )
         response = await client.get_mesh(request)
@@ -14922,6 +19090,7 @@ async def test_get_mesh_async(
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.interception_port == 1848
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
 
 
 @pytest.mark.asyncio
@@ -16077,6 +20246,3791 @@ async def test_delete_mesh_flattened_error_async():
         )
 
 
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.ListServiceLbPoliciesRequest,
+        dict,
+    ],
+)
+def test_list_service_lb_policies(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ListServiceLbPoliciesResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.ListServiceLbPoliciesRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListServiceLbPoliciesPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_service_lb_policies_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = service_lb_policy.ListServiceLbPoliciesRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_service_lb_policies(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == service_lb_policy.ListServiceLbPoliciesRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_service_lb_policies_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_service_lb_policies
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_service_lb_policies
+        ] = mock_rpc
+        request = {}
+        client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_service_lb_policies(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_service_lb_policies
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_service_lb_policies
+        ] = mock_rpc
+
+        request = {}
+        await client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_service_lb_policies(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_async(
+    transport: str = "grpc_asyncio",
+    request_type=service_lb_policy.ListServiceLbPoliciesRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.ListServiceLbPoliciesRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListServiceLbPoliciesAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_async_from_dict():
+    await test_list_service_lb_policies_async(request_type=dict)
+
+
+def test_list_service_lb_policies_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.ListServiceLbPoliciesRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        call.return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+        client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.ListServiceLbPoliciesRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ListServiceLbPoliciesResponse()
+        )
+        await client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_service_lb_policies_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_service_lb_policies(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_service_lb_policies_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_service_lb_policies(
+            service_lb_policy.ListServiceLbPoliciesRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ListServiceLbPoliciesResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_service_lb_policies(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_service_lb_policies(
+            service_lb_policy.ListServiceLbPoliciesRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_service_lb_policies_pager(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="abc",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[],
+                next_page_token="def",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="ghi",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_service_lb_policies(
+            request={}, retry=retry, timeout=timeout
+        )
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, service_lb_policy.ServiceLbPolicy) for i in results)
+
+
+def test_list_service_lb_policies_pages(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="abc",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[],
+                next_page_token="def",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="ghi",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_service_lb_policies(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_async_pager():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="abc",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[],
+                next_page_token="def",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="ghi",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_service_lb_policies(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, service_lb_policy.ServiceLbPolicy) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_async_pages():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="abc",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[],
+                next_page_token="def",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="ghi",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_service_lb_policies(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.GetServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_get_service_lb_policy(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ServiceLbPolicy(
+            name="name_value",
+            description="description_value",
+            load_balancing_algorithm=service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD,
+        )
+        response = client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.GetServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, service_lb_policy.ServiceLbPolicy)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert (
+        response.load_balancing_algorithm
+        == service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD
+    )
+
+
+def test_get_service_lb_policy_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = service_lb_policy.GetServiceLbPolicyRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_service_lb_policy(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == service_lb_policy.GetServiceLbPolicyRequest(
+            name="name_value",
+        )
+
+
+def test_get_service_lb_policy_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_service_lb_policy] = (
+            mock_rpc
+        )
+        request = {}
+        client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_service_lb_policy
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        await client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_async(
+    transport: str = "grpc_asyncio",
+    request_type=service_lb_policy.GetServiceLbPolicyRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ServiceLbPolicy(
+                name="name_value",
+                description="description_value",
+                load_balancing_algorithm=service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD,
+            )
+        )
+        response = await client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.GetServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, service_lb_policy.ServiceLbPolicy)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert (
+        response.load_balancing_algorithm
+        == service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_async_from_dict():
+    await test_get_service_lb_policy_async(request_type=dict)
+
+
+def test_get_service_lb_policy_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.GetServiceLbPolicyRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = service_lb_policy.ServiceLbPolicy()
+        client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.GetServiceLbPolicyRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ServiceLbPolicy()
+        )
+        await client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_service_lb_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ServiceLbPolicy()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_service_lb_policy(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_service_lb_policy_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_service_lb_policy(
+            service_lb_policy.GetServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = service_lb_policy.ServiceLbPolicy()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ServiceLbPolicy()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_service_lb_policy(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_service_lb_policy(
+            service_lb_policy.GetServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_create_service_lb_policy(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_create_service_lb_policy_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = gcn_service_lb_policy.CreateServiceLbPolicyRequest(
+        parent="parent_value",
+        service_lb_policy_id="service_lb_policy_id_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.create_service_lb_policy(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == gcn_service_lb_policy.CreateServiceLbPolicyRequest(
+            parent="parent_value",
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+
+def test_create_service_lb_policy_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.create_service_lb_policy
+        ] = mock_rpc
+        request = {}
+        client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.create_service_lb_policy
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.create_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        await client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.create_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_async(
+    transport: str = "grpc_asyncio",
+    request_type=gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_async_from_dict():
+    await test_create_service_lb_policy_async(request_type=dict)
+
+
+def test_create_service_lb_policy_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_create_service_lb_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.create_service_lb_policy(
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].service_lb_policy
+        mock_val = gcn_service_lb_policy.ServiceLbPolicy(name="name_value")
+        assert arg == mock_val
+        arg = args[0].service_lb_policy_id
+        mock_val = "service_lb_policy_id_value"
+        assert arg == mock_val
+
+
+def test_create_service_lb_policy_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_service_lb_policy(
+            gcn_service_lb_policy.CreateServiceLbPolicyRequest(),
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.create_service_lb_policy(
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].service_lb_policy
+        mock_val = gcn_service_lb_policy.ServiceLbPolicy(name="name_value")
+        assert arg == mock_val
+        arg = args[0].service_lb_policy_id
+        mock_val = "service_lb_policy_id_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.create_service_lb_policy(
+            gcn_service_lb_policy.CreateServiceLbPolicyRequest(),
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_update_service_lb_policy(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_update_service_lb_policy_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.update_service_lb_policy(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+
+def test_update_service_lb_policy_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.update_service_lb_policy
+        ] = mock_rpc
+        request = {}
+        client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.update_service_lb_policy
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.update_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        await client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.update_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_async(
+    transport: str = "grpc_asyncio",
+    request_type=gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_async_from_dict():
+    await test_update_service_lb_policy_async(request_type=dict)
+
+
+def test_update_service_lb_policy_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+    request.service_lb_policy.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "service_lb_policy.name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+    request.service_lb_policy.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "service_lb_policy.name=name_value",
+    ) in kw["metadata"]
+
+
+def test_update_service_lb_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.update_service_lb_policy(
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].service_lb_policy
+        mock_val = gcn_service_lb_policy.ServiceLbPolicy(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+def test_update_service_lb_policy_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_service_lb_policy(
+            gcn_service_lb_policy.UpdateServiceLbPolicyRequest(),
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.update_service_lb_policy(
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].service_lb_policy
+        mock_val = gcn_service_lb_policy.ServiceLbPolicy(name="name_value")
+        assert arg == mock_val
+        arg = args[0].update_mask
+        mock_val = field_mask_pb2.FieldMask(paths=["paths_value"])
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.update_service_lb_policy(
+            gcn_service_lb_policy.UpdateServiceLbPolicyRequest(),
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.DeleteServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_delete_service_lb_policy(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/spam")
+        response = client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.DeleteServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+def test_delete_service_lb_policy_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = service_lb_policy.DeleteServiceLbPolicyRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.delete_service_lb_policy(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == service_lb_policy.DeleteServiceLbPolicyRequest(
+            name="name_value",
+        )
+
+
+def test_delete_service_lb_policy_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.delete_service_lb_policy
+        ] = mock_rpc
+        request = {}
+        client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.delete_service_lb_policy
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.delete_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        await client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods call wrapper_fn to build a cached
+        # client._transport.operations_client instance on first rpc call.
+        # Subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        await client.delete_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_async(
+    transport: str = "grpc_asyncio",
+    request_type=service_lb_policy.DeleteServiceLbPolicyRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        response = await client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = service_lb_policy.DeleteServiceLbPolicyRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, future.Future)
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_async_from_dict():
+    await test_delete_service_lb_policy_async(request_type=dict)
+
+
+def test_delete_service_lb_policy_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.DeleteServiceLbPolicyRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = service_lb_policy.DeleteServiceLbPolicyRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/op")
+        )
+        await client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_delete_service_lb_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.delete_service_lb_policy(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_delete_service_lb_policy_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_service_lb_policy(
+            service_lb_policy.DeleteServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation(name="operations/op")
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.delete_service_lb_policy(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.delete_service_lb_policy(
+            service_lb_policy.DeleteServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.GetGatewayRouteViewRequest,
+        dict,
+    ],
+)
+def test_get_gateway_route_view(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.GatewayRouteView(
+            name="name_value",
+            route_project_number=2157,
+            route_location="route_location_value",
+            route_type="route_type_value",
+            route_id="route_id_value",
+        )
+        response = client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = route_view.GetGatewayRouteViewRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.GatewayRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+def test_get_gateway_route_view_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = route_view.GetGatewayRouteViewRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_gateway_route_view(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == route_view.GetGatewayRouteViewRequest(
+            name="name_value",
+        )
+
+
+def test_get_gateway_route_view_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_gateway_route_view
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_gateway_route_view] = (
+            mock_rpc
+        )
+        request = {}
+        client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_gateway_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_gateway_route_view
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_gateway_route_view
+        ] = mock_rpc
+
+        request = {}
+        await client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_gateway_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_async(
+    transport: str = "grpc_asyncio", request_type=route_view.GetGatewayRouteViewRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.GatewayRouteView(
+                name="name_value",
+                route_project_number=2157,
+                route_location="route_location_value",
+                route_type="route_type_value",
+                route_id="route_id_value",
+            )
+        )
+        response = await client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = route_view.GetGatewayRouteViewRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.GatewayRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_async_from_dict():
+    await test_get_gateway_route_view_async(request_type=dict)
+
+
+def test_get_gateway_route_view_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.GetGatewayRouteViewRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        call.return_value = route_view.GatewayRouteView()
+        client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.GetGatewayRouteViewRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.GatewayRouteView()
+        )
+        await client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_gateway_route_view_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.GatewayRouteView()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_gateway_route_view(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_gateway_route_view_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_gateway_route_view(
+            route_view.GetGatewayRouteViewRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.GatewayRouteView()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.GatewayRouteView()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_gateway_route_view(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_gateway_route_view(
+            route_view.GetGatewayRouteViewRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.GetMeshRouteViewRequest,
+        dict,
+    ],
+)
+def test_get_mesh_route_view(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.MeshRouteView(
+            name="name_value",
+            route_project_number=2157,
+            route_location="route_location_value",
+            route_type="route_type_value",
+            route_id="route_id_value",
+        )
+        response = client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = route_view.GetMeshRouteViewRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.MeshRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+def test_get_mesh_route_view_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = route_view.GetMeshRouteViewRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_mesh_route_view(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == route_view.GetMeshRouteViewRequest(
+            name="name_value",
+        )
+
+
+def test_get_mesh_route_view_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_mesh_route_view in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_mesh_route_view] = (
+            mock_rpc
+        )
+        request = {}
+        client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_mesh_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_mesh_route_view
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_mesh_route_view
+        ] = mock_rpc
+
+        request = {}
+        await client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_mesh_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_async(
+    transport: str = "grpc_asyncio", request_type=route_view.GetMeshRouteViewRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.MeshRouteView(
+                name="name_value",
+                route_project_number=2157,
+                route_location="route_location_value",
+                route_type="route_type_value",
+                route_id="route_id_value",
+            )
+        )
+        response = await client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = route_view.GetMeshRouteViewRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.MeshRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_async_from_dict():
+    await test_get_mesh_route_view_async(request_type=dict)
+
+
+def test_get_mesh_route_view_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.GetMeshRouteViewRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        call.return_value = route_view.MeshRouteView()
+        client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.GetMeshRouteViewRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.MeshRouteView()
+        )
+        await client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_mesh_route_view_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.MeshRouteView()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_mesh_route_view(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_mesh_route_view_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_mesh_route_view(
+            route_view.GetMeshRouteViewRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.MeshRouteView()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.MeshRouteView()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_mesh_route_view(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_mesh_route_view(
+            route_view.GetMeshRouteViewRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.ListGatewayRouteViewsRequest,
+        dict,
+    ],
+)
+def test_list_gateway_route_views(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListGatewayRouteViewsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = route_view.ListGatewayRouteViewsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListGatewayRouteViewsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_gateway_route_views_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = route_view.ListGatewayRouteViewsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_gateway_route_views(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == route_view.ListGatewayRouteViewsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_gateway_route_views_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_gateway_route_views
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_gateway_route_views
+        ] = mock_rpc
+        request = {}
+        client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_gateway_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_gateway_route_views
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_gateway_route_views
+        ] = mock_rpc
+
+        request = {}
+        await client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_gateway_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_async(
+    transport: str = "grpc_asyncio",
+    request_type=route_view.ListGatewayRouteViewsRequest,
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListGatewayRouteViewsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = route_view.ListGatewayRouteViewsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListGatewayRouteViewsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_async_from_dict():
+    await test_list_gateway_route_views_async(request_type=dict)
+
+
+def test_list_gateway_route_views_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.ListGatewayRouteViewsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        call.return_value = route_view.ListGatewayRouteViewsResponse()
+        client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.ListGatewayRouteViewsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListGatewayRouteViewsResponse()
+        )
+        await client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_gateway_route_views_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListGatewayRouteViewsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_gateway_route_views(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_gateway_route_views_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_gateway_route_views(
+            route_view.ListGatewayRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListGatewayRouteViewsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListGatewayRouteViewsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_gateway_route_views(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_gateway_route_views(
+            route_view.ListGatewayRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_gateway_route_views_pager(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_gateway_route_views(
+            request={}, retry=retry, timeout=timeout
+        )
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, route_view.GatewayRouteView) for i in results)
+
+
+def test_list_gateway_route_views_pages(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_gateway_route_views(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_async_pager():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_gateway_route_views(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, route_view.GatewayRouteView) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_async_pages():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_gateway_route_views(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.ListMeshRouteViewsRequest,
+        dict,
+    ],
+)
+def test_list_mesh_route_views(request_type, transport: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListMeshRouteViewsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+        response = client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = route_view.ListMeshRouteViewsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListMeshRouteViewsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+def test_list_mesh_route_views_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = route_view.ListMeshRouteViewsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_mesh_route_views(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == route_view.ListMeshRouteViewsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+        )
+
+
+def test_list_mesh_route_views_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_mesh_route_views
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_mesh_route_views] = (
+            mock_rpc
+        )
+        request = {}
+        client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_mesh_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = NetworkServicesAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_mesh_route_views
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_mesh_route_views
+        ] = mock_rpc
+
+        request = {}
+        await client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_mesh_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_async(
+    transport: str = "grpc_asyncio", request_type=route_view.ListMeshRouteViewsRequest
+):
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListMeshRouteViewsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        response = await client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = route_view.ListMeshRouteViewsRequest()
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListMeshRouteViewsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_async_from_dict():
+    await test_list_mesh_route_views_async(request_type=dict)
+
+
+def test_list_mesh_route_views_field_headers():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.ListMeshRouteViewsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        call.return_value = route_view.ListMeshRouteViewsResponse()
+        client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_field_headers_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = route_view.ListMeshRouteViewsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListMeshRouteViewsResponse()
+        )
+        await client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_mesh_route_views_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListMeshRouteViewsResponse()
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_mesh_route_views(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_mesh_route_views_flattened_error():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_mesh_route_views(
+            route_view.ListMeshRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = route_view.ListMeshRouteViewsResponse()
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListMeshRouteViewsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_mesh_route_views(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_flattened_error_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_mesh_route_views(
+            route_view.ListMeshRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_mesh_route_views_pager(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_mesh_route_views(request={}, retry=retry, timeout=timeout)
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, route_view.MeshRouteView) for i in results)
+
+
+def test_list_mesh_route_views_pages(transport_name: str = "grpc"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_mesh_route_views(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_async_pager():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_mesh_route_views(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(isinstance(i, route_view.MeshRouteView) for i in responses)
+
+
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_async_pages():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (await client.list_mesh_route_views(request={})).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
 def test_list_endpoint_policies_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -16101,9 +24055,9 @@ def test_list_endpoint_policies_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_endpoint_policies
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_endpoint_policies] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_endpoint_policies(request)
@@ -16150,6 +24104,7 @@ def test_list_endpoint_policies_rest_required_fields(
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -16197,7 +24152,7 @@ def test_list_endpoint_policies_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_endpoint_policies_rest_unset_required_fields():
@@ -16211,6 +24166,7 @@ def test_list_endpoint_policies_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -16361,9 +24317,9 @@ def test_get_endpoint_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_endpoint_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_endpoint_policy(request)
@@ -16450,7 +24406,7 @@ def test_get_endpoint_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_endpoint_policy_rest_unset_required_fields():
@@ -16546,9 +24502,9 @@ def test_create_endpoint_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_endpoint_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_endpoint_policy(request)
@@ -16652,7 +24608,7 @@ def test_create_endpoint_policy_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_endpoint_policy_rest_unset_required_fields():
@@ -16757,9 +24713,9 @@ def test_update_endpoint_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_endpoint_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_endpoint_policy(request)
@@ -16845,7 +24801,7 @@ def test_update_endpoint_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_endpoint_policy_rest_unset_required_fields():
@@ -16943,9 +24899,9 @@ def test_delete_endpoint_policy_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_endpoint_policy
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_endpoint_policy] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_endpoint_policy(request)
@@ -17033,7 +24989,7 @@ def test_delete_endpoint_policy_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_endpoint_policy_rest_unset_required_fields():
@@ -17099,6 +25055,1878 @@ def test_delete_endpoint_policy_rest_flattened_error(transport: str = "rest"):
     with pytest.raises(ValueError):
         client.delete_endpoint_policy(
             endpoint_policy.DeleteEndpointPolicyRequest(),
+            name="name_value",
+        )
+
+
+def test_list_wasm_plugin_versions_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_wasm_plugin_versions
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_wasm_plugin_versions
+        ] = mock_rpc
+
+        request = {}
+        client.list_wasm_plugin_versions(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_wasm_plugin_versions(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_wasm_plugin_versions_rest_required_fields(
+    request_type=extensibility.ListWasmPluginVersionsRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_wasm_plugin_versions._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_wasm_plugin_versions._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = extensibility.ListWasmPluginVersionsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = extensibility.ListWasmPluginVersionsResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_wasm_plugin_versions(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_wasm_plugin_versions_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_wasm_plugin_versions._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_wasm_plugin_versions_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.ListWasmPluginVersionsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = extensibility.ListWasmPluginVersionsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_wasm_plugin_versions(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/wasmPlugins/*}/versions"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_wasm_plugin_versions_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_wasm_plugin_versions(
+            extensibility.ListWasmPluginVersionsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_wasm_plugin_versions_rest_pager(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginVersionsResponse(
+                wasm_plugin_versions=[
+                    extensibility.WasmPluginVersion(),
+                    extensibility.WasmPluginVersion(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            extensibility.ListWasmPluginVersionsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+
+        pager = client.list_wasm_plugin_versions(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, extensibility.WasmPluginVersion) for i in results)
+
+        pages = list(client.list_wasm_plugin_versions(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_wasm_plugin_version_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        client.get_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_wasm_plugin_version_rest_required_fields(
+    request_type=extensibility.GetWasmPluginVersionRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = extensibility.WasmPluginVersion()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = extensibility.WasmPluginVersion.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_wasm_plugin_version(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_wasm_plugin_version_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_wasm_plugin_version._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_wasm_plugin_version_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.WasmPluginVersion()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = extensibility.WasmPluginVersion.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_wasm_plugin_version(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/wasmPlugins/*/versions/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_wasm_plugin_version_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_wasm_plugin_version(
+            extensibility.GetWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+def test_create_wasm_plugin_version_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.create_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        client.create_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_wasm_plugin_version_rest_required_fields(
+    request_type=extensibility.CreateWasmPluginVersionRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["wasm_plugin_version_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "wasmPluginVersionId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "wasmPluginVersionId" in jsonified_request
+    assert (
+        jsonified_request["wasmPluginVersionId"]
+        == request_init["wasm_plugin_version_id"]
+    )
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["wasmPluginVersionId"] = "wasm_plugin_version_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("wasm_plugin_version_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "wasmPluginVersionId" in jsonified_request
+    assert jsonified_request["wasmPluginVersionId"] == "wasm_plugin_version_id_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_wasm_plugin_version(request)
+
+            expected_params = [
+                (
+                    "wasmPluginVersionId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_wasm_plugin_version_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_wasm_plugin_version._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("wasmPluginVersionId",))
+        & set(
+            (
+                "parent",
+                "wasmPluginVersionId",
+                "wasmPluginVersion",
+            )
+        )
+    )
+
+
+def test_create_wasm_plugin_version_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_wasm_plugin_version(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/wasmPlugins/*}/versions"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_wasm_plugin_version_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_wasm_plugin_version(
+            extensibility.CreateWasmPluginVersionRequest(),
+            parent="parent_value",
+            wasm_plugin_version=extensibility.WasmPluginVersion(
+                plugin_config_data=b"plugin_config_data_blob"
+            ),
+            wasm_plugin_version_id="wasm_plugin_version_id_value",
+        )
+
+
+def test_delete_wasm_plugin_version_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_wasm_plugin_version
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.delete_wasm_plugin_version
+        ] = mock_rpc
+
+        request = {}
+        client.delete_wasm_plugin_version(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_wasm_plugin_version(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_wasm_plugin_version_rest_required_fields(
+    request_type=extensibility.DeleteWasmPluginVersionRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_wasm_plugin_version._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_wasm_plugin_version(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_wasm_plugin_version_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_wasm_plugin_version._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_wasm_plugin_version_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_wasm_plugin_version(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/wasmPlugins/*/versions/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_wasm_plugin_version_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_wasm_plugin_version(
+            extensibility.DeleteWasmPluginVersionRequest(),
+            name="name_value",
+        )
+
+
+def test_list_wasm_plugins_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.list_wasm_plugins in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_wasm_plugins] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_wasm_plugins(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_wasm_plugins(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_wasm_plugins_rest_required_fields(
+    request_type=extensibility.ListWasmPluginsRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_wasm_plugins._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_wasm_plugins._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = extensibility.ListWasmPluginsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = extensibility.ListWasmPluginsResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_wasm_plugins(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_wasm_plugins_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_wasm_plugins._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_wasm_plugins_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.ListWasmPluginsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = extensibility.ListWasmPluginsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_wasm_plugins(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/wasmPlugins"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_wasm_plugins_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_wasm_plugins(
+            extensibility.ListWasmPluginsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_wasm_plugins_rest_pager(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="abc",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[],
+                next_page_token="def",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                ],
+                next_page_token="ghi",
+            ),
+            extensibility.ListWasmPluginsResponse(
+                wasm_plugins=[
+                    extensibility.WasmPlugin(),
+                    extensibility.WasmPlugin(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            extensibility.ListWasmPluginsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_wasm_plugins(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, extensibility.WasmPlugin) for i in results)
+
+        pages = list(client.list_wasm_plugins(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_wasm_plugin_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert client._transport.get_wasm_plugin in client._transport._wrapped_methods
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_wasm_plugin] = mock_rpc
+
+        request = {}
+        client.get_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_wasm_plugin_rest_required_fields(
+    request_type=extensibility.GetWasmPluginRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_wasm_plugin._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_wasm_plugin._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("view",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = extensibility.WasmPlugin()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = extensibility.WasmPlugin.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_wasm_plugin(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_wasm_plugin_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_wasm_plugin._get_unset_required_fields({})
+    assert set(unset_fields) == (set(("view",)) & set(("name",)))
+
+
+def test_get_wasm_plugin_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.WasmPlugin()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = extensibility.WasmPlugin.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_wasm_plugin(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/wasmPlugins/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_wasm_plugin_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_wasm_plugin(
+            extensibility.GetWasmPluginRequest(),
+            name="name_value",
+        )
+
+
+def test_create_wasm_plugin_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.create_wasm_plugin] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.create_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_wasm_plugin_rest_required_fields(
+    request_type=extensibility.CreateWasmPluginRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["wasm_plugin_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "wasmPluginId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_wasm_plugin._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "wasmPluginId" in jsonified_request
+    assert jsonified_request["wasmPluginId"] == request_init["wasm_plugin_id"]
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["wasmPluginId"] = "wasm_plugin_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_wasm_plugin._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("wasm_plugin_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "wasmPluginId" in jsonified_request
+    assert jsonified_request["wasmPluginId"] == "wasm_plugin_id_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_wasm_plugin(request)
+
+            expected_params = [
+                (
+                    "wasmPluginId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_wasm_plugin_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_wasm_plugin._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("wasmPluginId",))
+        & set(
+            (
+                "parent",
+                "wasmPluginId",
+                "wasmPlugin",
+            )
+        )
+    )
+
+
+def test_create_wasm_plugin_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_wasm_plugin(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/wasmPlugins"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_wasm_plugin_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_wasm_plugin(
+            extensibility.CreateWasmPluginRequest(),
+            parent="parent_value",
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            wasm_plugin_id="wasm_plugin_id_value",
+        )
+
+
+def test_update_wasm_plugin_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_wasm_plugin] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.update_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_wasm_plugin_rest_required_fields(
+    request_type=extensibility.UpdateWasmPluginRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_wasm_plugin._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_wasm_plugin._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_wasm_plugin(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_wasm_plugin_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_wasm_plugin._get_unset_required_fields({})
+    assert set(unset_fields) == (set(("updateMask",)) & set(("wasmPlugin",)))
+
+
+def test_update_wasm_plugin_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "wasm_plugin": {
+                "name": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_wasm_plugin(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{wasm_plugin.name=projects/*/locations/*/wasmPlugins/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_wasm_plugin_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_wasm_plugin(
+            extensibility.UpdateWasmPluginRequest(),
+            wasm_plugin=extensibility.WasmPlugin(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_delete_wasm_plugin_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_wasm_plugin in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.delete_wasm_plugin] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.delete_wasm_plugin(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_wasm_plugin(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_wasm_plugin_rest_required_fields(
+    request_type=extensibility.DeleteWasmPluginRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_wasm_plugin._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_wasm_plugin._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_wasm_plugin(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_wasm_plugin_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_wasm_plugin._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_wasm_plugin_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_wasm_plugin(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/wasmPlugins/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_wasm_plugin_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_wasm_plugin(
+            extensibility.DeleteWasmPluginRequest(),
             name="name_value",
         )
 
@@ -17216,7 +27044,7 @@ def test_list_gateways_rest_required_fields(request_type=gateway.ListGatewaysReq
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_gateways_rest_unset_required_fields():
@@ -17460,7 +27288,7 @@ def test_get_gateway_rest_required_fields(request_type=gateway.GetGatewayRequest
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_gateway_rest_unset_required_fields():
@@ -17654,7 +27482,7 @@ def test_create_gateway_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_gateway_rest_unset_required_fields():
@@ -17841,7 +27669,7 @@ def test_update_gateway_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_gateway_rest_unset_required_fields():
@@ -18020,7 +27848,7 @@ def test_delete_gateway_rest_required_fields(request_type=gateway.DeleteGatewayR
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_gateway_rest_unset_required_fields():
@@ -18108,9 +27936,9 @@ def test_list_grpc_routes_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_grpc_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_grpc_routes] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_grpc_routes(request)
@@ -18157,6 +27985,7 @@ def test_list_grpc_routes_rest_required_fields(
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -18204,7 +28033,7 @@ def test_list_grpc_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_grpc_routes_rest_unset_required_fields():
@@ -18218,6 +28047,7 @@ def test_list_grpc_routes_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -18450,7 +28280,7 @@ def test_get_grpc_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_grpc_route_rest_unset_required_fields():
@@ -18542,9 +28372,9 @@ def test_create_grpc_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_grpc_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_grpc_route(request)
@@ -18648,7 +28478,7 @@ def test_create_grpc_route_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_grpc_route_rest_unset_required_fields():
@@ -18749,9 +28579,9 @@ def test_update_grpc_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_grpc_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_grpc_route(request)
@@ -18837,7 +28667,7 @@ def test_update_grpc_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_grpc_route_rest_unset_required_fields():
@@ -18932,9 +28762,9 @@ def test_delete_grpc_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_grpc_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_grpc_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_grpc_route(request)
@@ -19022,7 +28852,7 @@ def test_delete_grpc_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_grpc_route_rest_unset_required_fields():
@@ -19112,9 +28942,9 @@ def test_list_http_routes_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_http_routes
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_http_routes] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_http_routes(request)
@@ -19161,6 +28991,7 @@ def test_list_http_routes_rest_required_fields(
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -19208,7 +29039,7 @@ def test_list_http_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_http_routes_rest_unset_required_fields():
@@ -19222,6 +29053,7 @@ def test_list_http_routes_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -19454,7 +29286,7 @@ def test_get_http_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_http_route_rest_unset_required_fields():
@@ -19546,9 +29378,9 @@ def test_create_http_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_http_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_http_route(request)
@@ -19652,7 +29484,7 @@ def test_create_http_route_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_http_route_rest_unset_required_fields():
@@ -19753,9 +29585,9 @@ def test_update_http_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_http_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_http_route(request)
@@ -19841,7 +29673,7 @@ def test_update_http_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_http_route_rest_unset_required_fields():
@@ -19936,9 +29768,9 @@ def test_delete_http_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_http_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_http_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_http_route(request)
@@ -20026,7 +29858,7 @@ def test_delete_http_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_http_route_rest_unset_required_fields():
@@ -20163,6 +29995,7 @@ def test_list_tcp_routes_rest_required_fields(
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -20210,7 +30043,7 @@ def test_list_tcp_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_tcp_routes_rest_unset_required_fields():
@@ -20224,6 +30057,7 @@ def test_list_tcp_routes_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -20454,7 +30288,7 @@ def test_get_tcp_route_rest_required_fields(request_type=tcp_route.GetTcpRouteRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_tcp_route_rest_unset_required_fields():
@@ -20546,9 +30380,9 @@ def test_create_tcp_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_tcp_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_tcp_route(request)
@@ -20652,7 +30486,7 @@ def test_create_tcp_route_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_tcp_route_rest_unset_required_fields():
@@ -20753,9 +30587,9 @@ def test_update_tcp_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_tcp_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_tcp_route(request)
@@ -20841,7 +30675,7 @@ def test_update_tcp_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_tcp_route_rest_unset_required_fields():
@@ -20936,9 +30770,9 @@ def test_delete_tcp_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_tcp_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_tcp_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_tcp_route(request)
@@ -21026,7 +30860,7 @@ def test_delete_tcp_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_tcp_route_rest_unset_required_fields():
@@ -21163,6 +30997,7 @@ def test_list_tls_routes_rest_required_fields(
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -21210,7 +31045,7 @@ def test_list_tls_routes_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_tls_routes_rest_unset_required_fields():
@@ -21224,6 +31059,7 @@ def test_list_tls_routes_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -21454,7 +31290,7 @@ def test_get_tls_route_rest_required_fields(request_type=tls_route.GetTlsRouteRe
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_tls_route_rest_unset_required_fields():
@@ -21546,9 +31382,9 @@ def test_create_tls_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_tls_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_tls_route(request)
@@ -21652,7 +31488,7 @@ def test_create_tls_route_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_tls_route_rest_unset_required_fields():
@@ -21753,9 +31589,9 @@ def test_update_tls_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_tls_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_tls_route(request)
@@ -21841,7 +31677,7 @@ def test_update_tls_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_tls_route_rest_unset_required_fields():
@@ -21936,9 +31772,9 @@ def test_delete_tls_route_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_tls_route
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_tls_route] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_tls_route(request)
@@ -22026,7 +31862,7 @@ def test_delete_tls_route_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_tls_route_rest_unset_required_fields():
@@ -22119,9 +31955,9 @@ def test_list_service_bindings_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_service_bindings
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_service_bindings] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_service_bindings(request)
@@ -22215,7 +32051,7 @@ def test_list_service_bindings_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_service_bindings_rest_unset_required_fields():
@@ -22379,9 +32215,9 @@ def test_get_service_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_service_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_service_binding(request)
@@ -22468,7 +32304,7 @@ def test_get_service_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_service_binding_rest_unset_required_fields():
@@ -22564,9 +32400,9 @@ def test_create_service_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_service_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_service_binding(request)
@@ -22670,7 +32506,7 @@ def test_create_service_binding_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_service_binding_rest_unset_required_fields():
@@ -22751,6 +32587,192 @@ def test_create_service_binding_rest_flattened_error(transport: str = "rest"):
         )
 
 
+def test_update_service_binding_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_service_binding
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.update_service_binding] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.update_service_binding(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_service_binding(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_service_binding_rest_required_fields(
+    request_type=gcn_service_binding.UpdateServiceBindingRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_service_binding._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_service_binding._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_service_binding(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_service_binding_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_service_binding._get_unset_required_fields({})
+    assert set(unset_fields) == (set(("updateMask",)) & set(("serviceBinding",)))
+
+
+def test_update_service_binding_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "service_binding": {
+                "name": "projects/sample1/locations/sample2/serviceBindings/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_service_binding(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{service_binding.name=projects/*/locations/*/serviceBindings/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_service_binding_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_service_binding(
+            gcn_service_binding.UpdateServiceBindingRequest(),
+            service_binding=gcn_service_binding.ServiceBinding(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
 def test_delete_service_binding_rest_use_cached_wrapped_rpc():
     # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
     # instead of constructing them on each call
@@ -22775,9 +32797,9 @@ def test_delete_service_binding_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_service_binding
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_service_binding] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_service_binding(request)
@@ -22865,7 +32887,7 @@ def test_delete_service_binding_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_service_binding_rest_unset_required_fields():
@@ -23001,6 +33023,7 @@ def test_list_meshes_rest_required_fields(request_type=mesh.ListMeshesRequest):
         (
             "page_size",
             "page_token",
+            "return_partial_success",
         )
     )
     jsonified_request.update(unset_fields)
@@ -23048,7 +33071,7 @@ def test_list_meshes_rest_required_fields(request_type=mesh.ListMeshesRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_meshes_rest_unset_required_fields():
@@ -23062,6 +33085,7 @@ def test_list_meshes_rest_unset_required_fields():
             (
                 "pageSize",
                 "pageToken",
+                "returnPartialSuccess",
             )
         )
         & set(("parent",))
@@ -23292,7 +33316,7 @@ def test_get_mesh_rest_required_fields(request_type=mesh.GetMeshRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_mesh_rest_unset_required_fields():
@@ -23484,7 +33508,7 @@ def test_create_mesh_rest_required_fields(request_type=gcn_mesh.CreateMeshReques
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_mesh_rest_unset_required_fields():
@@ -23669,7 +33693,7 @@ def test_update_mesh_rest_required_fields(request_type=gcn_mesh.UpdateMeshReques
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_update_mesh_rest_unset_required_fields():
@@ -23848,7 +33872,7 @@ def test_delete_mesh_rest_required_fields(request_type=mesh.DeleteMeshRequest):
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_mesh_rest_unset_required_fields():
@@ -23913,6 +33937,1932 @@ def test_delete_mesh_rest_flattened_error(transport: str = "rest"):
             mesh.DeleteMeshRequest(),
             name="name_value",
         )
+
+
+def test_list_service_lb_policies_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_service_lb_policies
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_service_lb_policies
+        ] = mock_rpc
+
+        request = {}
+        client.list_service_lb_policies(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_service_lb_policies(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_service_lb_policies_rest_required_fields(
+    request_type=service_lb_policy.ListServiceLbPoliciesRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_service_lb_policies._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_service_lb_policies._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = service_lb_policy.ListServiceLbPoliciesResponse.pb(
+                return_value
+            )
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_service_lb_policies(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_service_lb_policies_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_service_lb_policies._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_service_lb_policies_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = service_lb_policy.ListServiceLbPoliciesResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_service_lb_policies(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/serviceLbPolicies"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_service_lb_policies_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_service_lb_policies(
+            service_lb_policy.ListServiceLbPoliciesRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_service_lb_policies_rest_pager(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="abc",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[],
+                next_page_token="def",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+                next_page_token="ghi",
+            ),
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                service_lb_policies=[
+                    service_lb_policy.ServiceLbPolicy(),
+                    service_lb_policy.ServiceLbPolicy(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            service_lb_policy.ListServiceLbPoliciesResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        pager = client.list_service_lb_policies(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, service_lb_policy.ServiceLbPolicy) for i in results)
+
+        pages = list(client.list_service_lb_policies(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_get_service_lb_policy_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_service_lb_policy] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_service_lb_policy_rest_required_fields(
+    request_type=service_lb_policy.GetServiceLbPolicyRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = service_lb_policy.ServiceLbPolicy()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = service_lb_policy.ServiceLbPolicy.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_service_lb_policy(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_service_lb_policy_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_service_lb_policy._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_service_lb_policy_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = service_lb_policy.ServiceLbPolicy()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = service_lb_policy.ServiceLbPolicy.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_service_lb_policy(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/serviceLbPolicies/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_service_lb_policy_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_service_lb_policy(
+            service_lb_policy.GetServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+def test_create_service_lb_policy_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.create_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        client.create_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.create_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_create_service_lb_policy_rest_required_fields(
+    request_type=gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request_init["service_lb_policy_id"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+    assert "serviceLbPolicyId" not in jsonified_request
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+    assert "serviceLbPolicyId" in jsonified_request
+    assert (
+        jsonified_request["serviceLbPolicyId"] == request_init["service_lb_policy_id"]
+    )
+
+    jsonified_request["parent"] = "parent_value"
+    jsonified_request["serviceLbPolicyId"] = "service_lb_policy_id_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).create_service_lb_policy._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("service_lb_policy_id",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+    assert "serviceLbPolicyId" in jsonified_request
+    assert jsonified_request["serviceLbPolicyId"] == "service_lb_policy_id_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "post",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.create_service_lb_policy(request)
+
+            expected_params = [
+                (
+                    "serviceLbPolicyId",
+                    "",
+                ),
+                ("$alt", "json;enum-encoding=int"),
+            ]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_create_service_lb_policy_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.create_service_lb_policy._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(("serviceLbPolicyId",))
+        & set(
+            (
+                "parent",
+                "serviceLbPolicyId",
+                "serviceLbPolicy",
+            )
+        )
+    )
+
+
+def test_create_service_lb_policy_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.create_service_lb_policy(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*}/serviceLbPolicies"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_create_service_lb_policy_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_service_lb_policy(
+            gcn_service_lb_policy.CreateServiceLbPolicyRequest(),
+            parent="parent_value",
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            service_lb_policy_id="service_lb_policy_id_value",
+        )
+
+
+def test_update_service_lb_policy_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.update_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.update_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        client.update_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.update_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_update_service_lb_policy_rest_required_fields(
+    request_type=gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).update_service_lb_policy._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(("update_mask",))
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "patch",
+                "query_params": pb_request,
+            }
+            transcode_result["body"] = pb_request
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.update_service_lb_policy(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_update_service_lb_policy_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.update_service_lb_policy._get_unset_required_fields({})
+    assert set(unset_fields) == (set(("updateMask",)) & set(("serviceLbPolicy",)))
+
+
+def test_update_service_lb_policy_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "service_lb_policy": {
+                "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+            }
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.update_service_lb_policy(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{service_lb_policy.name=projects/*/locations/*/serviceLbPolicies/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_update_service_lb_policy_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.update_service_lb_policy(
+            gcn_service_lb_policy.UpdateServiceLbPolicyRequest(),
+            service_lb_policy=gcn_service_lb_policy.ServiceLbPolicy(name="name_value"),
+            update_mask=field_mask_pb2.FieldMask(paths=["paths_value"]),
+        )
+
+
+def test_delete_service_lb_policy_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_service_lb_policy
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.delete_service_lb_policy
+        ] = mock_rpc
+
+        request = {}
+        client.delete_service_lb_policy(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        # Operation methods build a cached wrapper on first rpc call
+        # subsequent calls should use the cached wrapper
+        wrapper_fn.reset_mock()
+
+        client.delete_service_lb_policy(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_delete_service_lb_policy_rest_required_fields(
+    request_type=service_lb_policy.DeleteServiceLbPolicyRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).delete_service_lb_policy._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = operations_pb2.Operation(name="operations/spam")
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "delete",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.delete_service_lb_policy(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_delete_service_lb_policy_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.delete_service_lb_policy._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_delete_service_lb_policy_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.delete_service_lb_policy(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/serviceLbPolicies/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_delete_service_lb_policy_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_service_lb_policy(
+            service_lb_policy.DeleteServiceLbPolicyRequest(),
+            name="name_value",
+        )
+
+
+def test_get_gateway_route_view_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_gateway_route_view
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_gateway_route_view] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_gateway_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_gateway_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_gateway_route_view_rest_required_fields(
+    request_type=route_view.GetGatewayRouteViewRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_gateway_route_view._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_gateway_route_view._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = route_view.GatewayRouteView()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = route_view.GatewayRouteView.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_gateway_route_view(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_gateway_route_view_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_gateway_route_view._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_gateway_route_view_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.GatewayRouteView()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/gateways/sample3/routeViews/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = route_view.GatewayRouteView.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_gateway_route_view(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/gateways/*/routeViews/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_gateway_route_view_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_gateway_route_view(
+            route_view.GetGatewayRouteViewRequest(),
+            name="name_value",
+        )
+
+
+def test_get_mesh_route_view_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_mesh_route_view in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.get_mesh_route_view] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.get_mesh_route_view(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_mesh_route_view(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_get_mesh_route_view_rest_required_fields(
+    request_type=route_view.GetMeshRouteViewRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["name"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_mesh_route_view._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["name"] = "name_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).get_mesh_route_view._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "name" in jsonified_request
+    assert jsonified_request["name"] == "name_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = route_view.MeshRouteView()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = route_view.MeshRouteView.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.get_mesh_route_view(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_get_mesh_route_view_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.get_mesh_route_view._get_unset_required_fields({})
+    assert set(unset_fields) == (set(()) & set(("name",)))
+
+
+def test_get_mesh_route_view_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.MeshRouteView()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "name": "projects/sample1/locations/sample2/meshes/sample3/routeViews/sample4"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            name="name_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = route_view.MeshRouteView.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.get_mesh_route_view(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{name=projects/*/locations/*/meshes/*/routeViews/*}"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_get_mesh_route_view_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_mesh_route_view(
+            route_view.GetMeshRouteViewRequest(),
+            name="name_value",
+        )
+
+
+def test_list_gateway_route_views_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_gateway_route_views
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_gateway_route_views
+        ] = mock_rpc
+
+        request = {}
+        client.list_gateway_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_gateway_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_gateway_route_views_rest_required_fields(
+    request_type=route_view.ListGatewayRouteViewsRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_gateway_route_views._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_gateway_route_views._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = route_view.ListGatewayRouteViewsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = route_view.ListGatewayRouteViewsResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_gateway_route_views(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_gateway_route_views_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_gateway_route_views._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_gateway_route_views_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.ListGatewayRouteViewsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/gateways/sample3"
+        }
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = route_view.ListGatewayRouteViewsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_gateway_route_views(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/gateways/*}/routeViews"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_gateway_route_views_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_gateway_route_views(
+            route_view.ListGatewayRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_gateway_route_views_rest_pager(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListGatewayRouteViewsResponse(
+                gateway_route_views=[
+                    route_view.GatewayRouteView(),
+                    route_view.GatewayRouteView(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            route_view.ListGatewayRouteViewsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {
+            "parent": "projects/sample1/locations/sample2/gateways/sample3"
+        }
+
+        pager = client.list_gateway_route_views(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, route_view.GatewayRouteView) for i in results)
+
+        pages = list(client.list_gateway_route_views(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+def test_list_mesh_route_views_rest_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = NetworkServicesClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="rest",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_mesh_route_views
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[client._transport.list_mesh_route_views] = (
+            mock_rpc
+        )
+
+        request = {}
+        client.list_mesh_route_views(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_mesh_route_views(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+def test_list_mesh_route_views_rest_required_fields(
+    request_type=route_view.ListMeshRouteViewsRequest,
+):
+    transport_class = transports.NetworkServicesRestTransport
+
+    request_init = {}
+    request_init["parent"] = ""
+    request = request_type(**request_init)
+    pb_request = request_type.pb(request)
+    jsonified_request = json.loads(
+        json_format.MessageToJson(pb_request, use_integers_for_enums=False)
+    )
+
+    # verify fields with default values are dropped
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_mesh_route_views._get_unset_required_fields(jsonified_request)
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with default values are now present
+
+    jsonified_request["parent"] = "parent_value"
+
+    unset_fields = transport_class(
+        credentials=ga_credentials.AnonymousCredentials()
+    ).list_mesh_route_views._get_unset_required_fields(jsonified_request)
+    # Check that path parameters and body parameters are not mixing in.
+    assert not set(unset_fields) - set(
+        (
+            "page_size",
+            "page_token",
+        )
+    )
+    jsonified_request.update(unset_fields)
+
+    # verify required fields with non-default values are left alone
+    assert "parent" in jsonified_request
+    assert jsonified_request["parent"] == "parent_value"
+
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+    request = request_type(**request_init)
+
+    # Designate an appropriate value for the returned response.
+    return_value = route_view.ListMeshRouteViewsResponse()
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # We need to mock transcode() because providing default values
+        # for required fields will fail the real version if the http_options
+        # expect actual values for those fields.
+        with mock.patch.object(path_template, "transcode") as transcode:
+            # A uri without fields and an empty body will force all the
+            # request fields to show up in the query_params.
+            pb_request = request_type.pb(request)
+            transcode_result = {
+                "uri": "v1/sample_method",
+                "method": "get",
+                "query_params": pb_request,
+            }
+            transcode.return_value = transcode_result
+
+            response_value = Response()
+            response_value.status_code = 200
+
+            # Convert return value to protobuf type
+            return_value = route_view.ListMeshRouteViewsResponse.pb(return_value)
+            json_return_value = json_format.MessageToJson(return_value)
+
+            response_value._content = json_return_value.encode("UTF-8")
+            req.return_value = response_value
+            req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+            response = client.list_mesh_route_views(request)
+
+            expected_params = [("$alt", "json;enum-encoding=int")]
+            actual_params = req.call_args.kwargs["params"]
+            assert sorted(expected_params) == sorted(actual_params)
+
+
+def test_list_mesh_route_views_rest_unset_required_fields():
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials
+    )
+
+    unset_fields = transport.list_mesh_route_views._get_unset_required_fields({})
+    assert set(unset_fields) == (
+        set(
+            (
+                "pageSize",
+                "pageToken",
+            )
+        )
+        & set(("parent",))
+    )
+
+
+def test_list_mesh_route_views_rest_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.ListMeshRouteViewsResponse()
+
+        # get arguments that satisfy an http rule for this method
+        sample_request = {"parent": "projects/sample1/locations/sample2/meshes/sample3"}
+
+        # get truthy value for each flattened field
+        mock_args = dict(
+            parent="parent_value",
+        )
+        mock_args.update(sample_request)
+
+        # Wrap the value into a proper Response obj
+        response_value = Response()
+        response_value.status_code = 200
+        # Convert return value to protobuf type
+        return_value = route_view.ListMeshRouteViewsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value._content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+
+        client.list_mesh_route_views(**mock_args)
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(req.mock_calls) == 1
+        _, args, _ = req.mock_calls[0]
+        assert path_template.validate(
+            "%s/v1/{parent=projects/*/locations/*/meshes/*}/routeViews"
+            % client.transport._host,
+            args[1],
+        )
+
+
+def test_list_mesh_route_views_rest_flattened_error(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_mesh_route_views(
+            route_view.ListMeshRouteViewsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_mesh_route_views_rest_pager(transport: str = "rest"):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(Session, "request") as req:
+        # TODO(kbandes): remove this mock unless there's a good reason for it.
+        # with mock.patch.object(path_template, 'transcode') as transcode:
+        # Set the response as a series of pages
+        response = (
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="abc",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[],
+                next_page_token="def",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                ],
+                next_page_token="ghi",
+            ),
+            route_view.ListMeshRouteViewsResponse(
+                mesh_route_views=[
+                    route_view.MeshRouteView(),
+                    route_view.MeshRouteView(),
+                ],
+            ),
+        )
+        # Two responses for two calls
+        response = response + response
+
+        # Wrap the values into proper Response objs
+        response = tuple(
+            route_view.ListMeshRouteViewsResponse.to_json(x) for x in response
+        )
+        return_values = tuple(Response() for i in response)
+        for return_val, response_val in zip(return_values, response):
+            return_val._content = response_val.encode("UTF-8")
+            return_val.status_code = 200
+        req.side_effect = return_values
+
+        sample_request = {"parent": "projects/sample1/locations/sample2/meshes/sample3"}
+
+        pager = client.list_mesh_route_views(request=sample_request)
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(isinstance(i, route_view.MeshRouteView) for i in results)
+
+        pages = list(client.list_mesh_route_views(request=sample_request).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
 
 
 def test_credentials_transport_error():
@@ -24132,6 +36082,211 @@ def test_delete_endpoint_policy_empty_call_grpc():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = endpoint_policy.DeleteEndpointPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_wasm_plugin_versions_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        call.return_value = extensibility.ListWasmPluginVersionsResponse()
+        client.list_wasm_plugin_versions(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginVersionsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_wasm_plugin_version_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = extensibility.WasmPluginVersion()
+        client.get_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_wasm_plugin_version_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_wasm_plugin_version_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_wasm_plugins_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        call.return_value = extensibility.ListWasmPluginsResponse()
+        client.list_wasm_plugins(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_wasm_plugin_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        call.return_value = extensibility.WasmPlugin()
+        client.get_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_wasm_plugin_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_wasm_plugin_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.UpdateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_wasm_plugin_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginRequest()
 
         assert args[0] == request_msg
 
@@ -24744,6 +36899,29 @@ def test_create_service_binding_empty_call_grpc():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
+def test_update_service_binding_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_service_binding(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_binding.UpdateServiceBindingRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
 def test_delete_service_binding_empty_call_grpc():
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -24870,6 +37048,213 @@ def test_delete_mesh_empty_call_grpc():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_service_lb_policies_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        call.return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+        client.list_service_lb_policies(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.ListServiceLbPoliciesRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_service_lb_policy_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = service_lb_policy.ServiceLbPolicy()
+        client.get_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.GetServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_service_lb_policy_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.create_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_service_lb_policy_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.update_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_service_lb_policy_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        call.return_value = operations_pb2.Operation(name="operations/op")
+        client.delete_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.DeleteServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_gateway_route_view_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        call.return_value = route_view.GatewayRouteView()
+        client.get_gateway_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetGatewayRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_mesh_route_view_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        call.return_value = route_view.MeshRouteView()
+        client.get_mesh_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetMeshRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_gateway_route_views_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        call.return_value = route_view.ListGatewayRouteViewsResponse()
+        client.list_gateway_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListGatewayRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_mesh_route_views_empty_call_grpc():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        call.return_value = route_view.ListMeshRouteViewsResponse()
+        client.list_mesh_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListMeshRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_transport_kind_grpc_asyncio():
     transport = NetworkServicesAsyncClient.get_transport_class("grpc_asyncio")(
         credentials=async_anonymous_credentials()
@@ -24901,6 +37286,7 @@ async def test_list_endpoint_policies_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             endpoint_policy.ListEndpointPoliciesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_endpoint_policies(request=None)
@@ -25031,6 +37417,263 @@ async def test_delete_endpoint_policy_empty_call_grpc_asyncio():
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
 @pytest.mark.asyncio
+async def test_list_wasm_plugin_versions_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginVersionsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_wasm_plugin_versions(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginVersionsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_version_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPluginVersion(
+                name="name_value",
+                description="description_value",
+                image_uri="image_uri_value",
+                image_digest="image_digest_value",
+                plugin_config_digest="plugin_config_digest_value",
+            )
+        )
+        await client.get_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_version_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.create_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_version_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.delete_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_wasm_plugins_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.ListWasmPluginsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_wasm_plugins(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_wasm_plugin_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            extensibility.WasmPlugin(
+                name="name_value",
+                description="description_value",
+                main_version_id="main_version_id_value",
+            )
+        )
+        await client.get_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_create_wasm_plugin_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.create_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_update_wasm_plugin_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.update_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.UpdateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_delete_wasm_plugin_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.delete_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
 async def test_list_gateways_empty_call_grpc_asyncio():
     client = NetworkServicesAsyncClient(
         credentials=async_anonymous_credentials(),
@@ -25043,6 +37686,7 @@ async def test_list_gateways_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             gateway.ListGatewaysResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_gateways(request=None)
@@ -25073,9 +37717,17 @@ async def test_get_gateway_empty_call_grpc_asyncio():
                 self_link="self_link_value",
                 description="description_value",
                 type_=gateway.Gateway.Type.OPEN_MESH,
+                addresses=["addresses_value"],
                 ports=[568],
                 scope="scope_value",
                 server_tls_policy="server_tls_policy_value",
+                certificate_urls=["certificate_urls_value"],
+                gateway_security_policy="gateway_security_policy_value",
+                network="network_value",
+                subnetwork="subnetwork_value",
+                ip_version=gateway.Gateway.IpVersion.IPV4,
+                envoy_headers=common.EnvoyHeaders.NONE,
+                routing_mode=gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE,
             )
         )
         await client.get_gateway(request=None)
@@ -25178,6 +37830,7 @@ async def test_list_grpc_routes_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             grpc_route.ListGrpcRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_grpc_routes(request=None)
@@ -25318,6 +37971,7 @@ async def test_list_http_routes_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             http_route.ListHttpRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_http_routes(request=None)
@@ -25458,6 +38112,7 @@ async def test_list_tcp_routes_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             tcp_route.ListTcpRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_tcp_routes(request=None)
@@ -25591,6 +38246,7 @@ async def test_list_tls_routes_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             tls_route.ListTlsRoutesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_tls_routes(request=None)
@@ -25726,6 +38382,7 @@ async def test_list_service_bindings_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             service_binding.ListServiceBindingsResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_service_bindings(request=None)
@@ -25757,6 +38414,7 @@ async def test_get_service_binding_empty_call_grpc_asyncio():
                 name="name_value",
                 description="description_value",
                 service="service_value",
+                service_id="service_id_value",
             )
         )
         await client.get_service_binding(request=None)
@@ -25792,6 +38450,33 @@ async def test_create_service_binding_empty_call_grpc_asyncio():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = gcn_service_binding.CreateServiceBindingRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_update_service_binding_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.update_service_binding(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_binding.UpdateServiceBindingRequest()
 
         assert args[0] == request_msg
 
@@ -25838,6 +38523,7 @@ async def test_list_meshes_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             mesh.ListMeshesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_meshes(request=None)
@@ -25868,6 +38554,7 @@ async def test_get_mesh_empty_call_grpc_asyncio():
                 self_link="self_link_value",
                 description="description_value",
                 interception_port=1848,
+                envoy_headers=common.EnvoyHeaders.NONE,
             )
         )
         await client.get_mesh(request=None)
@@ -25955,6 +38642,274 @@ async def test_delete_mesh_empty_call_grpc_asyncio():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_service_lb_policies_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ListServiceLbPoliciesResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_service_lb_policies(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.ListServiceLbPoliciesRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_service_lb_policy_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            service_lb_policy.ServiceLbPolicy(
+                name="name_value",
+                description="description_value",
+                load_balancing_algorithm=service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD,
+            )
+        )
+        await client.get_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.GetServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_create_service_lb_policy_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.create_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_update_service_lb_policy_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.update_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_delete_service_lb_policy_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation(name="operations/spam")
+        )
+        await client.delete_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.DeleteServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_gateway_route_view_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.GatewayRouteView(
+                name="name_value",
+                route_project_number=2157,
+                route_location="route_location_value",
+                route_type="route_type_value",
+                route_id="route_id_value",
+            )
+        )
+        await client.get_gateway_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetGatewayRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_mesh_route_view_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.MeshRouteView(
+                name="name_value",
+                route_project_number=2157,
+                route_location="route_location_value",
+                route_type="route_type_value",
+                route_id="route_id_value",
+            )
+        )
+        await client.get_mesh_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetMeshRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_gateway_route_views_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListGatewayRouteViewsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_gateway_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListGatewayRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_mesh_route_views_empty_call_grpc_asyncio():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            route_view.ListMeshRouteViewsResponse(
+                next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
+            )
+        )
+        await client.list_mesh_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListMeshRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_transport_kind_rest():
     transport = NetworkServicesClient.get_transport_class("rest")(
         credentials=ga_credentials.AnonymousCredentials()
@@ -25973,8 +38928,9 @@ def test_list_endpoint_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26008,6 +38964,7 @@ def test_list_endpoint_policies_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = endpoint_policy.ListEndpointPoliciesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -26025,6 +38982,7 @@ def test_list_endpoint_policies_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListEndpointPoliciesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -26037,18 +38995,20 @@ def test_list_endpoint_policies_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_endpoint_policies"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_list_endpoint_policies_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_endpoint_policies"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_endpoint_policies"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_endpoint_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_endpoint_policies"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26108,8 +39068,9 @@ def test_get_endpoint_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26187,18 +39148,20 @@ def test_get_endpoint_policy_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_endpoint_policy"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_get_endpoint_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_endpoint_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_endpoint_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_endpoint_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_endpoint_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26253,8 +39216,9 @@ def test_create_endpoint_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26403,20 +39367,21 @@ def test_create_endpoint_policy_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_endpoint_policy"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_create_endpoint_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_endpoint_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_endpoint_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_endpoint_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_endpoint_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26473,8 +39438,9 @@ def test_update_endpoint_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26627,20 +39593,21 @@ def test_update_endpoint_policy_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_endpoint_policy"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_update_endpoint_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_endpoint_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_endpoint_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_endpoint_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_endpoint_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26695,8 +39662,9 @@ def test_delete_endpoint_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26755,20 +39723,21 @@ def test_delete_endpoint_policy_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_endpoint_policy"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_delete_endpoint_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_endpoint_policy"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_endpoint_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_endpoint_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_endpoint_policy"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26810,6 +39779,1442 @@ def test_delete_endpoint_policy_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_list_wasm_plugin_versions_rest_bad_request(
+    request_type=extensibility.ListWasmPluginVersionsRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_wasm_plugin_versions(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.ListWasmPluginVersionsRequest,
+        dict,
+    ],
+)
+def test_list_wasm_plugin_versions_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.ListWasmPluginVersionsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = extensibility.ListWasmPluginVersionsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_wasm_plugin_versions(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginVersionsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_wasm_plugin_versions_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_wasm_plugin_versions"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_wasm_plugin_versions_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_wasm_plugin_versions"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.ListWasmPluginVersionsRequest.pb(
+            extensibility.ListWasmPluginVersionsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = extensibility.ListWasmPluginVersionsResponse.to_json(
+            extensibility.ListWasmPluginVersionsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = extensibility.ListWasmPluginVersionsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = extensibility.ListWasmPluginVersionsResponse()
+        post_with_metadata.return_value = (
+            extensibility.ListWasmPluginVersionsResponse(),
+            metadata,
+        )
+
+        client.list_wasm_plugin_versions(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_wasm_plugin_version_rest_bad_request(
+    request_type=extensibility.GetWasmPluginVersionRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_wasm_plugin_version(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.GetWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_get_wasm_plugin_version_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.WasmPluginVersion(
+            name="name_value",
+            description="description_value",
+            image_uri="image_uri_value",
+            image_digest="image_digest_value",
+            plugin_config_digest="plugin_config_digest_value",
+            plugin_config_data=b"plugin_config_data_blob",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = extensibility.WasmPluginVersion.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_wasm_plugin_version(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPluginVersion)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.image_uri == "image_uri_value"
+    assert response.image_digest == "image_digest_value"
+    assert response.plugin_config_digest == "plugin_config_digest_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_wasm_plugin_version_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_wasm_plugin_version"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_wasm_plugin_version_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_wasm_plugin_version"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.GetWasmPluginVersionRequest.pb(
+            extensibility.GetWasmPluginVersionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = extensibility.WasmPluginVersion.to_json(
+            extensibility.WasmPluginVersion()
+        )
+        req.return_value.content = return_value
+
+        request = extensibility.GetWasmPluginVersionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = extensibility.WasmPluginVersion()
+        post_with_metadata.return_value = extensibility.WasmPluginVersion(), metadata
+
+        client.get_wasm_plugin_version(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_wasm_plugin_version_rest_bad_request(
+    request_type=extensibility.CreateWasmPluginVersionRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_wasm_plugin_version(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.CreateWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_create_wasm_plugin_version_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request_init["wasm_plugin_version"] = {
+        "plugin_config_data": b"plugin_config_data_blob",
+        "plugin_config_uri": "plugin_config_uri_value",
+        "name": "name_value",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "description": "description_value",
+        "labels": {},
+        "image_uri": "image_uri_value",
+        "image_digest": "image_digest_value",
+        "plugin_config_digest": "plugin_config_digest_value",
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = extensibility.CreateWasmPluginVersionRequest.meta.fields[
+        "wasm_plugin_version"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["wasm_plugin_version"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["wasm_plugin_version"][field])):
+                    del request_init["wasm_plugin_version"][field][i][subfield]
+            else:
+                del request_init["wasm_plugin_version"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_wasm_plugin_version(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_wasm_plugin_version_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_wasm_plugin_version"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_wasm_plugin_version_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_wasm_plugin_version"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.CreateWasmPluginVersionRequest.pb(
+            extensibility.CreateWasmPluginVersionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = extensibility.CreateWasmPluginVersionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_wasm_plugin_version(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_wasm_plugin_version_rest_bad_request(
+    request_type=extensibility.DeleteWasmPluginVersionRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_wasm_plugin_version(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.DeleteWasmPluginVersionRequest,
+        dict,
+    ],
+)
+def test_delete_wasm_plugin_version_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/wasmPlugins/sample3/versions/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_wasm_plugin_version(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_wasm_plugin_version_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_wasm_plugin_version"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_wasm_plugin_version_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_wasm_plugin_version"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.DeleteWasmPluginVersionRequest.pb(
+            extensibility.DeleteWasmPluginVersionRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = extensibility.DeleteWasmPluginVersionRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_wasm_plugin_version(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_wasm_plugins_rest_bad_request(
+    request_type=extensibility.ListWasmPluginsRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_wasm_plugins(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.ListWasmPluginsRequest,
+        dict,
+    ],
+)
+def test_list_wasm_plugins_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.ListWasmPluginsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = extensibility.ListWasmPluginsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_wasm_plugins(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListWasmPluginsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_wasm_plugins_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_wasm_plugins"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_wasm_plugins_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_wasm_plugins"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.ListWasmPluginsRequest.pb(
+            extensibility.ListWasmPluginsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = extensibility.ListWasmPluginsResponse.to_json(
+            extensibility.ListWasmPluginsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = extensibility.ListWasmPluginsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = extensibility.ListWasmPluginsResponse()
+        post_with_metadata.return_value = (
+            extensibility.ListWasmPluginsResponse(),
+            metadata,
+        )
+
+        client.list_wasm_plugins(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_wasm_plugin_rest_bad_request(
+    request_type=extensibility.GetWasmPluginRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_wasm_plugin(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.GetWasmPluginRequest,
+        dict,
+    ],
+)
+def test_get_wasm_plugin_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = extensibility.WasmPlugin(
+            name="name_value",
+            description="description_value",
+            main_version_id="main_version_id_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = extensibility.WasmPlugin.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_wasm_plugin(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, extensibility.WasmPlugin)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert response.main_version_id == "main_version_id_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_wasm_plugin_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_wasm_plugin"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_wasm_plugin_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_wasm_plugin"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.GetWasmPluginRequest.pb(
+            extensibility.GetWasmPluginRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = extensibility.WasmPlugin.to_json(extensibility.WasmPlugin())
+        req.return_value.content = return_value
+
+        request = extensibility.GetWasmPluginRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = extensibility.WasmPlugin()
+        post_with_metadata.return_value = extensibility.WasmPlugin(), metadata
+
+        client.get_wasm_plugin(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_wasm_plugin_rest_bad_request(
+    request_type=extensibility.CreateWasmPluginRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_wasm_plugin(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.CreateWasmPluginRequest,
+        dict,
+    ],
+)
+def test_create_wasm_plugin_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["wasm_plugin"] = {
+        "name": "name_value",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "description": "description_value",
+        "labels": {},
+        "main_version_id": "main_version_id_value",
+        "log_config": {"enable": True, "sample_rate": 0.1165, "min_log_level": 1},
+        "versions": {},
+        "used_by": [{"name": "name_value"}],
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = extensibility.CreateWasmPluginRequest.meta.fields["wasm_plugin"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["wasm_plugin"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["wasm_plugin"][field])):
+                    del request_init["wasm_plugin"][field][i][subfield]
+            else:
+                del request_init["wasm_plugin"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_wasm_plugin(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_wasm_plugin_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_wasm_plugin"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_wasm_plugin_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_wasm_plugin"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.CreateWasmPluginRequest.pb(
+            extensibility.CreateWasmPluginRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = extensibility.CreateWasmPluginRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_wasm_plugin(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_wasm_plugin_rest_bad_request(
+    request_type=extensibility.UpdateWasmPluginRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "wasm_plugin": {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_wasm_plugin(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.UpdateWasmPluginRequest,
+        dict,
+    ],
+)
+def test_update_wasm_plugin_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "wasm_plugin": {
+            "name": "projects/sample1/locations/sample2/wasmPlugins/sample3"
+        }
+    }
+    request_init["wasm_plugin"] = {
+        "name": "projects/sample1/locations/sample2/wasmPlugins/sample3",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "description": "description_value",
+        "labels": {},
+        "main_version_id": "main_version_id_value",
+        "log_config": {"enable": True, "sample_rate": 0.1165, "min_log_level": 1},
+        "versions": {},
+        "used_by": [{"name": "name_value"}],
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = extensibility.UpdateWasmPluginRequest.meta.fields["wasm_plugin"]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["wasm_plugin"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["wasm_plugin"][field])):
+                    del request_init["wasm_plugin"][field][i][subfield]
+            else:
+                del request_init["wasm_plugin"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_wasm_plugin(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_wasm_plugin_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_wasm_plugin"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_wasm_plugin_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_wasm_plugin"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.UpdateWasmPluginRequest.pb(
+            extensibility.UpdateWasmPluginRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = extensibility.UpdateWasmPluginRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_wasm_plugin(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_wasm_plugin_rest_bad_request(
+    request_type=extensibility.DeleteWasmPluginRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_wasm_plugin(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        extensibility.DeleteWasmPluginRequest,
+        dict,
+    ],
+)
+def test_delete_wasm_plugin_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"name": "projects/sample1/locations/sample2/wasmPlugins/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_wasm_plugin(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_wasm_plugin_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_wasm_plugin"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_wasm_plugin_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_wasm_plugin"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = extensibility.DeleteWasmPluginRequest.pb(
+            extensibility.DeleteWasmPluginRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = extensibility.DeleteWasmPluginRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_wasm_plugin(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_list_gateways_rest_bad_request(request_type=gateway.ListGatewaysRequest):
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="rest"
@@ -26819,8 +41224,9 @@ def test_list_gateways_rest_bad_request(request_type=gateway.ListGatewaysRequest
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26854,6 +41260,7 @@ def test_list_gateways_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = gateway.ListGatewaysResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -26871,6 +41278,7 @@ def test_list_gateways_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGatewaysPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -26883,17 +41291,20 @@ def test_list_gateways_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_gateways"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_gateways_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_gateways"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_gateways"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_gateways_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_gateways"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -26944,8 +41355,9 @@ def test_get_gateway_rest_bad_request(request_type=gateway.GetGatewayRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -26982,9 +41394,17 @@ def test_get_gateway_rest_call_success(request_type):
             self_link="self_link_value",
             description="description_value",
             type_=gateway.Gateway.Type.OPEN_MESH,
+            addresses=["addresses_value"],
             ports=[568],
             scope="scope_value",
             server_tls_policy="server_tls_policy_value",
+            certificate_urls=["certificate_urls_value"],
+            gateway_security_policy="gateway_security_policy_value",
+            network="network_value",
+            subnetwork="subnetwork_value",
+            ip_version=gateway.Gateway.IpVersion.IPV4,
+            envoy_headers=common.EnvoyHeaders.NONE,
+            routing_mode=gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE,
         )
 
         # Wrap the value into a proper Response obj
@@ -27005,9 +41425,17 @@ def test_get_gateway_rest_call_success(request_type):
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.type_ == gateway.Gateway.Type.OPEN_MESH
+    assert response.addresses == ["addresses_value"]
     assert response.ports == [568]
     assert response.scope == "scope_value"
     assert response.server_tls_policy == "server_tls_policy_value"
+    assert response.certificate_urls == ["certificate_urls_value"]
+    assert response.gateway_security_policy == "gateway_security_policy_value"
+    assert response.network == "network_value"
+    assert response.subnetwork == "subnetwork_value"
+    assert response.ip_version == gateway.Gateway.IpVersion.IPV4
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
+    assert response.routing_mode == gateway.Gateway.RoutingMode.NEXT_HOP_ROUTING_MODE
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -27020,17 +41448,19 @@ def test_get_gateway_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_gateway"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_gateway_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_gateway"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_gateway"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_gateway_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_gateway"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27079,8 +41509,9 @@ def test_create_gateway_rest_bad_request(request_type=gcn_gateway.CreateGatewayR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27115,9 +41546,17 @@ def test_create_gateway_rest_call_success(request_type):
         "labels": {},
         "description": "description_value",
         "type_": 1,
+        "addresses": ["addresses_value1", "addresses_value2"],
         "ports": [569, 570],
         "scope": "scope_value",
         "server_tls_policy": "server_tls_policy_value",
+        "certificate_urls": ["certificate_urls_value1", "certificate_urls_value2"],
+        "gateway_security_policy": "gateway_security_policy_value",
+        "network": "network_value",
+        "subnetwork": "subnetwork_value",
+        "ip_version": 1,
+        "envoy_headers": 1,
+        "routing_mode": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -27216,19 +41655,21 @@ def test_create_gateway_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_gateway"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_gateway_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_gateway"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_gateway"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_gateway_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_gateway"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27281,8 +41722,9 @@ def test_update_gateway_rest_bad_request(request_type=gcn_gateway.UpdateGatewayR
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27319,9 +41761,17 @@ def test_update_gateway_rest_call_success(request_type):
         "labels": {},
         "description": "description_value",
         "type_": 1,
+        "addresses": ["addresses_value1", "addresses_value2"],
         "ports": [569, 570],
         "scope": "scope_value",
         "server_tls_policy": "server_tls_policy_value",
+        "certificate_urls": ["certificate_urls_value1", "certificate_urls_value2"],
+        "gateway_security_policy": "gateway_security_policy_value",
+        "network": "network_value",
+        "subnetwork": "subnetwork_value",
+        "ip_version": 1,
+        "envoy_headers": 1,
+        "routing_mode": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -27420,19 +41870,21 @@ def test_update_gateway_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_gateway"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_gateway_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_gateway"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_gateway"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_gateway_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_gateway"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27483,8 +41935,9 @@ def test_delete_gateway_rest_bad_request(request_type=gateway.DeleteGatewayReque
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27541,19 +41994,21 @@ def test_delete_gateway_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_gateway"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_gateway_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_gateway"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_gateway"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_gateway_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_gateway"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27604,8 +42059,9 @@ def test_list_grpc_routes_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27639,6 +42095,7 @@ def test_list_grpc_routes_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = grpc_route.ListGrpcRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -27656,6 +42113,7 @@ def test_list_grpc_routes_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListGrpcRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -27668,17 +42126,20 @@ def test_list_grpc_routes_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_grpc_routes"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_grpc_routes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_grpc_routes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_grpc_routes"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_grpc_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_grpc_routes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27731,8 +42192,9 @@ def test_get_grpc_route_rest_bad_request(request_type=grpc_route.GetGrpcRouteReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27805,17 +42267,20 @@ def test_get_grpc_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_grpc_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_grpc_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_grpc_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_grpc_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_grpc_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_grpc_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -27866,8 +42331,9 @@ def test_create_grpc_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -27938,6 +42404,8 @@ def test_create_grpc_route_rest_call_success(request_type):
                         ],
                         "num_retries": 1197,
                     },
+                    "stateful_session_affinity": {"cookie_ttl": {}},
+                    "idle_timeout": {},
                 },
             }
         ],
@@ -28039,20 +42507,21 @@ def test_create_grpc_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_grpc_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_create_grpc_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_grpc_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_grpc_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_grpc_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_grpc_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28107,8 +42576,9 @@ def test_update_grpc_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28181,6 +42651,8 @@ def test_update_grpc_route_rest_call_success(request_type):
                         ],
                         "num_retries": 1197,
                     },
+                    "stateful_session_affinity": {"cookie_ttl": {}},
+                    "idle_timeout": {},
                 },
             }
         ],
@@ -28282,20 +42754,21 @@ def test_update_grpc_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_grpc_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_update_grpc_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_grpc_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_grpc_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_grpc_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_grpc_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28348,8 +42821,9 @@ def test_delete_grpc_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28406,20 +42880,21 @@ def test_delete_grpc_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_grpc_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_delete_grpc_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_grpc_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_grpc_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_grpc_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_grpc_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28472,8 +42947,9 @@ def test_list_http_routes_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28507,6 +42983,7 @@ def test_list_http_routes_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = http_route.ListHttpRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -28524,6 +43001,7 @@ def test_list_http_routes_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListHttpRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -28536,17 +43014,20 @@ def test_list_http_routes_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_http_routes"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_http_routes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_http_routes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_http_routes"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_http_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_http_routes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28599,8 +43080,9 @@ def test_get_http_route_rest_bad_request(request_type=http_route.GetHttpRouteReq
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28673,17 +43155,20 @@ def test_get_http_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_http_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_http_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_http_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_http_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_http_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_http_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -28734,8 +43219,9 @@ def test_create_http_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -28804,7 +43290,16 @@ def test_create_http_route_rest_call_success(request_type):
                 ],
                 "action": {
                     "destinations": [
-                        {"service_name": "service_name_value", "weight": 648}
+                        {
+                            "service_name": "service_name_value",
+                            "weight": 648,
+                            "request_header_modifier": {
+                                "set": {},
+                                "add": {},
+                                "remove": ["remove_value1", "remove_value2"],
+                            },
+                            "response_header_modifier": {},
+                        }
                     ],
                     "redirect": {
                         "host_redirect": "host_redirect_value",
@@ -28822,11 +43317,7 @@ def test_create_http_route_rest_call_success(request_type):
                         },
                         "abort": {"http_status": 1219, "percentage": 1054},
                     },
-                    "request_header_modifier": {
-                        "set": {},
-                        "add": {},
-                        "remove": ["remove_value1", "remove_value2"],
-                    },
+                    "request_header_modifier": {},
                     "response_header_modifier": {},
                     "url_rewrite": {
                         "path_prefix_rewrite": "path_prefix_rewrite_value",
@@ -28841,7 +43332,10 @@ def test_create_http_route_rest_call_success(request_type):
                         "num_retries": 1197,
                         "per_try_timeout": {},
                     },
-                    "request_mirror_policy": {"destination": {}},
+                    "request_mirror_policy": {
+                        "destination": {},
+                        "mirror_percent": 0.1515,
+                    },
                     "cors_policy": {
                         "allow_origins": [
                             "allow_origins_value1",
@@ -28867,6 +43361,13 @@ def test_create_http_route_rest_call_success(request_type):
                         "allow_credentials": True,
                         "disabled": True,
                     },
+                    "stateful_session_affinity": {"cookie_ttl": {}},
+                    "direct_response": {
+                        "string_body": "string_body_value",
+                        "bytes_body": b"bytes_body_blob",
+                        "status": 676,
+                    },
+                    "idle_timeout": {},
                 },
             }
         ],
@@ -28968,20 +43469,21 @@ def test_create_http_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_http_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_create_http_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_http_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_http_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_http_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_http_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29036,8 +43538,9 @@ def test_update_http_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29108,7 +43611,16 @@ def test_update_http_route_rest_call_success(request_type):
                 ],
                 "action": {
                     "destinations": [
-                        {"service_name": "service_name_value", "weight": 648}
+                        {
+                            "service_name": "service_name_value",
+                            "weight": 648,
+                            "request_header_modifier": {
+                                "set": {},
+                                "add": {},
+                                "remove": ["remove_value1", "remove_value2"],
+                            },
+                            "response_header_modifier": {},
+                        }
                     ],
                     "redirect": {
                         "host_redirect": "host_redirect_value",
@@ -29126,11 +43638,7 @@ def test_update_http_route_rest_call_success(request_type):
                         },
                         "abort": {"http_status": 1219, "percentage": 1054},
                     },
-                    "request_header_modifier": {
-                        "set": {},
-                        "add": {},
-                        "remove": ["remove_value1", "remove_value2"],
-                    },
+                    "request_header_modifier": {},
                     "response_header_modifier": {},
                     "url_rewrite": {
                         "path_prefix_rewrite": "path_prefix_rewrite_value",
@@ -29145,7 +43653,10 @@ def test_update_http_route_rest_call_success(request_type):
                         "num_retries": 1197,
                         "per_try_timeout": {},
                     },
-                    "request_mirror_policy": {"destination": {}},
+                    "request_mirror_policy": {
+                        "destination": {},
+                        "mirror_percent": 0.1515,
+                    },
                     "cors_policy": {
                         "allow_origins": [
                             "allow_origins_value1",
@@ -29171,6 +43682,13 @@ def test_update_http_route_rest_call_success(request_type):
                         "allow_credentials": True,
                         "disabled": True,
                     },
+                    "stateful_session_affinity": {"cookie_ttl": {}},
+                    "direct_response": {
+                        "string_body": "string_body_value",
+                        "bytes_body": b"bytes_body_blob",
+                        "status": 676,
+                    },
+                    "idle_timeout": {},
                 },
             }
         ],
@@ -29272,20 +43790,21 @@ def test_update_http_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_http_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_update_http_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_http_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_http_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_http_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_http_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29338,8 +43857,9 @@ def test_delete_http_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29396,20 +43916,21 @@ def test_delete_http_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_http_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_delete_http_route_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_http_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_http_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_http_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_http_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29460,8 +43981,9 @@ def test_list_tcp_routes_rest_bad_request(request_type=tcp_route.ListTcpRoutesRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29495,6 +44017,7 @@ def test_list_tcp_routes_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = tcp_route.ListTcpRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -29512,6 +44035,7 @@ def test_list_tcp_routes_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTcpRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -29524,17 +44048,20 @@ def test_list_tcp_routes_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_tcp_routes"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_tcp_routes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_tcp_routes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_tcp_routes"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_tcp_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_tcp_routes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29585,8 +44112,9 @@ def test_get_tcp_route_rest_bad_request(request_type=tcp_route.GetTcpRouteReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29657,17 +44185,20 @@ def test_get_tcp_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_tcp_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_tcp_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_tcp_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_tcp_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_tcp_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_tcp_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29718,8 +44249,9 @@ def test_create_tcp_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29760,6 +44292,7 @@ def test_create_tcp_route_rest_call_success(request_type):
                         {"service_name": "service_name_value", "weight": 648}
                     ],
                     "original_destination": True,
+                    "idle_timeout": {"seconds": 751, "nanos": 543},
                 },
             }
         ],
@@ -29864,19 +44397,21 @@ def test_create_tcp_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_tcp_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_tcp_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_tcp_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_tcp_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_tcp_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_tcp_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -29931,8 +44466,9 @@ def test_update_tcp_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -29975,6 +44511,7 @@ def test_update_tcp_route_rest_call_success(request_type):
                         {"service_name": "service_name_value", "weight": 648}
                     ],
                     "original_destination": True,
+                    "idle_timeout": {"seconds": 751, "nanos": 543},
                 },
             }
         ],
@@ -30079,19 +44616,21 @@ def test_update_tcp_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_tcp_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_tcp_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_tcp_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_tcp_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_tcp_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_tcp_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30144,8 +44683,9 @@ def test_delete_tcp_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30202,19 +44742,21 @@ def test_delete_tcp_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_tcp_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_tcp_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_tcp_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_tcp_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_tcp_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_tcp_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30265,8 +44807,9 @@ def test_list_tls_routes_rest_bad_request(request_type=tls_route.ListTlsRoutesRe
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30300,6 +44843,7 @@ def test_list_tls_routes_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = tls_route.ListTlsRoutesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -30317,6 +44861,7 @@ def test_list_tls_routes_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListTlsRoutesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -30329,17 +44874,20 @@ def test_list_tls_routes_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_tls_routes"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_tls_routes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_tls_routes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_tls_routes"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_tls_routes_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_tls_routes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30390,8 +44938,9 @@ def test_get_tls_route_rest_bad_request(request_type=tls_route.GetTlsRouteReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30462,17 +45011,20 @@ def test_get_tls_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_tls_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_tls_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_tls_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_tls_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_tls_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_tls_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30523,8 +45075,9 @@ def test_create_tls_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30568,12 +45121,14 @@ def test_create_tls_route_rest_call_success(request_type):
                 "action": {
                     "destinations": [
                         {"service_name": "service_name_value", "weight": 648}
-                    ]
+                    ],
+                    "idle_timeout": {"seconds": 751, "nanos": 543},
                 },
             }
         ],
         "meshes": ["meshes_value1", "meshes_value2"],
         "gateways": ["gateways_value1", "gateways_value2"],
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -30672,19 +45227,21 @@ def test_create_tls_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_tls_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_tls_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_tls_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_tls_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_tls_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_tls_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30739,8 +45296,9 @@ def test_update_tls_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -30786,12 +45344,14 @@ def test_update_tls_route_rest_call_success(request_type):
                 "action": {
                     "destinations": [
                         {"service_name": "service_name_value", "weight": 648}
-                    ]
+                    ],
+                    "idle_timeout": {"seconds": 751, "nanos": 543},
                 },
             }
         ],
         "meshes": ["meshes_value1", "meshes_value2"],
         "gateways": ["gateways_value1", "gateways_value2"],
+        "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -30890,19 +45450,21 @@ def test_update_tls_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_tls_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_tls_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_tls_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_tls_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_tls_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_tls_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -30955,8 +45517,9 @@ def test_delete_tls_route_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31013,19 +45576,21 @@ def test_delete_tls_route_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_tls_route"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_tls_route_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_tls_route"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_tls_route"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_tls_route_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_tls_route"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31078,8 +45643,9 @@ def test_list_service_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31113,6 +45679,7 @@ def test_list_service_bindings_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = service_binding.ListServiceBindingsResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -31130,6 +45697,7 @@ def test_list_service_bindings_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServiceBindingsPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -31142,18 +45710,20 @@ def test_list_service_bindings_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_service_bindings"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_list_service_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_service_bindings"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_service_bindings"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_service_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_service_bindings"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31213,8 +45783,9 @@ def test_get_service_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31252,6 +45823,7 @@ def test_get_service_binding_rest_call_success(request_type):
             name="name_value",
             description="description_value",
             service="service_value",
+            service_id="service_id_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -31271,6 +45843,7 @@ def test_get_service_binding_rest_call_success(request_type):
     assert response.name == "name_value"
     assert response.description == "description_value"
     assert response.service == "service_value"
+    assert response.service_id == "service_id_value"
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -31283,18 +45856,20 @@ def test_get_service_binding_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_service_binding"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_get_service_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_service_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_service_binding"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_service_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_service_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31349,8 +45924,9 @@ def test_create_service_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31383,6 +45959,7 @@ def test_create_service_binding_rest_call_success(request_type):
         "create_time": {"seconds": 751, "nanos": 543},
         "update_time": {},
         "service": "service_value",
+        "service_id": "service_id_value",
         "labels": {},
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
@@ -31484,20 +46061,21 @@ def test_create_service_binding_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_service_binding"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_create_service_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_service_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_service_binding"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_service_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_service_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31539,6 +46117,218 @@ def test_create_service_binding_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_update_service_binding_rest_bad_request(
+    request_type=gcn_service_binding.UpdateServiceBindingRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "service_binding": {
+            "name": "projects/sample1/locations/sample2/serviceBindings/sample3"
+        }
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_service_binding(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_service_binding.UpdateServiceBindingRequest,
+        dict,
+    ],
+)
+def test_update_service_binding_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "service_binding": {
+            "name": "projects/sample1/locations/sample2/serviceBindings/sample3"
+        }
+    }
+    request_init["service_binding"] = {
+        "name": "projects/sample1/locations/sample2/serviceBindings/sample3",
+        "description": "description_value",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "service": "service_value",
+        "service_id": "service_id_value",
+        "labels": {},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = gcn_service_binding.UpdateServiceBindingRequest.meta.fields[
+        "service_binding"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["service_binding"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["service_binding"][field])):
+                    del request_init["service_binding"][field][i][subfield]
+            else:
+                del request_init["service_binding"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_service_binding(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_service_binding_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_service_binding"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_service_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_service_binding"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = gcn_service_binding.UpdateServiceBindingRequest.pb(
+            gcn_service_binding.UpdateServiceBindingRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = gcn_service_binding.UpdateServiceBindingRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_service_binding(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_delete_service_binding_rest_bad_request(
     request_type=service_binding.DeleteServiceBindingRequest,
 ):
@@ -31552,8 +46342,9 @@ def test_delete_service_binding_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31612,20 +46403,21 @@ def test_delete_service_binding_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_service_binding"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor,
-        "post_delete_service_binding_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_service_binding"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_service_binding"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_service_binding_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_service_binding"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31676,8 +46468,9 @@ def test_list_meshes_rest_bad_request(request_type=mesh.ListMeshesRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31711,6 +46504,7 @@ def test_list_meshes_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = mesh.ListMeshesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -31728,6 +46522,7 @@ def test_list_meshes_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListMeshesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -31740,17 +46535,19 @@ def test_list_meshes_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_meshes"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_list_meshes_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_list_meshes"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_meshes"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_meshes_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_meshes"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31799,8 +46596,9 @@ def test_get_mesh_rest_bad_request(request_type=mesh.GetMeshRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31837,6 +46635,7 @@ def test_get_mesh_rest_call_success(request_type):
             self_link="self_link_value",
             description="description_value",
             interception_port=1848,
+            envoy_headers=common.EnvoyHeaders.NONE,
         )
 
         # Wrap the value into a proper Response obj
@@ -31857,6 +46656,7 @@ def test_get_mesh_rest_call_success(request_type):
     assert response.self_link == "self_link_value"
     assert response.description == "description_value"
     assert response.interception_port == 1848
+    assert response.envoy_headers == common.EnvoyHeaders.NONE
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -31869,17 +46669,19 @@ def test_get_mesh_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_mesh"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_get_mesh_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_get_mesh"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_mesh"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_mesh_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_mesh"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -31928,8 +46730,9 @@ def test_create_mesh_rest_bad_request(request_type=gcn_mesh.CreateMeshRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -31964,6 +46767,7 @@ def test_create_mesh_rest_call_success(request_type):
         "labels": {},
         "description": "description_value",
         "interception_port": 1848,
+        "envoy_headers": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -32062,19 +46866,20 @@ def test_create_mesh_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_mesh"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_create_mesh_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_create_mesh"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_mesh"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_mesh_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_mesh"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32125,8 +46930,9 @@ def test_update_mesh_rest_bad_request(request_type=gcn_mesh.UpdateMeshRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32163,6 +46969,7 @@ def test_update_mesh_rest_call_success(request_type):
         "labels": {},
         "description": "description_value",
         "interception_port": 1848,
+        "envoy_headers": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -32261,19 +47068,20 @@ def test_update_mesh_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_mesh"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_update_mesh_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_update_mesh"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_mesh"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_mesh_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_mesh"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32322,8 +47130,9 @@ def test_delete_mesh_rest_bad_request(request_type=mesh.DeleteMeshRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -32380,19 +47189,20 @@ def test_delete_mesh_rest_interceptors(null_interceptor):
     )
     client = NetworkServicesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_mesh"
-    ) as post, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "post_delete_mesh_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.NetworkServicesRestInterceptor, "pre_delete_mesh"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_mesh"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_mesh_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_mesh"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -32432,6 +47242,1402 @@ def test_delete_mesh_rest_interceptors(null_interceptor):
         post_with_metadata.assert_called_once()
 
 
+def test_list_service_lb_policies_rest_bad_request(
+    request_type=service_lb_policy.ListServiceLbPoliciesRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_service_lb_policies(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.ListServiceLbPoliciesRequest,
+        dict,
+    ],
+)
+def test_list_service_lb_policies_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = service_lb_policy.ListServiceLbPoliciesResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = service_lb_policy.ListServiceLbPoliciesResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_service_lb_policies(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListServiceLbPoliciesPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_service_lb_policies_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_service_lb_policies"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_service_lb_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_service_lb_policies"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = service_lb_policy.ListServiceLbPoliciesRequest.pb(
+            service_lb_policy.ListServiceLbPoliciesRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = service_lb_policy.ListServiceLbPoliciesResponse.to_json(
+            service_lb_policy.ListServiceLbPoliciesResponse()
+        )
+        req.return_value.content = return_value
+
+        request = service_lb_policy.ListServiceLbPoliciesRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = service_lb_policy.ListServiceLbPoliciesResponse()
+        post_with_metadata.return_value = (
+            service_lb_policy.ListServiceLbPoliciesResponse(),
+            metadata,
+        )
+
+        client.list_service_lb_policies(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_service_lb_policy_rest_bad_request(
+    request_type=service_lb_policy.GetServiceLbPolicyRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_service_lb_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.GetServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_get_service_lb_policy_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = service_lb_policy.ServiceLbPolicy(
+            name="name_value",
+            description="description_value",
+            load_balancing_algorithm=service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD,
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = service_lb_policy.ServiceLbPolicy.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_service_lb_policy(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, service_lb_policy.ServiceLbPolicy)
+    assert response.name == "name_value"
+    assert response.description == "description_value"
+    assert (
+        response.load_balancing_algorithm
+        == service_lb_policy.ServiceLbPolicy.LoadBalancingAlgorithm.SPRAY_TO_WORLD
+    )
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_service_lb_policy_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_service_lb_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_service_lb_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_service_lb_policy"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = service_lb_policy.GetServiceLbPolicyRequest.pb(
+            service_lb_policy.GetServiceLbPolicyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = service_lb_policy.ServiceLbPolicy.to_json(
+            service_lb_policy.ServiceLbPolicy()
+        )
+        req.return_value.content = return_value
+
+        request = service_lb_policy.GetServiceLbPolicyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = service_lb_policy.ServiceLbPolicy()
+        post_with_metadata.return_value = service_lb_policy.ServiceLbPolicy(), metadata
+
+        client.get_service_lb_policy(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_create_service_lb_policy_rest_bad_request(
+    request_type=gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.create_service_lb_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_create_service_lb_policy_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2"}
+    request_init["service_lb_policy"] = {
+        "name": "name_value",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "labels": {},
+        "description": "description_value",
+        "load_balancing_algorithm": 3,
+        "auto_capacity_drain": {"enable": True},
+        "failover_config": {"failover_health_threshold": 2649},
+        "isolation_config": {"isolation_granularity": 1, "isolation_mode": 1},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = gcn_service_lb_policy.CreateServiceLbPolicyRequest.meta.fields[
+        "service_lb_policy"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["service_lb_policy"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["service_lb_policy"][field])):
+                    del request_init["service_lb_policy"][field][i][subfield]
+            else:
+                del request_init["service_lb_policy"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.create_service_lb_policy(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_create_service_lb_policy_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_create_service_lb_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_create_service_lb_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_create_service_lb_policy"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = gcn_service_lb_policy.CreateServiceLbPolicyRequest.pb(
+            gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.create_service_lb_policy(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_update_service_lb_policy_rest_bad_request(
+    request_type=gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "service_lb_policy": {
+            "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+        }
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.update_service_lb_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_update_service_lb_policy_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "service_lb_policy": {
+            "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+        }
+    }
+    request_init["service_lb_policy"] = {
+        "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3",
+        "create_time": {"seconds": 751, "nanos": 543},
+        "update_time": {},
+        "labels": {},
+        "description": "description_value",
+        "load_balancing_algorithm": 3,
+        "auto_capacity_drain": {"enable": True},
+        "failover_config": {"failover_health_threshold": 2649},
+        "isolation_config": {"isolation_granularity": 1, "isolation_mode": 1},
+    }
+    # The version of a generated dependency at test runtime may differ from the version used during generation.
+    # Delete any fields which are not present in the current runtime dependency
+    # See https://github.com/googleapis/gapic-generator-python/issues/1748
+
+    # Determine if the message type is proto-plus or protobuf
+    test_field = gcn_service_lb_policy.UpdateServiceLbPolicyRequest.meta.fields[
+        "service_lb_policy"
+    ]
+
+    def get_message_fields(field):
+        # Given a field which is a message (composite type), return a list with
+        # all the fields of the message.
+        # If the field is not a composite type, return an empty list.
+        message_fields = []
+
+        if hasattr(field, "message") and field.message:
+            is_field_type_proto_plus_type = not hasattr(field.message, "DESCRIPTOR")
+
+            if is_field_type_proto_plus_type:
+                message_fields = field.message.meta.fields.values()
+            # Add `# pragma: NO COVER` because there may not be any `*_pb2` field types
+            else:  # pragma: NO COVER
+                message_fields = field.message.DESCRIPTOR.fields
+        return message_fields
+
+    runtime_nested_fields = [
+        (field.name, nested_field.name)
+        for field in get_message_fields(test_field)
+        for nested_field in get_message_fields(field)
+    ]
+
+    subfields_not_in_runtime = []
+
+    # For each item in the sample request, create a list of sub fields which are not present at runtime
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for field, value in request_init["service_lb_policy"].items():  # pragma: NO COVER
+        result = None
+        is_repeated = False
+        # For repeated fields
+        if isinstance(value, list) and len(value):
+            is_repeated = True
+            result = value[0]
+        # For fields where the type is another message
+        if isinstance(value, dict):
+            result = value
+
+        if result and hasattr(result, "keys"):
+            for subfield in result.keys():
+                if (field, subfield) not in runtime_nested_fields:
+                    subfields_not_in_runtime.append(
+                        {
+                            "field": field,
+                            "subfield": subfield,
+                            "is_repeated": is_repeated,
+                        }
+                    )
+
+    # Remove fields from the sample request which are not present in the runtime version of the dependency
+    # Add `# pragma: NO COVER` because this test code will not run if all subfields are present at runtime
+    for subfield_to_delete in subfields_not_in_runtime:  # pragma: NO COVER
+        field = subfield_to_delete.get("field")
+        field_repeated = subfield_to_delete.get("is_repeated")
+        subfield = subfield_to_delete.get("subfield")
+        if subfield:
+            if field_repeated:
+                for i in range(0, len(request_init["service_lb_policy"][field])):
+                    del request_init["service_lb_policy"][field][i][subfield]
+            else:
+                del request_init["service_lb_policy"][field][subfield]
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.update_service_lb_policy(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_update_service_lb_policy_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_update_service_lb_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_update_service_lb_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_update_service_lb_policy"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = gcn_service_lb_policy.UpdateServiceLbPolicyRequest.pb(
+            gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.update_service_lb_policy(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_delete_service_lb_policy_rest_bad_request(
+    request_type=service_lb_policy.DeleteServiceLbPolicyRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.delete_service_lb_policy(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        service_lb_policy.DeleteServiceLbPolicyRequest,
+        dict,
+    ],
+)
+def test_delete_service_lb_policy_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/serviceLbPolicies/sample3"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = operations_pb2.Operation(name="operations/spam")
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.delete_service_lb_policy(request)
+
+    # Establish that the response is the type that we expect.
+    json_return_value = json_format.MessageToJson(return_value)
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_delete_service_lb_policy_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_delete_service_lb_policy"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_delete_service_lb_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_delete_service_lb_policy"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = service_lb_policy.DeleteServiceLbPolicyRequest.pb(
+            service_lb_policy.DeleteServiceLbPolicyRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = json_format.MessageToJson(operations_pb2.Operation())
+        req.return_value.content = return_value
+
+        request = service_lb_policy.DeleteServiceLbPolicyRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = operations_pb2.Operation()
+        post_with_metadata.return_value = operations_pb2.Operation(), metadata
+
+        client.delete_service_lb_policy(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_gateway_route_view_rest_bad_request(
+    request_type=route_view.GetGatewayRouteViewRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/gateways/sample3/routeViews/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_gateway_route_view(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.GetGatewayRouteViewRequest,
+        dict,
+    ],
+)
+def test_get_gateway_route_view_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/gateways/sample3/routeViews/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.GatewayRouteView(
+            name="name_value",
+            route_project_number=2157,
+            route_location="route_location_value",
+            route_type="route_type_value",
+            route_id="route_id_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = route_view.GatewayRouteView.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_gateway_route_view(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.GatewayRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_gateway_route_view_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_gateway_route_view"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_gateway_route_view_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_gateway_route_view"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = route_view.GetGatewayRouteViewRequest.pb(
+            route_view.GetGatewayRouteViewRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = route_view.GatewayRouteView.to_json(
+            route_view.GatewayRouteView()
+        )
+        req.return_value.content = return_value
+
+        request = route_view.GetGatewayRouteViewRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = route_view.GatewayRouteView()
+        post_with_metadata.return_value = route_view.GatewayRouteView(), metadata
+
+        client.get_gateway_route_view(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_get_mesh_route_view_rest_bad_request(
+    request_type=route_view.GetMeshRouteViewRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/meshes/sample3/routeViews/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.get_mesh_route_view(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.GetMeshRouteViewRequest,
+        dict,
+    ],
+)
+def test_get_mesh_route_view_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {
+        "name": "projects/sample1/locations/sample2/meshes/sample3/routeViews/sample4"
+    }
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.MeshRouteView(
+            name="name_value",
+            route_project_number=2157,
+            route_location="route_location_value",
+            route_type="route_type_value",
+            route_id="route_id_value",
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = route_view.MeshRouteView.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.get_mesh_route_view(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, route_view.MeshRouteView)
+    assert response.name == "name_value"
+    assert response.route_project_number == 2157
+    assert response.route_location == "route_location_value"
+    assert response.route_type == "route_type_value"
+    assert response.route_id == "route_id_value"
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_get_mesh_route_view_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_get_mesh_route_view"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_get_mesh_route_view_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_get_mesh_route_view"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = route_view.GetMeshRouteViewRequest.pb(
+            route_view.GetMeshRouteViewRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = route_view.MeshRouteView.to_json(route_view.MeshRouteView())
+        req.return_value.content = return_value
+
+        request = route_view.GetMeshRouteViewRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = route_view.MeshRouteView()
+        post_with_metadata.return_value = route_view.MeshRouteView(), metadata
+
+        client.get_mesh_route_view(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_gateway_route_views_rest_bad_request(
+    request_type=route_view.ListGatewayRouteViewsRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/gateways/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_gateway_route_views(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.ListGatewayRouteViewsRequest,
+        dict,
+    ],
+)
+def test_list_gateway_route_views_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/gateways/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.ListGatewayRouteViewsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = route_view.ListGatewayRouteViewsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_gateway_route_views(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListGatewayRouteViewsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_gateway_route_views_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_gateway_route_views"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_gateway_route_views_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_gateway_route_views"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = route_view.ListGatewayRouteViewsRequest.pb(
+            route_view.ListGatewayRouteViewsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = route_view.ListGatewayRouteViewsResponse.to_json(
+            route_view.ListGatewayRouteViewsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = route_view.ListGatewayRouteViewsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = route_view.ListGatewayRouteViewsResponse()
+        post_with_metadata.return_value = (
+            route_view.ListGatewayRouteViewsResponse(),
+            metadata,
+        )
+
+        client.list_gateway_route_views(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
+def test_list_mesh_route_views_rest_bad_request(
+    request_type=route_view.ListMeshRouteViewsRequest,
+):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/meshes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a BadRequest error.
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
+    ):
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        json_return_value = ""
+        response_value.json = mock.Mock(return_value={})
+        response_value.status_code = 400
+        response_value.request = mock.Mock()
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        client.list_mesh_route_views(request)
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        route_view.ListMeshRouteViewsRequest,
+        dict,
+    ],
+)
+def test_list_mesh_route_views_rest_call_success(request_type):
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="rest"
+    )
+
+    # send a request that will satisfy transcoding
+    request_init = {"parent": "projects/sample1/locations/sample2/meshes/sample3"}
+    request = request_type(**request_init)
+
+    # Mock the http request call within the method and fake a response.
+    with mock.patch.object(type(client.transport._session), "request") as req:
+        # Designate an appropriate value for the returned response.
+        return_value = route_view.ListMeshRouteViewsResponse(
+            next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
+        )
+
+        # Wrap the value into a proper Response obj
+        response_value = mock.Mock()
+        response_value.status_code = 200
+
+        # Convert return value to protobuf type
+        return_value = route_view.ListMeshRouteViewsResponse.pb(return_value)
+        json_return_value = json_format.MessageToJson(return_value)
+        response_value.content = json_return_value.encode("UTF-8")
+        req.return_value = response_value
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        response = client.list_mesh_route_views(request)
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListMeshRouteViewsPager)
+    assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
+
+
+@pytest.mark.parametrize("null_interceptor", [True, False])
+def test_list_mesh_route_views_rest_interceptors(null_interceptor):
+    transport = transports.NetworkServicesRestTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+        interceptor=None
+        if null_interceptor
+        else transports.NetworkServicesRestInterceptor(),
+    )
+    client = NetworkServicesClient(transport=transport)
+
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "post_list_mesh_route_views"
+        ) as post,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor,
+            "post_list_mesh_route_views_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.NetworkServicesRestInterceptor, "pre_list_mesh_route_views"
+        ) as pre,
+    ):
+        pre.assert_not_called()
+        post.assert_not_called()
+        post_with_metadata.assert_not_called()
+        pb_message = route_view.ListMeshRouteViewsRequest.pb(
+            route_view.ListMeshRouteViewsRequest()
+        )
+        transcode.return_value = {
+            "method": "post",
+            "uri": "my_uri",
+            "body": pb_message,
+            "query_params": pb_message,
+        }
+
+        req.return_value = mock.Mock()
+        req.return_value.status_code = 200
+        req.return_value.headers = {"header-1": "value-1", "header-2": "value-2"}
+        return_value = route_view.ListMeshRouteViewsResponse.to_json(
+            route_view.ListMeshRouteViewsResponse()
+        )
+        req.return_value.content = return_value
+
+        request = route_view.ListMeshRouteViewsRequest()
+        metadata = [
+            ("key", "val"),
+            ("cephalopod", "squid"),
+        ]
+        pre.return_value = request, metadata
+        post.return_value = route_view.ListMeshRouteViewsResponse()
+        post_with_metadata.return_value = (
+            route_view.ListMeshRouteViewsResponse(),
+            metadata,
+        )
+
+        client.list_mesh_route_views(
+            request,
+            metadata=[
+                ("key", "val"),
+                ("cephalopod", "squid"),
+            ],
+        )
+
+        pre.assert_called_once()
+        post.assert_called_once()
+        post_with_metadata.assert_called_once()
+
+
 def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationRequest):
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -32443,8 +48649,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32503,8 +48710,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32566,8 +48774,9 @@ def test_get_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32631,8 +48840,9 @@ def test_set_iam_policy_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32696,8 +48906,9 @@ def test_test_iam_permissions_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32760,8 +48971,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32822,8 +49034,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32884,8 +49097,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -32946,8 +49160,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -33108,6 +49323,202 @@ def test_delete_endpoint_policy_empty_call_rest():
         call.assert_called()
         _, args, _ = call.mock_calls[0]
         request_msg = endpoint_policy.DeleteEndpointPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_wasm_plugin_versions_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugin_versions), "__call__"
+    ) as call:
+        client.list_wasm_plugin_versions(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginVersionsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_wasm_plugin_version_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_wasm_plugin_version), "__call__"
+    ) as call:
+        client.get_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_wasm_plugin_version_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin_version), "__call__"
+    ) as call:
+        client.create_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_wasm_plugin_version_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin_version), "__call__"
+    ) as call:
+        client.delete_wasm_plugin_version(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginVersionRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_wasm_plugins_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_wasm_plugins), "__call__"
+    ) as call:
+        client.list_wasm_plugins(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.ListWasmPluginsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_wasm_plugin_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(type(client.transport.get_wasm_plugin), "__call__") as call:
+        client.get_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.GetWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_wasm_plugin_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_wasm_plugin), "__call__"
+    ) as call:
+        client.create_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.CreateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_wasm_plugin_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_wasm_plugin), "__call__"
+    ) as call:
+        client.update_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.UpdateWasmPluginRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_wasm_plugin_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_wasm_plugin), "__call__"
+    ) as call:
+        client.delete_wasm_plugin(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = extensibility.DeleteWasmPluginRequest()
 
         assert args[0] == request_msg
 
@@ -33692,6 +50103,28 @@ def test_create_service_binding_empty_call_rest():
 
 # This test is a coverage failsafe to make sure that totally empty calls,
 # i.e. request == None and no flattened fields passed, work.
+def test_update_service_binding_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_binding), "__call__"
+    ) as call:
+        client.update_service_binding(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_binding.UpdateServiceBindingRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
 def test_delete_service_binding_empty_call_rest():
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -33812,6 +50245,204 @@ def test_delete_mesh_empty_call_rest():
         assert args[0] == request_msg
 
 
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_service_lb_policies_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_service_lb_policies), "__call__"
+    ) as call:
+        client.list_service_lb_policies(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.ListServiceLbPoliciesRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_service_lb_policy_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_service_lb_policy), "__call__"
+    ) as call:
+        client.get_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.GetServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_service_lb_policy_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_service_lb_policy), "__call__"
+    ) as call:
+        client.create_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.CreateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_update_service_lb_policy_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.update_service_lb_policy), "__call__"
+    ) as call:
+        client.update_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = gcn_service_lb_policy.UpdateServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_service_lb_policy_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_service_lb_policy), "__call__"
+    ) as call:
+        client.delete_service_lb_policy(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = service_lb_policy.DeleteServiceLbPolicyRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_gateway_route_view_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_gateway_route_view), "__call__"
+    ) as call:
+        client.get_gateway_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetGatewayRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_mesh_route_view_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_mesh_route_view), "__call__"
+    ) as call:
+        client.get_mesh_route_view(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.GetMeshRouteViewRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_gateway_route_views_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_gateway_route_views), "__call__"
+    ) as call:
+        client.list_gateway_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListGatewayRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_mesh_route_views_empty_call_rest():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="rest",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_mesh_route_views), "__call__"
+    ) as call:
+        client.list_mesh_route_views(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = route_view.ListMeshRouteViewsRequest()
+
+        assert args[0] == request_msg
+
+
 def test_network_services_rest_lro_client():
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -33867,6 +50498,15 @@ def test_network_services_base_transport():
         "create_endpoint_policy",
         "update_endpoint_policy",
         "delete_endpoint_policy",
+        "list_wasm_plugin_versions",
+        "get_wasm_plugin_version",
+        "create_wasm_plugin_version",
+        "delete_wasm_plugin_version",
+        "list_wasm_plugins",
+        "get_wasm_plugin",
+        "create_wasm_plugin",
+        "update_wasm_plugin",
+        "delete_wasm_plugin",
         "list_gateways",
         "get_gateway",
         "create_gateway",
@@ -33895,12 +50535,22 @@ def test_network_services_base_transport():
         "list_service_bindings",
         "get_service_binding",
         "create_service_binding",
+        "update_service_binding",
         "delete_service_binding",
         "list_meshes",
         "get_mesh",
         "create_mesh",
         "update_mesh",
         "delete_mesh",
+        "list_service_lb_policies",
+        "get_service_lb_policy",
+        "create_service_lb_policy",
+        "update_service_lb_policy",
+        "delete_service_lb_policy",
+        "get_gateway_route_view",
+        "get_mesh_route_view",
+        "list_gateway_route_views",
+        "list_mesh_route_views",
         "set_iam_policy",
         "get_iam_policy",
         "test_iam_permissions",
@@ -33934,11 +50584,14 @@ def test_network_services_base_transport():
 
 def test_network_services_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.network_services_v1.services.network_services.transports.NetworkServicesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.network_services_v1.services.network_services.transports.NetworkServicesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NetworkServicesTransport(
@@ -33955,9 +50608,12 @@ def test_network_services_base_transport_with_credentials_file():
 
 def test_network_services_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.network_services_v1.services.network_services.transports.NetworkServicesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.network_services_v1.services.network_services.transports.NetworkServicesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.NetworkServicesTransport()
@@ -34029,11 +50685,12 @@ def test_network_services_transport_auth_gdch_credentials(transport_class):
 def test_network_services_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -34188,6 +50845,33 @@ def test_network_services_client_transport_session_collision(transport_name):
     session1 = client1.transport.delete_endpoint_policy._session
     session2 = client2.transport.delete_endpoint_policy._session
     assert session1 != session2
+    session1 = client1.transport.list_wasm_plugin_versions._session
+    session2 = client2.transport.list_wasm_plugin_versions._session
+    assert session1 != session2
+    session1 = client1.transport.get_wasm_plugin_version._session
+    session2 = client2.transport.get_wasm_plugin_version._session
+    assert session1 != session2
+    session1 = client1.transport.create_wasm_plugin_version._session
+    session2 = client2.transport.create_wasm_plugin_version._session
+    assert session1 != session2
+    session1 = client1.transport.delete_wasm_plugin_version._session
+    session2 = client2.transport.delete_wasm_plugin_version._session
+    assert session1 != session2
+    session1 = client1.transport.list_wasm_plugins._session
+    session2 = client2.transport.list_wasm_plugins._session
+    assert session1 != session2
+    session1 = client1.transport.get_wasm_plugin._session
+    session2 = client2.transport.get_wasm_plugin._session
+    assert session1 != session2
+    session1 = client1.transport.create_wasm_plugin._session
+    session2 = client2.transport.create_wasm_plugin._session
+    assert session1 != session2
+    session1 = client1.transport.update_wasm_plugin._session
+    session2 = client2.transport.update_wasm_plugin._session
+    assert session1 != session2
+    session1 = client1.transport.delete_wasm_plugin._session
+    session2 = client2.transport.delete_wasm_plugin._session
+    assert session1 != session2
     session1 = client1.transport.list_gateways._session
     session2 = client2.transport.list_gateways._session
     assert session1 != session2
@@ -34272,6 +50956,9 @@ def test_network_services_client_transport_session_collision(transport_name):
     session1 = client1.transport.create_service_binding._session
     session2 = client2.transport.create_service_binding._session
     assert session1 != session2
+    session1 = client1.transport.update_service_binding._session
+    session2 = client2.transport.update_service_binding._session
+    assert session1 != session2
     session1 = client1.transport.delete_service_binding._session
     session2 = client2.transport.delete_service_binding._session
     assert session1 != session2
@@ -34289,6 +50976,33 @@ def test_network_services_client_transport_session_collision(transport_name):
     assert session1 != session2
     session1 = client1.transport.delete_mesh._session
     session2 = client2.transport.delete_mesh._session
+    assert session1 != session2
+    session1 = client1.transport.list_service_lb_policies._session
+    session2 = client2.transport.list_service_lb_policies._session
+    assert session1 != session2
+    session1 = client1.transport.get_service_lb_policy._session
+    session2 = client2.transport.get_service_lb_policy._session
+    assert session1 != session2
+    session1 = client1.transport.create_service_lb_policy._session
+    session2 = client2.transport.create_service_lb_policy._session
+    assert session1 != session2
+    session1 = client1.transport.update_service_lb_policy._session
+    session2 = client2.transport.update_service_lb_policy._session
+    assert session1 != session2
+    session1 = client1.transport.delete_service_lb_policy._session
+    session2 = client2.transport.delete_service_lb_policy._session
+    assert session1 != session2
+    session1 = client1.transport.get_gateway_route_view._session
+    session2 = client2.transport.get_gateway_route_view._session
+    assert session1 != session2
+    session1 = client1.transport.get_mesh_route_view._session
+    session2 = client2.transport.get_mesh_route_view._session
+    assert session1 != session2
+    session1 = client1.transport.list_gateway_route_views._session
+    session2 = client2.transport.list_gateway_route_views._session
+    assert session1 != session2
+    session1 = client1.transport.list_mesh_route_views._session
+    session2 = client2.transport.list_mesh_route_views._session
     assert session1 != session2
 
 
@@ -34320,6 +51034,7 @@ def test_network_services_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -34452,10 +51167,36 @@ def test_network_services_grpc_lro_async_client():
     assert transport.operations_client is transport.operations_client
 
 
-def test_authorization_policy_path():
+def test_address_path():
     project = "squid"
-    location = "clam"
-    authorization_policy = "whelk"
+    region = "clam"
+    address = "whelk"
+    expected = "projects/{project}/regions/{region}/addresses/{address}".format(
+        project=project,
+        region=region,
+        address=address,
+    )
+    actual = NetworkServicesClient.address_path(project, region, address)
+    assert expected == actual
+
+
+def test_parse_address_path():
+    expected = {
+        "project": "octopus",
+        "region": "oyster",
+        "address": "nudibranch",
+    }
+    path = NetworkServicesClient.address_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_address_path(path)
+    assert expected == actual
+
+
+def test_authorization_policy_path():
+    project = "cuttlefish"
+    location = "mussel"
+    authorization_policy = "winkle"
     expected = "projects/{project}/locations/{location}/authorizationPolicies/{authorization_policy}".format(
         project=project,
         location=location,
@@ -34469,9 +51210,9 @@ def test_authorization_policy_path():
 
 def test_parse_authorization_policy_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "authorization_policy": "nudibranch",
+        "project": "nautilus",
+        "location": "scallop",
+        "authorization_policy": "abalone",
     }
     path = NetworkServicesClient.authorization_policy_path(**expected)
 
@@ -34481,9 +51222,9 @@ def test_parse_authorization_policy_path():
 
 
 def test_backend_service_path():
-    project = "cuttlefish"
-    location = "mussel"
-    backend_service = "winkle"
+    project = "squid"
+    location = "clam"
+    backend_service = "whelk"
     expected = "projects/{project}/locations/{location}/backendServices/{backend_service}".format(
         project=project,
         location=location,
@@ -34497,14 +51238,42 @@ def test_backend_service_path():
 
 def test_parse_backend_service_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "backend_service": "abalone",
+        "project": "octopus",
+        "location": "oyster",
+        "backend_service": "nudibranch",
     }
     path = NetworkServicesClient.backend_service_path(**expected)
 
     # Check that the path construction is reversible.
     actual = NetworkServicesClient.parse_backend_service_path(path)
+    assert expected == actual
+
+
+def test_certificate_path():
+    project = "cuttlefish"
+    location = "mussel"
+    certificate = "winkle"
+    expected = (
+        "projects/{project}/locations/{location}/certificates/{certificate}".format(
+            project=project,
+            location=location,
+            certificate=certificate,
+        )
+    )
+    actual = NetworkServicesClient.certificate_path(project, location, certificate)
+    assert expected == actual
+
+
+def test_parse_certificate_path():
+    expected = {
+        "project": "nautilus",
+        "location": "scallop",
+        "certificate": "abalone",
+    }
+    path = NetworkServicesClient.certificate_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_certificate_path(path)
     assert expected == actual
 
 
@@ -34590,10 +51359,69 @@ def test_parse_gateway_path():
     assert expected == actual
 
 
-def test_grpc_route_path():
+def test_gateway_route_view_path():
     project = "cuttlefish"
     location = "mussel"
-    grpc_route = "winkle"
+    gateway = "winkle"
+    route_view = "nautilus"
+    expected = "projects/{project}/locations/{location}/gateways/{gateway}/routeViews/{route_view}".format(
+        project=project,
+        location=location,
+        gateway=gateway,
+        route_view=route_view,
+    )
+    actual = NetworkServicesClient.gateway_route_view_path(
+        project, location, gateway, route_view
+    )
+    assert expected == actual
+
+
+def test_parse_gateway_route_view_path():
+    expected = {
+        "project": "scallop",
+        "location": "abalone",
+        "gateway": "squid",
+        "route_view": "clam",
+    }
+    path = NetworkServicesClient.gateway_route_view_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_gateway_route_view_path(path)
+    assert expected == actual
+
+
+def test_gateway_security_policy_path():
+    project = "whelk"
+    location = "octopus"
+    gateway_security_policy = "oyster"
+    expected = "projects/{project}/locations/{location}/gatewaySecurityPolicies/{gateway_security_policy}".format(
+        project=project,
+        location=location,
+        gateway_security_policy=gateway_security_policy,
+    )
+    actual = NetworkServicesClient.gateway_security_policy_path(
+        project, location, gateway_security_policy
+    )
+    assert expected == actual
+
+
+def test_parse_gateway_security_policy_path():
+    expected = {
+        "project": "nudibranch",
+        "location": "cuttlefish",
+        "gateway_security_policy": "mussel",
+    }
+    path = NetworkServicesClient.gateway_security_policy_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_gateway_security_policy_path(path)
+    assert expected == actual
+
+
+def test_grpc_route_path():
+    project = "winkle"
+    location = "nautilus"
+    grpc_route = "scallop"
     expected = "projects/{project}/locations/{location}/grpcRoutes/{grpc_route}".format(
         project=project,
         location=location,
@@ -34605,9 +51433,9 @@ def test_grpc_route_path():
 
 def test_parse_grpc_route_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "grpc_route": "abalone",
+        "project": "abalone",
+        "location": "squid",
+        "grpc_route": "clam",
     }
     path = NetworkServicesClient.grpc_route_path(**expected)
 
@@ -34617,9 +51445,9 @@ def test_parse_grpc_route_path():
 
 
 def test_http_route_path():
-    project = "squid"
-    location = "clam"
-    http_route = "whelk"
+    project = "whelk"
+    location = "octopus"
+    http_route = "oyster"
     expected = "projects/{project}/locations/{location}/httpRoutes/{http_route}".format(
         project=project,
         location=location,
@@ -34631,9 +51459,9 @@ def test_http_route_path():
 
 def test_parse_http_route_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "http_route": "nudibranch",
+        "project": "nudibranch",
+        "location": "cuttlefish",
+        "http_route": "mussel",
     }
     path = NetworkServicesClient.http_route_path(**expected)
 
@@ -34643,9 +51471,9 @@ def test_parse_http_route_path():
 
 
 def test_mesh_path():
-    project = "cuttlefish"
-    location = "mussel"
-    mesh = "winkle"
+    project = "winkle"
+    location = "nautilus"
+    mesh = "scallop"
     expected = "projects/{project}/locations/{location}/meshes/{mesh}".format(
         project=project,
         location=location,
@@ -34657,9 +51485,9 @@ def test_mesh_path():
 
 def test_parse_mesh_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "mesh": "abalone",
+        "project": "abalone",
+        "location": "squid",
+        "mesh": "clam",
     }
     path = NetworkServicesClient.mesh_path(**expected)
 
@@ -34668,10 +51496,64 @@ def test_parse_mesh_path():
     assert expected == actual
 
 
+def test_mesh_route_view_path():
+    project = "whelk"
+    location = "octopus"
+    mesh = "oyster"
+    route_view = "nudibranch"
+    expected = "projects/{project}/locations/{location}/meshes/{mesh}/routeViews/{route_view}".format(
+        project=project,
+        location=location,
+        mesh=mesh,
+        route_view=route_view,
+    )
+    actual = NetworkServicesClient.mesh_route_view_path(
+        project, location, mesh, route_view
+    )
+    assert expected == actual
+
+
+def test_parse_mesh_route_view_path():
+    expected = {
+        "project": "cuttlefish",
+        "location": "mussel",
+        "mesh": "winkle",
+        "route_view": "nautilus",
+    }
+    path = NetworkServicesClient.mesh_route_view_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_mesh_route_view_path(path)
+    assert expected == actual
+
+
+def test_network_path():
+    project = "scallop"
+    network = "abalone"
+    expected = "projects/{project}/global/networks/{network}".format(
+        project=project,
+        network=network,
+    )
+    actual = NetworkServicesClient.network_path(project, network)
+    assert expected == actual
+
+
+def test_parse_network_path():
+    expected = {
+        "project": "squid",
+        "network": "clam",
+    }
+    path = NetworkServicesClient.network_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_network_path(path)
+    assert expected == actual
+
+
 def test_server_tls_policy_path():
-    project = "squid"
-    location = "clam"
-    server_tls_policy = "whelk"
+    project = "whelk"
+    location = "octopus"
+    server_tls_policy = "oyster"
     expected = "projects/{project}/locations/{location}/serverTlsPolicies/{server_tls_policy}".format(
         project=project,
         location=location,
@@ -34685,9 +51567,9 @@ def test_server_tls_policy_path():
 
 def test_parse_server_tls_policy_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "server_tls_policy": "nudibranch",
+        "project": "nudibranch",
+        "location": "cuttlefish",
+        "server_tls_policy": "mussel",
     }
     path = NetworkServicesClient.server_tls_policy_path(**expected)
 
@@ -34696,10 +51578,39 @@ def test_parse_server_tls_policy_path():
     assert expected == actual
 
 
+def test_service_path():
+    project = "winkle"
+    location = "nautilus"
+    namespace = "scallop"
+    service = "abalone"
+    expected = "projects/{project}/locations/{location}/namespaces/{namespace}/services/{service}".format(
+        project=project,
+        location=location,
+        namespace=namespace,
+        service=service,
+    )
+    actual = NetworkServicesClient.service_path(project, location, namespace, service)
+    assert expected == actual
+
+
+def test_parse_service_path():
+    expected = {
+        "project": "squid",
+        "location": "clam",
+        "namespace": "whelk",
+        "service": "octopus",
+    }
+    path = NetworkServicesClient.service_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_service_path(path)
+    assert expected == actual
+
+
 def test_service_binding_path():
-    project = "cuttlefish"
-    location = "mussel"
-    service_binding = "winkle"
+    project = "oyster"
+    location = "nudibranch"
+    service_binding = "cuttlefish"
     expected = "projects/{project}/locations/{location}/serviceBindings/{service_binding}".format(
         project=project,
         location=location,
@@ -34713,9 +51624,9 @@ def test_service_binding_path():
 
 def test_parse_service_binding_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "service_binding": "abalone",
+        "project": "mussel",
+        "location": "winkle",
+        "service_binding": "nautilus",
     }
     path = NetworkServicesClient.service_binding_path(**expected)
 
@@ -34724,10 +51635,64 @@ def test_parse_service_binding_path():
     assert expected == actual
 
 
+def test_service_lb_policy_path():
+    project = "scallop"
+    location = "abalone"
+    service_lb_policy = "squid"
+    expected = "projects/{project}/locations/{location}/serviceLbPolicies/{service_lb_policy}".format(
+        project=project,
+        location=location,
+        service_lb_policy=service_lb_policy,
+    )
+    actual = NetworkServicesClient.service_lb_policy_path(
+        project, location, service_lb_policy
+    )
+    assert expected == actual
+
+
+def test_parse_service_lb_policy_path():
+    expected = {
+        "project": "clam",
+        "location": "whelk",
+        "service_lb_policy": "octopus",
+    }
+    path = NetworkServicesClient.service_lb_policy_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_service_lb_policy_path(path)
+    assert expected == actual
+
+
+def test_subnetwork_path():
+    project = "oyster"
+    region = "nudibranch"
+    subnetwork = "cuttlefish"
+    expected = "projects/{project}/regions/{region}/subnetworks/{subnetwork}".format(
+        project=project,
+        region=region,
+        subnetwork=subnetwork,
+    )
+    actual = NetworkServicesClient.subnetwork_path(project, region, subnetwork)
+    assert expected == actual
+
+
+def test_parse_subnetwork_path():
+    expected = {
+        "project": "mussel",
+        "region": "winkle",
+        "subnetwork": "nautilus",
+    }
+    path = NetworkServicesClient.subnetwork_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_subnetwork_path(path)
+    assert expected == actual
+
+
 def test_tcp_route_path():
-    project = "squid"
-    location = "clam"
-    tcp_route = "whelk"
+    project = "scallop"
+    location = "abalone"
+    tcp_route = "squid"
     expected = "projects/{project}/locations/{location}/tcpRoutes/{tcp_route}".format(
         project=project,
         location=location,
@@ -34739,9 +51704,9 @@ def test_tcp_route_path():
 
 def test_parse_tcp_route_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "tcp_route": "nudibranch",
+        "project": "clam",
+        "location": "whelk",
+        "tcp_route": "octopus",
     }
     path = NetworkServicesClient.tcp_route_path(**expected)
 
@@ -34751,9 +51716,9 @@ def test_parse_tcp_route_path():
 
 
 def test_tls_route_path():
-    project = "cuttlefish"
-    location = "mussel"
-    tls_route = "winkle"
+    project = "oyster"
+    location = "nudibranch"
+    tls_route = "cuttlefish"
     expected = "projects/{project}/locations/{location}/tlsRoutes/{tls_route}".format(
         project=project,
         location=location,
@@ -34765,14 +51730,73 @@ def test_tls_route_path():
 
 def test_parse_tls_route_path():
     expected = {
-        "project": "nautilus",
-        "location": "scallop",
-        "tls_route": "abalone",
+        "project": "mussel",
+        "location": "winkle",
+        "tls_route": "nautilus",
     }
     path = NetworkServicesClient.tls_route_path(**expected)
 
     # Check that the path construction is reversible.
     actual = NetworkServicesClient.parse_tls_route_path(path)
+    assert expected == actual
+
+
+def test_wasm_plugin_path():
+    project = "scallop"
+    location = "abalone"
+    wasm_plugin = "squid"
+    expected = (
+        "projects/{project}/locations/{location}/wasmPlugins/{wasm_plugin}".format(
+            project=project,
+            location=location,
+            wasm_plugin=wasm_plugin,
+        )
+    )
+    actual = NetworkServicesClient.wasm_plugin_path(project, location, wasm_plugin)
+    assert expected == actual
+
+
+def test_parse_wasm_plugin_path():
+    expected = {
+        "project": "clam",
+        "location": "whelk",
+        "wasm_plugin": "octopus",
+    }
+    path = NetworkServicesClient.wasm_plugin_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_wasm_plugin_path(path)
+    assert expected == actual
+
+
+def test_wasm_plugin_version_path():
+    project = "oyster"
+    location = "nudibranch"
+    wasm_plugin = "cuttlefish"
+    wasm_plugin_version = "mussel"
+    expected = "projects/{project}/locations/{location}/wasmPlugins/{wasm_plugin}/versions/{wasm_plugin_version}".format(
+        project=project,
+        location=location,
+        wasm_plugin=wasm_plugin,
+        wasm_plugin_version=wasm_plugin_version,
+    )
+    actual = NetworkServicesClient.wasm_plugin_version_path(
+        project, location, wasm_plugin, wasm_plugin_version
+    )
+    assert expected == actual
+
+
+def test_parse_wasm_plugin_version_path():
+    expected = {
+        "project": "winkle",
+        "location": "nautilus",
+        "wasm_plugin": "scallop",
+        "wasm_plugin_version": "abalone",
+    }
+    path = NetworkServicesClient.wasm_plugin_version_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = NetworkServicesClient.parse_wasm_plugin_version_path(path)
     assert expected == actual
 
 
@@ -35041,6 +52065,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -35178,6 +52234,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -35325,6 +52413,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -35468,6 +52590,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_list_locations(transport: str = "grpc"):
@@ -35615,6 +52771,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = NetworkServicesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -35754,6 +52944,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_set_iam_policy(transport: str = "grpc"):
@@ -35918,6 +53142,41 @@ async def test_set_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_set_iam_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_set_iam_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.set_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.set_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.SetIamPolicyRequest()
 
 
 def test_get_iam_policy(transport: str = "grpc"):
@@ -36085,6 +53344,41 @@ async def test_get_iam_policy_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_iam_policy_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = policy_pb2.Policy()
+
+        client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_iam_policy_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_iam_policy), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(policy_pb2.Policy())
+
+        await client.get_iam_policy()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.GetIamPolicyRequest()
 
 
 def test_test_iam_permissions(transport: str = "grpc"):
@@ -36262,6 +53556,47 @@ async def test_test_iam_permissions_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_test_iam_permissions_flattened():
+    client = NetworkServicesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = iam_policy_pb2.TestIamPermissionsResponse()
+
+        client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
+
+
+@pytest.mark.asyncio
+async def test_test_iam_permissions_flattened_async():
+    client = NetworkServicesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.test_iam_permissions), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            iam_policy_pb2.TestIamPermissionsResponse()
+        )
+
+        await client.test_iam_permissions()
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == iam_policy_pb2.TestIamPermissionsRequest()
 
 
 def test_transport_close_grpc():

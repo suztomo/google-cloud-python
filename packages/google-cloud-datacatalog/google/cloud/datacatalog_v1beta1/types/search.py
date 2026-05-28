@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -45,6 +45,7 @@ class SearchResultType(proto.Enum):
             An
             [EntryGroup][google.cloud.datacatalog.v1beta1.EntryGroup].
     """
+
     SEARCH_RESULT_TYPE_UNSPECIFIED = 0
     ENTRY = 1
     TAG_TEMPLATE = 2
@@ -71,15 +72,15 @@ class SearchCatalogResult(proto.Message):
             The relative resource name of the resource in URL format.
             Examples:
 
-            -  ``projects/{project_id}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}``
-            -  ``projects/{project_id}/tagTemplates/{tag_template_id}``
+            - ``projects/{project_id}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}``
+            - ``projects/{project_id}/tagTemplates/{tag_template_id}``
         linked_resource (str):
             The full name of the cloud resource the entry belongs to.
             See:
             https://cloud.google.com/apis/design/resource_names#full_resource_name.
             Example:
 
-            -  ``//bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId``
+            - ``//bigquery.googleapis.com/projects/projectId/datasets/datasetId/tables/tableId``
         modify_time (google.protobuf.timestamp_pb2.Timestamp):
             Last-modified timestamp of the entry from the
             managing system.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ def sample_update_google_api_source():
 
     # Initialize request argument(s)
     google_api_source = eventarc_v1.GoogleApiSource()
+    google_api_source.organization_subscription.enabled = True
     google_api_source.destination = "destination_value"
 
     request = eventarc_v1.UpdateGoogleApiSourceRequest(
@@ -55,5 +56,6 @@ def sample_update_google_api_source():
 
     # Handle the response
     print(response)
+
 
 # [END eventarc_v1_generated_Eventarc_UpdateGoogleApiSource_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_create_attachment():
     # Initialize request argument(s)
     attachment = artifactregistry_v1.Attachment()
     attachment.target = "target_value"
-    attachment.files = ['files_value1', 'files_value2']
+    attachment.files = ["files_value1", "files_value2"]
 
     request = artifactregistry_v1.CreateAttachmentRequest(
         parent="parent_value",
@@ -58,5 +58,6 @@ def sample_create_attachment():
 
     # Handle the response
     print(response)
+
 
 # [END artifactregistry_v1_generated_ArtifactRegistry_CreateAttachment_sync]

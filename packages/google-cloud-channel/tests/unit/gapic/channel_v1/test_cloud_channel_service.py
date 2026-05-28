@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
 import json
 import math
+import os
+from collections.abc import Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
-from google.api_core import api_core_version
 import grpc
+import pytest
+from google.api_core import api_core_version
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 
 try:
     from google.auth.aio import credentials as ga_credentials_async
@@ -39,7 +34,17 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.decimal_pb2 as decimal_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -48,22 +53,12 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import decimal_pb2  # type: ignore
-from google.type import postal_address_pb2  # type: ignore
 
 from google.cloud.channel_v1.services.cloud_channel_service import (
     CloudChannelServiceAsyncClient,
@@ -138,6 +133,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert CloudChannelServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -159,6 +155,10 @@ def test__get_default_mtls_endpoint():
     assert (
         CloudChannelServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        CloudChannelServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -186,12 +186,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            CloudChannelServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                CloudChannelServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert CloudChannelServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert CloudChannelServiceClient._read_environment_variables() == (
@@ -228,6 +235,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert CloudChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert CloudChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert CloudChannelServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                CloudChannelServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert CloudChannelServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert CloudChannelServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -600,17 +706,6 @@ def test_cloud_channel_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -834,6 +929,117 @@ def test_cloud_channel_service_client_get_mtls_endpoint_and_cert_source(client_c
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -866,10 +1072,9 @@ def test_cloud_channel_service_client_get_mtls_endpoint_and_cert_source(client_c
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -882,18 +1087,6 @@ def test_cloud_channel_service_client_get_mtls_endpoint_and_cert_source(client_c
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1126,13 +1319,13 @@ def test_cloud_channel_service_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1583,11 +1776,7 @@ async def test_list_customers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_customers(request={})
-        ).pages:
+        async for page_ in (await client.list_customers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -1622,6 +1811,7 @@ def test_get_customer(request_type, transport: str = "grpc"):
             language_code="language_code_value",
             channel_partner_id="channel_partner_id_value",
             correlation_id="correlation_id_value",
+            customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
         )
         response = client.get_customer(request)
 
@@ -1641,6 +1831,10 @@ def test_get_customer(request_type, transport: str = "grpc"):
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 def test_get_customer_non_empty_request_with_auto_populated_field():
@@ -1774,6 +1968,7 @@ async def test_get_customer_async(
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         response = await client.get_customer(request)
@@ -1794,6 +1989,10 @@ async def test_get_customer_async(
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 @pytest.mark.asyncio
@@ -2224,6 +2423,7 @@ def test_create_customer(request_type, transport: str = "grpc"):
             language_code="language_code_value",
             channel_partner_id="channel_partner_id_value",
             correlation_id="correlation_id_value",
+            customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
         )
         response = client.create_customer(request)
 
@@ -2243,6 +2443,10 @@ def test_create_customer(request_type, transport: str = "grpc"):
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 def test_create_customer_non_empty_request_with_auto_populated_field():
@@ -2376,6 +2580,7 @@ async def test_create_customer_async(
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         response = await client.create_customer(request)
@@ -2396,6 +2601,10 @@ async def test_create_customer_async(
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 @pytest.mark.asyncio
@@ -2491,6 +2700,7 @@ def test_update_customer(request_type, transport: str = "grpc"):
             language_code="language_code_value",
             channel_partner_id="channel_partner_id_value",
             correlation_id="correlation_id_value",
+            customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
         )
         response = client.update_customer(request)
 
@@ -2510,6 +2720,10 @@ def test_update_customer(request_type, transport: str = "grpc"):
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 def test_update_customer_non_empty_request_with_auto_populated_field():
@@ -2639,6 +2853,7 @@ async def test_update_customer_async(
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         response = await client.update_customer(request)
@@ -2659,6 +2874,10 @@ async def test_update_customer_async(
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 @pytest.mark.asyncio
@@ -3065,6 +3284,7 @@ def test_import_customer(request_type, transport: str = "grpc"):
             language_code="language_code_value",
             channel_partner_id="channel_partner_id_value",
             correlation_id="correlation_id_value",
+            customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
         )
         response = client.import_customer(request)
 
@@ -3084,6 +3304,10 @@ def test_import_customer(request_type, transport: str = "grpc"):
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 def test_import_customer_non_empty_request_with_auto_populated_field():
@@ -3229,6 +3453,7 @@ async def test_import_customer_async(
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         response = await client.import_customer(request)
@@ -3249,6 +3474,10 @@ async def test_import_customer_async(
     assert response.language_code == "language_code_value"
     assert response.channel_partner_id == "channel_partner_id_value"
     assert response.correlation_id == "correlation_id_value"
+    assert (
+        response.customer_attestation_state
+        == customers.Customer.CustomerAttestationState.EXEMPT
+    )
 
 
 @pytest.mark.asyncio
@@ -3666,9 +3895,9 @@ def test_list_entitlements_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_entitlements
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_entitlements] = (
+            mock_rpc
+        )
         request = {}
         client.list_entitlements(request)
 
@@ -4022,11 +4251,7 @@ async def test_list_entitlements_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_entitlements(request={})
-        ).pages:
+        async for page_ in (await client.list_entitlements(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4134,9 +4359,9 @@ def test_list_transferable_skus_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_transferable_skus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_transferable_skus] = (
+            mock_rpc
+        )
         request = {}
         client.list_transferable_skus(request)
 
@@ -4490,11 +4715,7 @@ async def test_list_transferable_skus_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_transferable_skus(request={})
-        ).pages:
+        async for page_ in (await client.list_transferable_skus(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -4962,11 +5183,7 @@ async def test_list_transferable_offers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_transferable_offers(request={})
-        ).pages:
+        async for page_ in (await client.list_transferable_offers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -5001,6 +5218,7 @@ def test_get_entitlement(request_type, transport: str = "grpc"):
             ],
             purchase_order_id="purchase_order_id_value",
             billing_account="billing_account_value",
+            price_reference_id="price_reference_id_value",
         )
         response = client.get_entitlement(request)
 
@@ -5022,6 +5240,7 @@ def test_get_entitlement(request_type, transport: str = "grpc"):
     ]
     assert response.purchase_order_id == "purchase_order_id_value"
     assert response.billing_account == "billing_account_value"
+    assert response.price_reference_id == "price_reference_id_value"
 
 
 def test_get_entitlement_non_empty_request_with_auto_populated_field():
@@ -5155,6 +5374,7 @@ async def test_get_entitlement_async(
                 ],
                 purchase_order_id="purchase_order_id_value",
                 billing_account="billing_account_value",
+                price_reference_id="price_reference_id_value",
             )
         )
         response = await client.get_entitlement(request)
@@ -5177,6 +5397,7 @@ async def test_get_entitlement_async(
     ]
     assert response.purchase_order_id == "purchase_order_id_value"
     assert response.billing_account == "billing_account_value"
+    assert response.price_reference_id == "price_reference_id_value"
 
 
 @pytest.mark.asyncio
@@ -5335,9 +5556,9 @@ def test_create_entitlement_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_entitlement
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_entitlement] = (
+            mock_rpc
+        )
         request = {}
         client.create_entitlement(request)
 
@@ -5596,9 +5817,9 @@ def test_change_parameters_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.change_parameters
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.change_parameters] = (
+            mock_rpc
+        )
         request = {}
         client.change_parameters(request)
 
@@ -6079,6 +6300,7 @@ def test_change_offer_non_empty_request_with_auto_populated_field():
         purchase_order_id="purchase_order_id_value",
         request_id="request_id_value",
         billing_account="billing_account_value",
+        price_reference_id="price_reference_id_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -6095,6 +6317,7 @@ def test_change_offer_non_empty_request_with_auto_populated_field():
             purchase_order_id="purchase_order_id_value",
             request_id="request_id_value",
             billing_account="billing_account_value",
+            price_reference_id="price_reference_id_value",
         )
 
 
@@ -6372,9 +6595,9 @@ def test_start_paid_service_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.start_paid_service
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.start_paid_service] = (
+            mock_rpc
+        )
         request = {}
         client.start_paid_service(request)
 
@@ -6633,9 +6856,9 @@ def test_suspend_entitlement_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.suspend_entitlement
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.suspend_entitlement] = (
+            mock_rpc
+        )
         request = {}
         client.suspend_entitlement(request)
 
@@ -6894,9 +7117,9 @@ def test_cancel_entitlement_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.cancel_entitlement
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.cancel_entitlement] = (
+            mock_rpc
+        )
         request = {}
         client.cancel_entitlement(request)
 
@@ -7155,9 +7378,9 @@ def test_activate_entitlement_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.activate_entitlement
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.activate_entitlement] = (
+            mock_rpc
+        )
         request = {}
         client.activate_entitlement(request)
 
@@ -7419,9 +7642,9 @@ def test_transfer_entitlements_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.transfer_entitlements
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.transfer_entitlements] = (
+            mock_rpc
+        )
         request = {}
         client.transfer_entitlements(request)
 
@@ -8309,11 +8532,7 @@ async def test_list_channel_partner_links_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_channel_partner_links(request={})
-        ).pages:
+        async for page_ in (await client.list_channel_partner_links(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -10021,9 +10240,7 @@ async def test_list_customer_repricing_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_customer_repricing_configs(request={})
         ).pages:
             pages.append(page_)
@@ -11958,9 +12175,7 @@ async def test_list_channel_partner_repricing_configs_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_channel_partner_repricing_configs(request={})
         ).pages:
             pages.append(page_)
@@ -13516,11 +13731,7 @@ async def test_list_sku_groups_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_sku_groups(request={})
-        ).pages:
+        async for page_ in (await client.list_sku_groups(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -14065,9 +14276,7 @@ async def test_list_sku_group_billable_skus_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
+        async for page_ in (
             await client.list_sku_group_billable_skus(request={})
         ).pages:
             pages.append(page_)
@@ -14683,11 +14892,7 @@ async def test_list_products_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_products(request={})
-        ).pages:
+        async for page_ in (await client.list_products(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15122,11 +15327,7 @@ async def test_list_skus_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_skus(request={})
-        ).pages:
+        async for page_ in (await client.list_skus(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15563,11 +15764,7 @@ async def test_list_offers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_offers(request={})
-        ).pages:
+        async for page_ in (await client.list_offers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -15669,9 +15866,9 @@ def test_list_purchasable_skus_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_purchasable_skus
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_purchasable_skus] = (
+            mock_rpc
+        )
         request = {}
         client.list_purchasable_skus(request)
 
@@ -16025,11 +16222,7 @@ async def test_list_purchasable_skus_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_purchasable_skus(request={})
-        ).pages:
+        async for page_ in (await client.list_purchasable_skus(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -16487,11 +16680,7 @@ async def test_list_purchasable_offers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_purchasable_offers(request={})
-        ).pages:
+        async for page_ in (await client.list_purchasable_offers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -16800,6 +16989,7 @@ def test_register_subscriber_non_empty_request_with_auto_populated_field():
     request = service.RegisterSubscriberRequest(
         account="account_value",
         service_account="service_account_value",
+        integrator="integrator_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -16815,6 +17005,7 @@ def test_register_subscriber_non_empty_request_with_auto_populated_field():
         assert args[0] == service.RegisterSubscriberRequest(
             account="account_value",
             service_account="service_account_value",
+            integrator="integrator_value",
         )
 
 
@@ -16841,9 +17032,9 @@ def test_register_subscriber_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.register_subscriber
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.register_subscriber] = (
+            mock_rpc
+        )
         request = {}
         client.register_subscriber(request)
 
@@ -17057,6 +17248,7 @@ def test_unregister_subscriber_non_empty_request_with_auto_populated_field():
     request = service.UnregisterSubscriberRequest(
         account="account_value",
         service_account="service_account_value",
+        integrator="integrator_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -17072,6 +17264,7 @@ def test_unregister_subscriber_non_empty_request_with_auto_populated_field():
         assert args[0] == service.UnregisterSubscriberRequest(
             account="account_value",
             service_account="service_account_value",
+            integrator="integrator_value",
         )
 
 
@@ -17099,9 +17292,9 @@ def test_unregister_subscriber_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.unregister_subscriber
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.unregister_subscriber] = (
+            mock_rpc
+        )
         request = {}
         client.unregister_subscriber(request)
 
@@ -17317,6 +17510,7 @@ def test_list_subscribers_non_empty_request_with_auto_populated_field():
     request = service.ListSubscribersRequest(
         account="account_value",
         page_token="page_token_value",
+        integrator="integrator_value",
     )
 
     # Mock the actual call within the gRPC stub, and fake the request.
@@ -17330,6 +17524,7 @@ def test_list_subscribers_non_empty_request_with_auto_populated_field():
         assert args[0] == service.ListSubscribersRequest(
             account="account_value",
             page_token="page_token_value",
+            integrator="integrator_value",
         )
 
 
@@ -17354,9 +17549,9 @@ def test_list_subscribers_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_subscribers
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_subscribers] = (
+            mock_rpc
+        )
         request = {}
         client.list_subscribers(request)
 
@@ -17700,11 +17895,7 @@ async def test_list_subscribers_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_subscribers(request={})
-        ).pages:
+        async for page_ in (await client.list_subscribers(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -18254,11 +18445,7 @@ async def test_list_entitlement_changes_async_pages():
             RuntimeError,
         )
         pages = []
-        # Workaround issue in python 3.9 related to code coverage by adding `# pragma: no branch`
-        # See https://github.com/googleapis/gapic-generator-python/pull/1174#issuecomment-1025132372
-        async for page_ in (  # pragma: no branch
-            await client.list_entitlement_changes(request={})
-        ).pages:
+        async for page_ in (await client.list_entitlement_changes(request={})).pages:
             pages.append(page_)
         for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
             assert page_.raw_page.next_page_token == token
@@ -19531,6 +19718,7 @@ async def test_get_customer_empty_call_grpc_asyncio():
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         await client.get_customer(request=None)
@@ -19592,6 +19780,7 @@ async def test_create_customer_empty_call_grpc_asyncio():
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         await client.create_customer(request=None)
@@ -19626,6 +19815,7 @@ async def test_update_customer_empty_call_grpc_asyncio():
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         await client.update_customer(request=None)
@@ -19683,6 +19873,7 @@ async def test_import_customer_empty_call_grpc_asyncio():
                 language_code="language_code_value",
                 channel_partner_id="channel_partner_id_value",
                 correlation_id="correlation_id_value",
+                customer_attestation_state=customers.Customer.CustomerAttestationState.EXEMPT,
             )
         )
         await client.import_customer(request=None)
@@ -19831,6 +20022,7 @@ async def test_get_entitlement_empty_call_grpc_asyncio():
                 ],
                 purchase_order_id="purchase_order_id_value",
                 billing_account="billing_account_value",
+                price_reference_id="price_reference_id_value",
             )
         )
         await client.get_entitlement(request=None)
@@ -20997,11 +21189,14 @@ def test_cloud_channel_service_base_transport():
 
 def test_cloud_channel_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.channel_v1.services.cloud_channel_service.transports.CloudChannelServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.channel_v1.services.cloud_channel_service.transports.CloudChannelServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.CloudChannelServiceTransport(
@@ -21018,9 +21213,12 @@ def test_cloud_channel_service_base_transport_with_credentials_file():
 
 def test_cloud_channel_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.channel_v1.services.cloud_channel_service.transports.CloudChannelServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.channel_v1.services.cloud_channel_service.transports.CloudChannelServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.CloudChannelServiceTransport()
@@ -21091,11 +21289,12 @@ def test_cloud_channel_service_transport_auth_gdch_credentials(transport_class):
 def test_cloud_channel_service_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -21227,6 +21426,7 @@ def test_cloud_channel_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -21359,9 +21559,29 @@ def test_cloud_channel_service_grpc_lro_async_client():
     assert transport.operations_client is transport.operations_client
 
 
-def test_billing_account_path():
+def test_account_path():
     account = "squid"
-    billing_account = "clam"
+    expected = "accounts/{account}".format(
+        account=account,
+    )
+    actual = CloudChannelServiceClient.account_path(account)
+    assert expected == actual
+
+
+def test_parse_account_path():
+    expected = {
+        "account": "clam",
+    }
+    path = CloudChannelServiceClient.account_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = CloudChannelServiceClient.parse_account_path(path)
+    assert expected == actual
+
+
+def test_billing_account_path():
+    account = "whelk"
+    billing_account = "octopus"
     expected = "accounts/{account}/billingAccounts/{billing_account}".format(
         account=account,
         billing_account=billing_account,
@@ -21372,8 +21592,8 @@ def test_billing_account_path():
 
 def test_parse_billing_account_path():
     expected = {
-        "account": "whelk",
-        "billing_account": "octopus",
+        "account": "oyster",
+        "billing_account": "nudibranch",
     }
     path = CloudChannelServiceClient.billing_account_path(**expected)
 
@@ -21383,8 +21603,8 @@ def test_parse_billing_account_path():
 
 
 def test_channel_partner_link_path():
-    account = "oyster"
-    channel_partner_link = "nudibranch"
+    account = "cuttlefish"
+    channel_partner_link = "mussel"
     expected = "accounts/{account}/channelPartnerLinks/{channel_partner_link}".format(
         account=account,
         channel_partner_link=channel_partner_link,
@@ -21397,8 +21617,8 @@ def test_channel_partner_link_path():
 
 def test_parse_channel_partner_link_path():
     expected = {
-        "account": "cuttlefish",
-        "channel_partner_link": "mussel",
+        "account": "winkle",
+        "channel_partner_link": "nautilus",
     }
     path = CloudChannelServiceClient.channel_partner_link_path(**expected)
 
@@ -21408,9 +21628,9 @@ def test_parse_channel_partner_link_path():
 
 
 def test_channel_partner_repricing_config_path():
-    account = "winkle"
-    channel_partner = "nautilus"
-    channel_partner_repricing_config = "scallop"
+    account = "scallop"
+    channel_partner = "abalone"
+    channel_partner_repricing_config = "squid"
     expected = "accounts/{account}/channelPartnerLinks/{channel_partner}/channelPartnerRepricingConfigs/{channel_partner_repricing_config}".format(
         account=account,
         channel_partner=channel_partner,
@@ -21424,9 +21644,9 @@ def test_channel_partner_repricing_config_path():
 
 def test_parse_channel_partner_repricing_config_path():
     expected = {
-        "account": "abalone",
-        "channel_partner": "squid",
-        "channel_partner_repricing_config": "clam",
+        "account": "clam",
+        "channel_partner": "whelk",
+        "channel_partner_repricing_config": "octopus",
     }
     path = CloudChannelServiceClient.channel_partner_repricing_config_path(**expected)
 
@@ -21436,8 +21656,8 @@ def test_parse_channel_partner_repricing_config_path():
 
 
 def test_customer_path():
-    account = "whelk"
-    customer = "octopus"
+    account = "oyster"
+    customer = "nudibranch"
     expected = "accounts/{account}/customers/{customer}".format(
         account=account,
         customer=customer,
@@ -21448,8 +21668,8 @@ def test_customer_path():
 
 def test_parse_customer_path():
     expected = {
-        "account": "oyster",
-        "customer": "nudibranch",
+        "account": "cuttlefish",
+        "customer": "mussel",
     }
     path = CloudChannelServiceClient.customer_path(**expected)
 
@@ -21459,9 +21679,9 @@ def test_parse_customer_path():
 
 
 def test_customer_repricing_config_path():
-    account = "cuttlefish"
-    customer = "mussel"
-    customer_repricing_config = "winkle"
+    account = "winkle"
+    customer = "nautilus"
+    customer_repricing_config = "scallop"
     expected = "accounts/{account}/customers/{customer}/customerRepricingConfigs/{customer_repricing_config}".format(
         account=account,
         customer=customer,
@@ -21475,9 +21695,9 @@ def test_customer_repricing_config_path():
 
 def test_parse_customer_repricing_config_path():
     expected = {
-        "account": "nautilus",
-        "customer": "scallop",
-        "customer_repricing_config": "abalone",
+        "account": "abalone",
+        "customer": "squid",
+        "customer_repricing_config": "clam",
     }
     path = CloudChannelServiceClient.customer_repricing_config_path(**expected)
 
@@ -21487,9 +21707,9 @@ def test_parse_customer_repricing_config_path():
 
 
 def test_entitlement_path():
-    account = "squid"
-    customer = "clam"
-    entitlement = "whelk"
+    account = "whelk"
+    customer = "octopus"
+    entitlement = "oyster"
     expected = (
         "accounts/{account}/customers/{customer}/entitlements/{entitlement}".format(
             account=account,
@@ -21503,9 +21723,9 @@ def test_entitlement_path():
 
 def test_parse_entitlement_path():
     expected = {
-        "account": "octopus",
-        "customer": "oyster",
-        "entitlement": "nudibranch",
+        "account": "nudibranch",
+        "customer": "cuttlefish",
+        "entitlement": "mussel",
     }
     path = CloudChannelServiceClient.entitlement_path(**expected)
 
@@ -21515,8 +21735,8 @@ def test_parse_entitlement_path():
 
 
 def test_offer_path():
-    account = "cuttlefish"
-    offer = "mussel"
+    account = "winkle"
+    offer = "nautilus"
     expected = "accounts/{account}/offers/{offer}".format(
         account=account,
         offer=offer,
@@ -21527,8 +21747,8 @@ def test_offer_path():
 
 def test_parse_offer_path():
     expected = {
-        "account": "winkle",
-        "offer": "nautilus",
+        "account": "scallop",
+        "offer": "abalone",
     }
     path = CloudChannelServiceClient.offer_path(**expected)
 
@@ -21538,7 +21758,7 @@ def test_parse_offer_path():
 
 
 def test_product_path():
-    product = "scallop"
+    product = "squid"
     expected = "products/{product}".format(
         product=product,
     )
@@ -21548,7 +21768,7 @@ def test_product_path():
 
 def test_parse_product_path():
     expected = {
-        "product": "abalone",
+        "product": "clam",
     }
     path = CloudChannelServiceClient.product_path(**expected)
 
@@ -21558,8 +21778,8 @@ def test_parse_product_path():
 
 
 def test_sku_path():
-    product = "squid"
-    sku = "clam"
+    product = "whelk"
+    sku = "octopus"
     expected = "products/{product}/skus/{sku}".format(
         product=product,
         sku=sku,
@@ -21570,8 +21790,8 @@ def test_sku_path():
 
 def test_parse_sku_path():
     expected = {
-        "product": "whelk",
-        "sku": "octopus",
+        "product": "oyster",
+        "sku": "nudibranch",
     }
     path = CloudChannelServiceClient.sku_path(**expected)
 
@@ -21581,8 +21801,8 @@ def test_parse_sku_path():
 
 
 def test_sku_group_path():
-    account = "oyster"
-    sku_group = "nudibranch"
+    account = "cuttlefish"
+    sku_group = "mussel"
     expected = "accounts/{account}/skuGroups/{sku_group}".format(
         account=account,
         sku_group=sku_group,
@@ -21593,8 +21813,8 @@ def test_sku_group_path():
 
 def test_parse_sku_group_path():
     expected = {
-        "account": "cuttlefish",
-        "sku_group": "mussel",
+        "account": "winkle",
+        "sku_group": "nautilus",
     }
     path = CloudChannelServiceClient.sku_group_path(**expected)
 
@@ -21604,7 +21824,7 @@ def test_parse_sku_group_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "winkle"
+    billing_account = "scallop"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -21614,7 +21834,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "nautilus",
+        "billing_account": "abalone",
     }
     path = CloudChannelServiceClient.common_billing_account_path(**expected)
 
@@ -21624,7 +21844,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "scallop"
+    folder = "squid"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -21634,7 +21854,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "abalone",
+        "folder": "clam",
     }
     path = CloudChannelServiceClient.common_folder_path(**expected)
 
@@ -21644,7 +21864,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "squid"
+    organization = "whelk"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -21654,7 +21874,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "clam",
+        "organization": "octopus",
     }
     path = CloudChannelServiceClient.common_organization_path(**expected)
 
@@ -21664,7 +21884,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "whelk"
+    project = "oyster"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -21674,7 +21894,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "octopus",
+        "project": "nudibranch",
     }
     path = CloudChannelServiceClient.common_project_path(**expected)
 
@@ -21684,8 +21904,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "oyster"
-    location = "nudibranch"
+    project = "cuttlefish"
+    location = "mussel"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -21696,8 +21916,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "cuttlefish",
-        "location": "mussel",
+        "project": "winkle",
+        "location": "nautilus",
     }
     path = CloudChannelServiceClient.common_location_path(**expected)
 
@@ -21868,6 +22088,38 @@ async def test_delete_operation_from_dict_async():
         call.assert_called()
 
 
+def test_delete_operation_flattened():
+    client = CloudChannelServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = CloudChannelServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
 def test_cancel_operation(transport: str = "grpc"):
     client = CloudChannelServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -22005,6 +22257,38 @@ async def test_cancel_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = CloudChannelServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = CloudChannelServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
 
 
 def test_get_operation(transport: str = "grpc"):
@@ -22152,6 +22436,40 @@ async def test_get_operation_from_dict_async():
         call.assert_called()
 
 
+def test_get_operation_flattened():
+    client = CloudChannelServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = CloudChannelServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
 def test_list_operations(transport: str = "grpc"):
     client = CloudChannelServiceClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -22295,6 +22613,40 @@ async def test_list_operations_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = CloudChannelServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = CloudChannelServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
 
 
 def test_transport_close_grpc():

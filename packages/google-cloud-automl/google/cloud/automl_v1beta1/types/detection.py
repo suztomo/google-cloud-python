@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.automl_v1beta1.types import geometry
@@ -172,12 +172,12 @@ class BoundingBoxMetricsEntry(proto.Message):
         proto.FLOAT,
         number=2,
     )
-    confidence_metrics_entries: MutableSequence[
-        ConfidenceMetricsEntry
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ConfidenceMetricsEntry,
+    confidence_metrics_entries: MutableSequence[ConfidenceMetricsEntry] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ConfidenceMetricsEntry,
+        )
     )
 
 
@@ -206,12 +206,12 @@ class ImageObjectDetectionEvaluationMetrics(proto.Message):
         proto.INT32,
         number=1,
     )
-    bounding_box_metrics_entries: MutableSequence[
-        "BoundingBoxMetricsEntry"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="BoundingBoxMetricsEntry",
+    bounding_box_metrics_entries: MutableSequence["BoundingBoxMetricsEntry"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="BoundingBoxMetricsEntry",
+        )
     )
     bounding_box_mean_average_precision: float = proto.Field(
         proto.FLOAT,
@@ -253,12 +253,12 @@ class VideoObjectTrackingEvaluationMetrics(proto.Message):
         proto.INT32,
         number=2,
     )
-    bounding_box_metrics_entries: MutableSequence[
-        "BoundingBoxMetricsEntry"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="BoundingBoxMetricsEntry",
+    bounding_box_metrics_entries: MutableSequence["BoundingBoxMetricsEntry"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="BoundingBoxMetricsEntry",
+        )
     )
     bounding_box_mean_average_precision: float = proto.Field(
         proto.FLOAT,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataflow_v1beta3.types import environment as gd_environment
@@ -89,6 +89,7 @@ class KindType(proto.Enum):
             Opening or closing a shuffle session, often
             as part of a GroupByKey.
     """
+
     UNKNOWN_KIND = 0
     PAR_DO_KIND = 1
     GROUP_BY_KEY_KIND = 2
@@ -176,7 +177,12 @@ class JobState(proto.Enum):
             after a successful run. Currently, this is an opt-in
             feature, please reach out to Cloud support team if you are
             interested.
+        JOB_STATE_PAUSING (13):
+            ``JOB_STATE_PAUSING`` is not implemented yet.
+        JOB_STATE_PAUSED (14):
+            ``JOB_STATE_PAUSED`` is not implemented yet.
     """
+
     JOB_STATE_UNKNOWN = 0
     JOB_STATE_STOPPED = 1
     JOB_STATE_RUNNING = 2
@@ -190,6 +196,8 @@ class JobState(proto.Enum):
     JOB_STATE_CANCELLING = 10
     JOB_STATE_QUEUED = 11
     JOB_STATE_RESOURCE_CLEANING_UP = 12
+    JOB_STATE_PAUSING = 13
+    JOB_STATE_PAUSED = 14
 
 
 class JobView(proto.Enum):
@@ -219,6 +227,7 @@ class JobView(proto.Enum):
             description data for steps, labels and
             environment.
     """
+
     JOB_VIEW_UNKNOWN = 0
     JOB_VIEW_SUMMARY = 1
     JOB_VIEW_ALL = 2
@@ -347,12 +356,12 @@ class Job(proto.Message):
             of the labels map are UTF8 strings that comply with the
             following restrictions:
 
-            -  Keys must conform to regexp:
-               [\p{Ll}\p{Lo}][\p{Ll}\p{Lo}\p{N}_-]{0,62}
-            -  Values must conform to regexp:
-               [\p{Ll}\p{Lo}\p{N}_-]{0,63}
-            -  Both keys and values are additionally constrained to be
-               <= 128 bytes in size.
+            - Keys must conform to regexp:
+              [\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{N}\_-]{0,62}
+            - Values must conform to regexp:
+              [\\p{Ll}\\p{Lo}\\p{N}\_-]{0,63}
+            - Both keys and values are additionally constrained to be <=
+              128 bytes in size.
         location (str):
             Optional. The [regional endpoint]
             (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints)
@@ -404,6 +413,9 @@ class Job(proto.Message):
             Service to run the job.
 
             This field is a member of `oneof`_ ``_service_resources``.
+        pausable (bool):
+            Output only. Indicates whether the job can be
+            paused.
     """
 
     id: str = proto.Field(
@@ -537,6 +549,10 @@ class Job(proto.Message):
         optional=True,
         message="ServiceResources",
     )
+    pausable: bool = proto.Field(
+        proto.BOOL,
+        number=29,
+    )
 
 
 class ServiceResources(proto.Message):
@@ -584,6 +600,18 @@ class RuntimeUpdatableParams(proto.Message):
             pipeline <https://cloud.google.com/dataflow/docs/guides/updating-a-pipeline>`__.
 
             This field is a member of `oneof`_ ``_worker_utilization_hint``.
+        acceptable_backlog_duration (google.protobuf.duration_pb2.Duration):
+            Optional. Deprecated: Use ``autoscaling_tier`` instead. The
+            backlog threshold duration in seconds for autoscaling. Value
+            must be non-negative.
+
+            This field is a member of `oneof`_ ``_acceptable_backlog_duration``.
+        autoscaling_tier (str):
+            Optional. The backlog threshold tier for
+            autoscaling. Value must be one of "low-latency",
+            "medium-latency", or "high-latency".
+
+            This field is a member of `oneof`_ ``_autoscaling_tier``.
     """
 
     max_num_workers: int = proto.Field(
@@ -599,6 +627,17 @@ class RuntimeUpdatableParams(proto.Message):
     worker_utilization_hint: float = proto.Field(
         proto.DOUBLE,
         number=3,
+        optional=True,
+    )
+    acceptable_backlog_duration: duration_pb2.Duration = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        optional=True,
+        message=duration_pb2.Duration,
+    )
+    autoscaling_tier: str = proto.Field(
+        proto.STRING,
+        number=5,
         optional=True,
     )
 
@@ -777,6 +816,7 @@ class SdkVersion(proto.Message):
                 Support for this SDK version has ended and it
                 should no longer be used.
         """
+
         UNKNOWN = 0
         SUPPORTED = 1
         STALE = 2
@@ -834,6 +874,7 @@ class SdkBug(proto.Message):
                 Using this version of the SDK may cause data
                 loss.
         """
+
         TYPE_UNSPECIFIED = 0
         GENERAL = 1
         PERFORMANCE = 2
@@ -860,6 +901,7 @@ class SdkBug(proto.Message):
                 severely degraded, and data loss may be very
                 likely.
         """
+
         SEVERITY_UNSPECIFIED = 0
         NOTICE = 1
         WARNING = 2
@@ -1004,19 +1046,19 @@ class PipelineDescription(proto.Message):
             portable graph step names if exists.
     """
 
-    original_pipeline_transform: MutableSequence[
-        "TransformSummary"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="TransformSummary",
+    original_pipeline_transform: MutableSequence["TransformSummary"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="TransformSummary",
+        )
     )
-    execution_pipeline_stage: MutableSequence[
-        "ExecutionStageSummary"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="ExecutionStageSummary",
+    execution_pipeline_stage: MutableSequence["ExecutionStageSummary"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="ExecutionStageSummary",
+        )
     )
     display_data: MutableSequence["DisplayData"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1384,19 +1426,19 @@ class Step(proto.Message):
     Here's an example of a sequence of steps which together implement a
     Map-Reduce job:
 
-    -  Read a collection of data from some source, parsing the
-       collection's elements.
+    - Read a collection of data from some source, parsing the
+      collection's elements.
 
-    -  Validate the elements.
+    - Validate the elements.
 
-    -  Apply a user-defined function to map each element to some value
-       and extract an element-specific key value.
+    - Apply a user-defined function to map each element to some value
+      and extract an element-specific key value.
 
-    -  Group elements with the same key into a single element with that
-       key, transforming a multiply-keyed collection into a
-       uniquely-keyed collection.
+    - Group elements with the same key into a single element with that
+      key, transforming a multiply-keyed collection into a
+      uniquely-keyed collection.
 
-    -  Write the elements out to some data sink.
+    - Write the elements out to some data sink.
 
     Note that the Cloud Dataflow service may be used to run many
     different types of jobs, not just Map-Reduce.
@@ -1656,6 +1698,7 @@ class ListJobsRequest(proto.Message):
                 Filters the jobs that are running ordered on
                 the creation timestamp.
         """
+
         UNKNOWN = 0
         ALL = 1
         TERMINATED = 2

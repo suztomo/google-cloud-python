@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,13 @@ from .cloudtasks import (
     RunTaskRequest,
     UpdateQueueRequest,
 )
-from .queue import Queue, QueueStats, RateLimits, RetryConfig, StackdriverLoggingConfig
+from .queue import (
+    Queue,
+    QueueStats,
+    RateLimits,
+    RetryConfig,
+    StackdriverLoggingConfig,
+)
 from .target import (
     AppEngineHttpQueue,
     AppEngineHttpRequest,
@@ -45,7 +51,10 @@ from .target import (
     QueryOverride,
     UriOverride,
 )
-from .task import Attempt, Task
+from .task import (
+    Attempt,
+    Task,
+)
 
 __all__ = (
     "CreateQueueRequest",

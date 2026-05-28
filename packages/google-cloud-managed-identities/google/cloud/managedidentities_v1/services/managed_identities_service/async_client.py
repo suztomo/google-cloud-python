@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.managedidentities_v1 import gapic_version as package_version
 
@@ -44,11 +44,11 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.managedidentities_v1.services.managed_identities_service import pagers
 from google.cloud.managedidentities_v1.types import managed_identities_service, resource
@@ -83,26 +83,25 @@ class ManagedIdentitiesServiceAsyncClient:
 
     The Managed Identities service exposes the following resources:
 
-    -  Locations as global, named as follows:
-       ``projects/{project_id}/locations/global``.
+    - Locations as global, named as follows:
+      ``projects/{project_id}/locations/global``.
 
-    -  Domains, named as follows:
-       ``/projects/{project_id}/locations/global/domain/{domain_name}``.
+    - Domains, named as follows:
+      ``/projects/{project_id}/locations/global/domain/{domain_name}``.
 
     The ``{domain_name}`` refers to fully qualified domain name in the
     customer project e.g. mydomain.myorganization.com, with the
     following restrictions:
 
-    -  Must contain only lowercase letters, numbers, periods and
-       hyphens.
-    -  Must start with a letter.
-    -  Must contain between 2-64 characters.
-    -  Must end with a number or a letter.
-    -  Must not start with period.
-    -  First segement length (mydomain form example above) shouldn't
-       exceed 15 chars.
-    -  The last segment cannot be fully numeric.
-    -  Must be unique within the customer project.
+    - Must contain only lowercase letters, numbers, periods and hyphens.
+    - Must start with a letter.
+    - Must contain between 2-64 characters.
+    - Must end with a number or a letter.
+    - Must not start with period.
+    - First segement length (mydomain form example above) shouldn't
+      exceed 15 chars.
+    - The last segment cannot be fully numeric.
+    - Must be unique within the customer project.
     """
 
     _client: ManagedIdentitiesServiceClient
@@ -160,7 +159,10 @@ class ManagedIdentitiesServiceAsyncClient:
         Returns:
             ManagedIdentitiesServiceAsyncClient: The constructed client.
         """
-        return ManagedIdentitiesServiceClient.from_service_account_info.__func__(ManagedIdentitiesServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ManagedIdentitiesServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ManagedIdentitiesServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -176,7 +178,12 @@ class ManagedIdentitiesServiceAsyncClient:
         Returns:
             ManagedIdentitiesServiceAsyncClient: The constructed client.
         """
-        return ManagedIdentitiesServiceClient.from_service_account_file.__func__(ManagedIdentitiesServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ManagedIdentitiesServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(
+            ManagedIdentitiesServiceAsyncClient, filename, *args, **kwargs
+        )
 
     from_service_account_json = from_service_account_file
 
@@ -214,7 +221,9 @@ class ManagedIdentitiesServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return ManagedIdentitiesServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return ManagedIdentitiesServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> ManagedIdentitiesServiceTransport:
@@ -226,7 +235,7 @@ class ManagedIdentitiesServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -381,11 +390,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_microsoft_ad_domain(request=request)
+                operation = await client.create_microsoft_ad_domain(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -406,16 +415,16 @@ class ManagedIdentitiesServiceAsyncClient:
                 mydomain.myorganization.com, with the following
                 restrictions:
 
-                -  Must contain only lowercase letters, numbers, periods
-                   and hyphens.
-                -  Must start with a letter.
-                -  Must contain between 2-64 characters.
-                -  Must end with a number or a letter.
-                -  Must not start with period.
-                -  First segement length (mydomain form example above)
-                   shouldn't exceed 15 chars.
-                -  The last segment cannot be fully numeric.
-                -  Must be unique within the customer project.
+                - Must contain only lowercase letters, numbers, periods
+                  and hyphens.
+                - Must start with a letter.
+                - Must contain between 2-64 characters.
+                - Must end with a number or a letter.
+                - Must not start with period.
+                - First segement length (mydomain form example above)
+                  shouldn't exceed 15 chars.
+                - The last segment cannot be fully numeric.
+                - Must be unique within the customer project.
 
                 This corresponds to the ``domain_name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -903,11 +912,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_domain(request=request)
+                operation = await client.update_domain(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -929,9 +938,9 @@ class ManagedIdentitiesServiceAsyncClient:
                 repeated paths field may only include fields from
                 [Domain][google.cloud.managedidentities.v1.Domain]:
 
-                -  ``labels``
-                -  ``locations``
-                -  ``authorized_networks``
+                - ``labels``
+                - ``locations``
+                - ``authorized_networks``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1048,11 +1057,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_domain(request=request)
+                operation = await client.delete_domain(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1192,11 +1201,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.attach_trust(request=request)
+                operation = await client.attach_trust(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1332,11 +1341,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.reconfigure_trust(request=request)
+                operation = await client.reconfigure_trust(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1490,11 +1499,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.detach_trust(request=request)
+                operation = await client.detach_trust(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1639,11 +1648,11 @@ class ManagedIdentitiesServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.validate_trust(request=request)
+                operation = await client.validate_trust(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

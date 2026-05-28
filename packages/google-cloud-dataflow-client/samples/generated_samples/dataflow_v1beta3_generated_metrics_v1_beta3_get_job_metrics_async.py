@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_get_job_metrics():
     client = dataflow_v1beta3.MetricsV1Beta3AsyncClient()
 
     # Initialize request argument(s)
-    request = dataflow_v1beta3.GetJobMetricsRequest(
-    )
+    request = dataflow_v1beta3.GetJobMetricsRequest()
 
     # Make the request
     response = await client.get_job_metrics(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dataflow_v1beta3_generated_MetricsV1Beta3_GetJobMetrics_async]

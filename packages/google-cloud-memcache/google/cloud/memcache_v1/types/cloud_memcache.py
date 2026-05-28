@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -58,6 +58,7 @@ class MemcacheVersion(proto.Enum):
         MEMCACHE_1_5 (1):
             Memcached 1.5 version.
     """
+
     MEMCACHE_VERSION_UNSPECIFIED = 0
     MEMCACHE_1_5 = 1
 
@@ -166,6 +167,7 @@ class Instance(proto.Message):
                 Memcached instance is going through
                 maintenance, e.g. data plane rollout.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -234,6 +236,7 @@ class Instance(proto.Message):
                 UPDATING (4):
                     Node is being updated.
             """
+
             STATE_UNSPECIFIED = 0
             CREATING = 1
             READY = 2
@@ -288,6 +291,7 @@ class Instance(proto.Message):
                 ZONE_DISTRIBUTION_UNBALANCED (1):
                     Memcached nodes are distributed unevenly.
             """
+
             CODE_UNSPECIFIED = 0
             ZONE_DISTRIBUTION_UNBALANCED = 1
 
@@ -421,12 +425,12 @@ class MaintenancePolicy(proto.Message):
         proto.STRING,
         number=3,
     )
-    weekly_maintenance_window: MutableSequence[
-        "WeeklyMaintenanceWindow"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="WeeklyMaintenanceWindow",
+    weekly_maintenance_window: MutableSequence["WeeklyMaintenanceWindow"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="WeeklyMaintenanceWindow",
+        )
     )
 
 
@@ -528,6 +532,7 @@ class RescheduleMaintenanceRequest(proto.Message):
                 If the user wants to reschedule the
                 maintenance to a specific time.
         """
+
         RESCHEDULE_TYPE_UNSPECIFIED = 0
         IMMEDIATE = 1
         NEXT_AVAILABLE_WINDOW = 2
@@ -670,12 +675,11 @@ class CreateInstanceRequest(proto.Message):
             Required. The logical name of the Memcached instance in the
             user project with the following restrictions:
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-40 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the user project / location.
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-40 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the user project / location.
 
             If any of the above are not met, the API raises an invalid
             argument error.
@@ -706,7 +710,7 @@ class UpdateInstanceRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. Mask of fields to update.
 
-            -  ``displayName``
+            - ``displayName``
         instance (google.cloud.memcache_v1.types.Instance):
             Required. A Memcached Instance. Only fields specified in
             update_mask are updated.

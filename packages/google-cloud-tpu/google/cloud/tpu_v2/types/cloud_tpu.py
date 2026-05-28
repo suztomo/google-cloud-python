@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import interval_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -168,6 +168,7 @@ class AttachedDisk(proto.Message):
                 TPU nodes can attach a disk in read-only mode at
                 a time.
         """
+
         DISK_MODE_UNSPECIFIED = 0
         READ_WRITE = 1
         READ_ONLY = 2
@@ -467,6 +468,7 @@ class Node(proto.Message):
                 TPU node has unknown state after a failed
                 repair.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -503,6 +505,7 @@ class Node(proto.Message):
                 caused rescheduling and will resume running once
                 rescheduled.
         """
+
         HEALTH_UNSPECIFIED = 0
         HEALTHY = 1
         TIMEOUT = 3
@@ -524,6 +527,7 @@ class Node(proto.Message):
             V2 (4):
                 TPU API V2 version.
         """
+
         API_VERSION_UNSPECIFIED = 0
         V1_ALPHA1 = 1
         V1 = 2
@@ -1038,6 +1042,7 @@ class QueuedResourceState(proto.Message):
                 willing to wait, use `timing
                 constraints <https://cloud.google.com/tpu/docs/queued-resources#request_a_queued_resource_before_a_specified_time>`__.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACCEPTED = 2
@@ -1063,6 +1068,7 @@ class QueuedResourceState(proto.Message):
                 The current QueuedResource state was
                 initiated by the service.
         """
+
         STATE_INITIATOR_UNSPECIFIED = 0
         USER = 1
         SERVICE = 2
@@ -1849,6 +1855,7 @@ class Symptom(proto.Message):
                 Abusive behaviors have been identified on the
                 current project.
         """
+
         SYMPTOM_TYPE_UNSPECIFIED = 0
         LOW_MEMORY = 1
         OUT_OF_MEMORY = 2
@@ -1950,6 +1957,7 @@ class AcceleratorConfig(proto.Message):
             V6E (11):
                 TPU v6e.
         """
+
         TYPE_UNSPECIFIED = 0
         V2 = 2
         V3 = 4

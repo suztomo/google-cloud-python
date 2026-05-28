@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,25 +30,33 @@ from .backupdr import (
 )
 from .backupplan import (
     BackupPlan,
+    BackupPlanRevision,
     BackupRule,
     BackupWindow,
     CreateBackupPlanRequest,
     DeleteBackupPlanRequest,
     GetBackupPlanRequest,
+    GetBackupPlanRevisionRequest,
+    ListBackupPlanRevisionsRequest,
+    ListBackupPlanRevisionsResponse,
     ListBackupPlansRequest,
     ListBackupPlansResponse,
     StandardSchedule,
+    UpdateBackupPlanRequest,
     WeekDayOfMonth,
 )
 from .backupplanassociation import (
     BackupPlanAssociation,
     CreateBackupPlanAssociationRequest,
     DeleteBackupPlanAssociationRequest,
+    FetchBackupPlanAssociationsForResourceTypeRequest,
+    FetchBackupPlanAssociationsForResourceTypeResponse,
     GetBackupPlanAssociationRequest,
     ListBackupPlanAssociationsRequest,
     ListBackupPlanAssociationsResponse,
     RuleConfigInfo,
     TriggerBackupRequest,
+    UpdateBackupPlanAssociationRequest,
 )
 from .backupvault import (
     Backup,
@@ -56,6 +64,7 @@ from .backupvault import (
     BackupApplianceLockInfo,
     BackupConfigInfo,
     BackupConfigState,
+    BackupGcpResource,
     BackupLock,
     BackupVault,
     BackupVaultView,
@@ -66,6 +75,8 @@ from .backupvault import (
     DataSourceGcpResource,
     DeleteBackupRequest,
     DeleteBackupVaultRequest,
+    FetchBackupsForResourceTypeRequest,
+    FetchBackupsForResourceTypeResponse,
     FetchUsableBackupVaultsRequest,
     FetchUsableBackupVaultsResponse,
     GcpBackupConfig,
@@ -87,7 +98,28 @@ from .backupvault import (
     UpdateBackupVaultRequest,
     UpdateDataSourceRequest,
 )
-from .backupvault_ba import BackupApplianceBackupProperties
+from .backupvault_alloydb import (
+    AlloyDBClusterBackupPlanAssociationProperties,
+    AlloyDbClusterBackupProperties,
+    AlloyDBClusterDataSourceProperties,
+)
+from .backupvault_ba import (
+    BackupApplianceBackupProperties,
+)
+from .backupvault_cloudsql import (
+    CloudSqlInstanceBackupPlanAssociationProperties,
+    CloudSqlInstanceBackupProperties,
+    CloudSqlInstanceDataSourceProperties,
+    CloudSqlInstanceDataSourceReferenceProperties,
+    CloudSqlInstanceInitializationConfig,
+)
+from .backupvault_disk import (
+    DiskBackupProperties,
+    DiskDataSourceProperties,
+    DiskRestoreProperties,
+    DiskTargetEnvironment,
+    RegionDiskTargetEnvironment,
+)
 from .backupvault_gce import (
     AcceleratorConfig,
     AccessConfig,
@@ -114,6 +146,27 @@ from .backupvault_gce import (
     ServiceAccount,
     Tags,
 )
+from .datasourcereference import (
+    DataSourceBackupConfigInfo,
+    DataSourceGcpResourceInfo,
+    DataSourceReference,
+    FetchDataSourceReferencesForResourceTypeRequest,
+    FetchDataSourceReferencesForResourceTypeResponse,
+    GetDataSourceReferenceRequest,
+    ListDataSourceReferencesRequest,
+    ListDataSourceReferencesResponse,
+)
+from .protection_summary import (
+    BackupConfigDetails,
+    BackupDrPlanConfig,
+    BackupDrPlanRule,
+    BackupDrTemplateConfig,
+    BackupLocation,
+    ListResourceBackupConfigsRequest,
+    ListResourceBackupConfigsResponse,
+    PitrSettings,
+    ResourceBackupConfig,
+)
 
 __all__ = (
     "CreateManagementServerRequest",
@@ -130,27 +183,36 @@ __all__ = (
     "WorkforceIdentityBasedManagementURI",
     "WorkforceIdentityBasedOAuth2ClientID",
     "BackupPlan",
+    "BackupPlanRevision",
     "BackupRule",
     "BackupWindow",
     "CreateBackupPlanRequest",
     "DeleteBackupPlanRequest",
     "GetBackupPlanRequest",
+    "GetBackupPlanRevisionRequest",
+    "ListBackupPlanRevisionsRequest",
+    "ListBackupPlanRevisionsResponse",
     "ListBackupPlansRequest",
     "ListBackupPlansResponse",
     "StandardSchedule",
+    "UpdateBackupPlanRequest",
     "WeekDayOfMonth",
     "BackupPlanAssociation",
     "CreateBackupPlanAssociationRequest",
     "DeleteBackupPlanAssociationRequest",
+    "FetchBackupPlanAssociationsForResourceTypeRequest",
+    "FetchBackupPlanAssociationsForResourceTypeResponse",
     "GetBackupPlanAssociationRequest",
     "ListBackupPlanAssociationsRequest",
     "ListBackupPlanAssociationsResponse",
     "RuleConfigInfo",
     "TriggerBackupRequest",
+    "UpdateBackupPlanAssociationRequest",
     "Backup",
     "BackupApplianceBackupConfig",
     "BackupApplianceLockInfo",
     "BackupConfigInfo",
+    "BackupGcpResource",
     "BackupLock",
     "BackupVault",
     "CreateBackupVaultRequest",
@@ -159,6 +221,8 @@ __all__ = (
     "DataSourceGcpResource",
     "DeleteBackupRequest",
     "DeleteBackupVaultRequest",
+    "FetchBackupsForResourceTypeRequest",
+    "FetchBackupsForResourceTypeResponse",
     "FetchUsableBackupVaultsRequest",
     "FetchUsableBackupVaultsResponse",
     "GcpBackupConfig",
@@ -182,7 +246,20 @@ __all__ = (
     "BackupConfigState",
     "BackupVaultView",
     "BackupView",
+    "AlloyDBClusterBackupPlanAssociationProperties",
+    "AlloyDbClusterBackupProperties",
+    "AlloyDBClusterDataSourceProperties",
     "BackupApplianceBackupProperties",
+    "CloudSqlInstanceBackupPlanAssociationProperties",
+    "CloudSqlInstanceBackupProperties",
+    "CloudSqlInstanceDataSourceProperties",
+    "CloudSqlInstanceDataSourceReferenceProperties",
+    "CloudSqlInstanceInitializationConfig",
+    "DiskBackupProperties",
+    "DiskDataSourceProperties",
+    "DiskRestoreProperties",
+    "DiskTargetEnvironment",
+    "RegionDiskTargetEnvironment",
     "AcceleratorConfig",
     "AccessConfig",
     "AdvancedMachineFeatures",
@@ -207,4 +284,21 @@ __all__ = (
     "ServiceAccount",
     "Tags",
     "KeyRevocationActionType",
+    "DataSourceBackupConfigInfo",
+    "DataSourceGcpResourceInfo",
+    "DataSourceReference",
+    "FetchDataSourceReferencesForResourceTypeRequest",
+    "FetchDataSourceReferencesForResourceTypeResponse",
+    "GetDataSourceReferenceRequest",
+    "ListDataSourceReferencesRequest",
+    "ListDataSourceReferencesResponse",
+    "BackupConfigDetails",
+    "BackupDrPlanConfig",
+    "BackupDrPlanRule",
+    "BackupDrTemplateConfig",
+    "BackupLocation",
+    "ListResourceBackupConfigsRequest",
+    "ListResourceBackupConfigsResponse",
+    "PitrSettings",
+    "ResourceBackupConfig",
 )

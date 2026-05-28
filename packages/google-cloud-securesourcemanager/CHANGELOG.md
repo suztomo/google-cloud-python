@@ -1,5 +1,92 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-securesourcemanager/#history
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.4.0...google-cloud-securesourcemanager-v0.5.0) (2026-04-02)
+
+
+### Documentation
+
+* Improve documentation for labels, pagination, and ListLocations ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Features
+
+* Add force option to DeleteInstance request ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Add CustomHostConfig to configure custom hostnames for private instances ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Add option to require code owner approval in branch rules ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.3.0...google-cloud-securesourcemanager-v0.4.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.2.0...google-cloud-securesourcemanager-v0.3.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.1.17...google-cloud-securesourcemanager-v0.2.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.17](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.1.16...google-cloud-securesourcemanager-v0.1.17) (2025-08-06)
+
+
+### Features
+
+* add a FooBar API ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* add the VeoTuningSpec ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+* Remove private preview label from Model Armor protos ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+
+### Documentation
+
+* update comments for rpc BatchCreatePullRequestComments, ResolvePullRequestComments and UnresolvePullRequestComments ([2f16fa5](https://github.com/googleapis/google-cloud-python/commit/2f16fa5610250d05ecc605862e2f806b94593814))
+
+## [0.1.16](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.1.15...google-cloud-securesourcemanager-v0.1.16) (2025-07-26)
+
+
+### Features
+
+* add new UpdateRepository API ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* add support for new API resources - Issues, IssueComments, PullRequests, PullRequestComments, Blobs ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* add support for workforce identity federation in instance ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+
+
+### Documentation
+
+* `ca_pool` in message `.google.cloud.securesourcemanager.v1.Instance` is Optional ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* A comment for field `requested_cancellation` in message `.google.cloud.securesourcemanager.v1.OperationMetadata` is changed ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* fix typo in `BranchRule` comment ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* remove mention of DataPlane from `CreateRepository` endpoint ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* remove mention of DataPlane from `DeleteRepository` endpoint ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* remove mention of DataPlane from `GetRepository` endpont ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+* remove mention of DataPlane from `ListRepositories` endpoint ([1569c8d](https://github.com/googleapis/google-cloud-python/commit/1569c8d0ef4a7005416d03ec5ad0a85fe17ed8cd))
+
 ## [0.1.15](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securesourcemanager-v0.1.14...google-cloud-securesourcemanager-v0.1.15) (2025-03-15)
 
 

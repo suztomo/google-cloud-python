@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -120,13 +120,13 @@ class ListHostProjectRegistrationsRequest(proto.Message):
             The following fields in the ``HostProjectRegistration`` are
             eligible for filtering:
 
-            -  ``name`` - The name of the HostProjectRegistration.
-            -  ``create_time`` - The time at which the
-               HostProjectRegistration was created. The value should be
-               in the (RFC3339)[https://tools.ietf.org/html/rfc3339]
-               format.
-            -  ``gcp_project`` - The Google cloud project associated
-               with the HostProjectRegistration.
+            - ``name`` - The name of the HostProjectRegistration.
+            - ``create_time`` - The time at which the
+              HostProjectRegistration was created. The value should be
+              in the (RFC3339)[https://tools.ietf.org/html/rfc3339]
+              format.
+            - ``gcp_project`` - The Google cloud project associated with
+              the HostProjectRegistration.
         order_by (str):
             Optional. Hint for how to order the results.
     """
@@ -171,12 +171,12 @@ class ListHostProjectRegistrationsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    host_project_registrations: MutableSequence[
-        "HostProjectRegistration"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="HostProjectRegistration",
+    host_project_registrations: MutableSequence["HostProjectRegistration"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="HostProjectRegistration",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

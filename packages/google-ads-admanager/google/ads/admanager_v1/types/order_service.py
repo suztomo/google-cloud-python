@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class ListOrdersRequest(proto.Message):
             Optional. The maximum number of ``Orders`` to return. The
             service may return fewer than this value. If unspecified, at
             most 50 ``Orders`` will be returned. The maximum value is
-            1000; values above 1000 will be coerced to 1000.
+            1000; values greater than 1000 will be coerced to 1000.
         page_token (str):
             Optional. A page token, received from a previous
             ``ListOrders`` call. Provide this to retrieve the subsequent
@@ -70,6 +70,29 @@ class ListOrdersRequest(proto.Message):
             Optional. Expression to filter the response.
             See syntax details at
             https://developers.google.com/ad-manager/api/beta/filters
+
+            <b>Filterable fields:</b>
+            <ul style="list-style-type:none">
+              <li><code>advertiser</code></li>
+              <li><code>agency</code></li>
+              <li><code>appliedTeams</code></li>
+              <li><code>archived</code></li>
+              <li><code>creator</code></li>
+              <li><code>displayName</code></li>
+              <li><code>endTime</code></li>
+              <li><code>externalOrderId</code></li>
+              <li><code>name</code></li>
+              <li><code>orderId</code></li>
+              <li><code>poNumber</code></li>
+              <li><code>programmatic</code></li>
+              <li><code>salesperson</code></li>
+              <li><code>secondarySalespeople</code></li>
+              <li><code>secondaryTraffickers</code></li>
+              <li><code>startTime</code></li>
+              <li><code>status</code></li>
+              <li><code>trafficker</code></li>
+              <li><code>updateTime</code></li>
+            </ul>
         order_by (str):
             Optional. Expression to specify sorting
             order. See syntax details at
@@ -121,8 +144,8 @@ class ListOrdersResponse(proto.Message):
             request, this reflects the total number after the filtering
             is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.

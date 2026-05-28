@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,18 +17,20 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
 from google.cloud.documentai_v1beta3.types import document as gcd_document
-from google.cloud.documentai_v1beta3.types import document_io
+from google.cloud.documentai_v1beta3.types import (
+    document_io,
+    operation_metadata,
+    processor_type,
+)
+from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
 from google.cloud.documentai_v1beta3.types import evaluation as gcd_evaluation
-from google.cloud.documentai_v1beta3.types import operation_metadata
 from google.cloud.documentai_v1beta3.types import processor as gcd_processor
-from google.cloud.documentai_v1beta3.types import processor_type
 
 __protobuf__ = proto.module(
     package="google.cloud.documentai.v1beta3",
@@ -86,6 +88,7 @@ __protobuf__ = proto.module(
         "ImportProcessorVersionRequest",
         "ImportProcessorVersionResponse",
         "ImportProcessorVersionMetadata",
+        "UpdateProcessorVersionMetadata",
     },
 )
 
@@ -156,6 +159,8 @@ class ProcessOptions(proto.Message):
             enable_table_annotation (bool):
                 Optional. Whether to include table
                 annotations in layout parser response.
+            enable_table_split (bool):
+                Optional. Whether to split table.
         """
 
         class ChunkingConfig(proto.Message):
@@ -169,15 +174,14 @@ class ProcessOptions(proto.Message):
                     Optional. Whether or not to include ancestor
                     headings when splitting.
                 semantic_chunking_group_size (bool):
-                    Optional. The number of tokens to group
-                    together when evaluating semantic similarity.
-                    THIS FIELD IS NOT YET USED.
+                    Optional. The number of tokens to group together when
+                    evaluating semantic similarity. **Note:** This field is not
+                    yet used.
                 breakpoint_percentile_threshold (int):
-                    Optional. The percentile of cosine
-                    dissimilarity that must be exceeded between a
-                    group of tokens and the next. The smaller this
-                    number is, the more chunks will be generated.
-                    THIS FIELD IS NOT YET USED.
+                    Optional. The percentile of cosine dissimilarity that must
+                    be exceeded between a group of tokens and the next. The
+                    smaller this number is, the more chunks will be generated.
+                    **Note:** This field is not yet used.
             """
 
             chunk_size: int = proto.Field(
@@ -225,6 +229,10 @@ class ProcessOptions(proto.Message):
         enable_table_annotation: bool = proto.Field(
             proto.BOOL,
             number=6,
+        )
+        enable_table_split: bool = proto.Field(
+            proto.BOOL,
+            number=8,
         )
 
     class IndividualPageSelector(proto.Message):
@@ -436,6 +444,7 @@ class HumanReviewStatus(proto.Message):
                 [state_message][google.cloud.documentai.v1beta3.HumanReviewStatus.state_message]
                 for details.
         """
+
         STATE_UNSPECIFIED = 0
         SKIPPED = 1
         VALIDATION_PASSED = 2
@@ -665,6 +674,7 @@ class BatchProcessMetadata(proto.Message):
             FAILED (6):
                 The batch processing has failed.
         """
+
         STATE_UNSPECIFIED = 0
         WAITING = 1
         RUNNING = 2
@@ -743,12 +753,12 @@ class BatchProcessMetadata(proto.Message):
         number=4,
         message=timestamp_pb2.Timestamp,
     )
-    individual_process_statuses: MutableSequence[
-        IndividualProcessStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=IndividualProcessStatus,
+    individual_process_statuses: MutableSequence[IndividualProcessStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=IndividualProcessStatus,
+        )
     )
 
 
@@ -780,12 +790,12 @@ class FetchProcessorTypesResponse(proto.Message):
             The list of processor types.
     """
 
-    processor_types: MutableSequence[
-        processor_type.ProcessorType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=processor_type.ProcessorType,
+    processor_types: MutableSequence[processor_type.ProcessorType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=processor_type.ProcessorType,
+        )
     )
 
 
@@ -839,12 +849,12 @@ class ListProcessorTypesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    processor_types: MutableSequence[
-        processor_type.ProcessorType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=processor_type.ProcessorType,
+    processor_types: MutableSequence[processor_type.ProcessorType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=processor_type.ProcessorType,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1012,12 +1022,12 @@ class ListProcessorVersionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    processor_versions: MutableSequence[
-        gcd_processor.ProcessorVersion
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcd_processor.ProcessorVersion,
+    processor_versions: MutableSequence[gcd_processor.ProcessorVersion] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcd_processor.ProcessorVersion,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1427,7 +1437,8 @@ class TrainProcessorVersionRequest(proto.Message):
 
         Attributes:
             training_method (google.cloud.documentai_v1beta3.types.TrainProcessorVersionRequest.CustomDocumentExtractionOptions.TrainingMethod):
-                Training method to use for CDE training.
+                Optional. Training method to use for CDE
+                training.
         """
 
         class TrainingMethod(proto.Enum):
@@ -1442,6 +1453,7 @@ class TrainProcessorVersionRequest(proto.Message):
                 TEMPLATE_BASED (2):
                     No description available.
             """
+
             TRAINING_METHOD_UNSPECIFIED = 0
             MODEL_BASED = 1
             TEMPLATE_BASED = 2
@@ -1466,6 +1478,13 @@ class TrainProcessorVersionRequest(proto.Message):
                 recommended learning rate. Valid values are
                 between 0.1 and 10. If not provided, recommended
                 learning rate will be used.
+            previous_fine_tuned_processor_version_name (str):
+                Optional. Resource name of a previously fine tuned version
+                id to copy the overwritten configs from. The
+                base_processor_version should be newer than the base
+                processor version used to fine tune this provided processor
+                version. Format:
+                ``projects/{project}/locations/{location}/processors/{processor}/processorVersions/{processorVersion}``.
         """
 
         train_steps: int = proto.Field(
@@ -1475,6 +1494,10 @@ class TrainProcessorVersionRequest(proto.Message):
         learning_rate_multiplier: float = proto.Field(
             proto.FLOAT,
             number=3,
+        )
+        previous_fine_tuned_processor_version_name: str = proto.Field(
+            proto.STRING,
+            number=5,
         )
 
     custom_document_extraction_options: CustomDocumentExtractionOptions = proto.Field(
@@ -1640,6 +1663,7 @@ class ReviewDocumentRequest(proto.Message):
                 urgent task queue to respect this priority
                 level.
         """
+
         DEFAULT = 0
         URGENT = 1
 
@@ -1703,6 +1727,7 @@ class ReviewDocumentResponse(proto.Message):
             SUCCEEDED (2):
                 The review operation is succeeded.
         """
+
         STATE_UNSPECIFIED = 0
         REJECTED = 1
         SUCCEEDED = 2
@@ -1762,6 +1787,7 @@ class ReviewDocumentOperationMetadata(proto.Message):
             CANCELLED (5):
                 Operation is cancelled.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         CANCELLING = 2
@@ -1966,10 +1992,10 @@ class ImportProcessorVersionRequest(proto.Message):
 
     Attributes:
         processor_version_source (str):
-            The source processor version to import from. The source
-            processor version and destination processor need to be in
-            the same environment and region. Note that ProcessorVersions
-            with ``model_type`` ``MODEL_TYPE_LLM`` are not supported.
+            The source processor version to import from.
+            The source processor version and destination
+            processor need to be in the same environment and
+            region.
 
             This field is a member of `oneof`_ ``source``.
         external_processor_version_source (google.cloud.documentai_v1beta3.types.ImportProcessorVersionRequest.ExternalProcessorVersionSource):
@@ -2042,6 +2068,24 @@ class ImportProcessorVersionResponse(proto.Message):
 class ImportProcessorVersionMetadata(proto.Message):
     r"""The long-running operation metadata for the
     [ImportProcessorVersion][google.cloud.documentai.v1beta3.DocumentProcessorService.ImportProcessorVersion]
+    method.
+
+    Attributes:
+        common_metadata (google.cloud.documentai_v1beta3.types.CommonOperationMetadata):
+            The basic metadata for the long-running
+            operation.
+    """
+
+    common_metadata: operation_metadata.CommonOperationMetadata = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=operation_metadata.CommonOperationMetadata,
+    )
+
+
+class UpdateProcessorVersionMetadata(proto.Message):
+    r"""The long-running operation metadata for the
+    [UpdateProcessorVersion][google.cloud.documentai.v1beta3.DocumentProcessorService.UpdateProcessorVersion]
     method.
 
     Attributes:

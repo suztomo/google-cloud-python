@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,40 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
+
+from google.cloud.documentai_v1beta3.types import document
 
 __protobuf__ = proto.module(
     package="google.cloud.documentai.v1beta3",
     manifest={
+        "Documents",
         "RawDocument",
         "GcsDocument",
         "GcsDocuments",
         "GcsPrefix",
+        "RawDocuments",
         "BatchDocumentsInputConfig",
         "DocumentOutputConfig",
         "OcrConfig",
     },
 )
+
+
+class Documents(proto.Message):
+    r"""A set of inline documents.
+
+    Attributes:
+        documents (MutableSequence[google.cloud.documentai_v1beta3.types.Document]):
+            The list of documents.
+    """
+
+    documents: MutableSequence[document.Document] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=document.Document,
+    )
 
 
 class RawDocument(proto.Message):
@@ -113,6 +132,21 @@ class GcsPrefix(proto.Message):
     gcs_uri_prefix: str = proto.Field(
         proto.STRING,
         number=1,
+    )
+
+
+class RawDocuments(proto.Message):
+    r"""Specifies a set of raw documents.
+
+    Attributes:
+        documents (MutableSequence[google.cloud.documentai_v1beta3.types.RawDocument]):
+            Specifies raw document content and mime type.
+    """
+
+    documents: MutableSequence["RawDocument"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="RawDocument",
     )
 
 
@@ -251,11 +285,11 @@ class OcrConfig(proto.Message):
             A list of advanced OCR options to further fine-tune OCR
             behavior. Current valid values are:
 
-            -  ``legacy_layout``: a heuristics layout detection
-               algorithm, which serves as an alternative to the current
-               ML-based layout detection algorithm. Customers can choose
-               the best suitable layout algorithm based on their
-               situation.
+            - ``legacy_layout``: a heuristics layout detection
+              algorithm, which serves as an alternative to the current
+              ML-based layout detection algorithm. Customers can choose
+              the best suitable layout algorithm based on their
+              situation.
         enable_symbol (bool):
             Includes symbol level OCR information if set
             to true.

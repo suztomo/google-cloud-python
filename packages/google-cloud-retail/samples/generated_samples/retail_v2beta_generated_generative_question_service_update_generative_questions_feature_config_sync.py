@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,9 @@ def sample_update_generative_questions_feature_config():
     client = retail_v2beta.GenerativeQuestionServiceClient()
 
     # Initialize request argument(s)
-    generative_questions_feature_config = retail_v2beta.GenerativeQuestionsFeatureConfig()
+    generative_questions_feature_config = (
+        retail_v2beta.GenerativeQuestionsFeatureConfig()
+    )
     generative_questions_feature_config.catalog = "catalog_value"
 
     request = retail_v2beta.UpdateGenerativeQuestionsFeatureConfigRequest(
@@ -51,5 +53,6 @@ def sample_update_generative_questions_feature_config():
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2beta_generated_GenerativeQuestionService_UpdateGenerativeQuestionsFeatureConfig_sync]

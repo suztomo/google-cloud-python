@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,5 +59,6 @@ def sample_stream_generate_grounded_content():
     # Handle the response
     for response in stream:
         print(response)
+
 
 # [END discoveryengine_v1beta_generated_GroundedGenerationService_StreamGenerateGroundedContent_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_stop_airflow_command():
     client = service_v1.EnvironmentsAsyncClient()
 
     # Initialize request argument(s)
-    request = service_v1.StopAirflowCommandRequest(
-    )
+    request = service_v1.StopAirflowCommandRequest()
 
     # Make the request
     response = await client.stop_airflow_command(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END composer_v1_generated_Environments_StopAirflowCommand_async]

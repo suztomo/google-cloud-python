@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,8 +42,14 @@ async def sample_create_cluster():
     cluster = edgecontainer_v1.Cluster()
     cluster.name = "name_value"
     cluster.fleet.project = "project_value"
-    cluster.networking.cluster_ipv4_cidr_blocks = ['cluster_ipv4_cidr_blocks_value1', 'cluster_ipv4_cidr_blocks_value2']
-    cluster.networking.services_ipv4_cidr_blocks = ['services_ipv4_cidr_blocks_value1', 'services_ipv4_cidr_blocks_value2']
+    cluster.networking.cluster_ipv4_cidr_blocks = [
+        "cluster_ipv4_cidr_blocks_value1",
+        "cluster_ipv4_cidr_blocks_value2",
+    ]
+    cluster.networking.services_ipv4_cidr_blocks = [
+        "services_ipv4_cidr_blocks_value1",
+        "services_ipv4_cidr_blocks_value2",
+    ]
     cluster.authorization.admin_users.username = "username_value"
 
     request = edgecontainer_v1.CreateClusterRequest(
@@ -53,13 +59,14 @@ async def sample_create_cluster():
     )
 
     # Make the request
-    operation = client.create_cluster(request=request)
+    operation = await client.create_cluster(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END edgecontainer_v1_generated_EdgeContainer_CreateCluster_async]

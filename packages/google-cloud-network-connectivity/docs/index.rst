@@ -2,7 +2,7 @@
 
 .. include:: multiprocessing.rst
 
-This package includes clients for multiple versions of Network Connectivity Center.
+This package includes clients for multiple versions of Network Connectivity.
 By default, you will get version ``networkconnectivity_v1``.
 
 
@@ -21,6 +21,14 @@ API Reference
 
     networkconnectivity_v1alpha1/services_
     networkconnectivity_v1alpha1/types_
+
+API Reference
+-------------
+.. toctree::
+    :maxdepth: 2
+
+    networkconnectivity_v1beta/services_
+    networkconnectivity_v1beta/types_
 
 
 Changelog

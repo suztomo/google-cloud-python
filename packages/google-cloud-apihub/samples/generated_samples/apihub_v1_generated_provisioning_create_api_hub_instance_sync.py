@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,12 +39,8 @@ def sample_create_api_hub_instance():
     client = apihub_v1.ProvisioningClient()
 
     # Initialize request argument(s)
-    api_hub_instance = apihub_v1.ApiHubInstance()
-    api_hub_instance.config.cmek_key_name = "cmek_key_name_value"
-
     request = apihub_v1.CreateApiHubInstanceRequest(
         parent="parent_value",
-        api_hub_instance=api_hub_instance,
     )
 
     # Make the request
@@ -56,5 +52,6 @@ def sample_create_api_hub_instance():
 
     # Handle the response
     print(response)
+
 
 # [END apihub_v1_generated_Provisioning_CreateApiHubInstance_sync]

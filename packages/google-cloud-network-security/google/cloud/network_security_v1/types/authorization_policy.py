@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -84,6 +84,7 @@ class AuthorizationPolicy(proto.Message):
                 Deny rules should be avoided unless they are
                 used to provide a default "deny all" fallback.
         """
+
         ACTION_UNSPECIFIED = 0
         ALLOW = 1
         DENY = 2
@@ -117,7 +118,7 @@ class AuthorizationPolicy(proto.Message):
                     authorization. At least one principal should match. Each
                     peer can be an exact match, or a prefix match (example,
                     "namespace/*") or a suffix match (example,
-                    "*/service-account") or a presence match "*". Authorization
+                    "*/service-account") or a presence match "\*". Authorization
                     based on the principal name without certificate validation
                     (configured by ServerTlsPolicy resource) is considered
                     insecure.
@@ -148,8 +149,8 @@ class AuthorizationPolicy(proto.Message):
                     Required. List of host names to match. Matched against the
                     ":authority" header in http requests. At least one host
                     should match. Each host can be an exact match, or a prefix
-                    match (example "mydomain.*") or a suffix match (example
-                    "*.myorg.com") or a presence (any) match "*".
+                    match (example "mydomain.\ *") or a suffix match (example
+                    "*.myorg.com") or a presence (any) match "\*".
                 ports (MutableSequence[int]):
                     Required. List of destination ports to match.
                     At least one port should match.
@@ -221,19 +222,19 @@ class AuthorizationPolicy(proto.Message):
                 message="AuthorizationPolicy.Rule.Destination.HttpHeaderMatch",
             )
 
-        sources: MutableSequence[
-            "AuthorizationPolicy.Rule.Source"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="AuthorizationPolicy.Rule.Source",
+        sources: MutableSequence["AuthorizationPolicy.Rule.Source"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="AuthorizationPolicy.Rule.Source",
+            )
         )
-        destinations: MutableSequence[
-            "AuthorizationPolicy.Rule.Destination"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="AuthorizationPolicy.Rule.Destination",
+        destinations: MutableSequence["AuthorizationPolicy.Rule.Destination"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="AuthorizationPolicy.Rule.Destination",
+            )
         )
 
     name: str = proto.Field(
@@ -321,12 +322,12 @@ class ListAuthorizationPoliciesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    authorization_policies: MutableSequence[
-        "AuthorizationPolicy"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="AuthorizationPolicy",
+    authorization_policies: MutableSequence["AuthorizationPolicy"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="AuthorizationPolicy",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

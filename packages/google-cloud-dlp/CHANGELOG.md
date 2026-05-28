@@ -4,6 +4,97 @@
 
 [1]: https://pypi.org/project/google-cloud-dlp/#history
 
+## [3.36.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.35.0...google-cloud-dlp-v3.36.0) (2026-04-09)
+
+
+### Features
+
+* added support for detecting key-value pairs in client provided metadata ([56ccbd8612b6790b0477bf8d777080061072e745](https://github.com/googleapis/google-cloud-python/commit/56ccbd8612b6790b0477bf8d777080061072e745))
+
+## [3.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.34.0...google-cloud-dlp-v3.35.0) (2026-03-26)
+
+
+### Documentation
+
+* added formatting to various comments ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+
+
+### Features
+
+* add InfoType launch status in InfoType Description ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* added support for image exclusion and adjustment rules ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* added support for detecting key-value pairs in document metadata ([397ae5384b5fa2741d0f479ba7efc1612e1195da](https://github.com/googleapis/google-cloud-python/commit/397ae5384b5fa2741d0f479ba7efc1612e1195da))
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [3.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.33.0...google-cloud-dlp-v3.34.0) (2026-01-08)
+
+
+### Documentation
+
+* add example resource name to VertexDatasetResourceReference ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+* add messages stating that Data Catalog actions are deprecated ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [3.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.32.0...google-cloud-dlp-v3.33.0) (2025-10-16)
+
+
+### Documentation
+
+* clarify filter syntax for List* APIs  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* clarify ListProjectDataProfiles API supports filter by project_id  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* clarify List*DataProfiles APIs supports filter by profile_last_generated  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+
+
+### Features
+
+* inspect and deid templates in RedactImage  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* store DlpJob findings in a Cloud Storage bucket  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* publish DlpJob findings to Dataplex Universal Catalog  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* Cloud Storage discovery filters based on tag filters  ([a5dbb64fe1815aa7e62b4d582791ef33b93d7712](https://github.com/googleapis/google-cloud-python/commit/a5dbb64fe1815aa7e62b4d582791ef33b93d7712))
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [3.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.31.0...google-cloud-dlp-v3.32.0) (2025-09-15)
+
+
+### Features
+
+* [google-cloud-dlp] add LocationSupport, Domain, DocumentFallbackLocation([09f78e3ca85671594e20c3182038238e58d3d8cb](https://github.com/googleapis/google-cloud-python/commit/09f78e3ca85671594e20c3182038238e58d3d8cb))
+
+
+### Documentation
+
+* minor doc revision ([09f78e3ca85671594e20c3182038238e58d3d8cb](https://github.com/googleapis/google-cloud-python/commit/09f78e3ca85671594e20c3182038238e58d3d8cb))
+
+## [3.31.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.30.0...google-cloud-dlp-v3.31.0) (2025-06-19)
+
+
+### Features
+
+* add SaveToGcsFindingsOutput ([b568ff5](https://github.com/googleapis/google-cloud-python/commit/b568ff5d1b0ac5b8a2fd65cac97e495cd80f5981))
+
+
+### Documentation
+
+* minor doc revision ([b568ff5](https://github.com/googleapis/google-cloud-python/commit/b568ff5d1b0ac5b8a2fd65cac97e495cd80f5981))
+
 ## [3.30.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dlp-v3.29.0...google-cloud-dlp-v3.30.0) (2025-05-29)
 
 

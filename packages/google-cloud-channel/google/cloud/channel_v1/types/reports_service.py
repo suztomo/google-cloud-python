@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import decimal_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.decimal_pb2 as decimal_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -392,6 +392,7 @@ class Column(proto.Message):
             DATE_TIME (6):
                 ReportValues for this column will use date_time_value.
         """
+
         DATA_TYPE_UNSPECIFIED = 0
         STRING = 1
         INT = 2
@@ -599,6 +600,7 @@ class ReportStatus(proto.Message):
             FAILED (4):
                 Report failed.
         """
+
         STATE_UNSPECIFIED = 0
         STARTED = 1
         WRITING = 2

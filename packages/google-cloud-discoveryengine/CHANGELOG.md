@@ -1,5 +1,115 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-discoveryengine/#history
+
+## [0.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.18.0...google-cloud-discoveryengine-v0.19.0) (2026-05-06)
+
+## [0.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.17.0...google-cloud-discoveryengine-v0.18.0) (2026-03-26)
+
+
+### Documentation
+
+* Clarify project number requirement for data_store field ([4b400faca2fcd40f68a812dc6f47a79d0cbf7433](https://github.com/googleapis/google-cloud-python/commit/4b400faca2fcd40f68a812dc6f47a79d0cbf7433))
+
+
+### Features
+
+* Update DataStoreSpec and add BoostSpec to SearchService ([4b400faca2fcd40f68a812dc6f47a79d0cbf7433](https://github.com/googleapis/google-cloud-python/commit/4b400faca2fcd40f68a812dc6f47a79d0cbf7433))
+
+## [0.17.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.16.0...google-cloud-discoveryengine-v0.17.0) (2026-02-12)
+
+
+### Documentation
+
+* update documentation for search and data store NLQ features ([b483e9218e14736a27c6547c2da15a9ca74c0db9](https://github.com/googleapis/google-cloud-python/commit/b483e9218e14736a27c6547c2da15a9ca74c0db9))
+* other misc documentation updates Clients can specify Natural Language Query Understanding-related fields, as well as CrowdingSpec. These features are available in the V1 APIs. ([b483e9218e14736a27c6547c2da15a9ca74c0db9](https://github.com/googleapis/google-cloud-python/commit/b483e9218e14736a27c6547c2da15a9ca74c0db9))
+
+
+### Features
+
+* add output-only field SemanticState to SearchResponse. ([b483e9218e14736a27c6547c2da15a9ca74c0db9](https://github.com/googleapis/google-cloud-python/commit/b483e9218e14736a27c6547c2da15a9ca74c0db9))
+* add Natural Language Query Understanding fields and messages to DiscoveryEngine request, response, and datastore messages ([b483e9218e14736a27c6547c2da15a9ca74c0db9](https://github.com/googleapis/google-cloud-python/commit/b483e9218e14736a27c6547c2da15a9ca74c0db9))
+* add CrowdingSpec to SearchRequest to set crowding settings ([b483e9218e14736a27c6547c2da15a9ca74c0db9](https://github.com/googleapis/google-cloud-python/commit/b483e9218e14736a27c6547c2da15a9ca74c0db9))
+
+## [0.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.15.0...google-cloud-discoveryengine-v0.16.0) (2025-12-17)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+* check Python and dependency versions in generated GAPICs ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+
+## [0.15.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.14.0...google-cloud-discoveryengine-v0.15.0) (2025-10-23)
+
+
+### Bug Fixes
+
+* Add labels for additional Sessions identification  ([1dbd0988eebdb63c7f08737d45f9ff67735ab396](https://github.com/googleapis/google-cloud-python/commit/1dbd0988eebdb63c7f08737d45f9ff67735ab396))
+* Include AssistAnswer as a part of the Session  ([1dbd0988eebdb63c7f08737d45f9ff67735ab396](https://github.com/googleapis/google-cloud-python/commit/1dbd0988eebdb63c7f08737d45f9ff67735ab396))
+
+## [0.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.12...google-cloud-discoveryengine-v0.14.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.13.12](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.11...google-cloud-discoveryengine-v0.13.12) (2025-09-22)
+
+
+### Features
+
+* Added `ranking_expression_backed` and `rank_signals` fields related to the Custom Ranking feature ([3bfaf76](https://github.com/googleapis/google-cloud-python/commit/3bfaf7619ba8acc1c9a43490298be057e99ac839))
+
+
+### Documentation
+
+* A comment for field `ranking_expression` in messages `.google.cloud.discoveryengine.v1alpha.SearchRequest` and `.google.cloud.discoveryengine.v1beta.SearchRequest` is changed to support the Custom Ranking use case ([3bfaf76](https://github.com/googleapis/google-cloud-python/commit/3bfaf7619ba8acc1c9a43490298be057e99ac839))
+
+## [0.13.11](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.10...google-cloud-discoveryengine-v0.13.11) (2025-07-26)
+
+
+### Features
+
+* add SessionService ([1a37e18](https://github.com/googleapis/google-cloud-python/commit/1a37e183ba189d92b83b180e26816e2498b9fe06))
+
+## [0.13.10](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.9...google-cloud-discoveryengine-v0.13.10) (2025-07-23)
+
+
+### Features
+
+* [google-cloud-discoveryengine] add AssistantService ([#14133](https://github.com/googleapis/google-cloud-python/issues/14133)) ([55b9528](https://github.com/googleapis/google-cloud-python/commit/55b9528e22bbb52403d02b6316dc1b38a897755f))
+
+## [0.13.9](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.8...google-cloud-discoveryengine-v0.13.9) (2025-06-05)
+
+
+### Features
+
+* add CMEK config service ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add ConnectorRunErrorContext to error log ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add custom search operators for Workspace search ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add HealthcareFhirConfig to FHIR data store ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add identity mapping service ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add more indexing state for site search engine ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add more options for layout parser config ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* add user license config service ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* enable claim level score for grounding ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* support ACL data store and document ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* support media recommendation engine ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+* support structured content for chunk ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+
+
+### Documentation
+
+* keep the API doc up-to-date with recent changes ([4b5d19b](https://github.com/googleapis/google-cloud-python/commit/4b5d19b1b6e52de1a54630b38b226f0cb301cb05))
+
 ## [0.13.8](https://github.com/googleapis/google-cloud-python/compare/google-cloud-discoveryengine-v0.13.7...google-cloud-discoveryengine-v0.13.8) (2025-03-27)
 
 

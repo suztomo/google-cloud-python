@@ -4,6 +4,115 @@
 
 [1]: https://pypi.org/project/google-cloud-texttospeech/#history
 
+## [2.36.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.35.0...google-cloud-texttospeech-v2.36.0) (2026-04-02)
+
+
+### Documentation
+
+* A comment for field `markup` in message `.google.cloud.texttospeech.v1beta1.StreamingSynthesisInput` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* A comment for field `advanced_voice_options` in message `.google.cloud.texttospeech.v1beta1.SynthesizeSpeechRequest` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* A comment for field `markup` in message `.google.cloud.texttospeech.v1beta1.SynthesisInput` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* A comment for field `relax_safety_filters` in message `.google.cloud.texttospeech.v1beta1.AdvancedVoiceOptions` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Features
+
+* Support `enable_textnorm` for Gemini voices. ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Support safety settings for Gemini voices and deprecate `relax_safety_filters` ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Mark `advanced_voice_options` as optional. ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [2.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.34.0...google-cloud-texttospeech-v2.35.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.33.0...google-cloud-texttospeech-v2.34.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [2.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.32.0...google-cloud-texttospeech-v2.33.0) (2025-10-23)
+
+
+### Features
+
+* add `relax_safety_filters` proto field for Gemini TTS  ([1dbd0988eebdb63c7f08737d45f9ff67735ab396](https://github.com/googleapis/google-cloud-python/commit/1dbd0988eebdb63c7f08737d45f9ff67735ab396))
+* add `relax_safety_filters` proto field for Gemini TTS  ([1dbd0988eebdb63c7f08737d45f9ff67735ab396](https://github.com/googleapis/google-cloud-python/commit/1dbd0988eebdb63c7f08737d45f9ff67735ab396))
+
+## [2.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.31.0...google-cloud-texttospeech-v2.32.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [2.31.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.30.0...google-cloud-texttospeech-v2.31.0) (2025-09-24)
+
+
+### Features
+
+* [google-cloud-texttospeech] add Gemini TTS Multispeaker API fields ([#14535](https://github.com/googleapis/google-cloud-python/issues/14535)) ([5339bcb](https://github.com/googleapis/google-cloud-python/commit/5339bcb6d42eae4ae6d4b4ccdf9b3cbc2ddec7b1))
+
+## [2.30.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.29.0...google-cloud-texttospeech-v2.30.0) (2025-09-22)
+
+
+### Features
+
+* [google-cloud-texttospeech] add Gemini TTS Multispeaker API fields ([#14508](https://github.com/googleapis/google-cloud-python/issues/14508)) ([ac6a721](https://github.com/googleapis/google-cloud-python/commit/ac6a7213bd0fee9291ae0ab8aa0009cc334b0156))
+
+## [2.29.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.28.0...google-cloud-texttospeech-v2.29.0) (2025-09-04)
+
+
+### Features
+
+* Add prompt to SynthesisInput ([2c37fa1](https://github.com/googleapis/google-cloud-python/commit/2c37fa1808974239abe79bbf1d2df9fba74c1ac7))
+
+## [2.28.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.27.0...google-cloud-texttospeech-v2.28.0) (2025-08-29)
+
+
+### Features
+
+* [google-cloud-texttospeech] Support promptable voices by specifying a model name and a prompt ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* Add enum value M4A to enum AudioEncoding ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* Support promptable voices by specifying a model name and a prompt ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+
+
+### Documentation
+
+* A comment for enum value `AUDIO_ENCODING_UNSPECIFIED` in enum `AudioEncoding` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for enum value `OGG_OPUS` in enum `AudioEncoding` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for enum value `PCM` in enum `AudioEncoding` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for enum value `PHONETIC_ENCODING_IPA` in enum `PhoneticEncoding` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for enum value `PHONETIC_ENCODING_X_SAMPA` in enum `PhoneticEncoding` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `audio_encoding` in message `.google.cloud.texttospeech.v1beta1.StreamingAudioConfig` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `custom_pronunciations` in message `.google.cloud.texttospeech.v1beta1.SynthesisInput` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `low_latency_journey_synthesis` in message `.google.cloud.texttospeech.v1beta1.AdvancedVoiceOptions` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `phrase` in message `.google.cloud.texttospeech.v1beta1.CustomPronunciationParams` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `pronunciations` in message `.google.cloud.texttospeech.v1beta1.CustomPronunciations` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `speaking_rate` in message `.google.cloud.texttospeech.v1beta1.AudioConfig` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `text` in message `.google.cloud.texttospeech.v1beta1.StreamingSynthesisInput` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for field `voice_clone` in message `.google.cloud.texttospeech.v1beta1.VoiceSelectionParams` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for message `MultiSpeakerMarkup` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+* A comment for method `StreamingSynthesize` in service `TextToSpeech` is changed ([a610c53](https://github.com/googleapis/google-cloud-python/commit/a610c53a8249dbd54d3151ac5e0e6b5b3fda5f09))
+
 ## [2.27.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-texttospeech-v2.26.0...google-cloud-texttospeech-v2.27.0) (2025-05-08)
 
 

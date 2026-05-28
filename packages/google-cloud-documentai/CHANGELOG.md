@@ -1,5 +1,140 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-documentai/#history
+
+## [3.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.13.0...google-cloud-documentai-v3.14.0) (2026-04-02)
+
+
+### Features
+
+* Update comments for proto fields ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Added a fields for image and table annotation output ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [3.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.12.0...google-cloud-documentai-v3.13.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [3.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.11.0...google-cloud-documentai-v3.12.0) (2026-03-23)
+
+
+### Features
+
+* Add a field for upgrading previous processor version when fine tuning ([ee7dd7dc168ecf943440cef38efff348e8eff095](https://github.com/googleapis/google-cloud-python/commit/ee7dd7dc168ecf943440cef38efff348e8eff095))
+
+## [3.11.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.10.0...google-cloud-documentai-v3.11.0) (2026-03-05)
+
+
+### Features
+
+* Added a field for enabling image and table annotation for layout parser processor ([6120fb0db084f5e8d1502fb1bb37594ac9976f6e](https://github.com/googleapis/google-cloud-python/commit/6120fb0db084f5e8d1502fb1bb37594ac9976f6e))
+
+## [3.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.9.0...google-cloud-documentai-v3.10.0) (2026-02-12)
+
+
+### Documentation
+
+* Updated comments for various fields and messages ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+
+### Features
+
+* The method `ReviewDocument` in `.google.cloud.documentai.v1beta3.DocumentProcessorService` is deprecated ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* A new field `enable_table_split` is added to message `.google.cloud.documentai.v1beta3.OcrConfig.LayoutParsingParams` ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* Added new messages `Documents` and `RawDocuments` for inline document input ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* The field `skip_human_review` in messages `.google.cloud.documentai.v1beta3.ProcessRequest` and `.google.cloud.documentai.v1beta3.BatchProcessRequest` is deprecated ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* A new field `document_prompt` is added to message `.google.cloud.documentai.v1beta3.DocumentSchema` ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* A new field `revisions` is added to message `.google.cloud.documentai.v1beta3.Evaluation` ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* A new field `document_type` is added to message `.google.cloud.documentai.v1beta3.ImportDocumentsRequest` ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+
+### Bug Fixes
+
+* Removed the `SpannerIndexingConfig` message and the `spanner_indexing_config` field from `.google.cloud.documentai.v1beta3.Dataset` BREAKING CHANGE: The `SpannerIndexingConfig` message and the `spanner_indexing_config` field within the `Dataset` message have been removed. Client code referencing these will need to stop referencing these in case of an error ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+## [3.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.8.0...google-cloud-documentai-v3.9.0) (2026-01-29)
+
+
+### Documentation
+
+* Fixed language issues in multiple message field descriptions ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+* Regenerated REST and RPC Document AI documentation to include missing changes from September 2024 to November 2025 ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+
+## [3.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.7.0...google-cloud-documentai-v3.8.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [3.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.6.0...google-cloud-documentai-v3.7.0) (2025-10-16)
+
+
+### Documentation
+
+* The field `training_method` in `TrainProcessorVersionRequest` is now marked as optional  ([4dc7381c2121c9e13b24cb3aae59523f8ff31a3a](https://github.com/googleapis/google-cloud-python/commit/4dc7381c2121c9e13b24cb3aae59523f8ff31a3a))
+* A comment for field `latest_evaluation` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `training_method` in message `.google.cloud.documentai.v1beta3.TrainProcessorVersionRequest` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `processor_version_source` in message `.google.cloud.documentai.v1beta3.ImportProcessorVersionRequest` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `deprecation_info` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `create_time` in message `.google.cloud.documentai.v1beta3.Processor` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `document_schema` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `kms_key_name` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `create_time` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A comment for field `kms_key_version_name` in message `.google.cloud.documentai.v1beta3.ProcessorVersion` is changed  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Features
+
+* Added new messages `EntityValidationOutput` and `EntitiesRevision`  ([4dc7381c2121c9e13b24cb3aae59523f8ff31a3a](https://github.com/googleapis/google-cloud-python/commit/4dc7381c2121c9e13b24cb3aae59523f8ff31a3a))
+* Added new fields `entity_validation_output`, `entities_revisions`, and `entities_revision_id` to the `Document` message  ([4dc7381c2121c9e13b24cb3aae59523f8ff31a3a](https://github.com/googleapis/google-cloud-python/commit/4dc7381c2121c9e13b24cb3aae59523f8ff31a3a))
+* A new field `signature_value` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new message `EntitiesRevision` is added  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `entities_revisions` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `entity_validation_output` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `method` is added to message `.google.cloud.documentai.v1beta3.DocumentSchema`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new enum `Method` is added  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `method` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new message `EntityValidationOutput` is added  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `entities_revision_id` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* A new field `annotations` is added to message `.google.cloud.documentai.v1beta3.Document`  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [3.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.5.0...google-cloud-documentai-v3.6.0) (2025-08-29)
+
+
+### Features
+
+* Added config options for derived fields and signature detection. Some annotation changes changes to mark fields explicitly output only (no changes in semantics just readability) ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+
+
+### Documentation
+
+* A comment for field `create_time` in message `.google.cloud.documentai.v1.Processor`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `create_time` in message `.google.cloud.documentai.v1.ProcessorVersion`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `deprecation_info` in message `.google.cloud.documentai.v1.ProcessorVersion`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `document_schema` in message `.google.cloud.documentai.v1.ProcessorVersion` is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `kms_key_name` in message `.google.cloud.documentai.v1.ProcessorVersion`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `kms_key_version_name` in message `.google.cloud.documentai.v1.ProcessorVersion`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+* A comment for field `latest_evaluation` in message `.google.cloud.documentai.v1.ProcessorVersion`  is changed to describe as output only. ([6d0eeb7](https://github.com/googleapis/google-cloud-python/commit/6d0eeb7e4ae05a8ce9b2849eb9caf554b6e449c4))
+
 ## [3.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-documentai-v3.4.0...google-cloud-documentai-v3.5.0) (2025-04-29)
 
 

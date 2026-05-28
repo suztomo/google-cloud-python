@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,21 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.cloud.dataplex_v1 import gapic_version as package_version
-from google.cloud.dataplex_v1.types import analyze
-from google.cloud.dataplex_v1.types import content
-from google.cloud.dataplex_v1.types import content as gcd_content
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
@@ -46,7 +44,7 @@ if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
 class ContentServiceTransport(abc.ABC):
     """Abstract transport class for ContentService."""
 
-    AUTH_SCOPES = ("https://www.googleapis.com/auth/cloud-platform",)
+    AUTH_SCOPES = ()
 
     DEFAULT_HOST: str = "dataplex.googleapis.com"
 
@@ -73,9 +71,10 @@ class ContentServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -86,9 +85,11 @@ class ContentServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -104,11 +105,16 @@ class ContentServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -132,6 +138,8 @@ class ContentServiceTransport(abc.ABC):
             host += ":443"
         self._host = host
 
+        self._wrapped_methods: Dict[Callable, Callable] = {}
+
     @property
     def host(self):
         return self._host
@@ -139,82 +147,6 @@ class ContentServiceTransport(abc.ABC):
     def _prep_wrapped_messages(self, client_info):
         # Precompute the wrapped methods.
         self._wrapped_methods = {
-            self.create_content: gapic_v1.method.wrap_method(
-                self.create_content,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.update_content: gapic_v1.method.wrap_method(
-                self.update_content,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.delete_content: gapic_v1.method.wrap_method(
-                self.delete_content,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.get_content: gapic_v1.method.wrap_method(
-                self.get_content,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.get_iam_policy: gapic_v1.method.wrap_method(
-                self.get_iam_policy,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.set_iam_policy: gapic_v1.method.wrap_method(
-                self.set_iam_policy,
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.test_iam_permissions: gapic_v1.method.wrap_method(
-                self.test_iam_permissions,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
-            self.list_content: gapic_v1.method.wrap_method(
-                self.list_content,
-                default_retry=retries.Retry(
-                    initial=1.0,
-                    maximum=10.0,
-                    multiplier=1.3,
-                    predicate=retries.if_exception_type(
-                        core_exceptions.ServiceUnavailable,
-                    ),
-                    deadline=60.0,
-                ),
-                default_timeout=60.0,
-                client_info=client_info,
-            ),
             self.get_location: gapic_v1.method.wrap_method(
                 self.get_location,
                 default_timeout=None,
@@ -222,6 +154,21 @@ class ContentServiceTransport(abc.ABC):
             ),
             self.list_locations: gapic_v1.method.wrap_method(
                 self.list_locations,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_iam_policy: gapic_v1.method.wrap_method(
+                self.get_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.set_iam_policy: gapic_v1.method.wrap_method(
+                self.set_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -257,80 +204,6 @@ class ContentServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
-    def create_content(
-        self,
-    ) -> Callable[
-        [gcd_content.CreateContentRequest],
-        Union[analyze.Content, Awaitable[analyze.Content]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def update_content(
-        self,
-    ) -> Callable[
-        [gcd_content.UpdateContentRequest],
-        Union[analyze.Content, Awaitable[analyze.Content]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def delete_content(
-        self,
-    ) -> Callable[
-        [content.DeleteContentRequest],
-        Union[empty_pb2.Empty, Awaitable[empty_pb2.Empty]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def get_content(
-        self,
-    ) -> Callable[
-        [content.GetContentRequest], Union[analyze.Content, Awaitable[analyze.Content]]
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def get_iam_policy(
-        self,
-    ) -> Callable[
-        [iam_policy_pb2.GetIamPolicyRequest],
-        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def set_iam_policy(
-        self,
-    ) -> Callable[
-        [iam_policy_pb2.SetIamPolicyRequest],
-        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def test_iam_permissions(
-        self,
-    ) -> Callable[
-        [iam_policy_pb2.TestIamPermissionsRequest],
-        Union[
-            iam_policy_pb2.TestIamPermissionsResponse,
-            Awaitable[iam_policy_pb2.TestIamPermissionsResponse],
-        ],
-    ]:
-        raise NotImplementedError()
-
-    @property
-    def list_content(
-        self,
-    ) -> Callable[
-        [content.ListContentRequest],
-        Union[content.ListContentResponse, Awaitable[content.ListContentResponse]],
-    ]:
-        raise NotImplementedError()
-
-    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -354,13 +227,49 @@ class ContentServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.SetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.GetIamPolicyRequest],
+        Union[policy_pb2.Policy, Awaitable[policy_pb2.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.TestIamPermissionsRequest],
+        Union[
+            iam_policy_pb2.TestIamPermissionsResponse,
+            Awaitable[iam_policy_pb2.TestIamPermissionsResponse],
+        ],
+    ]:
         raise NotImplementedError()
 
     @property

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ class Escalation(proto.Message):
                 The issue is having a significant business
                 impact.
         """
+
         REASON_UNSPECIFIED = 0
         RESOLUTION_TIME = 1
         TECHNICAL_EXPERTISE = 2

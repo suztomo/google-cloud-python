@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.batch_v1alpha.types import job as gcb_job
 from google.cloud.batch_v1alpha.types import (
     resource_allowance as gcb_resource_allowance,
 )
-from google.cloud.batch_v1alpha.types import job as gcb_job
 from google.cloud.batch_v1alpha.types import task
 
 __protobuf__ = proto.module(
@@ -601,12 +601,12 @@ class ListResourceAllowancesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    resource_allowances: MutableSequence[
-        gcb_resource_allowance.ResourceAllowance
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcb_resource_allowance.ResourceAllowance,
+    resource_allowances: MutableSequence[gcb_resource_allowance.ResourceAllowance] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcb_resource_allowance.ResourceAllowance,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

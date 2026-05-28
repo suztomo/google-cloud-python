@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_endpoint():
     client = servicedirectory_v1beta1.RegistrationServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = servicedirectory_v1beta1.UpdateEndpointRequest(
-    )
+    request = servicedirectory_v1beta1.UpdateEndpointRequest()
 
     # Make the request
     response = await client.update_endpoint(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END servicedirectory_v1beta1_generated_RegistrationService_UpdateEndpoint_async]

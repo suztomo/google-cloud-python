@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,9 @@ def sample_update_prediction_result():
     prediction_result = financialservices_v1.PredictionResult()
     prediction_result.dataset = "dataset_value"
     prediction_result.model = "model_value"
-    prediction_result.outputs.prediction_destination.write_disposition = "WRITE_TRUNCATE"
+    prediction_result.outputs.prediction_destination.write_disposition = (
+        "WRITE_TRUNCATE"
+    )
 
     request = financialservices_v1.UpdatePredictionResultRequest(
         prediction_result=prediction_result,
@@ -57,5 +59,6 @@ def sample_update_prediction_result():
 
     # Handle the response
     print(response)
+
 
 # [END financialservices_v1_generated_AML_UpdatePredictionResult_sync]

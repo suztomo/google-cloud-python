@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_remove_public_key():
     client = shell_v1.CloudShellServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = shell_v1.RemovePublicKeyRequest(
-    )
+    request = shell_v1.RemovePublicKeyRequest()
 
     # Make the request
-    operation = client.remove_public_key(request=request)
+    operation = await client.remove_public_key(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END cloudshell_v1_generated_CloudShellService_RemovePublicKey_async]

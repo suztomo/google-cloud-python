@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ def sample_create_data_store():
     data_store.display_name = "display_name_value"
 
     request = discoveryengine_v1.CreateDataStoreRequest(
+        cmek_config_name="cmek_config_name_value",
         parent="parent_value",
         data_store=data_store,
         data_store_id="data_store_id_value",
@@ -57,5 +58,6 @@ def sample_create_data_store():
 
     # Handle the response
     print(response)
+
 
 # [END discoveryengine_v1_generated_DataStoreService_CreateDataStore_sync]

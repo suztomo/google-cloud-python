@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_conversation():
     client = discoveryengine_v1alpha.ConversationalSearchServiceClient()
 
     # Initialize request argument(s)
-    request = discoveryengine_v1alpha.UpdateConversationRequest(
-    )
+    request = discoveryengine_v1alpha.UpdateConversationRequest()
 
     # Make the request
     response = client.update_conversation(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END discoveryengine_v1alpha_generated_ConversationalSearchService_UpdateConversation_sync]

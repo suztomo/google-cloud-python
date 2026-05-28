@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,26 @@ from google.shopping.merchant_quota import gapic_version as package_version
 __version__ = package_version.__version__
 
 
-from google.shopping.merchant_quota_v1beta.services.quota_service.async_client import (
+from google.shopping.merchant_quota_v1.services.account_limits_service.async_client import (
+    AccountLimitsServiceAsyncClient,
+)
+from google.shopping.merchant_quota_v1.services.account_limits_service.client import (
+    AccountLimitsServiceClient,
+)
+from google.shopping.merchant_quota_v1.services.quota_service.async_client import (
     QuotaServiceAsyncClient,
 )
-from google.shopping.merchant_quota_v1beta.services.quota_service.client import (
+from google.shopping.merchant_quota_v1.services.quota_service.client import (
     QuotaServiceClient,
 )
-from google.shopping.merchant_quota_v1beta.types.quota import (
+from google.shopping.merchant_quota_v1.types.accountlimits import (
+    AccountLimit,
+    GetAccountLimitRequest,
+    ListAccountLimitsRequest,
+    ListAccountLimitsResponse,
+    ProductLimit,
+)
+from google.shopping.merchant_quota_v1.types.quota import (
     ListQuotaGroupsRequest,
     ListQuotaGroupsResponse,
     MethodDetails,
@@ -32,8 +45,15 @@ from google.shopping.merchant_quota_v1beta.types.quota import (
 )
 
 __all__ = (
+    "AccountLimitsServiceClient",
+    "AccountLimitsServiceAsyncClient",
     "QuotaServiceClient",
     "QuotaServiceAsyncClient",
+    "AccountLimit",
+    "GetAccountLimitRequest",
+    "ListAccountLimitsRequest",
+    "ListAccountLimitsResponse",
+    "ProductLimit",
     "ListQuotaGroupsRequest",
     "ListQuotaGroupsResponse",
     "MethodDetails",

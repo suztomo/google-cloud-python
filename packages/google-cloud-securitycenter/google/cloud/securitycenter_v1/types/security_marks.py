@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,12 +45,12 @@ class SecurityMarks(proto.Message):
             Mutable user specified security marks belonging to the
             parent resource. Constraints are as follows:
 
-            -  Keys and values are treated as case insensitive
-            -  Keys must be between 1 - 256 characters (inclusive)
-            -  Keys must be letters, numbers, underscores, or dashes
-            -  Values have leading and trailing whitespace trimmed,
-               remaining characters must be between 1 - 4096 characters
-               (inclusive)
+            - Keys and values are treated as case insensitive
+            - Keys must be between 1 - 256 characters (inclusive)
+            - Keys must be letters, numbers, underscores, or dashes
+            - Values have leading and trailing whitespace trimmed,
+              remaining characters must be between 1 - 4096 characters
+              (inclusive)
         canonical_name (str):
             The canonical name of the marks. Examples:
             "organizations/{organization_id}/assets/{asset_id}/securityMarks"

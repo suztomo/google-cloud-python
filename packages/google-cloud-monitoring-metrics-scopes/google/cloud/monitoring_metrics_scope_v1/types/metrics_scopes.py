@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_metrics_scope_v1.types import metrics_scope
@@ -160,6 +160,7 @@ class OperationMetadata(proto.Message):
             CANCELLED (4):
                 The batch processing was cancelled.
         """
+
         STATE_UNSPECIFIED = 0
         CREATED = 1
         RUNNING = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.ads.admanager_v1.types import ad_unit_messages
@@ -27,8 +28,20 @@ __protobuf__ = proto.module(
         "GetAdUnitRequest",
         "ListAdUnitsRequest",
         "ListAdUnitsResponse",
+        "CreateAdUnitRequest",
+        "UpdateAdUnitRequest",
+        "BatchCreateAdUnitsRequest",
+        "BatchCreateAdUnitsResponse",
+        "BatchUpdateAdUnitsRequest",
+        "BatchUpdateAdUnitsResponse",
         "ListAdUnitSizesRequest",
         "ListAdUnitSizesResponse",
+        "BatchActivateAdUnitsRequest",
+        "BatchActivateAdUnitsResponse",
+        "BatchDeactivateAdUnitsRequest",
+        "BatchDeactivateAdUnitsResponse",
+        "BatchArchiveAdUnitsRequest",
+        "BatchArchiveAdUnitsResponse",
     },
 )
 
@@ -60,7 +73,7 @@ class ListAdUnitsRequest(proto.Message):
             return. The service may return fewer than this
             value. If unspecified, at most 50 ad units will
             be returned. The maximum value is 1000; values
-            above 1000 will be coerced to 1000.
+            greater than 1000 will be coerced to 1000.
         page_token (str):
             Optional. A page token, received from a previous
             ``ListAdUnits`` call. Provide this to retrieve the
@@ -73,6 +86,22 @@ class ListAdUnitsRequest(proto.Message):
             Optional. Expression to filter the response.
             See syntax details at
             https://developers.google.com/ad-manager/api/beta/filters
+
+            <b>Filterable fields:</b>
+            <ul style="list-style-type:none">
+              <li><code>adUnitCode</code></li>
+            <li><code>adUnitSizes.canonicalName</code></li>
+            <li><code>displayName</code></li>
+              <li><code>effectiveAdsenseEnabled</code></li>
+            <li><code>explicitlyTargeted</code></li>
+            <li><code>externalSetTopBoxChannelId</code></li>
+            <li><code>hasChildren</code></li>
+              <li><code>name</code></li>
+              <li><code>parentAdUnit</code></li>
+              <li><code>status</code></li>
+              <li><code>teams</code></li>
+              <li><code>updateTime</code></li>
+            </ul>
         order_by (str):
             Optional. Expression to specify sorting
             order. See syntax details at
@@ -124,8 +153,8 @@ class ListAdUnitsResponse(proto.Message):
             request, this reflects the total number after the filtering
             is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.
@@ -153,6 +182,132 @@ class ListAdUnitsResponse(proto.Message):
     )
 
 
+class CreateAdUnitRequest(proto.Message):
+    r"""Request object for ``CreateAdUnit`` method.
+
+    Attributes:
+        parent (str):
+            Required. The parent resource where this ``AdUnit`` will be
+            created. Format: ``networks/{network_code}``
+        ad_unit (google.ads.admanager_v1.types.AdUnit):
+            Required. The ``AdUnit`` to create.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    ad_unit: ad_unit_messages.AdUnit = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=ad_unit_messages.AdUnit,
+    )
+
+
+class UpdateAdUnitRequest(proto.Message):
+    r"""Request object for ``UpdateAdUnit`` method.
+
+    Attributes:
+        ad_unit (google.ads.admanager_v1.types.AdUnit):
+            Required. The ``AdUnit`` to update.
+
+            The ``AdUnit``'s name is used to identify the ``AdUnit`` to
+            update. Format:
+            ``networks/{network_code}/adUnits/{ad_unit_id}``
+        update_mask (google.protobuf.field_mask_pb2.FieldMask):
+            Optional. The list of fields to update.
+    """
+
+    ad_unit: ad_unit_messages.AdUnit = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        message=ad_unit_messages.AdUnit,
+    )
+    update_mask: field_mask_pb2.FieldMask = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message=field_mask_pb2.FieldMask,
+    )
+
+
+class BatchCreateAdUnitsRequest(proto.Message):
+    r"""Request object for ``BatchCreateAdUnits`` method.
+
+    Attributes:
+        parent (str):
+            Required. The parent resource where ``AdUnits`` will be
+            created. Format: ``networks/{network_code}`` The parent
+            field in the CreateAdUnitRequest must match this field.
+        requests (MutableSequence[google.ads.admanager_v1.types.CreateAdUnitRequest]):
+            Required. The ``AdUnit`` objects to create. A maximum of 100
+            objects can be created in a batch.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    requests: MutableSequence["CreateAdUnitRequest"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=2,
+        message="CreateAdUnitRequest",
+    )
+
+
+class BatchCreateAdUnitsResponse(proto.Message):
+    r"""Response object for ``BatchCreateAdUnits`` method.
+
+    Attributes:
+        ad_units (MutableSequence[google.ads.admanager_v1.types.AdUnit]):
+            The ``AdUnit`` objects created.
+    """
+
+    ad_units: MutableSequence[ad_unit_messages.AdUnit] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=ad_unit_messages.AdUnit,
+    )
+
+
+class BatchUpdateAdUnitsRequest(proto.Message):
+    r"""Request object for ``BatchUpdateAdUnits`` method.
+
+    Attributes:
+        parent (str):
+            Required. The parent resource where ``AdUnits`` will be
+            updated. Format: ``networks/{network_code}`` The parent
+            field in the UpdateAdUnitRequest must match this field.
+        requests (MutableSequence[google.ads.admanager_v1.types.UpdateAdUnitRequest]):
+            Required. The ``AdUnit`` objects to update. A maximum of 100
+            objects can be updated in a batch.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    requests: MutableSequence["UpdateAdUnitRequest"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=2,
+        message="UpdateAdUnitRequest",
+    )
+
+
+class BatchUpdateAdUnitsResponse(proto.Message):
+    r"""Response object for ``BatchUpdateAdUnits`` method.
+
+    Attributes:
+        ad_units (MutableSequence[google.ads.admanager_v1.types.AdUnit]):
+            The ``AdUnit`` objects updated.
+    """
+
+    ad_units: MutableSequence[ad_unit_messages.AdUnit] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=ad_unit_messages.AdUnit,
+    )
+
+
 class ListAdUnitSizesRequest(proto.Message):
     r"""Request object for ListAdUnitSizes method.
 
@@ -165,7 +320,8 @@ class ListAdUnitSizesRequest(proto.Message):
             to return. The service may return fewer than
             this value. If unspecified, at most 50 ad unit
             sizes will be returned. The maximum value is
-            1000; values above 1000 will be coerced to 1000.
+            1000; values greater than 1000 will be coerced
+            to 1000.
         page_token (str):
             Optional. A page token, received from a previous
             ``ListAdUnitSizes`` call. Provide this to retrieve the
@@ -229,8 +385,8 @@ class ListAdUnitSizesResponse(proto.Message):
             request, this reflects the total number after the filtering
             is applied.
 
-            ``total_size`` will not be calculated in the response unless
-            it has been included in a response field mask. The response
+            ``total_size`` won't be calculated in the response unless it
+            has been included in a response field mask. The response
             field mask can be provided to the method by using the URL
             parameter ``$fields`` or ``fields``, or by using the
             HTTP/gRPC header ``X-Goog-FieldMask``.
@@ -256,6 +412,84 @@ class ListAdUnitSizesResponse(proto.Message):
         proto.INT32,
         number=3,
     )
+
+
+class BatchActivateAdUnitsRequest(proto.Message):
+    r"""Request object for ``BatchActivateAdUnits`` method.
+
+    Attributes:
+        parent (str):
+            Required. Format: ``networks/{network_code}``
+        names (MutableSequence[str]):
+            Required. The resource names of the ``AdUnit``\ s to
+            activate. Format:
+            ``networks/{network_code}/adUnits/{ad_unit_id}``
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    names: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+
+
+class BatchActivateAdUnitsResponse(proto.Message):
+    r"""Response object for ``BatchActivateAdUnits`` method."""
+
+
+class BatchDeactivateAdUnitsRequest(proto.Message):
+    r"""Request object for ``BatchDeactivateAdUnits`` method.
+
+    Attributes:
+        parent (str):
+            Required. Format: ``networks/{network_code}``
+        names (MutableSequence[str]):
+            Required. The resource names of the ``AdUnit``\ s to
+            deactivate. Format:
+            ``networks/{network_code}/adUnits/{ad_unit_id}``
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    names: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+
+
+class BatchDeactivateAdUnitsResponse(proto.Message):
+    r"""Response object for ``BatchDeactivateAdUnits`` method."""
+
+
+class BatchArchiveAdUnitsRequest(proto.Message):
+    r"""Request object for ``BatchArchiveAdUnits`` method.
+
+    Attributes:
+        parent (str):
+            Required. Format: ``networks/{network_code}``
+        names (MutableSequence[str]):
+            Required. The resource names of the ``AdUnit``\ s to
+            archive. Format:
+            ``networks/{network_code}/adUnits/{ad_unit_id}``
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    names: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+
+
+class BatchArchiveAdUnitsResponse(proto.Message):
+    r"""Response object for ``BatchArchiveAdUnits`` method."""
 
 
 __all__ = tuple(sorted(__protobuf__.manifest))

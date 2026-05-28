@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_create_question():
 
     # Initialize request argument(s)
     question = dataqna_v1alpha.Question()
-    question.scopes = ['scopes_value1', 'scopes_value2']
+    question.scopes = ["scopes_value1", "scopes_value2"]
     question.query = "query_value"
 
     request = dataqna_v1alpha.CreateQuestionRequest(
@@ -53,5 +53,6 @@ async def sample_create_question():
 
     # Handle the response
     print(response)
+
 
 # [END dataqna_v1alpha_generated_QuestionService_CreateQuestion_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,17 +41,18 @@ async def sample_recrawl_uris():
     # Initialize request argument(s)
     request = discoveryengine_v1.RecrawlUrisRequest(
         site_search_engine="site_search_engine_value",
-        uris=['uris_value1', 'uris_value2'],
+        uris=["uris_value1", "uris_value2"],
     )
 
     # Make the request
-    operation = client.recrawl_uris(request=request)
+    operation = await client.recrawl_uris(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END discoveryengine_v1_generated_SiteSearchEngineService_RecrawlUris_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,18 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.apps.card_v1.types import card as gac_card
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
+from google.apps.card_v1.types import card as gac_card
 
 from google.apps.chat_v1.types import action_status as gc_action_status
-from google.apps.chat_v1.types import annotation
+from google.apps.chat_v1.types import annotation, contextual_addon, reaction, user
 from google.apps.chat_v1.types import attachment as gc_attachment
-from google.apps.chat_v1.types import contextual_addon
 from google.apps.chat_v1.types import deletion_metadata as gc_deletion_metadata
 from google.apps.chat_v1.types import matched_url as gc_matched_url
-from google.apps.chat_v1.types import reaction
 from google.apps.chat_v1.types import slash_command as gc_slash_command
 from google.apps.chat_v1.types import space as gc_space
-from google.apps.chat_v1.types import user
 
 __protobuf__ = proto.module(
     package="google.chat.v1",
@@ -39,6 +36,8 @@ __protobuf__ = proto.module(
         "Message",
         "AttachedGif",
         "QuotedMessageMetadata",
+        "QuotedMessageSnapshot",
+        "ForwardedMetadata",
         "Thread",
         "ActionResponse",
         "AccessoryWidget",
@@ -46,6 +45,7 @@ __protobuf__ = proto.module(
         "DeleteMessageRequest",
         "UpdateMessageRequest",
         "CreateMessageRequest",
+        "CreateMessageNotificationOptions",
         "ListMessagesRequest",
         "ListMessagesResponse",
         "DialogAction",
@@ -117,23 +117,26 @@ class Message(proto.Message):
             capture all formatting visible in the UI, but includes the
             following:
 
-            -  `Markup
-               syntax <https://developers.google.com/workspace/chat/format-messages>`__
-               for bold, italic, strikethrough, monospace, monospace
-               block, and bulleted list.
+            - `Markup
+              syntax <https://developers.google.com/workspace/chat/format-messages>`__
+              for bold, italic, strikethrough, monospace, monospace
+              block, and bulleted list.
 
-            -  `User
-               mentions <https://developers.google.com/workspace/chat/format-messages#messages-@mention>`__
-               using the format ``<users/{user}>``.
+            - `User
+              mentions <https://developers.google.com/workspace/chat/format-messages#messages-@mention>`__
+              using the format ``<users/{user}>``.
 
-            -  Custom hyperlinks using the format
-               ``<{url}|{rendered_text}>`` where the first string is the
-               URL and the second is the rendered text—for example,
-               ``<http://example.com|custom text>``.
+            - Custom hyperlinks using the format
+              ``<{url}|{rendered_text}>`` where the first string is the
+              URL and the second is the rendered text—for example,
+              ``<http://example.com|custom text>``.
 
-            -  Custom emoji using the format ``:{emoji_name}:``—for
-               example, ``:smile:``. This doesn't apply to Unicode
-               emoji, such as ``U+1F600`` for a grinning face emoji.
+            - Custom emoji using the format ``:{emoji_name}:``—for
+              example, ``:smile:``. This doesn't apply to Unicode emoji,
+              such as ``U+1F600`` for a grinning face emoji.
+
+            - Bullet list items using asterisks (``*``)—for example,
+              ``* item``.
 
             For more information, see `View text formatting sent in a
             message <https://developers.google.com/workspace/chat/format-messages#view_text_formatting_sent_in_a_message>`__
@@ -161,8 +164,10 @@ class Message(proto.Message):
             `Card
             builder <https://addons.gsuite.google.com/uikit/builder>`__
         annotations (MutableSequence[google.apps.chat_v1.types.Annotation]):
-            Output only. Annotations associated with the ``text`` in
-            this message.
+            Output only. Annotations can be associated with the
+            plain-text body of the message or with chips that link to
+            Google Workspace resources like Google Docs or Sheets with
+            ``start_index`` and ``length`` of 0.
         thread (google.apps.chat_v1.types.Thread):
             The thread the message belongs to. For example usage, see
             `Start or reply to a message
@@ -201,6 +206,10 @@ class Message(proto.Message):
 
             If the space doesn't support reply in threads, this field is
             always ``false``.
+        silent (bool):
+            Output only. Whether this is a silent
+            message. Silent messages are messages where Chat
+            suppresses push notifications for recipients.
         client_assigned_message_id (str):
             Optional. A custom ID for the message. You can use field to
             identify a message, or to get, delete, or update a message.
@@ -220,9 +229,7 @@ class Message(proto.Message):
             authentication <https://developers.google.com/workspace/chat/authenticate-authorize-chat-app>`__
             and omit the following:
 
-            -  `Attachments <https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages.attachments>`__
-            -  `Accessory
-               widgets <https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages#Message.AccessoryWidget>`__
+            - `Attachments <https://developers.google.com/workspace/chat/api/reference/rest/v1/spaces.messages.attachments>`__
 
             For details, see `Send a message
             privately <https://developers.google.com/workspace/chat/create-messages#private>`__.
@@ -230,10 +237,19 @@ class Message(proto.Message):
             Output only. Information about a deleted message. A message
             is deleted when ``delete_time`` is set.
         quoted_message_metadata (google.apps.chat_v1.types.QuotedMessageMetadata):
-            Output only. Information about a message
-            that's quoted by a Google Chat user in a space.
-            Google Chat users can quote a message to reply
-            to it.
+            Optional. Information about a message that another message
+            quotes.
+
+            When you create a message, you can quote messages within the
+            same thread, or quote a root message to create a new root
+            message. However, you can't quote a message reply from a
+            different thread.
+
+            When you update a message, you can't add or replace the
+            ``quotedMessageMetadata`` field, but you can remove it.
+
+            For example usage, see `Quote another
+            message <https://developers.google.com/workspace/chat/create-messages#quote-a-message>`__.
         attached_gifs (MutableSequence[google.apps.chat_v1.types.AttachedGif]):
             Output only. GIF images that are attached to
             the message.
@@ -282,12 +298,12 @@ class Message(proto.Message):
         proto.STRING,
         number=43,
     )
-    cards: MutableSequence[
-        contextual_addon.ContextualAddOnMarkup.Card
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=contextual_addon.ContextualAddOnMarkup.Card,
+    cards: MutableSequence[contextual_addon.ContextualAddOnMarkup.Card] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=contextual_addon.ContextualAddOnMarkup.Card,
+        )
     )
     cards_v2: MutableSequence["CardWithId"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -341,16 +357,20 @@ class Message(proto.Message):
         proto.BOOL,
         number=25,
     )
+    silent: bool = proto.Field(
+        proto.BOOL,
+        number=46,
+    )
     client_assigned_message_id: str = proto.Field(
         proto.STRING,
         number=32,
     )
-    emoji_reaction_summaries: MutableSequence[
-        reaction.EmojiReactionSummary
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=33,
-        message=reaction.EmojiReactionSummary,
+    emoji_reaction_summaries: MutableSequence[reaction.EmojiReactionSummary] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=33,
+            message=reaction.EmojiReactionSummary,
+        )
     )
     private_message_viewer: user.User = proto.Field(
         proto.MESSAGE,
@@ -395,18 +415,66 @@ class AttachedGif(proto.Message):
 
 
 class QuotedMessageMetadata(proto.Message):
-    r"""Information about a quoted message.
+    r"""Information about a message that another message quotes.
+
+    When you create a message, you can quote messages within the same
+    thread, or quote a root message to create a new root message.
+    However, you can't quote a message reply from a different thread.
+
+    When you update a message, you can't add or replace the
+    ``quotedMessageMetadata`` field, but you can remove it.
+
+    For example usage, see `Quote another
+    message <https://developers.google.com/workspace/chat/create-messages#quote-a-message>`__.
 
     Attributes:
         name (str):
-            Output only. Resource name of the quoted message.
+            Required. Resource name of the message that is quoted.
 
             Format: ``spaces/{space}/messages/{message}``
         last_update_time (google.protobuf.timestamp_pb2.Timestamp):
-            Output only. The timestamp when the quoted
-            message was created or when the quoted message
-            was last updated.
+            Required. The timestamp when the quoted message was created
+            or when the quoted message was last updated.
+
+            If the message was edited, use this field,
+            ``last_update_time``. If the message was never edited, use
+            ``create_time``.
+
+            If ``last_update_time`` doesn't match the latest version of
+            the quoted message, the request fails.
+        quote_type (google.apps.chat_v1.types.QuotedMessageMetadata.QuoteType):
+            Optional. Specifies the quote type. If not
+            set, defaults to REPLY in the message read/write
+            path for backward compatibility.
+        quoted_message_snapshot (google.apps.chat_v1.types.QuotedMessageSnapshot):
+            Output only. A snapshot of the quoted
+            message's content.
+        forwarded_metadata (google.apps.chat_v1.types.ForwardedMetadata):
+            Output only. Metadata about the source space
+            of the quoted message. Populated only for
+            FORWARD quote type.
     """
+
+    class QuoteType(proto.Enum):
+        r"""The quote type of the quoted message.
+
+        Values:
+            QUOTE_TYPE_UNSPECIFIED (0):
+                Reserved. This value is unused.
+            REPLY (1):
+                If quote_type is ``REPLY``, you can do the following:
+
+                - If you're replying in a thread, you can quote another
+                  message in that thread.
+
+                - If you're creating a root message, you can quote another
+                  root message in that space.
+
+                You can't quote a message reply from a different thread.
+        """
+
+        QUOTE_TYPE_UNSPECIFIED = 0
+        REPLY = 1
 
     name: str = proto.Field(
         proto.STRING,
@@ -416,6 +484,100 @@ class QuotedMessageMetadata(proto.Message):
         proto.MESSAGE,
         number=2,
         message=timestamp_pb2.Timestamp,
+    )
+    quote_type: QuoteType = proto.Field(
+        proto.ENUM,
+        number=4,
+        enum=QuoteType,
+    )
+    quoted_message_snapshot: "QuotedMessageSnapshot" = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message="QuotedMessageSnapshot",
+    )
+    forwarded_metadata: "ForwardedMetadata" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="ForwardedMetadata",
+    )
+
+
+class QuotedMessageSnapshot(proto.Message):
+    r"""Provides a snapshot of the content of the quoted message at
+    the time of quoting or forwarding
+
+    Attributes:
+        sender (str):
+            Output only. The quoted message's author
+            name. Populated for both REPLY & FORWARD quote
+            types.
+        text (str):
+            Output only. Snapshot of the quoted message's
+            text content.
+        formatted_text (str):
+            Output only. Contains the quoted message ``text`` with
+            markups added to support rich formatting like
+            hyperlinks,custom emojis, markup, etc. Populated only for
+            FORWARD quote type.
+        annotations (MutableSequence[google.apps.chat_v1.types.Annotation]):
+            Output only. Annotations parsed from the text
+            body of the quoted message. Populated only for
+            FORWARD quote type.
+        attachments (MutableSequence[google.apps.chat_v1.types.Attachment]):
+            Output only. Attachments that were part of
+            the quoted message. These are copies of the
+            quoted message's attachment metadata. Populated
+            only for FORWARD quote type.
+    """
+
+    sender: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    text: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    formatted_text: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    annotations: MutableSequence[annotation.Annotation] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=4,
+        message=annotation.Annotation,
+    )
+    attachments: MutableSequence[gc_attachment.Attachment] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=5,
+        message=gc_attachment.Attachment,
+    )
+
+
+class ForwardedMetadata(proto.Message):
+    r"""Metadata about the source space from which a message was
+    forwarded.
+
+    Attributes:
+        space (str):
+            Output only. The resource name of the source
+            space. Format: spaces/{space}
+        space_display_name (str):
+            Output only. The display name of the source space or DM at
+            the time of forwarding. For ``SPACE``, this is the space
+            name. For ``DIRECT_MESSAGE``, this is the other
+            participant's name (e.g., "User A"). For ``GROUP_CHAT``,
+            this is a generated name based on members' first names,
+            limited to 5 including the creator (e.g., "User A, User B").
+    """
+
+    space: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    space_display_name: str = proto.Field(
+        proto.STRING,
+        number=2,
     )
 
 
@@ -500,6 +662,7 @@ class ActionResponse(proto.Message):
             UPDATE_WIDGET (7):
                 Widget text autocomplete options query.
         """
+
         TYPE_UNSPECIFIED = 0
         NEW_MESSAGE = 1
         UPDATE_MESSAGE = 2
@@ -516,12 +679,12 @@ class ActionResponse(proto.Message):
                 An array of the SelectionItem objects.
         """
 
-        items: MutableSequence[
-            gac_card.SelectionInput.SelectionItem
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message=gac_card.SelectionInput.SelectionItem,
+        items: MutableSequence[gac_card.SelectionInput.SelectionItem] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message=gac_card.SelectionInput.SelectionItem,
+            )
         )
 
     class UpdatedWidget(proto.Message):
@@ -665,18 +828,21 @@ class UpdateMessageRequest(proto.Message):
 
             Currently supported field paths:
 
-            -  ``text``
+            - ``text``
 
-            -  ``attachment``
+            - ``attachment``
 
-            -  ``cards`` (Requires `app
-               authentication </chat/api/guides/auth/service-accounts>`__.)
+            - ``cards`` (Requires `app
+              authentication </chat/api/guides/auth/service-accounts>`__.)
 
-            -  ``cards_v2`` (Requires `app
-               authentication </chat/api/guides/auth/service-accounts>`__.)
+            - ``cards_v2`` (Requires `app
+              authentication </chat/api/guides/auth/service-accounts>`__.)
 
-            -  ``accessory_widgets`` (Requires `app
-               authentication </chat/api/guides/auth/service-accounts>`__.)
+            - ``accessory_widgets`` (Requires `app
+              authentication </chat/api/guides/auth/service-accounts>`__.)
+
+            - ``quoted_message_metadata`` (Only allows removal of the
+              quoted message.)
         allow_missing (bool):
             Optional. If ``true`` and the message isn't found, a new
             message is created and ``updateMask`` is ignored. The
@@ -744,16 +910,21 @@ class CreateMessageRequest(proto.Message):
             The value for this field must meet the following
             requirements:
 
-            -  Begins with ``client-``. For example,
-               ``client-custom-name`` is a valid custom ID, but
-               ``custom-name`` is not.
-            -  Contains up to 63 characters and only lowercase letters,
-               numbers, and hyphens.
-            -  Is unique within a space. A Chat app can't use the same
-               custom ID for different messages.
+            - Begins with ``client-``. For example,
+              ``client-custom-name`` is a valid custom ID, but
+              ``custom-name`` is not.
+            - Contains up to 63 characters and only lowercase letters,
+              numbers, and hyphens.
+            - Is unique within a space. A Chat app can't use the same
+              custom ID for different messages.
 
             For details, see `Name a
             message <https://developers.google.com/workspace/chat/create-messages#name_a_created_message>`__.
+        create_message_notification_options (google.apps.chat_v1.types.CreateMessageNotificationOptions):
+            Optional. Controls the notification behavior when the
+            message is posted. To learn more, see `Force notifications
+            or send silent
+            messages <https://developer.google.com/workspace/chat/create-messages#force-notify-silent>`__.
     """
 
     class MessageReplyOption(proto.Enum):
@@ -779,6 +950,7 @@ class CreateMessageRequest(proto.Message):
                 message creation fails, a ``NOT_FOUND`` error is returned
                 instead.
         """
+
         MESSAGE_REPLY_OPTION_UNSPECIFIED = 0
         REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD = 1
         REPLY_MESSAGE_OR_FAIL = 2
@@ -808,6 +980,61 @@ class CreateMessageRequest(proto.Message):
     message_id: str = proto.Field(
         proto.STRING,
         number=9,
+    )
+    create_message_notification_options: "CreateMessageNotificationOptions" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=10,
+            message="CreateMessageNotificationOptions",
+        )
+    )
+
+
+class CreateMessageNotificationOptions(proto.Message):
+    r"""Options for the notification behavior when the message is
+    posted.
+
+    Attributes:
+        notification_type (google.apps.chat_v1.types.CreateMessageNotificationOptions.NotificationType):
+            The notification type for the message.
+    """
+
+    class NotificationType(proto.Enum):
+        r"""The notification types options for the message.
+
+        Values:
+            NOTIFICATION_TYPE_NONE (0):
+                Default behavior. Notification behavior is
+                similar to when the human user sends the message
+                using the Chat UI: no notification is sent to
+                the human sender.
+            NOTIFICATION_TYPE_FORCE_NOTIFY (2):
+                Force notify recipients. This bypasses users' space
+                notification settings and `Chat Do Not Disturb
+                settings <https://support.google.com/chat/answer/9093489>`__.
+                This option does not bypass device-level Do Not Disturb
+                settings.
+
+                Requires [app authentication]
+                (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+            NOTIFICATION_TYPE_SILENT (3):
+                Silence the notification as if the recipients have `Chat Do
+                Not
+                Disturb <https://support.google.com/chat/answer/9093489>`__
+                enabled or have muted the space.
+
+                Requires [app authentication]
+                (https://developers.google.com/workspace/chat/authenticate-authorize-chat-app).
+        """
+
+        NOTIFICATION_TYPE_NONE = 0
+        NOTIFICATION_TYPE_FORCE_NOTIFY = 2
+        NOTIFICATION_TYPE_SILENT = 3
+
+    notification_type: NotificationType = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum=NotificationType,
     )
 
 
@@ -887,9 +1114,9 @@ class ListMessagesRequest(proto.Message):
             value to order by an ordering operation. Valid ordering
             operation values are as follows:
 
-            -  ``ASC`` for ascending.
+            - ``ASC`` for ascending.
 
-            -  ``DESC`` for descending.
+            - ``DESC`` for descending.
 
             The default ordering is ``create_time ASC``.
         show_deleted (bool):

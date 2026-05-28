@@ -1,5 +1,92 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-gke-hub/#history
+
+## [1.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.23.0...google-cloud-gke-hub-v1.24.0) (2026-05-06)
+
+## [1.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.22.0...google-cloud-gke-hub-v1.23.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.22.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.21.0...google-cloud-gke-hub-v1.22.0) (2026-03-12)
+
+
+### Features
+
+* upgrade protobuf from v25.7 to v31.0 ([505bc9725fec0b2238a1fc102967f68027f9afdf](https://github.com/googleapis/google-cloud-python/commit/505bc9725fec0b2238a1fc102967f68027f9afdf))
+
+## [1.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.20.0...google-cloud-gke-hub-v1.21.0) (2026-02-12)
+
+
+### Documentation
+
+* A comment for field `request_id` in message `.google.cloud.gkehub.v1.CreateFeatureRequest` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `cancel_requested` in message `.google.cloud.gkehub.v1.OperationMetadata` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for message `Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `state` in message `.google.cloud.gkehub.v1.Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for enum value `ACTIVE` in enum `State` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for enum value `DISABLING` in enum `State` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `labels` in message `.google.cloud.gkehub.v1.Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `state` in message `.google.cloud.gkehub.v1.CommonFeatureState` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for enum value `ENABLING` in enum `State` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for message `CommonFeatureState` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `request_id` in message `.google.cloud.gkehub.v1.UpdateFeatureRequest` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `spec` in message `.google.cloud.gkehub.v1.Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `membership_specs` in message `.google.cloud.gkehub.v1.Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for field `membership_states` in message `.google.cloud.gkehub.v1.Feature` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+* A comment for message `FeatureResourceState` is changed ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+
+
+### Features
+
+* Add GKE Hub teams scope and RBAC GAPIC ([99a1284fe05e38e313d6504409574536674a32b5](https://github.com/googleapis/google-cloud-python/commit/99a1284fe05e38e313d6504409574536674a32b5))
+
+## [1.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.19.0...google-cloud-gke-hub-v1.20.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.18.0...google-cloud-gke-hub-v1.19.0) (2025-10-14)
+
+
+### Features
+
+* Add support for Python 3.14 ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.17.3...google-cloud-gke-hub-v1.18.0) (2025-09-22)
+
+
+### Features
+
+* add k8s_git_version field ([ea55384](https://github.com/googleapis/google-cloud-python/commit/ea55384dc5c80deb2b6b3f01dd9abbdc882e5e79))
+
+## [1.17.3](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.17.2...google-cloud-gke-hub-v1.17.3) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([821bdb1](https://github.com/googleapis/google-cloud-python/commit/821bdb1d108c8e77a7a576557aa95d4b9c943e12))
+
 ## [1.17.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-gke-hub-v1.17.1...google-cloud-gke-hub-v1.17.2) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,13 @@ def sample_initialize_service():
     client = backupdr_v1.BackupDRClient()
 
     # Initialize request argument(s)
+    cloud_sql_instance_initialization_config = (
+        backupdr_v1.CloudSqlInstanceInitializationConfig()
+    )
+    cloud_sql_instance_initialization_config.edition = "ENTERPRISE_PLUS"
+
     request = backupdr_v1.InitializeServiceRequest(
+        cloud_sql_instance_initialization_config=cloud_sql_instance_initialization_config,
         name="name_value",
         resource_type="resource_type_value",
     )
@@ -53,5 +59,6 @@ def sample_initialize_service():
 
     # Handle the response
     print(response)
+
 
 # [END backupdr_v1_generated_BackupDR_InitializeService_sync]

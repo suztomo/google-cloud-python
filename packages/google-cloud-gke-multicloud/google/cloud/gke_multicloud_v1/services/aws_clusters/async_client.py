@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +30,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.gke_multicloud_v1 import gapic_version as package_version
 
@@ -44,12 +45,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.gke_multicloud_v1.services.aws_clusters import pagers
 from google.cloud.gke_multicloud_v1.types import (
@@ -129,7 +130,10 @@ class AwsClustersAsyncClient:
         Returns:
             AwsClustersAsyncClient: The constructed client.
         """
-        return AwsClustersClient.from_service_account_info.__func__(AwsClustersAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            AwsClustersClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(AwsClustersAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -145,7 +149,10 @@ class AwsClustersAsyncClient:
         Returns:
             AwsClustersAsyncClient: The constructed client.
         """
-        return AwsClustersClient.from_service_account_file.__func__(AwsClustersAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            AwsClustersClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(AwsClustersAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -195,7 +202,7 @@ class AwsClustersAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -361,11 +368,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_aws_cluster(request=request)
+                operation = await client.create_aws_cluster(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -429,6 +436,11 @@ class AwsClustersAsyncClient:
                 An Anthos cluster running on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.create_aws_cluster is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -537,11 +549,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_aws_cluster(request=request)
+                operation = await client.update_aws_cluster(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -564,33 +576,33 @@ class AwsClustersAsyncClient:
                 repeated paths field can only include these fields from
                 [AwsCluster][google.cloud.gkemulticloud.v1.AwsCluster]:
 
-                -  ``description``.
-                -  ``annotations``.
-                -  ``control_plane.version``.
-                -  ``authorization.admin_users``.
-                -  ``authorization.admin_groups``.
-                -  ``binary_authorization.evaluation_mode``.
-                -  ``control_plane.aws_services_authentication.role_arn``.
-                -  ``control_plane.aws_services_authentication.role_session_name``.
-                -  ``control_plane.config_encryption.kms_key_arn``.
-                -  ``control_plane.instance_type``.
-                -  ``control_plane.security_group_ids``.
-                -  ``control_plane.proxy_config``.
-                -  ``control_plane.proxy_config.secret_arn``.
-                -  ``control_plane.proxy_config.secret_version``.
-                -  ``control_plane.root_volume.size_gib``.
-                -  ``control_plane.root_volume.volume_type``.
-                -  ``control_plane.root_volume.iops``.
-                -  ``control_plane.root_volume.throughput``.
-                -  ``control_plane.root_volume.kms_key_arn``.
-                -  ``control_plane.ssh_config``.
-                -  ``control_plane.ssh_config.ec2_key_pair``.
-                -  ``control_plane.instance_placement.tenancy``.
-                -  ``control_plane.iam_instance_profile``.
-                -  ``logging_config.component_config.enable_components``.
-                -  ``control_plane.tags``.
-                -  ``monitoring_config.managed_prometheus_config.enabled``.
-                -  ``networking.per_node_pool_sg_rules_disabled``.
+                - ``description``.
+                - ``annotations``.
+                - ``control_plane.version``.
+                - ``authorization.admin_users``.
+                - ``authorization.admin_groups``.
+                - ``binary_authorization.evaluation_mode``.
+                - ``control_plane.aws_services_authentication.role_arn``.
+                - ``control_plane.aws_services_authentication.role_session_name``.
+                - ``control_plane.config_encryption.kms_key_arn``.
+                - ``control_plane.instance_type``.
+                - ``control_plane.security_group_ids``.
+                - ``control_plane.proxy_config``.
+                - ``control_plane.proxy_config.secret_arn``.
+                - ``control_plane.proxy_config.secret_version``.
+                - ``control_plane.root_volume.size_gib``.
+                - ``control_plane.root_volume.volume_type``.
+                - ``control_plane.root_volume.iops``.
+                - ``control_plane.root_volume.throughput``.
+                - ``control_plane.root_volume.kms_key_arn``.
+                - ``control_plane.ssh_config``.
+                - ``control_plane.ssh_config.ec2_key_pair``.
+                - ``control_plane.instance_placement.tenancy``.
+                - ``control_plane.iam_instance_profile``.
+                - ``logging_config.component_config.enable_components``.
+                - ``control_plane.tags``.
+                - ``monitoring_config.managed_prometheus_config.enabled``.
+                - ``networking.per_node_pool_sg_rules_disabled``.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -612,6 +624,11 @@ class AwsClustersAsyncClient:
                 An Anthos cluster running on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.update_aws_cluster is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -743,6 +760,10 @@ class AwsClustersAsyncClient:
             google.cloud.gke_multicloud_v1.types.AwsCluster:
                 An Anthos cluster running on AWS.
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.get_aws_cluster is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -868,6 +889,10 @@ class AwsClustersAsyncClient:
                 resolve additional pages automatically.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.list_aws_clusters is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -969,11 +994,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_aws_cluster(request=request)
+                operation = await client.delete_aws_cluster(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1022,6 +1047,11 @@ class AwsClustersAsyncClient:
                       }
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.delete_aws_cluster is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1135,6 +1165,11 @@ class AwsClustersAsyncClient:
             google.cloud.gke_multicloud_v1.types.GenerateAwsClusterAgentTokenResponse:
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.generate_aws_cluster_agent_token is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -1226,6 +1261,11 @@ class AwsClustersAsyncClient:
                 method.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.generate_aws_access_token is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -1312,11 +1352,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_aws_node_pool(request=request)
+                operation = await client.create_aws_node_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1380,6 +1420,11 @@ class AwsClustersAsyncClient:
                 An Anthos node pool running on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.create_aws_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1484,11 +1529,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_aws_node_pool(request=request)
+                operation = await client.update_aws_node_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1511,36 +1556,36 @@ class AwsClustersAsyncClient:
                 repeated paths field can only include these fields from
                 [AwsNodePool][google.cloud.gkemulticloud.v1.AwsNodePool]:
 
-                -  ``annotations``.
-                -  ``version``.
-                -  ``autoscaling.min_node_count``.
-                -  ``autoscaling.max_node_count``.
-                -  ``config.config_encryption.kms_key_arn``.
-                -  ``config.security_group_ids``.
-                -  ``config.root_volume.iops``.
-                -  ``config.root_volume.throughput``.
-                -  ``config.root_volume.kms_key_arn``.
-                -  ``config.root_volume.volume_type``.
-                -  ``config.root_volume.size_gib``.
-                -  ``config.proxy_config``.
-                -  ``config.proxy_config.secret_arn``.
-                -  ``config.proxy_config.secret_version``.
-                -  ``config.ssh_config``.
-                -  ``config.ssh_config.ec2_key_pair``.
-                -  ``config.instance_placement.tenancy``.
-                -  ``config.iam_instance_profile``.
-                -  ``config.labels``.
-                -  ``config.tags``.
-                -  ``config.autoscaling_metrics_collection``.
-                -  ``config.autoscaling_metrics_collection.granularity``.
-                -  ``config.autoscaling_metrics_collection.metrics``.
-                -  ``config.instance_type``.
-                -  ``management.auto_repair``.
-                -  ``management``.
-                -  ``update_settings``.
-                -  ``update_settings.surge_settings``.
-                -  ``update_settings.surge_settings.max_surge``.
-                -  ``update_settings.surge_settings.max_unavailable``.
+                - ``annotations``.
+                - ``version``.
+                - ``autoscaling.min_node_count``.
+                - ``autoscaling.max_node_count``.
+                - ``config.config_encryption.kms_key_arn``.
+                - ``config.security_group_ids``.
+                - ``config.root_volume.iops``.
+                - ``config.root_volume.throughput``.
+                - ``config.root_volume.kms_key_arn``.
+                - ``config.root_volume.volume_type``.
+                - ``config.root_volume.size_gib``.
+                - ``config.proxy_config``.
+                - ``config.proxy_config.secret_arn``.
+                - ``config.proxy_config.secret_version``.
+                - ``config.ssh_config``.
+                - ``config.ssh_config.ec2_key_pair``.
+                - ``config.instance_placement.tenancy``.
+                - ``config.iam_instance_profile``.
+                - ``config.labels``.
+                - ``config.tags``.
+                - ``config.autoscaling_metrics_collection``.
+                - ``config.autoscaling_metrics_collection.granularity``.
+                - ``config.autoscaling_metrics_collection.metrics``.
+                - ``config.instance_type``.
+                - ``management.auto_repair``.
+                - ``management``.
+                - ``update_settings``.
+                - ``update_settings.surge_settings``.
+                - ``update_settings.surge_settings.max_surge``.
+                - ``update_settings.surge_settings.max_unavailable``.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1562,6 +1607,11 @@ class AwsClustersAsyncClient:
                 An Anthos node pool running on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.update_aws_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1662,11 +1712,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.rollback_aws_node_pool_update(request=request)
+                operation = await client.rollback_aws_node_pool_update(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1707,6 +1757,11 @@ class AwsClustersAsyncClient:
                 An Anthos node pool running on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.rollback_aws_node_pool_update is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1834,6 +1889,10 @@ class AwsClustersAsyncClient:
             google.cloud.gke_multicloud_v1.types.AwsNodePool:
                 An Anthos node pool running on AWS.
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.get_aws_node_pool is deprecated", DeprecationWarning
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -1961,6 +2020,11 @@ class AwsClustersAsyncClient:
                 resolve additional pages automatically.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.list_aws_node_pools is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2059,11 +2123,11 @@ class AwsClustersAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_aws_node_pool(request=request)
+                operation = await client.delete_aws_node_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2111,6 +2175,11 @@ class AwsClustersAsyncClient:
                       }
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.delete_aws_node_pool is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2229,6 +2298,11 @@ class AwsClustersAsyncClient:
                 details.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.get_aws_open_id_config is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -2321,6 +2395,11 @@ class AwsClustersAsyncClient:
                 Key Set as specififed in RFC 7517.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.get_aws_json_web_keys is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Use the request object if provided (there's no risk of modifying the input as
         #   there are no flattened fields), or create one.
@@ -2427,6 +2506,11 @@ class AwsClustersAsyncClient:
                 of GKE cluster on AWS.
 
         """
+        warnings.warn(
+            "AwsClustersAsyncClient.get_aws_server_config is deprecated",
+            DeprecationWarning,
+        )
+
         # Create or coerce a protobuf request object.
         # - Quick check: If we got a request object, we should *not* have
         #   gotten any keyword arguments that map to the request.
@@ -2478,7 +2562,7 @@ class AwsClustersAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2504,8 +2588,12 @@ class AwsClustersAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2514,7 +2602,7 @@ class AwsClustersAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2522,7 +2610,7 @@ class AwsClustersAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2533,7 +2621,7 @@ class AwsClustersAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2559,8 +2647,12 @@ class AwsClustersAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2569,7 +2661,7 @@ class AwsClustersAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2577,7 +2669,7 @@ class AwsClustersAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2588,7 +2680,7 @@ class AwsClustersAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2618,8 +2710,12 @@ class AwsClustersAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2628,7 +2724,7 @@ class AwsClustersAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2636,7 +2732,7 @@ class AwsClustersAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2644,7 +2740,7 @@ class AwsClustersAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2673,8 +2769,12 @@ class AwsClustersAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2683,7 +2783,7 @@ class AwsClustersAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2691,7 +2791,7 @@ class AwsClustersAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

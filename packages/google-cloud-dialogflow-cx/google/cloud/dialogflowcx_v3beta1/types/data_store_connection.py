@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -49,6 +50,7 @@ class DataStoreType(proto.Enum):
             A data store that contains structured data
             (for example FAQ).
     """
+
     DATA_STORE_TYPE_UNSPECIFIED = 0
     PUBLIC_WEB = 1
     UNSTRUCTURED = 2
@@ -68,6 +70,7 @@ class DocumentProcessingMode(proto.Enum):
         CHUNKS (2):
             Documents are converted to chunks.
     """
+
     DOCUMENT_PROCESSING_MODE_UNSPECIFIED = 0
     DOCUMENTS = 1
     CHUNKS = 2
@@ -182,6 +185,8 @@ class DataStoreConnectionSignals(proto.Message):
                 for the document.
             text (str):
                 Text included in the prompt.
+            metadata (google.protobuf.struct_pb2.Struct):
+                Metadata associated with the document.
         """
 
         document_title: str = proto.Field(
@@ -195,6 +200,11 @@ class DataStoreConnectionSignals(proto.Message):
         text: str = proto.Field(
             proto.STRING,
             number=3,
+        )
+        metadata: struct_pb2.Struct = proto.Field(
+            proto.MESSAGE,
+            number=5,
+            message=struct_pb2.Struct,
         )
 
     class AnswerGenerationModelCallSignals(proto.Message):
@@ -287,6 +297,7 @@ class DataStoreConnectionSignals(proto.Message):
                 REJECTED_BY_GROUNDING (2):
                     Grounding have rejected the answer.
             """
+
             GROUNDING_DECISION_UNSPECIFIED = 0
             ACCEPTED_BY_GROUNDING = 1
             REJECTED_BY_GROUNDING = 2
@@ -313,6 +324,7 @@ class DataStoreConnectionSignals(proto.Message):
                     We have very high confidence that the answer
                     is grounded.
             """
+
             GROUNDING_SCORE_BUCKET_UNSPECIFIED = 0
             VERY_LOW = 1
             LOW = 3
@@ -361,6 +373,7 @@ class DataStoreConnectionSignals(proto.Message):
                 REJECTED_BY_SAFETY_CHECK (2):
                     One ore more safety checks fired.
             """
+
             SAFETY_DECISION_UNSPECIFIED = 0
             ACCEPTED_BY_SAFETY_CHECK = 1
             REJECTED_BY_SAFETY_CHECK = 2
@@ -378,6 +391,7 @@ class DataStoreConnectionSignals(proto.Message):
                 BANNED_PHRASE_MATCH_RESPONSE (3):
                     A banned phrase matched the response.
             """
+
             BANNED_PHRASE_MATCH_UNSPECIFIED = 0
             BANNED_PHRASE_MATCH_NONE = 1
             BANNED_PHRASE_MATCH_QUERY = 2

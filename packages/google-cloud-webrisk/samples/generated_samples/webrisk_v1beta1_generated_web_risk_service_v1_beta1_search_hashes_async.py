@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_search_hashes():
 
     # Initialize request argument(s)
     request = webrisk_v1beta1.SearchHashesRequest(
-        threat_types=['UNWANTED_SOFTWARE'],
+        threat_types=["UNWANTED_SOFTWARE"],
     )
 
     # Make the request
@@ -48,5 +48,6 @@ async def sample_search_hashes():
 
     # Handle the response
     print(response)
+
 
 # [END webrisk_v1beta1_generated_WebRiskServiceV1Beta1_SearchHashes_async]

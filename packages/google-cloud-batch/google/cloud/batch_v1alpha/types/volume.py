@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,19 +69,19 @@ class Volume(proto.Message):
         mount_options (MutableSequence[str]):
             Mount options vary based on the type of storage volume:
 
-            -  For a Cloud Storage bucket, all the mount options
-               provided by the ```gcsfuse``
-               tool <https://cloud.google.com/storage/docs/gcsfuse-cli>`__
-               are supported.
-            -  For an existing persistent disk, all mount options
-               provided by the ```mount``
-               command <https://man7.org/linux/man-pages/man8/mount.8.html>`__
-               except writing are supported. This is due to restrictions
-               of `multi-writer
-               mode <https://cloud.google.com/compute/docs/disks/sharing-disks-between-vms>`__.
-            -  For any other disk or a Network File System (NFS), all
-               the mount options provided by the ``mount`` command are
-               supported.
+            - For a Cloud Storage bucket, all the mount options provided
+              by the ```gcsfuse``
+              tool <https://cloud.google.com/storage/docs/gcsfuse-cli>`__
+              are supported.
+            - For an existing persistent disk, all mount options
+              provided by the ```mount``
+              command <https://man7.org/linux/man-pages/man8/mount.8.html>`__
+              except writing are supported. This is due to restrictions
+              of `multi-writer
+              mode <https://cloud.google.com/compute/docs/disks/sharing-disks-between-vms>`__.
+            - For any other disk or a Network File System (NFS), all the
+              mount options provided by the ``mount`` command are
+              supported.
     """
 
     nfs: "NFS" = proto.Field(

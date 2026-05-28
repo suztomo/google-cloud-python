@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,17 +39,17 @@ async def sample_create_project():
     client = resourcemanager_v3.ProjectsAsyncClient()
 
     # Initialize request argument(s)
-    request = resourcemanager_v3.CreateProjectRequest(
-    )
+    request = resourcemanager_v3.CreateProjectRequest()
 
     # Make the request
-    operation = client.create_project(request=request)
+    operation = await client.create_project(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END cloudresourcemanager_v3_generated_Projects_CreateProject_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class ClassificationType(proto.Enum):
         MULTILABEL (2):
             Multiple labels are allowed for one example.
     """
+
     CLASSIFICATION_TYPE_UNSPECIFIED = 0
     MULTICLASS = 1
     MULTILABEL = 2
@@ -272,12 +273,12 @@ class ClassificationEvaluationMetrics(proto.Message):
             proto.STRING,
             number=3,
         )
-        row: MutableSequence[
-            "ClassificationEvaluationMetrics.ConfusionMatrix.Row"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="ClassificationEvaluationMetrics.ConfusionMatrix.Row",
+        row: MutableSequence["ClassificationEvaluationMetrics.ConfusionMatrix.Row"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="ClassificationEvaluationMetrics.ConfusionMatrix.Row",
+            )
         )
 
     au_prc: float = proto.Field(
@@ -292,12 +293,12 @@ class ClassificationEvaluationMetrics(proto.Message):
         proto.FLOAT,
         number=7,
     )
-    confidence_metrics_entry: MutableSequence[
-        ConfidenceMetricsEntry
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=ConfidenceMetricsEntry,
+    confidence_metrics_entry: MutableSequence[ConfidenceMetricsEntry] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=ConfidenceMetricsEntry,
+        )
     )
     confusion_matrix: ConfusionMatrix = proto.Field(
         proto.MESSAGE,

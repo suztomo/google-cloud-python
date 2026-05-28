@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,9 @@ from google.cloud import commerce_consumer_procurement_v1alpha1
 
 async def sample_get_order():
     # Create a client
-    client = commerce_consumer_procurement_v1alpha1.ConsumerProcurementServiceAsyncClient()
+    client = (
+        commerce_consumer_procurement_v1alpha1.ConsumerProcurementServiceAsyncClient()
+    )
 
     # Initialize request argument(s)
     request = commerce_consumer_procurement_v1alpha1.GetOrderRequest(
@@ -48,5 +50,6 @@ async def sample_get_order():
 
     # Handle the response
     print(response)
+
 
 # [END cloudcommerceconsumerprocurement_v1alpha1_generated_ConsumerProcurementService_GetOrder_async]

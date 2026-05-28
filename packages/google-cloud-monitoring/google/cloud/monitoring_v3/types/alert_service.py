@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import alert
@@ -216,14 +216,14 @@ class UpdateAlertPolicyRequest(proto.Message):
             existing policy and adding the supplied policy, except for
             the following:
 
-            -  The new policy will have the same ``[ALERT_POLICY_ID]``
-               as the former policy. This gives you continuity with the
-               former policy in your notifications and incidents.
-            -  Conditions in the new policy will keep their former
-               ``[CONDITION_ID]`` if the supplied condition includes the
-               ``name`` field with that ``[CONDITION_ID]``. If the
-               supplied condition omits the ``name`` field, then a new
-               ``[CONDITION_ID]`` is created.
+            - The new policy will have the same ``[ALERT_POLICY_ID]`` as
+              the former policy. This gives you continuity with the
+              former policy in your notifications and incidents.
+            - Conditions in the new policy will keep their former
+              ``[CONDITION_ID]`` if the supplied condition includes the
+              ``name`` field with that ``[CONDITION_ID]``. If the
+              supplied condition omits the ``name`` field, then a new
+              ``[CONDITION_ID]`` is created.
         alert_policy (google.cloud.monitoring_v3.types.AlertPolicy):
             Required. The updated alerting policy or the updated values
             for the fields listed in ``update_mask``. If ``update_mask``

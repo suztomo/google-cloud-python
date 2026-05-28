@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.discoveryengine_v1alpha.types import common, schema
 from google.cloud.discoveryengine_v1alpha.types import (
     document_processing_config as gcd_document_processing_config,
 )
-from google.cloud.discoveryengine_v1alpha.types import common
-from google.cloud.discoveryengine_v1alpha.types import schema
 
 __protobuf__ = proto.module(
     package="google.cloud.discoveryengine.v1alpha",
@@ -61,11 +60,10 @@ class DataStore(proto.Message):
             solutions for each
             [industry_vertical][google.cloud.discoveryengine.v1alpha.DataStore.industry_vertical]:
 
-            -  ``MEDIA``: ``SOLUTION_TYPE_RECOMMENDATION`` and
-               ``SOLUTION_TYPE_SEARCH``.
-            -  ``SITE_SEARCH``: ``SOLUTION_TYPE_SEARCH`` is
-               automatically enrolled. Other solutions cannot be
-               enrolled.
+            - ``MEDIA``: ``SOLUTION_TYPE_RECOMMENDATION`` and
+              ``SOLUTION_TYPE_SEARCH``.
+            - ``SITE_SEARCH``: ``SOLUTION_TYPE_SEARCH`` is automatically
+              enrolled. Other solutions cannot be enrolled.
         default_schema_id (str):
             Output only. The id of the default
             [Schema][google.cloud.discoveryengine.v1alpha.Schema]
@@ -100,7 +98,7 @@ class DataStore(proto.Message):
             [DocumentService.ListDocuments][google.cloud.discoveryengine.v1alpha.DocumentService.ListDocuments].
 
             Currently ACL is only supported in ``GENERIC`` industry
-            vertical with non-\ ``PUBLIC_WEBSITE`` content config.
+            vertical with non-``PUBLIC_WEBSITE`` content config.
         workspace_config (google.cloud.discoveryengine_v1alpha.types.WorkspaceConfig):
             Config to store data store type configuration for workspace
             data. This must be set when
@@ -150,6 +148,7 @@ class DataStore(proto.Message):
                 workspace data store are specified in the
                 [WorkspaceConfig][google.cloud.discoveryengine.v1alpha.WorkspaceConfig].
         """
+
         CONTENT_CONFIG_UNSPECIFIED = 0
         NO_CONTENT = 1
         CONTENT_REQUIRED = 2
@@ -236,7 +235,7 @@ class LanguageInfo(proto.Message):
         region (str):
             Output only. Region part of normalized_language_code, if
             present. E.g.: ``en-US`` -> ``US``, ``zh-Hans-HK`` ->
-            ``HK``, ``en`` -> \``.
+            ``HK``, ``en`` -> \`\`.
     """
 
     language_code: str = proto.Field(
@@ -290,6 +289,7 @@ class WorkspaceConfig(proto.Message):
             GOOGLE_KEEP (7):
                 Workspace Data Store contains Keep data
         """
+
         TYPE_UNSPECIFIED = 0
         GOOGLE_DRIVE = 1
         GOOGLE_MAIL = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ __protobuf__ = proto.module(
     package="google.marketingplatform.admin.v1alpha",
     manifest={
         "LinkVerificationState",
+        "AnalyticsServiceLevel",
+        "AnalyticsPropertyType",
         "Organization",
         "AnalyticsAccountLink",
     },
@@ -42,9 +44,47 @@ class LinkVerificationState(proto.Enum):
             The link is requested, but hasn't been
             approved by the product account admin.
     """
+
     LINK_VERIFICATION_STATE_UNSPECIFIED = 0
     LINK_VERIFICATION_STATE_VERIFIED = 1
     LINK_VERIFICATION_STATE_NOT_VERIFIED = 2
+
+
+class AnalyticsServiceLevel(proto.Enum):
+    r"""Various levels of service for Google Analytics.
+
+    Values:
+        ANALYTICS_SERVICE_LEVEL_UNSPECIFIED (0):
+            Service level unspecified.
+        ANALYTICS_SERVICE_LEVEL_STANDARD (1):
+            The standard version of Google Analytics.
+        ANALYTICS_SERVICE_LEVEL_360 (2):
+            The premium version of Google Analytics.
+    """
+
+    ANALYTICS_SERVICE_LEVEL_UNSPECIFIED = 0
+    ANALYTICS_SERVICE_LEVEL_STANDARD = 1
+    ANALYTICS_SERVICE_LEVEL_360 = 2
+
+
+class AnalyticsPropertyType(proto.Enum):
+    r"""Types of the Google Analytics Property.
+
+    Values:
+        ANALYTICS_PROPERTY_TYPE_UNSPECIFIED (0):
+            Unknown or unspecified property type
+        ANALYTICS_PROPERTY_TYPE_ORDINARY (1):
+            Ordinary Google Analytics property
+        ANALYTICS_PROPERTY_TYPE_SUBPROPERTY (2):
+            Google Analytics subproperty
+        ANALYTICS_PROPERTY_TYPE_ROLLUP (3):
+            Google Analytics rollup property
+    """
+
+    ANALYTICS_PROPERTY_TYPE_UNSPECIFIED = 0
+    ANALYTICS_PROPERTY_TYPE_ORDINARY = 1
+    ANALYTICS_PROPERTY_TYPE_SUBPROPERTY = 2
+    ANALYTICS_PROPERTY_TYPE_ROLLUP = 3
 
 
 class Organization(proto.Message):

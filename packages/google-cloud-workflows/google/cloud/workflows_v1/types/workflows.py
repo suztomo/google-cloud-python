@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -51,6 +51,7 @@ class ExecutionHistoryLevel(proto.Enum):
         EXECUTION_HISTORY_DETAILED (2):
             Enable execution history detailed feature.
     """
+
     EXECUTION_HISTORY_LEVEL_UNSPECIFIED = 0
     EXECUTION_HISTORY_BASIC = 1
     EXECUTION_HISTORY_DETAILED = 2
@@ -81,10 +82,10 @@ class Workflow(proto.Message):
             a workflow is created as a result of updating the following
             properties of a workflow:
 
-            -  [Service
-               account][google.cloud.workflows.v1.Workflow.service_account]
-            -  [Workflow code to be
-               executed][google.cloud.workflows.v1.Workflow.source_contents]
+            - [Service
+              account][google.cloud.workflows.v1.Workflow.service_account]
+            - [Workflow code to be
+              executed][google.cloud.workflows.v1.Workflow.source_contents]
 
             The format is "000001-a4d", where the first six characters
             define the zero-padded revision ordinal number. They are
@@ -198,6 +199,7 @@ class Workflow(proto.Message):
             UNAVAILABLE (2):
                 Workflow data is unavailable. See the ``state_error`` field.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         UNAVAILABLE = 2
@@ -218,6 +220,7 @@ class Workflow(proto.Message):
             LOG_NONE (3):
                 Explicitly log nothing.
         """
+
         CALL_LOG_LEVEL_UNSPECIFIED = 0
         LOG_ALL_CALLS = 1
         LOG_ERRORS_ONLY = 2
@@ -243,6 +246,7 @@ class Workflow(proto.Message):
                 KMS_ERROR (1):
                     Caused by an issue with KMS.
             """
+
             TYPE_UNSPECIFIED = 0
             KMS_ERROR = 1
 
@@ -491,12 +495,12 @@ class CreateWorkflowRequest(proto.Message):
             Required. The ID of the workflow to be created. It has to
             fulfill the following requirements:
 
-            -  Must contain only letters, numbers, underscores and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-64 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the customer project and location.
+            - Must contain only letters, numbers, underscores and
+              hyphens.
+            - Must start with a letter.
+            - Must be between 1-64 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the customer project and location.
     """
 
     parent: str = proto.Field(
@@ -612,8 +616,9 @@ class ListWorkflowRevisionsRequest(proto.Message):
             The maximum number of revisions to return per
             page. If a value is not specified, a default
             value of 20 is used. The maximum permitted value
-            is 100. Values greater than 100 are coerced down
-            to 100.
+            is
+            100. Values greater than 100 are coerced down to
+                100.
         page_token (str):
             The page token, received from a previous
             ListWorkflowRevisions call. Provide this to

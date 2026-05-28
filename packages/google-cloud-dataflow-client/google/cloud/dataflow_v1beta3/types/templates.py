@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.rpc import status_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataflow_v1beta3.types import environment as gd_environment
@@ -118,6 +118,7 @@ class ParameterType(proto.Enum):
             for a new Google Managed Kafka topic, or an
             existing non-managed Kafka topic.
     """
+
     DEFAULT = 0
     TEXT = 1
     GCS_READ_BUCKET = 2
@@ -425,6 +426,9 @@ class FlexTemplateRuntimeEnvironment(proto.Message):
             mode <https://cloud.google.com/dataflow/docs/guides/streaming-modes>`__.
 
             This field is a member of `oneof`_ ``_streaming_mode``.
+        additional_pipeline_options (MutableSequence[str]):
+            Optional. Additional pipeline option flags
+            for the job.
     """
 
     num_workers: int = proto.Field(
@@ -532,6 +536,10 @@ class FlexTemplateRuntimeEnvironment(proto.Message):
         number=26,
         optional=True,
         enum=gd_environment.StreamingMode,
+    )
+    additional_pipeline_options: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=27,
     )
 
 
@@ -670,6 +678,9 @@ class RuntimeEnvironment(proto.Message):
             mode <https://cloud.google.com/dataflow/docs/guides/streaming-modes>`__.
 
             This field is a member of `oneof`_ ``_streaming_mode``.
+        additional_pipeline_options (MutableSequence[str]):
+            Optional. Additional pipeline option flags
+            for the job.
     """
 
     num_workers: int = proto.Field(
@@ -747,6 +758,10 @@ class RuntimeEnvironment(proto.Message):
         number=19,
         optional=True,
         enum=gd_environment.StreamingMode,
+    )
+    additional_pipeline_options: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=20,
     )
 
 
@@ -968,11 +983,15 @@ class SDKInfo(proto.Message):
                 Python.
             GO (3):
                 Go.
+            YAML (4):
+                YAML.
         """
+
         UNKNOWN = 0
         JAVA = 1
         PYTHON = 2
         GO = 3
+        YAML = 4
 
     language: Language = proto.Field(
         proto.ENUM,
@@ -1096,6 +1115,7 @@ class GetTemplateRequest(proto.Message):
                 Template view that retrieves only the
                 metadata associated with the template.
         """
+
         METADATA_ONLY = 0
 
     project_id: str = proto.Field(
@@ -1146,6 +1166,7 @@ class GetTemplateResponse(proto.Message):
             FLEX (2):
                 Flex Template.
         """
+
         UNKNOWN = 0
         LEGACY = 1
         FLEX = 2

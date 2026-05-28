@@ -3,7 +3,9 @@ Python Client for Binary Authorization
 
 |stable| |pypi| |versions|
 
-`Binary Authorization`_:  is a service on Google Cloud that provides centralized software supply-chain security for applications that run on Google Kubernetes Engine (GKE) and Anthos clusters on VMware
+`Binary Authorization`_: The management interface for Binary Authorization, a system providing
+policy control for images deployed to Kubernetes Engine clusters, Anthos
+clusters on VMware, and Cloud Run.
 
 - `Client Library Documentation`_
 - `Product Documentation`_
@@ -61,14 +63,15 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.7
+Python >= 3.10, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.6
+Python <= 3.9
+
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_input():
     client = live_stream_v1.LivestreamServiceClient()
 
     # Initialize request argument(s)
-    request = live_stream_v1.UpdateInputRequest(
-    )
+    request = live_stream_v1.UpdateInputRequest()
 
     # Make the request
     operation = client.update_input(request=request)
@@ -51,5 +50,6 @@ def sample_update_input():
 
     # Handle the response
     print(response)
+
 
 # [END livestream_v1_generated_LivestreamService_UpdateInput_sync]

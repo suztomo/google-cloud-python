@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ class TypeCode(proto.Enum):
             ``string`` (bytes should be base64-encoded, as described in
             RFC 4648, section 4).
     """
+
     TYPE_CODE_UNSPECIFIED = 0
     FLOAT64 = 3
     TIMESTAMP = 4
@@ -109,14 +110,14 @@ class DataType(proto.Message):
             then ``time_format`` provides the format in which that time
             field is expressed. The time_format must either be one of:
 
-            -  ``UNIX_SECONDS``
-            -  ``UNIX_MILLISECONDS``
-            -  ``UNIX_MICROSECONDS``
-            -  ``UNIX_NANOSECONDS`` (for respectively number of seconds,
-               milliseconds, microseconds and nanoseconds since start of
-               the Unix epoch); or be written in ``strftime`` syntax. If
-               time_format is not set, then the default format as
-               described on the type_code is used.
+            - ``UNIX_SECONDS``
+            - ``UNIX_MILLISECONDS``
+            - ``UNIX_MICROSECONDS``
+            - ``UNIX_NANOSECONDS`` (for respectively number of seconds,
+              milliseconds, microseconds and nanoseconds since start of
+              the Unix epoch); or be written in ``strftime`` syntax. If
+              time_format is not set, then the default format as
+              described on the type_code is used.
 
             This field is a member of `oneof`_ ``details``.
         type_code (google.cloud.automl_v1beta1.types.TypeCode):

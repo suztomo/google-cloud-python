@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.network_management_v1 import gapic_version as package_version
 
@@ -44,22 +44,27 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.network_management_v1.services.vpc_flow_logs_service import pagers
-from google.cloud.network_management_v1.types import reachability, vpc_flow_logs
+from google.cloud.network_management_v1.types import (
+    reachability,
+    vpc_flow_logs,
+    vpc_flow_logs_config,
+)
 from google.cloud.network_management_v1.types import (
     vpc_flow_logs_config as gcn_vpc_flow_logs_config,
 )
-from google.cloud.network_management_v1.types import vpc_flow_logs_config
 
 from .client import VpcFlowLogsServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, VpcFlowLogsServiceTransport
@@ -135,7 +140,10 @@ class VpcFlowLogsServiceAsyncClient:
         Returns:
             VpcFlowLogsServiceAsyncClient: The constructed client.
         """
-        return VpcFlowLogsServiceClient.from_service_account_info.__func__(VpcFlowLogsServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            VpcFlowLogsServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(VpcFlowLogsServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -151,7 +159,10 @@ class VpcFlowLogsServiceAsyncClient:
         Returns:
             VpcFlowLogsServiceAsyncClient: The constructed client.
         """
-        return VpcFlowLogsServiceClient.from_service_account_file.__func__(VpcFlowLogsServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            VpcFlowLogsServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(VpcFlowLogsServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -189,7 +200,9 @@ class VpcFlowLogsServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return VpcFlowLogsServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return VpcFlowLogsServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> VpcFlowLogsServiceTransport:
@@ -201,7 +214,7 @@ class VpcFlowLogsServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -357,8 +370,14 @@ class VpcFlowLogsServiceAsyncClient:
             request (Optional[Union[google.cloud.network_management_v1.types.ListVpcFlowLogsConfigsRequest, dict]]):
                 The request object. Request for the ``ListVpcFlowLogsConfigs`` method.
             parent (:class:`str`):
-                Required. The parent resource of the VpcFlowLogsConfig:
-                ``projects/{project_id}/locations/global``
+                Required. The parent resource of the VpcFlowLogsConfig,
+                in one of the following formats:
+
+                - For project-level resources:
+                  ``projects/{project_id}/locations/global``
+
+                - For organization-level resources:
+                  ``organizations/{organization_id}/locations/global``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -482,9 +501,14 @@ class VpcFlowLogsServiceAsyncClient:
             request (Optional[Union[google.cloud.network_management_v1.types.GetVpcFlowLogsConfigRequest, dict]]):
                 The request object. Request for the ``GetVpcFlowLogsConfig`` method.
             name (:class:`str`):
-                Required. ``VpcFlowLogsConfig`` resource name using the
-                form:
-                ``projects/{project_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config}``
+                Required. The resource name of the VpcFlowLogsConfig, in
+                one of the following formats:
+
+                - For project-level resources:
+                  ``projects/{project_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config_id}``
+
+                - For organization-level resources:
+                  ``organizations/{organization_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -571,17 +595,17 @@ class VpcFlowLogsServiceAsyncClient:
         exact same settings already exists (even if the ID is
         different), the creation fails. Notes:
 
-        1. Creating a configuration with state=DISABLED will fail
-        2. The following fields are not considered as ``settings`` for
-           the purpose of the check mentioned above, therefore -
-           creating another configuration with the same fields but
-           different values for the following fields will fail as well:
+        1. Creating a configuration with ``state=DISABLED`` will fail
+        2. The following fields are not considered as settings for the
+           purpose of the check mentioned above, therefore - creating
+           another configuration with the same fields but different
+           values for the following fields will fail as well:
 
-           -  name
-           -  create_time
-           -  update_time
-           -  labels
-           -  description
+           - name
+           - create_time
+           - update_time
+           - labels
+           - description
 
         .. code-block:: python
 
@@ -600,7 +624,7 @@ class VpcFlowLogsServiceAsyncClient:
 
                 # Initialize request argument(s)
                 vpc_flow_logs_config = network_management_v1.VpcFlowLogsConfig()
-                vpc_flow_logs_config.interconnect_attachment = "interconnect_attachment_value"
+                vpc_flow_logs_config.network = "network_value"
 
                 request = network_management_v1.CreateVpcFlowLogsConfigRequest(
                     parent="parent_value",
@@ -609,11 +633,11 @@ class VpcFlowLogsServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_vpc_flow_logs_config(request=request)
+                operation = await client.create_vpc_flow_logs_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -622,9 +646,14 @@ class VpcFlowLogsServiceAsyncClient:
             request (Optional[Union[google.cloud.network_management_v1.types.CreateVpcFlowLogsConfigRequest, dict]]):
                 The request object. Request for the ``CreateVpcFlowLogsConfig`` method.
             parent (:class:`str`):
-                Required. The parent resource of the VPC Flow Logs
-                configuration to create:
-                ``projects/{project_id}/locations/global``
+                Required. The parent resource of the VpcFlowLogsConfig
+                to create, in one of the following formats:
+
+                - For project-level resources:
+                  ``projects/{project_id}/locations/global``
+
+                - For organization-level resources:
+                  ``organizations/{organization_id}/locations/global``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -735,17 +764,17 @@ class VpcFlowLogsServiceAsyncClient:
         with the exact same settings already exists (even if the ID is
         different), the creation fails. Notes:
 
-        1. Updating a configuration with state=DISABLED will fail.
-        2. The following fields are not considered as ``settings`` for
-           the purpose of the check mentioned above, therefore -
-           updating another configuration with the same fields but
-           different values for the following fields will fail as well:
+        1. Updating a configuration with ``state=DISABLED`` will fail.
+        2. The following fields are not considered as settings for the
+           purpose of the check mentioned above, therefore - updating
+           another configuration with the same fields but different
+           values for the following fields will fail as well:
 
-           -  name
-           -  create_time
-           -  update_time
-           -  labels
-           -  description
+           - name
+           - create_time
+           - update_time
+           - labels
+           - description
 
         .. code-block:: python
 
@@ -764,18 +793,18 @@ class VpcFlowLogsServiceAsyncClient:
 
                 # Initialize request argument(s)
                 vpc_flow_logs_config = network_management_v1.VpcFlowLogsConfig()
-                vpc_flow_logs_config.interconnect_attachment = "interconnect_attachment_value"
+                vpc_flow_logs_config.network = "network_value"
 
                 request = network_management_v1.UpdateVpcFlowLogsConfigRequest(
                     vpc_flow_logs_config=vpc_flow_logs_config,
                 )
 
                 # Make the request
-                operation = client.update_vpc_flow_logs_config(request=request)
+                operation = await client.update_vpc_flow_logs_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -791,9 +820,12 @@ class VpcFlowLogsServiceAsyncClient:
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
-                Required. Mask of fields to update.
-                At least one path must be supplied in
-                this field.
+                Required. Mask of fields to update. At least one path
+                must be supplied in this field. For example, to change
+                the state of the configuration to ENABLED, specify
+                ``update_mask`` = ``"state"``, and the
+                ``vpc_flow_logs_config`` would be:
+                ``vpc_flow_logs_config = { name = "projects/my-project/locations/global/vpcFlowLogsConfigs/my-config" state = "ENABLED" }``
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -910,11 +942,11 @@ class VpcFlowLogsServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_vpc_flow_logs_config(request=request)
+                operation = await client.delete_vpc_flow_logs_config(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -923,9 +955,14 @@ class VpcFlowLogsServiceAsyncClient:
             request (Optional[Union[google.cloud.network_management_v1.types.DeleteVpcFlowLogsConfigRequest, dict]]):
                 The request object. Request for the ``DeleteVpcFlowLogsConfig`` method.
             name (:class:`str`):
-                Required. ``VpcFlowLogsConfig`` resource name using the
-                form:
-                ``projects/{project_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config}``
+                Required. The resource name of the VpcFlowLogsConfig, in
+                one of the following formats:
+
+                - For a project-level resource:
+                  ``projects/{project_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config_id}``
+
+                - For an organization-level resource:
+                  ``organizations/{organization_id}/locations/global/vpcFlowLogsConfigs/{vpc_flow_logs_config_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1011,9 +1048,216 @@ class VpcFlowLogsServiceAsyncClient:
         # Done; return the response.
         return response
 
+    async def query_org_vpc_flow_logs_configs(
+        self,
+        request: Optional[
+            Union[vpc_flow_logs.QueryOrgVpcFlowLogsConfigsRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.QueryOrgVpcFlowLogsConfigsAsyncPager:
+        r"""QueryOrgVpcFlowLogsConfigs returns a list of all
+        organization-level VPC Flow Logs configurations
+        applicable to the specified project.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_management_v1
+
+            async def sample_query_org_vpc_flow_logs_configs():
+                # Create a client
+                client = network_management_v1.VpcFlowLogsServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_management_v1.QueryOrgVpcFlowLogsConfigsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.query_org_vpc_flow_logs_configs(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_management_v1.types.QueryOrgVpcFlowLogsConfigsRequest, dict]]):
+                The request object. Request for the ``QueryOrgVpcFlowLogsConfigs`` method.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_management_v1.services.vpc_flow_logs_service.pagers.QueryOrgVpcFlowLogsConfigsAsyncPager:
+                Response for the QueryVpcFlowLogsConfigs method.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vpc_flow_logs.QueryOrgVpcFlowLogsConfigsRequest):
+            request = vpc_flow_logs.QueryOrgVpcFlowLogsConfigsRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.query_org_vpc_flow_logs_configs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.QueryOrgVpcFlowLogsConfigsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def show_effective_flow_logs_configs(
+        self,
+        request: Optional[
+            Union[vpc_flow_logs.ShowEffectiveFlowLogsConfigsRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ShowEffectiveFlowLogsConfigsAsyncPager:
+        r"""ShowEffectiveFlowLogsConfigs returns a list of all
+        VPC Flow Logs configurations applicable to a specified
+        resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import network_management_v1
+
+            async def sample_show_effective_flow_logs_configs():
+                # Create a client
+                client = network_management_v1.VpcFlowLogsServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = network_management_v1.ShowEffectiveFlowLogsConfigsRequest(
+                    parent="parent_value",
+                    resource="resource_value",
+                )
+
+                # Make the request
+                page_result = client.show_effective_flow_logs_configs(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.network_management_v1.types.ShowEffectiveFlowLogsConfigsRequest, dict]]):
+                The request object. Request for the ``ShowEffectiveFlowLogsConfigs`` method.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.network_management_v1.services.vpc_flow_logs_service.pagers.ShowEffectiveFlowLogsConfigsAsyncPager:
+                Response for the ShowEffectiveFlowLogsConfigs method.
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, vpc_flow_logs.ShowEffectiveFlowLogsConfigsRequest):
+            request = vpc_flow_logs.ShowEffectiveFlowLogsConfigsRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.show_effective_flow_logs_configs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ShowEffectiveFlowLogsConfigsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1039,8 +1283,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1049,7 +1297,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1057,7 +1305,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1068,7 +1316,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1094,8 +1342,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1104,7 +1356,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1112,7 +1364,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1123,7 +1375,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1153,8 +1405,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1163,7 +1419,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1171,7 +1427,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1179,7 +1435,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1208,8 +1464,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1218,7 +1478,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1226,7 +1486,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1234,7 +1494,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def set_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.SetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1326,8 +1586,12 @@ class VpcFlowLogsServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.SetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.SetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1336,7 +1600,9 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -1344,7 +1610,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1355,7 +1621,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def get_iam_policy(
         self,
-        request: Optional[iam_policy_pb2.GetIamPolicyRequest] = None,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1448,8 +1714,12 @@ class VpcFlowLogsServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.GetIamPolicyRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.GetIamPolicyRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1458,7 +1728,9 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -1466,7 +1738,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1477,7 +1749,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def test_iam_permissions(
         self,
-        request: Optional[iam_policy_pb2.TestIamPermissionsRequest] = None,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1508,8 +1780,12 @@ class VpcFlowLogsServiceAsyncClient:
 
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        if request is None:
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest()
+        elif isinstance(request, dict):
+            request_pb = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1520,7 +1796,9 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+            gapic_v1.routing_header.to_grpc_metadata(
+                (("resource", request_pb.resource),)
+            ),
         )
 
         # Validate the universe domain.
@@ -1528,7 +1806,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1539,7 +1817,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1565,8 +1843,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1575,7 +1857,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1583,7 +1865,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -1594,7 +1876,7 @@ class VpcFlowLogsServiceAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1620,8 +1902,12 @@ class VpcFlowLogsServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1630,7 +1916,7 @@ class VpcFlowLogsServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1638,7 +1924,7 @@ class VpcFlowLogsServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_hydrated_deployment():
     client = telcoautomation_v1.TelcoAutomationAsyncClient()
 
     # Initialize request argument(s)
-    request = telcoautomation_v1.UpdateHydratedDeploymentRequest(
-    )
+    request = telcoautomation_v1.UpdateHydratedDeploymentRequest()
 
     # Make the request
     response = await client.update_hydrated_deployment(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END telcoautomation_v1_generated_TelcoAutomation_UpdateHydratedDeployment_async]

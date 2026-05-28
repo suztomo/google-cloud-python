@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,17 +53,17 @@ class DocumentProcessingConfig(proto.Message):
             Map from file type to override the default parsing
             configuration based on the file type. Supported keys:
 
-            -  ``pdf``: Override parsing config for PDF files, either
-               digital parsing, ocr parsing or layout parsing is
-               supported.
-            -  ``html``: Override parsing config for HTML files, only
-               digital parsing and layout parsing are supported.
-            -  ``docx``: Override parsing config for DOCX files, only
-               digital parsing and layout parsing are supported.
-            -  ``pptx``: Override parsing config for PPTX files, only
-               digital parsing and layout parsing are supported.
-            -  ``xlsx``: Override parsing config for XLSX files, only
-               digital parsing and layout parsing are supported.
+            - ``pdf``: Override parsing config for PDF files, either
+              digital parsing, ocr parsing or layout parsing is
+              supported.
+            - ``html``: Override parsing config for HTML files, only
+              digital parsing and layout parsing are supported.
+            - ``docx``: Override parsing config for DOCX files, only
+              digital parsing and layout parsing are supported.
+            - ``pptx``: Override parsing config for PPTX files, only
+              digital parsing and layout parsing are supported.
+            - ``xlsx``: Override parsing config for XLSX files, only
+              digital parsing and layout parsing are supported.
     """
 
     class ChunkingConfig(proto.Message):

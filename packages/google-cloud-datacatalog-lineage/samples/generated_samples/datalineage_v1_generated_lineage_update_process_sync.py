@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_process():
     client = datacatalog_lineage_v1.LineageClient()
 
     # Initialize request argument(s)
-    request = datacatalog_lineage_v1.UpdateProcessRequest(
-    )
+    request = datacatalog_lineage_v1.UpdateProcessRequest()
 
     # Make the request
     response = client.update_process(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END datalineage_v1_generated_Lineage_UpdateProcess_sync]

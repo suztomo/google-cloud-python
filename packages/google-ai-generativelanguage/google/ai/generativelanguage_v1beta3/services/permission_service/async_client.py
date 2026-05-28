@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.ai.generativelanguage_v1beta3 import gapic_version as package_version
 
@@ -44,13 +44,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.ai.generativelanguage_v1beta3.services.permission_service import pagers
+from google.ai.generativelanguage_v1beta3.types import permission, permission_service
 from google.ai.generativelanguage_v1beta3.types import permission as gag_permission
-from google.ai.generativelanguage_v1beta3.types import permission
-from google.ai.generativelanguage_v1beta3.types import permission_service
 
 from .client import PermissionServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, PermissionServiceTransport
@@ -124,7 +123,10 @@ class PermissionServiceAsyncClient:
         Returns:
             PermissionServiceAsyncClient: The constructed client.
         """
-        return PermissionServiceClient.from_service_account_info.__func__(PermissionServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            PermissionServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(PermissionServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +142,10 @@ class PermissionServiceAsyncClient:
         Returns:
             PermissionServiceAsyncClient: The constructed client.
         """
-        return PermissionServiceClient.from_service_account_file.__func__(PermissionServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            PermissionServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(PermissionServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -190,7 +195,7 @@ class PermissionServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -384,11 +389,11 @@ class PermissionServiceAsyncClient:
                 role is a superset of the previous
                 role's permitted operations:
 
-                - reader can use the resource (e.g.
+                 - reader can use the resource (e.g.
                   tuned model) for inference
-                - writer has reader's permissions and
+                 - writer has reader's permissions and
                   additionally can edit and share
-                - owner has writer's permissions and
+                 - owner has writer's permissions and
                   additionally can delete
 
         """
@@ -520,11 +525,11 @@ class PermissionServiceAsyncClient:
                 role is a superset of the previous
                 role's permitted operations:
 
-                - reader can use the resource (e.g.
+                 - reader can use the resource (e.g.
                   tuned model) for inference
-                - writer has reader's permissions and
+                 - writer has reader's permissions and
                   additionally can edit and share
-                - owner has writer's permissions and
+                 - owner has writer's permissions and
                   additionally can delete
 
         """
@@ -758,7 +763,7 @@ class PermissionServiceAsyncClient:
             update_mask (:class:`google.protobuf.field_mask_pb2.FieldMask`):
                 Required. The list of fields to update. Accepted ones:
 
-                -  role (``Permission.role`` field)
+                - role (``Permission.role`` field)
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -790,11 +795,11 @@ class PermissionServiceAsyncClient:
                 role is a superset of the previous
                 role's permitted operations:
 
-                - reader can use the resource (e.g.
+                 - reader can use the resource (e.g.
                   tuned model) for inference
-                - writer has reader's permissions and
+                 - writer has reader's permissions and
                   additionally can edit and share
-                - owner has writer's permissions and
+                 - owner has writer's permissions and
                   additionally can delete
 
         """

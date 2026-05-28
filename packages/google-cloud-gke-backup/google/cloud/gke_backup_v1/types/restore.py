@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_backup_v1.types import common
@@ -66,8 +66,8 @@ class Restore(proto.Message):
             Output only. The target cluster into which this Restore will
             restore data. Valid formats:
 
-            -  ``projects/*/locations/*/clusters/*``
-            -  ``projects/*/zones/*/clusters/*``
+            - ``projects/*/locations/*/clusters/*``
+            - ``projects/*/zones/*/clusters/*``
 
             Inherited from parent RestorePlan's
             [cluster][google.cloud.gkebackup.v1.RestorePlan.cluster]
@@ -158,6 +158,7 @@ class Restore(proto.Message):
                 The Kubernetes resources created by this
                 Restore are being validated.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         IN_PROGRESS = 2
@@ -399,6 +400,7 @@ class RestoreConfig(proto.Message):
                 result in either dynamically provisioning blank
                 PVs or binding to statically provisioned PVs.
         """
+
         VOLUME_DATA_RESTORE_POLICY_UNSPECIFIED = 0
         RESTORE_VOLUME_DATA_FROM_BACKUP = 1
         REUSE_VOLUME_HANDLE_FROM_BACKUP = 2
@@ -424,6 +426,7 @@ class RestoreConfig(proto.Message):
                 deleting a CRD will cause Kubernetes to delete
                 all CRs of that type.
         """
+
         CLUSTER_RESOURCE_CONFLICT_POLICY_UNSPECIFIED = 0
         USE_EXISTING_VERSION = 1
         USE_BACKUP_VERSION = 2
@@ -471,14 +474,14 @@ class RestoreConfig(proto.Message):
                 MERGE_SKIP_ON_CONFLICT except that it will apply the volume
                 data policy for the conflicting PVCs:
 
-                -  RESTORE_VOLUME_DATA_FROM_BACKUP: restore data only and
-                   respect the reclaim policy of the original PV;
-                -  REUSE_VOLUME_HANDLE_FROM_BACKUP: reconnect and respect
-                   the reclaim policy of the original PV;
-                -  NO_VOLUME_DATA_RESTORATION: new provision and respect the
-                   reclaim policy of the original PV. Note that this mode
-                   could cause data loss as the original PV can be retained
-                   or deleted depending on its reclaim policy.
+                - RESTORE_VOLUME_DATA_FROM_BACKUP: restore data only and
+                  respect the reclaim policy of the original PV;
+                - REUSE_VOLUME_HANDLE_FROM_BACKUP: reconnect and respect the
+                  reclaim policy of the original PV;
+                - NO_VOLUME_DATA_RESTORATION: new provision and respect the
+                  reclaim policy of the original PV. Note that this mode
+                  could cause data loss as the original PV can be retained
+                  or deleted depending on its reclaim policy.
             MERGE_REPLACE_ON_CONFLICT (5):
                 This mode merges the backup and the target
                 cluster and replaces the conflicting resources
@@ -496,6 +499,7 @@ class RestoreConfig(proto.Message):
                 cluster, and the original PV can be retained or
                 deleted depending on its reclaim policy.
         """
+
         NAMESPACED_RESOURCE_RESTORE_MODE_UNSPECIFIED = 0
         DELETE_AND_RESTORE = 1
         FAIL_ON_CONFLICT = 2
@@ -580,19 +584,19 @@ class RestoreConfig(proto.Message):
                 message.
         """
 
-        selected_group_kinds: MutableSequence[
-            "RestoreConfig.GroupKind"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="RestoreConfig.GroupKind",
+        selected_group_kinds: MutableSequence["RestoreConfig.GroupKind"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="RestoreConfig.GroupKind",
+            )
         )
-        excluded_group_kinds: MutableSequence[
-            "RestoreConfig.GroupKind"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="RestoreConfig.GroupKind",
+        excluded_group_kinds: MutableSequence["RestoreConfig.GroupKind"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="RestoreConfig.GroupKind",
+            )
         )
         all_group_kinds: bool = proto.Field(
             proto.BOOL,
@@ -663,12 +667,12 @@ class RestoreConfig(proto.Message):
             proto.STRING,
             number=1,
         )
-        target_group_kinds: MutableSequence[
-            "RestoreConfig.GroupKind"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="RestoreConfig.GroupKind",
+        target_group_kinds: MutableSequence["RestoreConfig.GroupKind"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="RestoreConfig.GroupKind",
+            )
         )
         target_json_path: str = proto.Field(
             proto.STRING,
@@ -748,6 +752,7 @@ class RestoreConfig(proto.Message):
                     operation object MUST contain a "value" member
                     whose content specifies the replacement value.
             """
+
             OP_UNSPECIFIED = 0
             REMOVE = 1
             MOVE = 2
@@ -847,12 +852,12 @@ class RestoreConfig(proto.Message):
                 string description of the transformation rule.
         """
 
-        field_actions: MutableSequence[
-            "RestoreConfig.TransformationRuleAction"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="RestoreConfig.TransformationRuleAction",
+        field_actions: MutableSequence["RestoreConfig.TransformationRuleAction"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="RestoreConfig.TransformationRuleAction",
+            )
         )
         resource_filter: "RestoreConfig.ResourceFilter" = proto.Field(
             proto.MESSAGE,

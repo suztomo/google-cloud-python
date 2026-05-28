@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import interval_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -60,11 +60,11 @@ class Dataset(proto.Message):
             ``bq://{project}.{dataset}.{table}``. Current table types
             are:
 
-            -  ``party``
-            -  ``account_party_link``
-            -  ``transaction``
-            -  ``risk_case_event``
-            -  ``party_supplementary_data``
+            - ``party``
+            - ``account_party_link``
+            - ``transaction``
+            - ``risk_case_event``
+            - ``party_supplementary_data``
         state (google.cloud.financialservices_v1.types.Dataset.State):
             Output only. State of the dataset (creating,
             active, deleting, etc.)
@@ -94,6 +94,7 @@ class Dataset(proto.Message):
                 The resource is in the process of being
                 deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_import_apt_artifacts():
     client = artifactregistry_v1beta2.ArtifactRegistryClient()
 
     # Initialize request argument(s)
-    request = artifactregistry_v1beta2.ImportAptArtifactsRequest(
-    )
+    request = artifactregistry_v1beta2.ImportAptArtifactsRequest()
 
     # Make the request
     operation = client.import_apt_artifacts(request=request)
@@ -51,5 +50,6 @@ def sample_import_apt_artifacts():
 
     # Handle the response
     print(response)
+
 
 # [END artifactregistry_v1beta2_generated_ArtifactRegistry_ImportAptArtifacts_sync]

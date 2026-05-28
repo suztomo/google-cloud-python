@@ -1,5 +1,105 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-netapp/#history
+
+## [0.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.9.0...google-cloud-netapp-v0.10.0) (2026-05-06)
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.8.0...google-cloud-netapp-v0.9.0) (2026-04-02)
+
+
+### Documentation
+
+* A comment for field `source_volume` in message `.google.cloud.netapp.v1.Backup` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* A comment for field `source_backup` in message `.google.cloud.netapp.v1.RestoreParameters` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* A comment for field `type` in message `.google.cloud.netapp.v1.StoragePool` is changed ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Features
+
+* Add ONTAP passthrough APIs Adds the following new methods for direct ONTAP API interaction: - ExecuteOntapPost - ExecuteOntapGet - ExecuteOntapDelete - ExecuteOntapPatch `StoragePoolType` ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Bug Fixes
+
+* An existing value `UNIFIED_LARGE_CAPACITY` is removed from enum `StoragePoolType` ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.7.0...google-cloud-netapp-v0.8.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.6.0...google-cloud-netapp-v0.7.0) (2026-01-15)
+
+
+### Features
+
+* Update NetApp v1 API with Host Groups, Block Volumes, Cache Volumes, and Backup Restore This CL introduces several new features and enhancements to the NetApp API: - **Host Groups:** Added a new `HostGroup` resource to manage collections of hosts for Block Volume access. Includes full CRUD operations. - **Block Volumes:** Enhanced the `Volume` resource to support `ISCSI` protocol and `BlockDevice` configurations. - **Cache Volumes:** Added `CacheParameters` to the `Volume` resource to support FlexCache volumes. - **Backup Restore:** Introduced a new `RestoreBackupFiles` RPC to restore individual files from a backup. - **CMEK for Backup Vaults:** Added fields to `BackupVault` to support Customer Managed Encryption Keys (CMEK). - **Storage Pool Type:** Added a `type` field to `StoragePool` to specify support for FILE, UNIFIED, or UNIFIED_LARGE_CAPACITY volumes. -   **Location Metadata:** Added `has_ontap_proxy` flag. -   Updated copyright year to 2026. ([1a81689422520562771f36a58575d07e1ee18dd5](https://github.com/googleapis/google-cloud-python/commit/1a81689422520562771f36a58575d07e1ee18dd5))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.5.0...google-cloud-netapp-v0.6.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.4.0...google-cloud-netapp-v0.5.0) (2025-12-04)
+
+
+### Features
+
+* Add Squash Mode to Export Policy This change introduces squash mode options to the export policy rules. Squash mode determines how user and group IDs are mapped for NFS volume access. The following squash modes are added: *   **NO_ROOT_SQUASH** Root user retains full access. *   **ROOT_SQUASH** Root user is mapped to the anonymous user ID. *   **ALL_SQUASH** All users are mapped to the anonymous user ID. A new field anon_uid is also added to specify the anonymous user ID when ALL_SQUASH is used. The squash_mode field takes precedence over the existing has_root_access field, which will be deprecated in the future. ([d4e6a4ab7b428e821a59b053c689343b5f5511f9](https://github.com/googleapis/google-cloud-python/commit/d4e6a4ab7b428e821a59b053c689343b5f5511f9))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.3.24...google-cloud-netapp-v0.4.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.3.24](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.3.23...google-cloud-netapp-v0.3.24) (2025-09-04)
+
+
+### Features
+
+* add fields for hybrid replication ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* add fields for manual qos ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+
+
+### Documentation
+
+* A comment for field `cold_tier_size_gib` in message `.google.cloud.netapp.v1.Volume` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `command_expiry_time` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `command` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `daily_backup_immutable` in message `.google.cloud.netapp.v1.BackupVault` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `manual_backup_immutable` in message `.google.cloud.netapp.v1.BackupVault` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `monthly_backup_immutable` in message `.google.cloud.netapp.v1.BackupVault` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `passphrase` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `peer_cluster_name` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `peer_svm_name` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `peer_volume_name` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `subnet_ip` in message `.google.cloud.netapp.v1.HybridPeeringDetails` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `total_iops` in message `.google.cloud.netapp.v1.StoragePool` is added ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `total_throughput_mibps` in message `.google.cloud.netapp.v1.StoragePool` is added ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+* field `weekly_backup_immutable` in message `.google.cloud.netapp.v1.BackupVault` is changed ([0370ed1](https://github.com/googleapis/google-cloud-python/commit/0370ed16110cf59a12945bd7168e518ad4641744))
+
 ## [0.3.23](https://github.com/googleapis/google-cloud-python/compare/google-cloud-netapp-v0.3.22...google-cloud-netapp-v0.3.23) (2025-05-20)
 
 

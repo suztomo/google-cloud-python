@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,6 +73,7 @@ class SpaceNotificationSetting(proto.Message):
             OFF (4):
                 Notification is off.
         """
+
         NOTIFICATION_SETTING_UNSPECIFIED = 0
         ALL = 1
         MAIN_CONVERSATIONS = 2
@@ -93,6 +94,7 @@ class SpaceNotificationSetting(proto.Message):
                 for the space, regardless of the notification
                 setting.
         """
+
         MUTE_SETTING_UNSPECIFIED = 0
         UNMUTED = 1
         MUTED = 2
@@ -124,12 +126,12 @@ class GetSpaceNotificationSettingRequest(proto.Message):
             Required. Format:
             users/{user}/spaces/{space}/spaceNotificationSetting
 
-            -  ``users/me/spaces/{space}/spaceNotificationSetting``, OR
-            -  ``users/user@example.com/spaces/{space}/spaceNotificationSetting``,
-               OR
-            -  ``users/123456789/spaces/{space}/spaceNotificationSetting``.
-               Note: Only the caller's user id or email is allowed in
-               the path.
+            - ``users/me/spaces/{space}/spaceNotificationSetting``, OR
+            - ``users/user@example.com/spaces/{space}/spaceNotificationSetting``,
+              OR
+            - ``users/123456789/spaces/{space}/spaceNotificationSetting``.
+              Note: Only the caller's user id or email is allowed in the
+              path.
     """
 
     name: str = proto.Field(
@@ -152,9 +154,9 @@ class UpdateSpaceNotificationSettingRequest(proto.Message):
         update_mask (google.protobuf.field_mask_pb2.FieldMask):
             Required. Supported field paths:
 
-            -  ``notification_setting``
+            - ``notification_setting``
 
-            -  ``mute_setting``
+            - ``mute_setting``
     """
 
     space_notification_setting: "SpaceNotificationSetting" = proto.Field(

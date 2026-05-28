@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.shopping.type.types import types
 import proto  # type: ignore
+from google.shopping.type.types import types
 
 from google.shopping.merchant_promotions_v1beta.types import promotions_common
 
@@ -40,10 +40,10 @@ class Promotion(proto.Message):
     Required promotion input attributes to pass data validation checks
     are primarily defined below:
 
-    -  `Promotions data
-       specification <https://support.google.com/merchants/answer/2906014>`__
-    -  `Local promotions data
-       specification <https://support.google.com/merchants/answer/10146130>`__
+    - `Promotions data
+      specification <https://support.google.com/merchants/answer/2906014>`__
+    - `Local promotions data
+      specification <https://support.google.com/merchants/answer/10146130>`__
 
     After inserting, updating a promotion input, it may take several
     minutes before the final promotion can be retrieved.
@@ -131,12 +131,12 @@ class Promotion(proto.Message):
         proto.STRING,
         number=4,
     )
-    redemption_channel: MutableSequence[
-        promotions_common.RedemptionChannel
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=5,
-        enum=promotions_common.RedemptionChannel,
+    redemption_channel: MutableSequence[promotions_common.RedemptionChannel] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=5,
+            enum=promotions_common.RedemptionChannel,
+        )
     )
     data_source: str = proto.Field(
         proto.STRING,

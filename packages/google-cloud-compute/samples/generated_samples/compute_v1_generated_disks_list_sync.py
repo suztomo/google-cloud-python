@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,5 +50,6 @@ def sample_list():
     # Handle the response
     for response in page_result:
         print(response)
+
 
 # [END compute_v1_generated_Disks_List_sync]

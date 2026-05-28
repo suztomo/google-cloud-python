@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ from typing import MutableMapping, MutableSequence
 
 import proto  # type: ignore
 
+from google.ads.admanager_v1.types import contact_enums
+
 __protobuf__ = proto.module(
     package="google.ads.admanager.v1",
     manifest={
@@ -33,23 +35,126 @@ class Contact(proto.Message):
     associated to it, and can be invited to view their company's
     orders, line items, creatives, and reports.
 
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         name (str):
             Identifier. The resource name of the ``Contact``. Format:
             ``networks/{network_code}/contacts/{contact_id}``
-        contact_id (int):
-            Output only. The unique ID of the contact.
-            This value is readonly and is assigned by
-            Google.
+        display_name (str):
+            Required. The name of the contact. This
+            attribute has a maximum length of 127
+            characters.
+
+            This field is a member of `oneof`_ ``_display_name``.
+        company (str):
+            Required. Immutable. The resource name of the Company.
+            Format: "networks/{network_code}/companies/{company_id}".
+
+            This field is a member of `oneof`_ ``_company``.
+        status (google.ads.admanager_v1.types.ContactStatusEnum.ContactStatus):
+            Output only. The status of the contact. This
+            attribute is assigned by Google.
+
+            This field is a member of `oneof`_ ``_status``.
+        address (str):
+            Optional. The address of the contact. This
+            attribute has a maximum length of 1024
+            characters.
+
+            This field is a member of `oneof`_ ``_address``.
+        cell_phone (str):
+            Optional. The cell phone number where the
+            contact can be reached.
+
+            This field is a member of `oneof`_ ``_cell_phone``.
+        comment (str):
+            Optional. A free-form text comment for the
+            contact. This attribute has a maximum length of
+            1024 characters.
+
+            This field is a member of `oneof`_ ``_comment``.
+        email (str):
+            Optional. The e-mail address where the
+            contact can be reached. This attribute has a
+            maximum length of 128 characters.
+
+            This field is a member of `oneof`_ ``_email``.
+        fax (str):
+            Optional. The fax number where the contact
+            can be reached. This attribute has a maximum
+            length of 1024 characters.
+
+            This field is a member of `oneof`_ ``_fax``.
+        title (str):
+            Optional. The job title of the contact. This
+            attribute has a maximum length of 1024
+            characters.
+
+            This field is a member of `oneof`_ ``_title``.
+        work_phone (str):
+            Optional. The work phone number where the
+            contact can be reached. This attribute has a
+            maximum length of 1024 characters.
+
+            This field is a member of `oneof`_ ``_work_phone``.
     """
 
     name: str = proto.Field(
         proto.STRING,
         number=1,
     )
-    contact_id: int = proto.Field(
-        proto.INT64,
-        number=2,
+    display_name: str = proto.Field(
+        proto.STRING,
+        number=3,
+        optional=True,
+    )
+    company: str = proto.Field(
+        proto.STRING,
+        number=5,
+        optional=True,
+    )
+    status: contact_enums.ContactStatusEnum.ContactStatus = proto.Field(
+        proto.ENUM,
+        number=6,
+        optional=True,
+        enum=contact_enums.ContactStatusEnum.ContactStatus,
+    )
+    address: str = proto.Field(
+        proto.STRING,
+        number=7,
+        optional=True,
+    )
+    cell_phone: str = proto.Field(
+        proto.STRING,
+        number=8,
+        optional=True,
+    )
+    comment: str = proto.Field(
+        proto.STRING,
+        number=9,
+        optional=True,
+    )
+    email: str = proto.Field(
+        proto.STRING,
+        number=10,
+        optional=True,
+    )
+    fax: str = proto.Field(
+        proto.STRING,
+        number=11,
+        optional=True,
+    )
+    title: str = proto.Field(
+        proto.STRING,
+        number=12,
+        optional=True,
+    )
+    work_phone: str = proto.Field(
+        proto.STRING,
+        number=13,
+        optional=True,
     )
 
 

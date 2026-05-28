@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_deidentify_content():
     client = dlp_v2.DlpServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = dlp_v2.DeidentifyContentRequest(
-    )
+    request = dlp_v2.DeidentifyContentRequest()
 
     # Make the request
     response = await client.deidentify_content(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dlp_v2_generated_DlpService_DeidentifyContent_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def sample_create_vpc_flow_logs_config():
 
     # Initialize request argument(s)
     vpc_flow_logs_config = network_management_v1.VpcFlowLogsConfig()
-    vpc_flow_logs_config.interconnect_attachment = "interconnect_attachment_value"
+    vpc_flow_logs_config.network = "network_value"
 
     request = network_management_v1.CreateVpcFlowLogsConfigRequest(
         parent="parent_value",
@@ -57,5 +57,6 @@ def sample_create_vpc_flow_logs_config():
 
     # Handle the response
     print(response)
+
 
 # [END networkmanagement_v1_generated_VpcFlowLogsService_CreateVpcFlowLogsConfig_sync]

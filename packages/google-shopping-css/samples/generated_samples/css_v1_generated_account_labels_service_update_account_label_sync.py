@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_account_label():
     client = css_v1.AccountLabelsServiceClient()
 
     # Initialize request argument(s)
-    request = css_v1.UpdateAccountLabelRequest(
-    )
+    request = css_v1.UpdateAccountLabelRequest()
 
     # Make the request
     response = client.update_account_label(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END css_v1_generated_AccountLabelsService_UpdateAccountLabel_sync]

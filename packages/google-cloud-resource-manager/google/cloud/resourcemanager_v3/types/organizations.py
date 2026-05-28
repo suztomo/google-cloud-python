@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -92,6 +92,7 @@ class Organization(proto.Message):
                 The organization has been marked for deletion
                 by the user.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         DELETE_REQUESTED = 2
@@ -184,11 +185,11 @@ class SearchOrganizationsRequest(proto.Message):
             by ``domain``, where the domain is a G Suite domain, for
             example:
 
-            -  Query ``directorycustomerid:123456789`` returns
-               Organization resources with
-               ``owner.directory_customer_id`` equal to ``123456789``.
-            -  Query ``domain:google.com`` returns Organization
-               resources corresponding to the domain ``google.com``.
+            - Query ``directorycustomerid:123456789`` returns
+              Organization resources with
+              ``owner.directory_customer_id`` equal to ``123456789``.
+            - Query ``domain:google.com`` returns Organization resources
+              corresponding to the domain ``google.com``.
     """
 
     page_size: int = proto.Field(

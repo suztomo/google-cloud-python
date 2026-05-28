@@ -5,21 +5,25 @@ Services for Google Cloud Compute v1 API
 
     accelerator_types
     addresses
+    advice
     autoscalers
     backend_buckets
     backend_services
+    cross_site_networks
     disks
     disk_types
     external_vpn_gateways
     firewall_policies
     firewalls
     forwarding_rules
+    future_reservations
     global_addresses
     global_forwarding_rules
     global_network_endpoint_groups
     global_operations
     global_organization_operations
     global_public_delegated_prefixes
+    global_vm_extension_policies
     health_checks
     image_family_views
     images
@@ -29,8 +33,11 @@ Services for Google Cloud Compute v1 API
     instances
     instance_settings_service
     instance_templates
+    instant_snapshot_groups
     instant_snapshots
+    interconnect_attachment_groups
     interconnect_attachments
+    interconnect_groups
     interconnect_locations
     interconnect_remote_locations
     interconnects
@@ -47,21 +54,29 @@ Services for Google Cloud Compute v1 API
     node_groups
     node_templates
     node_types
+    organization_security_policies
     packet_mirrorings
+    preview_features
     projects
     public_advertised_prefixes
     public_delegated_prefixes
     region_autoscalers
+    region_backend_buckets
     region_backend_services
     region_commitments
+    region_composite_health_checks
     region_disks
     region_disk_types
+    region_health_aggregation_policies
     region_health_checks
     region_health_check_services
+    region_health_sources
+    region_instance_group_manager_resize_requests
     region_instance_group_managers
     region_instance_groups
     region_instances
     region_instance_templates
+    region_instant_snapshot_groups
     region_instant_snapshots
     region_network_endpoint_groups
     region_network_firewall_policies
@@ -69,6 +84,8 @@ Services for Google Cloud Compute v1 API
     region_operations
     regions
     region_security_policies
+    region_snapshots
+    region_snapshot_settings
     region_ssl_certificates
     region_ssl_policies
     region_target_http_proxies
@@ -78,7 +95,11 @@ Services for Google Cloud Compute v1 API
     region_zones
     reservation_blocks
     reservations
+    reservation_slots
+    reservation_sub_blocks
     resource_policies
+    rollout_plans
+    rollouts
     routers
     routes
     security_policies
@@ -101,5 +122,7 @@ Services for Google Cloud Compute v1 API
     url_maps
     vpn_gateways
     vpn_tunnels
+    wire_groups
     zone_operations
     zones
+    zone_vm_extension_policies

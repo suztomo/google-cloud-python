@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,23 +39,20 @@ async def sample_create_mesh():
     client = network_services_v1.NetworkServicesAsyncClient()
 
     # Initialize request argument(s)
-    mesh = network_services_v1.Mesh()
-    mesh.name = "name_value"
-
     request = network_services_v1.CreateMeshRequest(
         parent="parent_value",
         mesh_id="mesh_id_value",
-        mesh=mesh,
     )
 
     # Make the request
-    operation = client.create_mesh(request=request)
+    operation = await client.create_mesh(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_CreateMesh_async]

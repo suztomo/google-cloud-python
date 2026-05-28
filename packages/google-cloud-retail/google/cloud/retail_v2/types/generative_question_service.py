@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.retail_v2.types import generative_question
@@ -122,7 +122,7 @@ class UpdateGenerativeQuestionConfigRequest(proto.Message):
             [GenerativeQuestionConfig][google.cloud.retail.v2.GenerativeQuestionConfig]
             to update. The following are NOT supported:
 
-            -  [GenerativeQuestionConfig.frequency][google.cloud.retail.v2.GenerativeQuestionConfig.frequency]
+            - [GenerativeQuestionConfig.frequency][google.cloud.retail.v2.GenerativeQuestionConfig.frequency]
 
             If not set or empty, all supported fields are updated.
     """
@@ -157,12 +157,12 @@ class BatchUpdateGenerativeQuestionConfigsRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    requests: MutableSequence[
-        "UpdateGenerativeQuestionConfigRequest"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="UpdateGenerativeQuestionConfigRequest",
+    requests: MutableSequence["UpdateGenerativeQuestionConfigRequest"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="UpdateGenerativeQuestionConfigRequest",
+        )
     )
 
 

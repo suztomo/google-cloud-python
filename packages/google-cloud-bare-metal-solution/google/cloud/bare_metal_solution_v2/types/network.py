@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -101,6 +101,7 @@ class Network(proto.Message):
                 Private network, a network local to the Bare
                 Metal Solution environment.
         """
+
         TYPE_UNSPECIFIED = 0
         CLIENT = 1
         PRIVATE = 2
@@ -120,6 +121,7 @@ class Network(proto.Message):
             UPDATING (4):
                 The Network is being updated.
         """
+
         STATE_UNSPECIFIED = 0
         PROVISIONING = 1
         PROVISIONED = 2
@@ -260,6 +262,7 @@ class VRF(proto.Message):
             PROVISIONED (2):
                 The vrf is provisioned.
         """
+
         STATE_UNSPECIFIED = 0
         PROVISIONING = 1
         PROVISIONED = 2
@@ -416,12 +419,12 @@ class LogicalInterface(proto.Message):
             number=5,
         )
 
-    logical_network_interfaces: MutableSequence[
-        LogicalNetworkInterface
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=LogicalNetworkInterface,
+    logical_network_interfaces: MutableSequence[LogicalNetworkInterface] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=LogicalNetworkInterface,
+        )
     )
     name: str = proto.Field(
         proto.STRING,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.automl_v1beta1.types import image, tables, text, translation, video
@@ -92,7 +92,7 @@ class Dataset(proto.Message):
         display_name (str):
             Required. The name of the dataset to show in the interface.
             The name can be up to 32 characters long and can consist
-            only of ASCII Latin letters A-Z and a-z, underscores (_),
+            only of ASCII Latin letters A-Z and a-z, underscores (\_),
             and ASCII digits 0-9.
         description (str):
             User-provided description of the dataset. The

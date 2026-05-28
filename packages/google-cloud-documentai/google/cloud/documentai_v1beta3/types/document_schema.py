@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ class SummaryOptions(proto.Message):
             COMPREHENSIVE (3):
                 The longest option available.
         """
+
         LENGTH_UNSPECIFIED = 0
         BRIEF = 1
         MODERATE = 2
@@ -70,6 +71,7 @@ class SummaryOptions(proto.Message):
             BULLETS (2):
                 Format the output in bullets.
         """
+
         FORMAT_UNSPECIFIED = 0
         PARAGRAPH = 1
         BULLETS = 2
@@ -144,13 +146,18 @@ class DocumentSchema(proto.Message):
 
     Attributes:
         display_name (str):
-            Display name to show to users.
+            Display name to show users.
         description (str):
             Description of the schema.
         entity_types (MutableSequence[google.cloud.documentai_v1beta3.types.DocumentSchema.EntityType]):
             Entity types of the schema.
         metadata (google.cloud.documentai_v1beta3.types.DocumentSchema.Metadata):
             Metadata of the schema.
+        document_prompt (str):
+            Optional. Document level prompt provided by
+            the user. This custom text is injected into the
+            AI model's prompt to provide extra,
+            document-wide guidance for processing.
     """
 
     class EntityType(proto.Message):
@@ -166,7 +173,7 @@ class DocumentSchema(proto.Message):
             enum_values (google.cloud.documentai_v1beta3.types.DocumentSchema.EntityType.EnumValues):
                 If specified, lists all the possible values for this entity.
                 This should not be more than a handful of values. If the
-                number of values is >10 or could change frequently use the
+                number of values is >10 or could change frequently, use the
                 ``EntityType.value_ontology`` field and specify a list of
                 all possible values in a value ontology file.
 
@@ -178,17 +185,17 @@ class DocumentSchema(proto.Message):
                 and cannot be a "Common Type". The following naming
                 conventions are used:
 
-                -  Use ``snake_casing``.
-                -  Name matching is case-sensitive.
-                -  Maximum 64 characters.
-                -  Must start with a letter.
-                -  Allowed characters: ASCII letters ``[a-z0-9_-]``. (For
-                   backward compatibility internal infrastructure and
-                   tooling can handle any ascii character.)
-                -  The ``/`` is sometimes used to denote a property of a
-                   type. For example ``line_item/amount``. This convention
-                   is deprecated, but will still be honored for backward
-                   compatibility.
+                - Use ``snake_casing``.
+                - Name matching is case-sensitive.
+                - Maximum 64 characters.
+                - Must start with a letter.
+                - Allowed characters: ASCII letters ``[a-z0-9_-]``. (For
+                  backward compatibility, internal infrastructure and
+                  tooling can handle any ASCII character.)
+                - The ``/`` is sometimes used to denote a property of a
+                  type. For example ``line_item/amount``. This convention is
+                  deprecated, but will still be honored for backward
+                  compatibility.
             description (str):
                 The description of the entity type. Could be
                 used to provide more information about the
@@ -238,6 +245,8 @@ class DocumentSchema(proto.Message):
                     Occurrence type limits the number of
                     instances an entity type appears in the
                     document.
+                method (google.cloud.documentai_v1beta3.types.DocumentSchema.EntityType.Property.Method):
+                    Specifies how the entity's value is obtained.
                 property_metadata (google.cloud.documentai_v1beta3.types.PropertyMetadata):
                     Any additional metadata about the property
                     can be added here.
@@ -249,9 +258,9 @@ class DocumentSchema(proto.Message):
                 example, a bank statement might only have one ``account_number``,
                 but this account number can be mentioned in several places on the
                 document. In this case, the ``account_number`` is considered a
-                ``REQUIRED_ONCE`` entity type. If, on the other hand, we expect a
-                bank statement to contain the status of multiple different accounts
-                for the customers, the occurrence type is set to
+                ``REQUIRED_ONCE`` entity type. If, on the other hand, it's expected
+                that a bank statement contains the status of multiple different
+                accounts for the customers, the occurrence type is set to
                 ``REQUIRED_MULTIPLE``.
 
                 Values:
@@ -272,11 +281,32 @@ class DocumentSchema(proto.Message):
                         The entity type will appear once or more
                         times.
                 """
+
                 OCCURRENCE_TYPE_UNSPECIFIED = 0
                 OPTIONAL_ONCE = 1
                 OPTIONAL_MULTIPLE = 2
                 REQUIRED_ONCE = 3
                 REQUIRED_MULTIPLE = 4
+
+            class Method(proto.Enum):
+                r"""Specifies how the entity's value is obtained from the
+                document.
+
+                Values:
+                    METHOD_UNSPECIFIED (0):
+                        Unspecified method. It defaults to ``EXTRACT``.
+                    EXTRACT (1):
+                        The entity's value is directly extracted
+                        as-is from the document text.
+                    DERIVE (2):
+                        The entity's value is derived through
+                        inference and is not necessarily an exact text
+                        extraction from the document.
+                """
+
+                METHOD_UNSPECIFIED = 0
+                EXTRACT = 1
+                DERIVE = 2
 
             name: str = proto.Field(
                 proto.STRING,
@@ -300,6 +330,11 @@ class DocumentSchema(proto.Message):
                     number=3,
                     enum="DocumentSchema.EntityType.Property.OccurrenceType",
                 )
+            )
+            method: "DocumentSchema.EntityType.Property.Method" = proto.Field(
+                proto.ENUM,
+                number=8,
+                enum="DocumentSchema.EntityType.Property.Method",
             )
             property_metadata: "PropertyMetadata" = proto.Field(
                 proto.MESSAGE,
@@ -329,12 +364,12 @@ class DocumentSchema(proto.Message):
             proto.STRING,
             number=2,
         )
-        properties: MutableSequence[
-            "DocumentSchema.EntityType.Property"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=6,
-            message="DocumentSchema.EntityType.Property",
+        properties: MutableSequence["DocumentSchema.EntityType.Property"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=6,
+                message="DocumentSchema.EntityType.Property",
+            )
         )
         entity_type_metadata: "EntityTypeMetadata" = proto.Field(
             proto.MESSAGE,
@@ -357,7 +392,7 @@ class DocumentSchema(proto.Message):
                 If set, all the nested entities must be
                 prefixed with the parents.
             skip_naming_validation (bool):
-                If set, we will skip the naming format validation in the
+                If set, this will skip the naming format validation in the
                 schema. So the string values in
                 ``DocumentSchema.EntityType.name`` and
                 ``DocumentSchema.EntityType.Property.name`` will not be
@@ -398,6 +433,10 @@ class DocumentSchema(proto.Message):
         proto.MESSAGE,
         number=4,
         message=Metadata,
+    )
+    document_prompt: str = proto.Field(
+        proto.STRING,
+        number=5,
     )
 
 

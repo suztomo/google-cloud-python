@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,6 +83,7 @@ class AttackPath(proto.Message):
                 NODE_TYPE_ATTACKER (4):
                     Incoming edge is attacker
             """
+
             NODE_TYPE_UNSPECIFIED = 0
             NODE_TYPE_AND = 1
             NODE_TYPE_OR = 2
@@ -180,12 +181,12 @@ class AttackPath(proto.Message):
             proto.STRING,
             number=5,
         )
-        attack_steps: MutableSequence[
-            "AttackPath.AttackPathNode.AttackStepNode"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=6,
-            message="AttackPath.AttackPathNode.AttackStepNode",
+        attack_steps: MutableSequence["AttackPath.AttackPathNode.AttackStepNode"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=6,
+                message="AttackPath.AttackPathNode.AttackStepNode",
+            )
         )
 
     class AttackPathEdge(proto.Message):

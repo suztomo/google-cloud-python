@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,27 +16,29 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
+from google.cloud.discoveryengine_v1alpha.types import (
+    data_store,
+    data_store_service,
+    document_processing_config,
+)
 from google.cloud.discoveryengine_v1alpha.types import data_store as gcd_data_store
-from google.cloud.discoveryengine_v1alpha.types import document_processing_config
 from google.cloud.discoveryengine_v1alpha.types import (
     document_processing_config as gcd_document_processing_config,
 )
-from google.cloud.discoveryengine_v1alpha.types import data_store
-from google.cloud.discoveryengine_v1alpha.types import data_store_service
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseDataStoreServiceRestTransport
@@ -614,9 +616,10 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -634,6 +637,12 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[DataStoreServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -889,9 +898,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseCreateDataStore._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseCreateDataStore._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_store(
                 request, metadata
@@ -917,7 +924,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1044,9 +1051,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseDeleteDataStore._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseDeleteDataStore._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_store(
                 request, metadata
@@ -1068,7 +1073,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1348,9 +1353,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseGetDocumentProcessingConfig._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseGetDocumentProcessingConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_get_document_processing_config(
                 request, metadata
@@ -1414,11 +1417,10 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             resp = self._interceptor.post_get_document_processing_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_document_processing_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_document_processing_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1506,9 +1508,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseListDataStores._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseListDataStores._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_stores(
                 request, metadata
@@ -1660,9 +1660,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseUpdateDataStore._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseUpdateDataStore._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_store(
                 request, metadata
@@ -1824,9 +1822,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseUpdateDocumentProcessingConfig._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseUpdateDocumentProcessingConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_document_processing_config(
                 request, metadata
@@ -1895,11 +1891,10 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
 
             resp = self._interceptor.post_update_document_processing_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_document_processing_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_document_processing_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1965,7 +1960,9 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetDocumentProcessingConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetDocumentProcessingConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_data_stores(
@@ -1997,7 +1994,9 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateDocumentProcessingConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateDocumentProcessingConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def cancel_operation(self):
@@ -2055,9 +2054,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -2317,9 +2314,7 @@ class DataStoreServiceRestTransport(_BaseDataStoreServiceRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseDataStoreServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseDataStoreServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseDataStoreServiceRestTransport._BaseListOperations._get_transcoded_request(

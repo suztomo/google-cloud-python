@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataplex_v1.types import (
     data_discovery,
+    data_documentation,
     data_profile,
     data_quality,
     processing,
@@ -64,11 +65,15 @@ class DataScanType(proto.Enum):
             Data profile scan.
         DATA_DISCOVERY (3):
             Data discovery scan.
+        DATA_DOCUMENTATION (4):
+            Data documentation scan.
     """
+
     DATA_SCAN_TYPE_UNSPECIFIED = 0
     DATA_QUALITY = 1
     DATA_PROFILE = 2
     DATA_DISCOVERY = 3
+    DATA_DOCUMENTATION = 4
 
 
 class CreateDataScanRequest(proto.Message):
@@ -79,17 +84,17 @@ class CreateDataScanRequest(proto.Message):
             Required. The resource name of the parent location:
             ``projects/{project}/locations/{location_id}`` where
             ``project`` refers to a *project_id* or *project_number* and
-            ``location_id`` refers to a GCP region.
+            ``location_id`` refers to a Google Cloud region.
         data_scan (google.cloud.dataplex_v1.types.DataScan):
             Required. DataScan resource.
         data_scan_id (str):
             Required. DataScan identifier.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must end with a number or a letter.
-            -  Must be between 1-63 characters.
-            -  Must be unique within the customer project / location.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must end with a number or a letter.
+            - Must be between 1-63 characters.
+            - Must be unique within the customer project / location.
         validate_only (bool):
             Optional. Only validate the request, but do not perform
             mutations. The default is ``false``.
@@ -153,7 +158,8 @@ class DeleteDataScanRequest(proto.Message):
             Required. The resource name of the dataScan:
             ``projects/{project}/locations/{location_id}/dataScans/{data_scan_id}``
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         force (bool):
             Optional. If set to true, any child resources
             of this data scan will also be deleted.
@@ -179,7 +185,8 @@ class GetDataScanRequest(proto.Message):
             Required. The resource name of the dataScan:
             ``projects/{project}/locations/{location_id}/dataScans/{data_scan_id}``
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         view (google.cloud.dataplex_v1.types.GetDataScanRequest.DataScanView):
             Optional. Select the DataScan view to return. Defaults to
             ``BASIC``.
@@ -196,6 +203,7 @@ class GetDataScanRequest(proto.Message):
             FULL (10):
                 Include everything.
         """
+
         DATA_SCAN_VIEW_UNSPECIFIED = 0
         BASIC = 1
         FULL = 10
@@ -219,7 +227,7 @@ class ListDataScansRequest(proto.Message):
             Required. The resource name of the parent location:
             ``projects/{project}/locations/{location_id}`` where
             ``project`` refers to a *project_id* or *project_number* and
-            ``location_id`` refers to a GCP region.
+            ``location_id`` refers to a Google Cloud region.
         page_size (int):
             Optional. Maximum number of dataScans to
             return. The service may return fewer than this
@@ -303,7 +311,8 @@ class RunDataScanRequest(proto.Message):
             Required. The resource name of the DataScan:
             ``projects/{project}/locations/{location_id}/dataScans/{data_scan_id}``.
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
 
             Only **OnDemand** data scans are allowed.
     """
@@ -337,7 +346,8 @@ class GetDataScanJobRequest(proto.Message):
             Required. The resource name of the DataScanJob:
             ``projects/{project}/locations/{location_id}/dataScans/{data_scan_id}/jobs/{data_scan_job_id}``
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         view (google.cloud.dataplex_v1.types.GetDataScanJobRequest.DataScanJobView):
             Optional. Select the DataScanJob view to return. Defaults to
             ``BASIC``.
@@ -354,6 +364,7 @@ class GetDataScanJobRequest(proto.Message):
             FULL (10):
                 Include everything.
         """
+
         DATA_SCAN_JOB_VIEW_UNSPECIFIED = 0
         BASIC = 1
         FULL = 10
@@ -377,7 +388,8 @@ class ListDataScanJobsRequest(proto.Message):
             Required. The resource name of the parent environment:
             ``projects/{project}/locations/{location_id}/dataScans/{data_scan_id}``
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         page_size (int):
             Optional. Maximum number of DataScanJobs to
             return. The service may return fewer than this
@@ -400,8 +412,8 @@ class ListDataScanJobsRequest(proto.Message):
 
             Allowed fields are:
 
-            -  ``start_time``
-            -  ``end_time``
+            - ``start_time``
+            - ``end_time``
 
             ``start_time`` and ``end_time`` expect RFC-3339 formatted
             strings (e.g. 2018-10-08T18:30:00-07:00).
@@ -465,10 +477,10 @@ class GenerateDataQualityRulesRequest(proto.Message):
         name (str):
             Required. The name must be one of the following:
 
-            -  The name of a data scan with at least one successful,
-               completed data profiling job
-            -  The name of a successful, completed data profiling job (a
-               data scan job where the job type is data profiling)
+            - The name of a data scan with at least one successful,
+              completed data profiling job
+            - The name of a successful, completed data profiling job (a
+              data scan job where the job type is data profiling)
     """
 
     name: str = proto.Field(
@@ -483,8 +495,8 @@ class GenerateDataQualityRulesResponse(proto.Message):
     Attributes:
         rule (MutableSequence[google.cloud.dataplex_v1.types.DataQualityRule]):
             The data quality rules that Dataplex
-            generates based on the results of a data
-            profiling scan.
+            Universal Catalog generates based on the results
+            of a data profiling scan.
     """
 
     rule: MutableSequence[data_quality.DataQualityRule] = proto.RepeatedField(
@@ -500,19 +512,23 @@ class DataScan(proto.Message):
 
     For example:
 
-    -  Data quality: generates queries based on the rules and runs
-       against the data to get data quality check results. For more
-       information, see `Auto data quality
-       overview <https://cloud.google.com/dataplex/docs/auto-data-quality-overview>`__.
-    -  Data profile: analyzes the data in tables and generates insights
-       about the structure, content and relationships (such as null
-       percent, cardinality, min/max/mean, etc). For more information,
-       see `About data
-       profiling <https://cloud.google.com/dataplex/docs/data-profiling-overview>`__.
-    -  Data discovery: scans data in Cloud Storage buckets to extract
-       and then catalog metadata. For more information, see `Discover
-       and catalog Cloud Storage
-       data <https://cloud.google.com/bigquery/docs/automatic-discovery>`__.
+    - Data quality: generates queries based on the rules and runs
+      against the data to get data quality check results. For more
+      information, see `Auto data quality
+      overview <https://cloud.google.com/dataplex/docs/auto-data-quality-overview>`__.
+    - Data profile: analyzes the data in tables and generates insights
+      about the structure, content and relationships (such as null
+      percent, cardinality, min/max/mean, etc). For more information,
+      see `About data
+      profiling <https://cloud.google.com/dataplex/docs/data-profiling-overview>`__.
+    - Data discovery: scans data in Cloud Storage buckets to extract and
+      then catalog metadata. For more information, see `Discover and
+      catalog Cloud Storage
+      data <https://cloud.google.com/bigquery/docs/automatic-discovery>`__.
+    - Data documentation: analyzes the table details and generates
+      insights including descriptions and sample SQL queries for the
+      table. For more information, see `Generate data insights in
+      BigQuery <https://cloud.google.com/bigquery/docs/data-insights>`__.
 
     This message has `oneof`_ fields (mutually exclusive fields).
     For each oneof, at most one member field can be set at the same time.
@@ -527,7 +543,8 @@ class DataScan(proto.Message):
             scan, of the form:
             ``projects/{project}/locations/{location_id}/dataScans/{datascan_id}``,
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         uid (str):
             Output only. System generated globally unique
             ID for the scan. This ID will be different if
@@ -536,11 +553,11 @@ class DataScan(proto.Message):
         description (str):
             Optional. Description of the scan.
 
-            -  Must be between 1-1024 characters.
+            - Must be between 1-1024 characters.
         display_name (str):
             Optional. User friendly display name.
 
-            -  Must be between 1-256 characters.
+            - Must be between 1-256 characters.
         labels (MutableMapping[str, str]):
             Optional. User-defined labels for the scan.
         state (google.cloud.dataplex_v1.types.State):
@@ -575,6 +592,10 @@ class DataScan(proto.Message):
             Settings for a data discovery scan.
 
             This field is a member of `oneof`_ ``spec``.
+        data_documentation_spec (google.cloud.dataplex_v1.types.DataDocumentationSpec):
+            Settings for a data documentation scan.
+
+            This field is a member of `oneof`_ ``spec``.
         data_quality_result (google.cloud.dataplex_v1.types.DataQualityResult):
             Output only. The result of a data quality
             scan.
@@ -588,6 +609,11 @@ class DataScan(proto.Message):
         data_discovery_result (google.cloud.dataplex_v1.types.DataDiscoveryResult):
             Output only. The result of a data discovery
             scan.
+
+            This field is a member of `oneof`_ ``result``.
+        data_documentation_result (google.cloud.dataplex_v1.types.DataDocumentationResult):
+            Output only. The result of a data
+            documentation scan.
 
             This field is a member of `oneof`_ ``result``.
     """
@@ -732,6 +758,12 @@ class DataScan(proto.Message):
         oneof="spec",
         message=data_discovery.DataDiscoverySpec,
     )
+    data_documentation_spec: data_documentation.DataDocumentationSpec = proto.Field(
+        proto.MESSAGE,
+        number=103,
+        oneof="spec",
+        message=data_documentation.DataDocumentationSpec,
+    )
     data_quality_result: data_quality.DataQualityResult = proto.Field(
         proto.MESSAGE,
         number=200,
@@ -749,6 +781,12 @@ class DataScan(proto.Message):
         number=202,
         oneof="result",
         message=data_discovery.DataDiscoveryResult,
+    )
+    data_documentation_result: data_documentation.DataDocumentationResult = proto.Field(
+        proto.MESSAGE,
+        number=203,
+        oneof="result",
+        message=data_documentation.DataDocumentationResult,
     )
 
 
@@ -768,7 +806,8 @@ class DataScanJob(proto.Message):
             DataScanJob, of the form:
             ``projects/{project}/locations/{location_id}/dataScans/{datascan_id}/jobs/{job_id}``,
             where ``project`` refers to a *project_id* or
-            *project_number* and ``location_id`` refers to a GCP region.
+            *project_number* and ``location_id`` refers to a Google
+            Cloud region.
         uid (str):
             Output only. System generated globally unique
             ID for the DataScanJob.
@@ -804,6 +843,11 @@ class DataScanJob(proto.Message):
             scan.
 
             This field is a member of `oneof`_ ``spec``.
+        data_documentation_spec (google.cloud.dataplex_v1.types.DataDocumentationSpec):
+            Output only. Settings for a data
+            documentation scan.
+
+            This field is a member of `oneof`_ ``spec``.
         data_quality_result (google.cloud.dataplex_v1.types.DataQualityResult):
             Output only. The result of a data quality
             scan.
@@ -817,6 +861,11 @@ class DataScanJob(proto.Message):
         data_discovery_result (google.cloud.dataplex_v1.types.DataDiscoveryResult):
             Output only. The result of a data discovery
             scan.
+
+            This field is a member of `oneof`_ ``result``.
+        data_documentation_result (google.cloud.dataplex_v1.types.DataDocumentationResult):
+            Output only. The result of a data
+            documentation scan.
 
             This field is a member of `oneof`_ ``result``.
     """
@@ -842,6 +891,7 @@ class DataScanJob(proto.Message):
                 The DataScanJob has been created but not
                 started to run yet.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         CANCELING = 2
@@ -905,6 +955,12 @@ class DataScanJob(proto.Message):
         oneof="spec",
         message=data_discovery.DataDiscoverySpec,
     )
+    data_documentation_spec: data_documentation.DataDocumentationSpec = proto.Field(
+        proto.MESSAGE,
+        number=103,
+        oneof="spec",
+        message=data_documentation.DataDocumentationSpec,
+    )
     data_quality_result: data_quality.DataQualityResult = proto.Field(
         proto.MESSAGE,
         number=200,
@@ -922,6 +978,12 @@ class DataScanJob(proto.Message):
         number=202,
         oneof="result",
         message=data_discovery.DataDiscoveryResult,
+    )
+    data_documentation_result: data_documentation.DataDocumentationResult = proto.Field(
+        proto.MESSAGE,
+        number=203,
+        oneof="result",
+        message=data_documentation.DataDocumentationResult,
     )
 
 

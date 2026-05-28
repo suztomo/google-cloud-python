@@ -1,17 +1,15 @@
 {
-    "name": "geotype",
-    "name_pretty": "Geo Type Protos",
-    "api_description": "",
-    "product_documentation": "https://mapsplatform.google.com/maps-products",
+    "api_description": "Defines common types for Google Geo APIs.",
+    "api_id": "type.geo.googleapis.com",
+    "api_shortname": "type",
     "client_documentation": "https://googleapis.dev/python/geotype/latest",
-    "issue_tracker": "https://github.com/googleapis/google-cloud-python/issues",
-    "release_level": "preview",
+    "default_version": "apiVersion",
+    "distribution_name": "google-geo-type",
     "language": "python",
     "library_type": "OTHER",
-    "repo": "googleapis/google-cloud-python",
-    "distribution_name": "google-geo-type",
-    "api_id": "type.googleapis.com",
-    "default_version": "apiVersion",
-    "codeowner_team": "",
-    "api_shortname": "type"
+    "name": "geotype",
+    "name_pretty": "Common Geo Types",
+    "product_documentation": "https://mapsplatform.google.com/maps-products",
+    "release_level": "preview",
+    "repo": "googleapis/google-cloud-python"
 }

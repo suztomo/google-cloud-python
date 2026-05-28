@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2.types import context
@@ -55,6 +55,7 @@ class IntentView(proto.Enum):
         INTENT_VIEW_FULL (1):
             All fields are populated.
     """
+
     INTENT_VIEW_UNSPECIFIED = 0
     INTENT_VIEW_FULL = 1
 
@@ -88,11 +89,11 @@ class Intent(proto.Message):
             Optional. The priority of this intent. Higher numbers
             represent higher priorities.
 
-            -  If the supplied value is unspecified or 0, the service
-               translates the value to 500,000, which corresponds to the
-               ``Normal`` priority in the console.
-            -  If the supplied value is negative, the intent is ignored
-               in runtime detect intent requests.
+            - If the supplied value is unspecified or 0, the service
+              translates the value to 500,000, which corresponds to the
+              ``Normal`` priority in the console.
+            - If the supplied value is negative, the intent is ignored
+              in runtime detect intent requests.
         is_fallback (bool):
             Optional. Indicates whether this is a
             fallback intent.
@@ -192,6 +193,7 @@ class Intent(proto.Message):
                 intent. Also, each slot filling prompt is
                 forwarded to the webhook.
         """
+
         WEBHOOK_STATE_UNSPECIFIED = 0
         WEBHOOK_STATE_ENABLED = 1
         WEBHOOK_STATE_ENABLED_FOR_SLOT_FILLING = 2
@@ -225,11 +227,11 @@ class Intent(proto.Message):
                 multiple parts, where the fields of each part are populated
                 in one of two ways:
 
-                -  ``Part.text`` is set to a part of the phrase that has no
-                   parameters.
-                -  ``Part.text`` is set to a part of the phrase that you
-                   want to annotate, and the ``entity_type``, ``alias``, and
-                   ``user_defined`` fields are all set.
+                - ``Part.text`` is set to a part of the phrase that has no
+                  parameters.
+                - ``Part.text`` is set to a part of the phrase that you want
+                  to annotate, and the ``entity_type``, ``alias``, and
+                  ``user_defined`` fields are all set.
             times_added_count (int):
                 Optional. Indicates how many times this
                 example was added to the intent. Each time a
@@ -257,6 +259,7 @@ class Intent(proto.Message):
                     existing training phrases that you've created in
                     template mode, those will continue to work.
             """
+
             TYPE_UNSPECIFIED = 0
             EXAMPLE = 1
             TEMPLATE = 2
@@ -331,12 +334,12 @@ class Intent(proto.Message):
             value (str):
                 Optional. The definition of the parameter value. It can be:
 
-                -  a constant string,
-                -  a parameter value defined as ``$parameter_name``,
-                -  an original parameter value defined as
-                   ``$parameter_name.original``,
-                -  a parameter value from some context defined as
-                   ``#context_name.parameter_name``.
+                - a constant string,
+                - a parameter value defined as ``$parameter_name``,
+                - an original parameter value defined as
+                  ``$parameter_name.original``,
+                - a parameter value from some context defined as
+                  ``#context_name.parameter_name``.
             default_value (str):
                 Optional. The default value to use when the ``value`` yields
                 an empty result. Default values can be extracted from
@@ -499,6 +502,7 @@ class Intent(proto.Message):
                 GOOGLE_HANGOUTS (11):
                     Google Hangouts.
             """
+
             PLATFORM_UNSPECIFIED = 0
             FACEBOOK = 1
             SLACK = 2
@@ -611,12 +615,12 @@ class Intent(proto.Message):
                 proto.STRING,
                 number=3,
             )
-            buttons: MutableSequence[
-                "Intent.Message.Card.Button"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=4,
-                message="Intent.Message.Card.Button",
+            buttons: MutableSequence["Intent.Message.Card.Button"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Intent.Message.Card.Button",
+                )
             )
 
         class SimpleResponse(proto.Message):
@@ -658,12 +662,12 @@ class Intent(proto.Message):
                     Required. The list of simple responses.
             """
 
-            simple_responses: MutableSequence[
-                "Intent.Message.SimpleResponse"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message="Intent.Message.SimpleResponse",
+            simple_responses: MutableSequence["Intent.Message.SimpleResponse"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message="Intent.Message.SimpleResponse",
+                )
             )
 
         class BasicCard(proto.Message):
@@ -736,12 +740,12 @@ class Intent(proto.Message):
                 number=4,
                 message="Intent.Message.Image",
             )
-            buttons: MutableSequence[
-                "Intent.Message.BasicCard.Button"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=5,
-                message="Intent.Message.BasicCard.Button",
+            buttons: MutableSequence["Intent.Message.BasicCard.Button"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=5,
+                    message="Intent.Message.BasicCard.Button",
+                )
             )
 
         class Suggestion(proto.Message):
@@ -767,12 +771,12 @@ class Intent(proto.Message):
                     Required. The list of suggested replies.
             """
 
-            suggestions: MutableSequence[
-                "Intent.Message.Suggestion"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message="Intent.Message.Suggestion",
+            suggestions: MutableSequence["Intent.Message.Suggestion"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message="Intent.Message.Suggestion",
+                )
             )
 
         class LinkOutSuggestion(proto.Message):
@@ -847,12 +851,12 @@ class Intent(proto.Message):
                 proto.STRING,
                 number=1,
             )
-            items: MutableSequence[
-                "Intent.Message.ListSelect.Item"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=2,
-                message="Intent.Message.ListSelect.Item",
+            items: MutableSequence["Intent.Message.ListSelect.Item"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=2,
+                    message="Intent.Message.ListSelect.Item",
+                )
             )
             subtitle: str = proto.Field(
                 proto.STRING,
@@ -901,12 +905,12 @@ class Intent(proto.Message):
                     message="Intent.Message.Image",
                 )
 
-            items: MutableSequence[
-                "Intent.Message.CarouselSelect.Item"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message="Intent.Message.CarouselSelect.Item",
+            items: MutableSequence["Intent.Message.CarouselSelect.Item"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message="Intent.Message.CarouselSelect.Item",
+                )
             )
 
         class SelectItemInfo(proto.Message):
@@ -951,6 +955,7 @@ class Intent(proto.Message):
                     AUDIO (1):
                         Response media type is audio.
                 """
+
                 RESPONSE_MEDIA_TYPE_UNSPECIFIED = 0
                 AUDIO = 1
 
@@ -1065,6 +1070,7 @@ class Intent(proto.Message):
                         Pad the gaps between image and image frame
                         with a blurred copy of the same image.
                 """
+
                 IMAGE_DISPLAY_OPTIONS_UNSPECIFIED = 0
                 GRAY = 1
                 WHITE = 2
@@ -1116,6 +1122,7 @@ class Intent(proto.Message):
                                 to a canonical URL which refers to AMP content
                                 via <link rel="amphtml">.
                         """
+
                         URL_TYPE_HINT_UNSPECIFIED = 0
                         AMP_ACTION = 1
                         AMP_CONTENT = 2
@@ -1199,24 +1206,24 @@ class Intent(proto.Message):
                 number=3,
                 message="Intent.Message.Image",
             )
-            column_properties: MutableSequence[
-                "Intent.Message.ColumnProperties"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=4,
-                message="Intent.Message.ColumnProperties",
+            column_properties: MutableSequence["Intent.Message.ColumnProperties"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=4,
+                    message="Intent.Message.ColumnProperties",
+                )
             )
             rows: MutableSequence["Intent.Message.TableCardRow"] = proto.RepeatedField(
                 proto.MESSAGE,
                 number=5,
                 message="Intent.Message.TableCardRow",
             )
-            buttons: MutableSequence[
-                "Intent.Message.BasicCard.Button"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=6,
-                message="Intent.Message.BasicCard.Button",
+            buttons: MutableSequence["Intent.Message.BasicCard.Button"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=6,
+                    message="Intent.Message.BasicCard.Button",
+                )
             )
 
         class ColumnProperties(proto.Message):
@@ -1247,6 +1254,7 @@ class Intent(proto.Message):
                         Text is aligned to the trailing edge of the
                         column.
                 """
+
                 HORIZONTAL_ALIGNMENT_UNSPECIFIED = 0
                 LEADING = 1
                 CENTER = 2
@@ -1275,12 +1283,12 @@ class Intent(proto.Message):
                     after this row.
             """
 
-            cells: MutableSequence[
-                "Intent.Message.TableCardCell"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message="Intent.Message.TableCardCell",
+            cells: MutableSequence["Intent.Message.TableCardCell"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message="Intent.Message.TableCardCell",
+                )
             )
             divider_after: bool = proto.Field(
                 proto.BOOL,

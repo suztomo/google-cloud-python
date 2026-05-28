@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_collector():
     client = rapidmigrationassessment_v1.RapidMigrationAssessmentClient()
 
     # Initialize request argument(s)
-    request = rapidmigrationassessment_v1.UpdateCollectorRequest(
-    )
+    request = rapidmigrationassessment_v1.UpdateCollectorRequest()
 
     # Make the request
     operation = client.update_collector(request=request)
@@ -51,5 +50,6 @@ def sample_update_collector():
 
     # Handle the response
     print(response)
+
 
 # [END rapidmigrationassessment_v1_generated_RapidMigrationAssessment_UpdateCollector_sync]

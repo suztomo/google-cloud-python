@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_list_environments():
     client = service_v1.EnvironmentsAsyncClient()
 
     # Initialize request argument(s)
-    request = service_v1.ListEnvironmentsRequest(
-    )
+    request = service_v1.ListEnvironmentsRequest()
 
     # Make the request
     page_result = client.list_environments(request=request)
@@ -48,5 +47,6 @@ async def sample_list_environments():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END composer_v1_generated_Environments_ListEnvironments_async]

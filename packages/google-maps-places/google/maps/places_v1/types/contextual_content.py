@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,11 +39,11 @@ class ContextualContent(proto.Message):
 
     Attributes:
         reviews (MutableSequence[google.maps.places_v1.types.Review]):
-            List of reviews about this place, contexual
+            List of reviews about this place, contextual
             to the place query.
         photos (MutableSequence[google.maps.places_v1.types.Photo]):
             Information (including references) about
-            photos of this place, contexual to the place
+            photos of this place, contextual to the place
             query.
         justifications (MutableSequence[google.maps.places_v1.types.ContextualContent.Justification]):
             Experimental: See

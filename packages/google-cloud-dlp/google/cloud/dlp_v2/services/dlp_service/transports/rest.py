@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -2727,9 +2727,10 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2747,6 +2748,12 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[DlpServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -3007,7 +3014,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3259,9 +3266,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseCreateDeidentifyTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseCreateDeidentifyTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_create_deidentify_template(
                 request, metadata
@@ -3419,9 +3424,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseCreateDiscoveryConfig._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseCreateDiscoveryConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_create_discovery_config(
                 request, metadata
@@ -3741,9 +3744,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseCreateInspectTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseCreateInspectTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_create_inspect_template(
                 request, metadata
@@ -4053,9 +4054,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseCreateStoredInfoType._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseCreateStoredInfoType._get_http_options()
 
             request, metadata = self._interceptor.pre_create_stored_info_type(
                 request, metadata
@@ -4378,7 +4377,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4464,9 +4463,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteDeidentifyTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteDeidentifyTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_deidentify_template(
                 request, metadata
@@ -4488,7 +4485,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4573,9 +4570,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteDiscoveryConfig._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteDiscoveryConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_discovery_config(
                 request, metadata
@@ -4597,7 +4592,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4708,7 +4703,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4794,9 +4789,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteFileStoreDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteFileStoreDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_file_store_data_profile(
                 request, metadata
@@ -4818,7 +4811,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4905,9 +4898,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteInspectTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteInspectTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_inspect_template(
                 request, metadata
@@ -4929,7 +4920,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5037,7 +5028,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5122,9 +5113,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteStoredInfoType._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteStoredInfoType._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_stored_info_type(
                 request, metadata
@@ -5146,7 +5135,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5231,9 +5220,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseDeleteTableDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseDeleteTableDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_table_data_profile(
                 request, metadata
@@ -5255,7 +5242,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5373,7 +5360,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5464,9 +5451,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseGetColumnDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseGetColumnDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_get_column_data_profile(
                 request, metadata
@@ -5767,9 +5752,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseGetDeidentifyTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseGetDeidentifyTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_get_deidentify_template(
                 request, metadata
@@ -6217,14 +6200,12 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     ~.dlp.FileStoreDataProfile:
                         The profile for a file store.
 
-                    -  Cloud Storage: maps 1:1 with a bucket.
-                    -  Amazon S3: maps 1:1 with a bucket.
+                    - Cloud Storage: maps 1:1 with a bucket.
+                    - Amazon S3: maps 1:1 with a bucket.
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseGetFileStoreDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseGetFileStoreDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_get_file_store_data_profile(
                 request, metadata
@@ -6678,9 +6659,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseGetProjectDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseGetProjectDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_get_project_data_profile(
                 request, metadata
@@ -6974,9 +6953,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
                     The profile for a scanned table.
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseGetTableDataProfile._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseGetTableDataProfile._get_http_options()
 
             request, metadata = self._interceptor.pre_get_table_data_profile(
                 request, metadata
@@ -7124,9 +7101,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseHybridInspectDlpJob._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseHybridInspectDlpJob._get_http_options()
 
             request, metadata = self._interceptor.pre_hybrid_inspect_dlp_job(
                 request, metadata
@@ -7280,9 +7255,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseHybridInspectJobTrigger._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseHybridInspectJobTrigger._get_http_options()
 
             request, metadata = self._interceptor.pre_hybrid_inspect_job_trigger(
                 request, metadata
@@ -7590,9 +7563,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListColumnDataProfiles._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListColumnDataProfiles._get_http_options()
 
             request, metadata = self._interceptor.pre_list_column_data_profiles(
                 request, metadata
@@ -7887,9 +7858,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListDeidentifyTemplates._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListDeidentifyTemplates._get_http_options()
 
             request, metadata = self._interceptor.pre_list_deidentify_templates(
                 request, metadata
@@ -8038,9 +8007,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListDiscoveryConfigs._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListDiscoveryConfigs._get_http_options()
 
             request, metadata = self._interceptor.pre_list_discovery_configs(
                 request, metadata
@@ -8343,9 +8310,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListFileStoreDataProfiles._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListFileStoreDataProfiles._get_http_options()
 
             request, metadata = self._interceptor.pre_list_file_store_data_profiles(
                 request, metadata
@@ -8409,11 +8374,10 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             resp = self._interceptor.post_list_file_store_data_profiles(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_file_store_data_profiles_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_file_store_data_profiles_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -8647,9 +8611,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListInspectTemplates._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListInspectTemplates._get_http_options()
 
             request, metadata = self._interceptor.pre_list_inspect_templates(
                 request, metadata
@@ -8946,9 +8908,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListProjectDataProfiles._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListProjectDataProfiles._get_http_options()
 
             request, metadata = self._interceptor.pre_list_project_data_profiles(
                 request, metadata
@@ -9097,9 +9057,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListStoredInfoTypes._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListStoredInfoTypes._get_http_options()
 
             request, metadata = self._interceptor.pre_list_stored_info_types(
                 request, metadata
@@ -9247,9 +9205,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseListTableDataProfiles._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseListTableDataProfiles._get_http_options()
 
             request, metadata = self._interceptor.pre_list_table_data_profiles(
                 request, metadata
@@ -10015,9 +9971,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseUpdateDeidentifyTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseUpdateDeidentifyTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_update_deidentify_template(
                 request, metadata
@@ -10175,9 +10129,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseUpdateDiscoveryConfig._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseUpdateDiscoveryConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_discovery_config(
                 request, metadata
@@ -10335,9 +10287,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseUpdateInspectTemplate._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseUpdateInspectTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_update_inspect_template(
                 request, metadata
@@ -10647,9 +10597,7 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDlpServiceRestTransport._BaseUpdateStoredInfoType._get_http_options()
-            )
+            http_options = _BaseDlpServiceRestTransport._BaseUpdateStoredInfoType._get_http_options()
 
             request, metadata = self._interceptor.pre_update_stored_info_type(
                 request, metadata
@@ -10772,7 +10720,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.CreateDeidentifyTemplateRequest], dlp.DeidentifyTemplate]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateDeidentifyTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateDeidentifyTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_discovery_config(
@@ -10834,7 +10784,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.DeleteDeidentifyTemplateRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteDeidentifyTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteDeidentifyTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_discovery_config(
@@ -10856,7 +10808,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.DeleteFileStoreDataProfileRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteFileStoreDataProfile(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteFileStoreDataProfile(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_inspect_template(
@@ -10888,7 +10842,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.DeleteTableDataProfileRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteTableDataProfile(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteTableDataProfile(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def finish_dlp_job(self) -> Callable[[dlp.FinishDlpJobRequest], empty_pb2.Empty]:
@@ -10938,7 +10894,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.GetFileStoreDataProfileRequest], dlp.FileStoreDataProfile]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetFileStoreDataProfile(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetFileStoreDataProfile(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_inspect_template(
@@ -10992,7 +10950,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.HybridInspectJobTriggerRequest], dlp.HybridInspectResponse]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._HybridInspectJobTrigger(self._session, self._host, self._interceptor)  # type: ignore
+        return self._HybridInspectJobTrigger(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def inspect_content(
@@ -11010,7 +10970,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListColumnDataProfiles(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListColumnDataProfiles(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_connections(
@@ -11028,7 +10990,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListDeidentifyTemplates(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListDeidentifyTemplates(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_discovery_configs(
@@ -11054,7 +11018,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListFileStoreDataProfiles(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListFileStoreDataProfiles(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_info_types(
@@ -11088,7 +11054,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListProjectDataProfiles(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListProjectDataProfiles(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_stored_info_types(
@@ -11146,7 +11114,9 @@ class DlpServiceRestTransport(_BaseDlpServiceRestTransport):
     ) -> Callable[[dlp.UpdateDeidentifyTemplateRequest], dlp.DeidentifyTemplate]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateDeidentifyTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateDeidentifyTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_discovery_config(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,9 @@ async def sample_create_prediction_result():
     prediction_result = financialservices_v1.PredictionResult()
     prediction_result.dataset = "dataset_value"
     prediction_result.model = "model_value"
-    prediction_result.outputs.prediction_destination.write_disposition = "WRITE_TRUNCATE"
+    prediction_result.outputs.prediction_destination.write_disposition = (
+        "WRITE_TRUNCATE"
+    )
 
     request = financialservices_v1.CreatePredictionResultRequest(
         parent="parent_value",
@@ -51,13 +53,14 @@ async def sample_create_prediction_result():
     )
 
     # Make the request
-    operation = client.create_prediction_result(request=request)
+    operation = await client.create_prediction_result(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END financialservices_v1_generated_AML_CreatePredictionResult_async]

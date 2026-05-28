@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -285,6 +285,7 @@ class AccessStringFilter(proto.Message):
                 Partial match for the regular expression with
                 the string value.
         """
+
         MATCH_TYPE_UNSPECIFIED = 0
         EXACT = 1
         BEGINS_WITH = 2
@@ -355,6 +356,7 @@ class AccessNumericFilter(proto.Message):
             GREATER_THAN_OR_EQUAL (5):
                 Greater than or equal
         """
+
         OPERATION_UNSPECIFIED = 0
         EQUAL = 1
         LESS_THAN = 2
@@ -501,6 +503,7 @@ class AccessOrderBy(proto.Message):
                     values all have equal ordering value below all numeric
                     values.
             """
+
             ORDER_TYPE_UNSPECIFIED = 0
             ALPHANUMERIC = 1
             CASE_INSENSITIVE_ALPHANUMERIC = 2

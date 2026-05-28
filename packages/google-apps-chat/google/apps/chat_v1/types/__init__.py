@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .action_status import ActionStatus
+from .action_status import (
+    ActionStatus,
+)
 from .annotation import (
     Annotation,
     AnnotationType,
+    CalendarEventLinkData,
     ChatSpaceLinkData,
     CustomEmojiMetadata,
     DriveLinkData,
+    MeetSpaceLinkData,
     RichLinkMetadata,
     SlashCommandMetadata,
     UserMentionMetadata,
@@ -32,8 +36,12 @@ from .attachment import (
     UploadAttachmentRequest,
     UploadAttachmentResponse,
 )
-from .contextual_addon import ContextualAddOnMarkup
-from .deletion_metadata import DeletionMetadata
+from .contextual_addon import (
+    ContextualAddOnMarkup,
+)
+from .deletion_metadata import (
+    DeletionMetadata,
+)
 from .event_payload import (
     MembershipBatchCreatedEventData,
     MembershipBatchDeletedEventData,
@@ -54,9 +62,15 @@ from .event_payload import (
     SpaceBatchUpdatedEventData,
     SpaceUpdatedEventData,
 )
-from .group import Group
-from .history_state import HistoryState
-from .matched_url import MatchedUrl
+from .group import (
+    Group,
+)
+from .history_state import (
+    HistoryState,
+)
+from .matched_url import (
+    MatchedUrl,
+)
 from .membership import (
     CreateMembershipRequest,
     DeleteMembershipRequest,
@@ -71,15 +85,18 @@ from .message import (
     ActionResponse,
     AttachedGif,
     CardWithId,
+    CreateMessageNotificationOptions,
     CreateMessageRequest,
     DeleteMessageRequest,
     Dialog,
     DialogAction,
+    ForwardedMetadata,
     GetMessageRequest,
     ListMessagesRequest,
     ListMessagesResponse,
     Message,
     QuotedMessageMetadata,
+    QuotedMessageSnapshot,
     Thread,
     UpdateMessageRequest,
 )
@@ -98,19 +115,39 @@ from .reaction import (
     ListReactionsResponse,
     Reaction,
 )
-from .slash_command import SlashCommand
+from .section import (
+    CreateSectionRequest,
+    DeleteSectionRequest,
+    ListSectionItemsRequest,
+    ListSectionItemsResponse,
+    ListSectionsRequest,
+    ListSectionsResponse,
+    MoveSectionItemRequest,
+    MoveSectionItemResponse,
+    PositionSectionRequest,
+    PositionSectionResponse,
+    Section,
+    SectionItem,
+    UpdateSectionRequest,
+)
+from .slash_command import (
+    SlashCommand,
+)
 from .space import (
     CompleteImportSpaceRequest,
     CompleteImportSpaceResponse,
     CreateSpaceRequest,
     DeleteSpaceRequest,
     FindDirectMessageRequest,
+    FindGroupChatsRequest,
+    FindGroupChatsResponse,
     GetSpaceRequest,
     ListSpacesRequest,
     ListSpacesResponse,
     SearchSpacesRequest,
     SearchSpacesResponse,
     Space,
+    SpaceView,
     UpdateSpaceRequest,
 )
 from .space_event import (
@@ -129,17 +166,28 @@ from .space_read_state import (
     SpaceReadState,
     UpdateSpaceReadStateRequest,
 )
-from .space_setup import SetUpSpaceRequest
-from .thread_read_state import GetThreadReadStateRequest, ThreadReadState
-from .user import User
-from .widgets import WidgetMarkup
+from .space_setup import (
+    SetUpSpaceRequest,
+)
+from .thread_read_state import (
+    GetThreadReadStateRequest,
+    ThreadReadState,
+)
+from .user import (
+    User,
+)
+from .widgets import (
+    WidgetMarkup,
+)
 
 __all__ = (
     "ActionStatus",
     "Annotation",
+    "CalendarEventLinkData",
     "ChatSpaceLinkData",
     "CustomEmojiMetadata",
     "DriveLinkData",
+    "MeetSpaceLinkData",
     "RichLinkMetadata",
     "SlashCommandMetadata",
     "UserMentionMetadata",
@@ -184,15 +232,18 @@ __all__ = (
     "ActionResponse",
     "AttachedGif",
     "CardWithId",
+    "CreateMessageNotificationOptions",
     "CreateMessageRequest",
     "DeleteMessageRequest",
     "Dialog",
     "DialogAction",
+    "ForwardedMetadata",
     "GetMessageRequest",
     "ListMessagesRequest",
     "ListMessagesResponse",
     "Message",
     "QuotedMessageMetadata",
+    "QuotedMessageSnapshot",
     "Thread",
     "UpdateMessageRequest",
     "CreateCustomEmojiRequest",
@@ -208,12 +259,27 @@ __all__ = (
     "ListReactionsRequest",
     "ListReactionsResponse",
     "Reaction",
+    "CreateSectionRequest",
+    "DeleteSectionRequest",
+    "ListSectionItemsRequest",
+    "ListSectionItemsResponse",
+    "ListSectionsRequest",
+    "ListSectionsResponse",
+    "MoveSectionItemRequest",
+    "MoveSectionItemResponse",
+    "PositionSectionRequest",
+    "PositionSectionResponse",
+    "Section",
+    "SectionItem",
+    "UpdateSectionRequest",
     "SlashCommand",
     "CompleteImportSpaceRequest",
     "CompleteImportSpaceResponse",
     "CreateSpaceRequest",
     "DeleteSpaceRequest",
     "FindDirectMessageRequest",
+    "FindGroupChatsRequest",
+    "FindGroupChatsResponse",
     "GetSpaceRequest",
     "ListSpacesRequest",
     "ListSpacesResponse",
@@ -221,6 +287,7 @@ __all__ = (
     "SearchSpacesResponse",
     "Space",
     "UpdateSpaceRequest",
+    "SpaceView",
     "GetSpaceEventRequest",
     "ListSpaceEventsRequest",
     "ListSpaceEventsResponse",

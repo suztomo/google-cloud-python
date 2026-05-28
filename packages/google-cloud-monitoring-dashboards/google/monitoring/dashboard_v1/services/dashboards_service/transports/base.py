@@ -18,8 +18,10 @@
 import abc
 import typing
 
-from google.api_core import exceptions  # type: ignore
-from google.api_core import gapic_v1  # type: ignore
+from google.api_core import (
+    exceptions,  # type: ignore
+    gapic_v1,  # type: ignore
+)
 from google.auth import credentials  # type: ignore
 from google.protobuf import empty_pb2 as empty  # type: ignore
 
@@ -46,7 +48,7 @@ class DashboardsServiceTransport(abc.ABC):
         self,
         *,
         host: str = "monitoring.googleapis.com",
-        credentials: credentials.Credentials = None,
+        credentials: typing.Optional[credentials.Credentials] = None,
         credentials_file: typing.Optional[str] = None,
         scopes: typing.Optional[typing.Sequence[str]] = AUTH_SCOPES,
         quota_project_id: typing.Optional[str] = None,
@@ -64,7 +66,7 @@ class DashboardsServiceTransport(abc.ABC):
             credentials_file (Optional[str]): A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is mutually exclusive with credentials.
-            scope (Optional[Sequence[str]]): A list of scopes.
+            scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
         """

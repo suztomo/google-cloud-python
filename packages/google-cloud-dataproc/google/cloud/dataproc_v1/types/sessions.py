@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataproc_v1.types import shared
@@ -65,7 +65,7 @@ class CreateSessionRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The value must contain only letters (a-z, A-Z), numbers
-            (0-9), underscores (_), and hyphens (-). The maximum length
+            (0-9), underscores (\_), and hyphens (-). The maximum length
             is 40 characters.
     """
 
@@ -205,7 +205,7 @@ class TerminateSessionRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The value must contain only letters (a-z, A-Z), numbers
-            (0-9), underscores (_), and hyphens (-). The maximum length
+            (0-9), underscores (\_), and hyphens (-). The maximum length
             is 40 characters.
     """
 
@@ -236,7 +236,7 @@ class DeleteSessionRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The value must contain only letters (a-z, A-Z), numbers
-            (0-9), underscores (_), and hyphens (-). The maximum length
+            (0-9), underscores (\_), and hyphens (-). The maximum length
             is 40 characters.
     """
 
@@ -262,7 +262,7 @@ class Session(proto.Message):
 
     Attributes:
         name (str):
-            Required. The resource name of the session.
+            Identifier. The resource name of the session.
         uuid (str):
             Output only. A session UUID (Unique Universal
             Identifier). The service generates this value
@@ -275,7 +275,7 @@ class Session(proto.Message):
 
             This field is a member of `oneof`_ ``session_config``.
         spark_connect_session (google.cloud.dataproc_v1.types.SparkConnectConfig):
-            Optional. Spark Connect session config.
+            Optional. Spark connect session config.
 
             This field is a member of `oneof`_ ``session_config``.
         runtime_info (google.cloud.dataproc_v1.types.RuntimeInfo):
@@ -320,8 +320,8 @@ class Session(proto.Message):
 
             Example:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/locations/[dataproc_region]/sessionTemplates/[template_id]``
-            -  ``projects/[project_id]/locations/[dataproc_region]/sessionTemplates/[template_id]``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/locations/[dataproc_region]/sessionTemplates/[template_id]``
+            - ``projects/[project_id]/locations/[dataproc_region]/sessionTemplates/[template_id]``
 
             The template must be in the same project and Dataproc region
             as the session.
@@ -345,6 +345,7 @@ class Session(proto.Message):
                 The session is no longer running due to an
                 error.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -482,6 +483,7 @@ class JupyterConfig(proto.Message):
             SCALA (2):
                 Scala kernel.
         """
+
         KERNEL_UNSPECIFIED = 0
         PYTHON = 1
         SCALA = 2
@@ -498,7 +500,7 @@ class JupyterConfig(proto.Message):
 
 
 class SparkConnectConfig(proto.Message):
-    r"""Spark Connect configuration for an interactive session."""
+    r"""Spark connect configuration for an interactive session."""
 
 
 __all__ = tuple(sorted(__protobuf__.manifest))

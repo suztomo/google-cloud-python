@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,41 +16,51 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
 from google.cloud.network_services_v1.types import (
+    endpoint_policy,
+    extensibility,
+    gateway,
+    grpc_route,
+    http_route,
+    mesh,
+    route_view,
+    service_binding,
+    service_lb_policy,
+    tcp_route,
+    tls_route,
+)
+from google.cloud.network_services_v1.types import (
     endpoint_policy as gcn_endpoint_policy,
 )
+from google.cloud.network_services_v1.types import gateway as gcn_gateway
+from google.cloud.network_services_v1.types import grpc_route as gcn_grpc_route
+from google.cloud.network_services_v1.types import http_route as gcn_http_route
+from google.cloud.network_services_v1.types import mesh as gcn_mesh
 from google.cloud.network_services_v1.types import (
     service_binding as gcn_service_binding,
 )
-from google.cloud.network_services_v1.types import endpoint_policy
-from google.cloud.network_services_v1.types import gateway
-from google.cloud.network_services_v1.types import gateway as gcn_gateway
-from google.cloud.network_services_v1.types import grpc_route
-from google.cloud.network_services_v1.types import grpc_route as gcn_grpc_route
-from google.cloud.network_services_v1.types import http_route
-from google.cloud.network_services_v1.types import http_route as gcn_http_route
-from google.cloud.network_services_v1.types import mesh
-from google.cloud.network_services_v1.types import mesh as gcn_mesh
-from google.cloud.network_services_v1.types import service_binding
-from google.cloud.network_services_v1.types import tcp_route
+from google.cloud.network_services_v1.types import (
+    service_lb_policy as gcn_service_lb_policy,
+)
 from google.cloud.network_services_v1.types import tcp_route as gcn_tcp_route
-from google.cloud.network_services_v1.types import tls_route
 from google.cloud.network_services_v1.types import tls_route as gcn_tls_route
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
@@ -143,6 +153,14 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_create_service_lb_policy(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_service_lb_policy(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_create_tcp_route(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -156,6 +174,22 @@ class NetworkServicesRestInterceptor:
                 return request, metadata
 
             def post_create_tls_route(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_create_wasm_plugin(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_wasm_plugin(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_create_wasm_plugin_version(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_wasm_plugin_version(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -207,6 +241,14 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_delete_service_lb_policy(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_service_lb_policy(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_delete_tcp_route(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -223,6 +265,22 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_delete_wasm_plugin(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_wasm_plugin(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_delete_wasm_plugin_version(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_wasm_plugin_version(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_get_endpoint_policy(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -236,6 +294,14 @@ class NetworkServicesRestInterceptor:
                 return request, metadata
 
             def post_get_gateway(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_gateway_route_view(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_gateway_route_view(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -263,11 +329,27 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_get_mesh_route_view(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_mesh_route_view(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_get_service_binding(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_get_service_binding(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_service_lb_policy(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_service_lb_policy(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -287,11 +369,35 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_get_wasm_plugin(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_wasm_plugin(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_wasm_plugin_version(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_wasm_plugin_version(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_list_endpoint_policies(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_list_endpoint_policies(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_gateway_route_views(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_gateway_route_views(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -327,11 +433,27 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_list_mesh_route_views(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_mesh_route_views(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_list_service_bindings(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_list_service_bindings(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_service_lb_policies(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_service_lb_policies(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -348,6 +470,22 @@ class NetworkServicesRestInterceptor:
                 return request, metadata
 
             def post_list_tls_routes(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_wasm_plugins(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_wasm_plugins(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_wasm_plugin_versions(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_wasm_plugin_versions(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -391,6 +529,22 @@ class NetworkServicesRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_update_service_binding(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_service_binding(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_update_service_lb_policy(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_service_lb_policy(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_update_tcp_route(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -404,6 +558,14 @@ class NetworkServicesRestInterceptor:
                 return request, metadata
 
             def post_update_tls_route(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_update_wasm_plugin(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_wasm_plugin(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -701,6 +863,55 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_create_service_lb_policy(
+        self,
+        request: gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for create_service_lb_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_create_service_lb_policy(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_service_lb_policy
+
+        DEPRECATED. Please use the `post_create_service_lb_policy_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_create_service_lb_policy` interceptor runs
+        before the `post_create_service_lb_policy_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_service_lb_policy_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_service_lb_policy
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_create_service_lb_policy_with_metadata`
+        interceptor in new development instead of the `post_create_service_lb_policy` interceptor.
+        When both interceptors are used, this `post_create_service_lb_policy_with_metadata` interceptor runs after the
+        `post_create_service_lb_policy` interceptor. The (possibly modified) response returned by
+        `post_create_service_lb_policy` will be passed to
+        `post_create_service_lb_policy_with_metadata`.
+        """
+        return response, metadata
+
     def pre_create_tcp_route(
         self,
         request: gcn_tcp_route.CreateTcpRouteRequest,
@@ -794,6 +1005,103 @@ class NetworkServicesRestInterceptor:
         `post_create_tls_route` interceptor. The (possibly modified) response returned by
         `post_create_tls_route` will be passed to
         `post_create_tls_route_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_create_wasm_plugin(
+        self,
+        request: extensibility.CreateWasmPluginRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.CreateWasmPluginRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for create_wasm_plugin
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_create_wasm_plugin(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_wasm_plugin
+
+        DEPRECATED. Please use the `post_create_wasm_plugin_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_create_wasm_plugin` interceptor runs
+        before the `post_create_wasm_plugin_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_wasm_plugin_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_wasm_plugin
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_create_wasm_plugin_with_metadata`
+        interceptor in new development instead of the `post_create_wasm_plugin` interceptor.
+        When both interceptors are used, this `post_create_wasm_plugin_with_metadata` interceptor runs after the
+        `post_create_wasm_plugin` interceptor. The (possibly modified) response returned by
+        `post_create_wasm_plugin` will be passed to
+        `post_create_wasm_plugin_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_create_wasm_plugin_version(
+        self,
+        request: extensibility.CreateWasmPluginVersionRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.CreateWasmPluginVersionRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for create_wasm_plugin_version
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_create_wasm_plugin_version(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_wasm_plugin_version
+
+        DEPRECATED. Please use the `post_create_wasm_plugin_version_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_create_wasm_plugin_version` interceptor runs
+        before the `post_create_wasm_plugin_version_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_wasm_plugin_version_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_wasm_plugin_version
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_create_wasm_plugin_version_with_metadata`
+        interceptor in new development instead of the `post_create_wasm_plugin_version` interceptor.
+        When both interceptors are used, this `post_create_wasm_plugin_version_with_metadata` interceptor runs after the
+        `post_create_wasm_plugin_version` interceptor. The (possibly modified) response returned by
+        `post_create_wasm_plugin_version` will be passed to
+        `post_create_wasm_plugin_version_with_metadata`.
         """
         return response, metadata
 
@@ -1083,6 +1391,55 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_delete_service_lb_policy(
+        self,
+        request: service_lb_policy.DeleteServiceLbPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service_lb_policy.DeleteServiceLbPolicyRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for delete_service_lb_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_delete_service_lb_policy(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_service_lb_policy
+
+        DEPRECATED. Please use the `post_delete_service_lb_policy_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_delete_service_lb_policy` interceptor runs
+        before the `post_delete_service_lb_policy_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_service_lb_policy_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_service_lb_policy
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_delete_service_lb_policy_with_metadata`
+        interceptor in new development instead of the `post_delete_service_lb_policy` interceptor.
+        When both interceptors are used, this `post_delete_service_lb_policy_with_metadata` interceptor runs after the
+        `post_delete_service_lb_policy` interceptor. The (possibly modified) response returned by
+        `post_delete_service_lb_policy` will be passed to
+        `post_delete_service_lb_policy_with_metadata`.
+        """
+        return response, metadata
+
     def pre_delete_tcp_route(
         self,
         request: tcp_route.DeleteTcpRouteRequest,
@@ -1179,6 +1536,103 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_delete_wasm_plugin(
+        self,
+        request: extensibility.DeleteWasmPluginRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.DeleteWasmPluginRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for delete_wasm_plugin
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_delete_wasm_plugin(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_wasm_plugin
+
+        DEPRECATED. Please use the `post_delete_wasm_plugin_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_delete_wasm_plugin` interceptor runs
+        before the `post_delete_wasm_plugin_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_wasm_plugin_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_wasm_plugin
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_delete_wasm_plugin_with_metadata`
+        interceptor in new development instead of the `post_delete_wasm_plugin` interceptor.
+        When both interceptors are used, this `post_delete_wasm_plugin_with_metadata` interceptor runs after the
+        `post_delete_wasm_plugin` interceptor. The (possibly modified) response returned by
+        `post_delete_wasm_plugin` will be passed to
+        `post_delete_wasm_plugin_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_delete_wasm_plugin_version(
+        self,
+        request: extensibility.DeleteWasmPluginVersionRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.DeleteWasmPluginVersionRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for delete_wasm_plugin_version
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_delete_wasm_plugin_version(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_wasm_plugin_version
+
+        DEPRECATED. Please use the `post_delete_wasm_plugin_version_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_delete_wasm_plugin_version` interceptor runs
+        before the `post_delete_wasm_plugin_version_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_wasm_plugin_version_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_wasm_plugin_version
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_delete_wasm_plugin_version_with_metadata`
+        interceptor in new development instead of the `post_delete_wasm_plugin_version` interceptor.
+        When both interceptors are used, this `post_delete_wasm_plugin_version_with_metadata` interceptor runs after the
+        `post_delete_wasm_plugin_version` interceptor. The (possibly modified) response returned by
+        `post_delete_wasm_plugin_version` will be passed to
+        `post_delete_wasm_plugin_version_with_metadata`.
+        """
+        return response, metadata
+
     def pre_get_endpoint_policy(
         self,
         request: endpoint_policy.GetEndpointPolicyRequest,
@@ -1269,6 +1723,54 @@ class NetworkServicesRestInterceptor:
         `post_get_gateway` interceptor. The (possibly modified) response returned by
         `post_get_gateway` will be passed to
         `post_get_gateway_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_gateway_route_view(
+        self,
+        request: route_view.GetGatewayRouteViewRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.GetGatewayRouteViewRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_gateway_route_view
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_get_gateway_route_view(
+        self, response: route_view.GatewayRouteView
+    ) -> route_view.GatewayRouteView:
+        """Post-rpc interceptor for get_gateway_route_view
+
+        DEPRECATED. Please use the `post_get_gateway_route_view_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_get_gateway_route_view` interceptor runs
+        before the `post_get_gateway_route_view_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_gateway_route_view_with_metadata(
+        self,
+        response: route_view.GatewayRouteView,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[route_view.GatewayRouteView, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_gateway_route_view
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_get_gateway_route_view_with_metadata`
+        interceptor in new development instead of the `post_get_gateway_route_view` interceptor.
+        When both interceptors are used, this `post_get_gateway_route_view_with_metadata` interceptor runs after the
+        `post_get_gateway_route_view` interceptor. The (possibly modified) response returned by
+        `post_get_gateway_route_view` will be passed to
+        `post_get_gateway_route_view_with_metadata`.
         """
         return response, metadata
 
@@ -1406,6 +1908,54 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_mesh_route_view(
+        self,
+        request: route_view.GetMeshRouteViewRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.GetMeshRouteViewRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_mesh_route_view
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_get_mesh_route_view(
+        self, response: route_view.MeshRouteView
+    ) -> route_view.MeshRouteView:
+        """Post-rpc interceptor for get_mesh_route_view
+
+        DEPRECATED. Please use the `post_get_mesh_route_view_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_get_mesh_route_view` interceptor runs
+        before the `post_get_mesh_route_view_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_mesh_route_view_with_metadata(
+        self,
+        response: route_view.MeshRouteView,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[route_view.MeshRouteView, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_mesh_route_view
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_get_mesh_route_view_with_metadata`
+        interceptor in new development instead of the `post_get_mesh_route_view` interceptor.
+        When both interceptors are used, this `post_get_mesh_route_view_with_metadata` interceptor runs after the
+        `post_get_mesh_route_view` interceptor. The (possibly modified) response returned by
+        `post_get_mesh_route_view` will be passed to
+        `post_get_mesh_route_view_with_metadata`.
+        """
+        return response, metadata
+
     def pre_get_service_binding(
         self,
         request: service_binding.GetServiceBindingRequest,
@@ -1452,6 +2002,57 @@ class NetworkServicesRestInterceptor:
         `post_get_service_binding` interceptor. The (possibly modified) response returned by
         `post_get_service_binding` will be passed to
         `post_get_service_binding_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_service_lb_policy(
+        self,
+        request: service_lb_policy.GetServiceLbPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service_lb_policy.GetServiceLbPolicyRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for get_service_lb_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_get_service_lb_policy(
+        self, response: service_lb_policy.ServiceLbPolicy
+    ) -> service_lb_policy.ServiceLbPolicy:
+        """Post-rpc interceptor for get_service_lb_policy
+
+        DEPRECATED. Please use the `post_get_service_lb_policy_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_get_service_lb_policy` interceptor runs
+        before the `post_get_service_lb_policy_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_service_lb_policy_with_metadata(
+        self,
+        response: service_lb_policy.ServiceLbPolicy,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service_lb_policy.ServiceLbPolicy, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for get_service_lb_policy
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_get_service_lb_policy_with_metadata`
+        interceptor in new development instead of the `post_get_service_lb_policy` interceptor.
+        When both interceptors are used, this `post_get_service_lb_policy_with_metadata` interceptor runs after the
+        `post_get_service_lb_policy` interceptor. The (possibly modified) response returned by
+        `post_get_service_lb_policy` will be passed to
+        `post_get_service_lb_policy_with_metadata`.
         """
         return response, metadata
 
@@ -1543,6 +2144,105 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_wasm_plugin(
+        self,
+        request: extensibility.GetWasmPluginRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.GetWasmPluginRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_wasm_plugin
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_get_wasm_plugin(
+        self, response: extensibility.WasmPlugin
+    ) -> extensibility.WasmPlugin:
+        """Post-rpc interceptor for get_wasm_plugin
+
+        DEPRECATED. Please use the `post_get_wasm_plugin_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_get_wasm_plugin` interceptor runs
+        before the `post_get_wasm_plugin_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_wasm_plugin_with_metadata(
+        self,
+        response: extensibility.WasmPlugin,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[extensibility.WasmPlugin, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_wasm_plugin
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_get_wasm_plugin_with_metadata`
+        interceptor in new development instead of the `post_get_wasm_plugin` interceptor.
+        When both interceptors are used, this `post_get_wasm_plugin_with_metadata` interceptor runs after the
+        `post_get_wasm_plugin` interceptor. The (possibly modified) response returned by
+        `post_get_wasm_plugin` will be passed to
+        `post_get_wasm_plugin_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_wasm_plugin_version(
+        self,
+        request: extensibility.GetWasmPluginVersionRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.GetWasmPluginVersionRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for get_wasm_plugin_version
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_get_wasm_plugin_version(
+        self, response: extensibility.WasmPluginVersion
+    ) -> extensibility.WasmPluginVersion:
+        """Post-rpc interceptor for get_wasm_plugin_version
+
+        DEPRECATED. Please use the `post_get_wasm_plugin_version_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_get_wasm_plugin_version` interceptor runs
+        before the `post_get_wasm_plugin_version_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_wasm_plugin_version_with_metadata(
+        self,
+        response: extensibility.WasmPluginVersion,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.WasmPluginVersion, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for get_wasm_plugin_version
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_get_wasm_plugin_version_with_metadata`
+        interceptor in new development instead of the `post_get_wasm_plugin_version` interceptor.
+        When both interceptors are used, this `post_get_wasm_plugin_version_with_metadata` interceptor runs after the
+        `post_get_wasm_plugin_version` interceptor. The (possibly modified) response returned by
+        `post_get_wasm_plugin_version` will be passed to
+        `post_get_wasm_plugin_version_with_metadata`.
+        """
+        return response, metadata
+
     def pre_list_endpoint_policies(
         self,
         request: endpoint_policy.ListEndpointPoliciesRequest,
@@ -1592,6 +2292,57 @@ class NetworkServicesRestInterceptor:
         `post_list_endpoint_policies` interceptor. The (possibly modified) response returned by
         `post_list_endpoint_policies` will be passed to
         `post_list_endpoint_policies_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_gateway_route_views(
+        self,
+        request: route_view.ListGatewayRouteViewsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.ListGatewayRouteViewsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_gateway_route_views
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_list_gateway_route_views(
+        self, response: route_view.ListGatewayRouteViewsResponse
+    ) -> route_view.ListGatewayRouteViewsResponse:
+        """Post-rpc interceptor for list_gateway_route_views
+
+        DEPRECATED. Please use the `post_list_gateway_route_views_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_list_gateway_route_views` interceptor runs
+        before the `post_list_gateway_route_views_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_gateway_route_views_with_metadata(
+        self,
+        response: route_view.ListGatewayRouteViewsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.ListGatewayRouteViewsResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for list_gateway_route_views
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_list_gateway_route_views_with_metadata`
+        interceptor in new development instead of the `post_list_gateway_route_views` interceptor.
+        When both interceptors are used, this `post_list_gateway_route_views_with_metadata` interceptor runs after the
+        `post_list_gateway_route_views` interceptor. The (possibly modified) response returned by
+        `post_list_gateway_route_views` will be passed to
+        `post_list_gateway_route_views_with_metadata`.
         """
         return response, metadata
 
@@ -1787,6 +2538,56 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_list_mesh_route_views(
+        self,
+        request: route_view.ListMeshRouteViewsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.ListMeshRouteViewsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_mesh_route_views
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_list_mesh_route_views(
+        self, response: route_view.ListMeshRouteViewsResponse
+    ) -> route_view.ListMeshRouteViewsResponse:
+        """Post-rpc interceptor for list_mesh_route_views
+
+        DEPRECATED. Please use the `post_list_mesh_route_views_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_list_mesh_route_views` interceptor runs
+        before the `post_list_mesh_route_views_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_mesh_route_views_with_metadata(
+        self,
+        response: route_view.ListMeshRouteViewsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        route_view.ListMeshRouteViewsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_mesh_route_views
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_list_mesh_route_views_with_metadata`
+        interceptor in new development instead of the `post_list_mesh_route_views` interceptor.
+        When both interceptors are used, this `post_list_mesh_route_views_with_metadata` interceptor runs after the
+        `post_list_mesh_route_views` interceptor. The (possibly modified) response returned by
+        `post_list_mesh_route_views` will be passed to
+        `post_list_mesh_route_views_with_metadata`.
+        """
+        return response, metadata
+
     def pre_list_service_bindings(
         self,
         request: service_binding.ListServiceBindingsRequest,
@@ -1836,6 +2637,58 @@ class NetworkServicesRestInterceptor:
         `post_list_service_bindings` interceptor. The (possibly modified) response returned by
         `post_list_service_bindings` will be passed to
         `post_list_service_bindings_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_service_lb_policies(
+        self,
+        request: service_lb_policy.ListServiceLbPoliciesRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service_lb_policy.ListServiceLbPoliciesRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for list_service_lb_policies
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_list_service_lb_policies(
+        self, response: service_lb_policy.ListServiceLbPoliciesResponse
+    ) -> service_lb_policy.ListServiceLbPoliciesResponse:
+        """Post-rpc interceptor for list_service_lb_policies
+
+        DEPRECATED. Please use the `post_list_service_lb_policies_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_list_service_lb_policies` interceptor runs
+        before the `post_list_service_lb_policies_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_service_lb_policies_with_metadata(
+        self,
+        response: service_lb_policy.ListServiceLbPoliciesResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        service_lb_policy.ListServiceLbPoliciesResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for list_service_lb_policies
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_list_service_lb_policies_with_metadata`
+        interceptor in new development instead of the `post_list_service_lb_policies` interceptor.
+        When both interceptors are used, this `post_list_service_lb_policies_with_metadata` interceptor runs after the
+        `post_list_service_lb_policies` interceptor. The (possibly modified) response returned by
+        `post_list_service_lb_policies` will be passed to
+        `post_list_service_lb_policies_with_metadata`.
         """
         return response, metadata
 
@@ -1932,6 +2785,108 @@ class NetworkServicesRestInterceptor:
         `post_list_tls_routes` interceptor. The (possibly modified) response returned by
         `post_list_tls_routes` will be passed to
         `post_list_tls_routes_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_wasm_plugins(
+        self,
+        request: extensibility.ListWasmPluginsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.ListWasmPluginsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_wasm_plugins
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_list_wasm_plugins(
+        self, response: extensibility.ListWasmPluginsResponse
+    ) -> extensibility.ListWasmPluginsResponse:
+        """Post-rpc interceptor for list_wasm_plugins
+
+        DEPRECATED. Please use the `post_list_wasm_plugins_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_list_wasm_plugins` interceptor runs
+        before the `post_list_wasm_plugins_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_wasm_plugins_with_metadata(
+        self,
+        response: extensibility.ListWasmPluginsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.ListWasmPluginsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_wasm_plugins
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_list_wasm_plugins_with_metadata`
+        interceptor in new development instead of the `post_list_wasm_plugins` interceptor.
+        When both interceptors are used, this `post_list_wasm_plugins_with_metadata` interceptor runs after the
+        `post_list_wasm_plugins` interceptor. The (possibly modified) response returned by
+        `post_list_wasm_plugins` will be passed to
+        `post_list_wasm_plugins_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_wasm_plugin_versions(
+        self,
+        request: extensibility.ListWasmPluginVersionsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.ListWasmPluginVersionsRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for list_wasm_plugin_versions
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_list_wasm_plugin_versions(
+        self, response: extensibility.ListWasmPluginVersionsResponse
+    ) -> extensibility.ListWasmPluginVersionsResponse:
+        """Post-rpc interceptor for list_wasm_plugin_versions
+
+        DEPRECATED. Please use the `post_list_wasm_plugin_versions_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_list_wasm_plugin_versions` interceptor runs
+        before the `post_list_wasm_plugin_versions_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_wasm_plugin_versions_with_metadata(
+        self,
+        response: extensibility.ListWasmPluginVersionsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.ListWasmPluginVersionsResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for list_wasm_plugin_versions
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_list_wasm_plugin_versions_with_metadata`
+        interceptor in new development instead of the `post_list_wasm_plugin_versions` interceptor.
+        When both interceptors are used, this `post_list_wasm_plugin_versions_with_metadata` interceptor runs after the
+        `post_list_wasm_plugin_versions` interceptor. The (possibly modified) response returned by
+        `post_list_wasm_plugin_versions` will be passed to
+        `post_list_wasm_plugin_versions_with_metadata`.
         """
         return response, metadata
 
@@ -2174,6 +3129,104 @@ class NetworkServicesRestInterceptor:
         """
         return response, metadata
 
+    def pre_update_service_binding(
+        self,
+        request: gcn_service_binding.UpdateServiceBindingRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        gcn_service_binding.UpdateServiceBindingRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for update_service_binding
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_update_service_binding(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_service_binding
+
+        DEPRECATED. Please use the `post_update_service_binding_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_update_service_binding` interceptor runs
+        before the `post_update_service_binding_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_service_binding_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_service_binding
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_update_service_binding_with_metadata`
+        interceptor in new development instead of the `post_update_service_binding` interceptor.
+        When both interceptors are used, this `post_update_service_binding_with_metadata` interceptor runs after the
+        `post_update_service_binding` interceptor. The (possibly modified) response returned by
+        `post_update_service_binding` will be passed to
+        `post_update_service_binding_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_update_service_lb_policy(
+        self,
+        request: gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for update_service_lb_policy
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_update_service_lb_policy(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_service_lb_policy
+
+        DEPRECATED. Please use the `post_update_service_lb_policy_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_update_service_lb_policy` interceptor runs
+        before the `post_update_service_lb_policy_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_service_lb_policy_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_service_lb_policy
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_update_service_lb_policy_with_metadata`
+        interceptor in new development instead of the `post_update_service_lb_policy` interceptor.
+        When both interceptors are used, this `post_update_service_lb_policy_with_metadata` interceptor runs after the
+        `post_update_service_lb_policy` interceptor. The (possibly modified) response returned by
+        `post_update_service_lb_policy` will be passed to
+        `post_update_service_lb_policy_with_metadata`.
+        """
+        return response, metadata
+
     def pre_update_tcp_route(
         self,
         request: gcn_tcp_route.UpdateTcpRouteRequest,
@@ -2267,6 +3320,54 @@ class NetworkServicesRestInterceptor:
         `post_update_tls_route` interceptor. The (possibly modified) response returned by
         `post_update_tls_route` will be passed to
         `post_update_tls_route_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_update_wasm_plugin(
+        self,
+        request: extensibility.UpdateWasmPluginRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        extensibility.UpdateWasmPluginRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for update_wasm_plugin
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the NetworkServices server.
+        """
+        return request, metadata
+
+    def post_update_wasm_plugin(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_wasm_plugin
+
+        DEPRECATED. Please use the `post_update_wasm_plugin_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the NetworkServices server but before
+        it is returned to user code. This `post_update_wasm_plugin` interceptor runs
+        before the `post_update_wasm_plugin_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_wasm_plugin_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_wasm_plugin
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the NetworkServices server but before it is returned to user code.
+
+        We recommend only using this `post_update_wasm_plugin_with_metadata`
+        interceptor in new development instead of the `post_update_wasm_plugin` interceptor.
+        When both interceptors are used, this `post_update_wasm_plugin_with_metadata` interceptor runs after the
+        `post_update_wasm_plugin` interceptor. The (possibly modified) response returned by
+        `post_update_wasm_plugin` will be passed to
+        `post_update_wasm_plugin_with_metadata`.
         """
         return response, metadata
 
@@ -2534,9 +3635,10 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2554,6 +3656,12 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[NetworkServicesRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2689,9 +3797,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateEndpointPolicy._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateEndpointPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_create_endpoint_policy(
                 request, metadata
@@ -2717,7 +3823,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2869,7 +3975,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2995,9 +4101,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateGrpcRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateGrpcRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_create_grpc_route(
                 request, metadata
@@ -3023,7 +4127,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3148,9 +4252,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateHttpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateHttpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_create_http_route(
                 request, metadata
@@ -3176,7 +4278,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3328,7 +4430,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3455,9 +4557,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateServiceBinding._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateServiceBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_create_service_binding(
                 request, metadata
@@ -3483,7 +4583,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3550,6 +4650,161 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _CreateServiceLbPolicy(
+        _BaseNetworkServicesRestTransport._BaseCreateServiceLbPolicy,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.CreateServiceLbPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: gcn_service_lb_policy.CreateServiceLbPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create service lb policy method over HTTP.
+
+            Args:
+                request (~.gcn_service_lb_policy.CreateServiceLbPolicyRequest):
+                    The request object. Request used by the ServiceLbPolicy
+                method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateServiceLbPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_create_service_lb_policy(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseCreateServiceLbPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseCreateServiceLbPolicy._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseCreateServiceLbPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.CreateServiceLbPolicy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateServiceLbPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._CreateServiceLbPolicy._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                    body,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_service_lb_policy(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_service_lb_policy_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.create_service_lb_policy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateServiceLbPolicy",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _CreateTcpRoute(
         _BaseNetworkServicesRestTransport._BaseCreateTcpRoute, NetworkServicesRestStub
     ):
@@ -3608,9 +4863,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateTcpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateTcpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_create_tcp_route(
                 request, metadata
@@ -3636,7 +4889,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3761,9 +5014,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCreateTlsRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateTlsRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_create_tls_route(
                 request, metadata
@@ -3789,7 +5040,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3856,6 +5107,312 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _CreateWasmPlugin(
+        _BaseNetworkServicesRestTransport._BaseCreateWasmPlugin, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.CreateWasmPlugin")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.CreateWasmPluginRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create wasm plugin method over HTTP.
+
+            Args:
+                request (~.extensibility.CreateWasmPluginRequest):
+                    The request object. Request used by the ``CreateWasmPlugin`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateWasmPlugin._get_http_options()
+
+            request, metadata = self._interceptor.pre_create_wasm_plugin(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseCreateWasmPlugin._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseCreateWasmPlugin._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseCreateWasmPlugin._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.CreateWasmPlugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateWasmPlugin",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._CreateWasmPlugin._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_wasm_plugin(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_wasm_plugin_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.create_wasm_plugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateWasmPlugin",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CreateWasmPluginVersion(
+        _BaseNetworkServicesRestTransport._BaseCreateWasmPluginVersion,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.CreateWasmPluginVersion")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.CreateWasmPluginVersionRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create wasm plugin
+            version method over HTTP.
+
+                Args:
+                    request (~.extensibility.CreateWasmPluginVersionRequest):
+                        The request object. Request used by the ``CreateWasmPluginVersion`` method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.operations_pb2.Operation:
+                        This resource represents a
+                    long-running operation that is the
+                    result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseCreateWasmPluginVersion._get_http_options()
+
+            request, metadata = self._interceptor.pre_create_wasm_plugin_version(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseCreateWasmPluginVersion._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseCreateWasmPluginVersion._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseCreateWasmPluginVersion._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.CreateWasmPluginVersion",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateWasmPluginVersion",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._CreateWasmPluginVersion._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                    body,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_wasm_plugin_version(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_wasm_plugin_version_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.create_wasm_plugin_version",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "CreateWasmPluginVersion",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _DeleteEndpointPolicy(
         _BaseNetworkServicesRestTransport._BaseDeleteEndpointPolicy,
         NetworkServicesRestStub,
@@ -3915,9 +5472,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteEndpointPolicy._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteEndpointPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_endpoint_policy(
                 request, metadata
@@ -3939,7 +5494,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4085,7 +5640,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4209,9 +5764,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteGrpcRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteGrpcRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_grpc_route(
                 request, metadata
@@ -4233,7 +5786,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4357,9 +5910,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteHttpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteHttpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_http_route(
                 request, metadata
@@ -4381,7 +5932,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4527,7 +6078,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4652,9 +6203,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteServiceBinding._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteServiceBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_service_binding(
                 request, metadata
@@ -4676,7 +6225,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4742,6 +6291,155 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _DeleteServiceLbPolicy(
+        _BaseNetworkServicesRestTransport._BaseDeleteServiceLbPolicy,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.DeleteServiceLbPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service_lb_policy.DeleteServiceLbPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete service lb policy method over HTTP.
+
+            Args:
+                request (~.service_lb_policy.DeleteServiceLbPolicyRequest):
+                    The request object. Request used by the
+                DeleteServiceLbPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteServiceLbPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_service_lb_policy(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseDeleteServiceLbPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseDeleteServiceLbPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.DeleteServiceLbPolicy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteServiceLbPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._DeleteServiceLbPolicy._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_service_lb_policy(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_service_lb_policy_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.delete_service_lb_policy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteServiceLbPolicy",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _DeleteTcpRoute(
         _BaseNetworkServicesRestTransport._BaseDeleteTcpRoute, NetworkServicesRestStub
     ):
@@ -4800,9 +6498,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteTcpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteTcpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_tcp_route(
                 request, metadata
@@ -4824,7 +6520,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4948,9 +6644,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteTlsRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteTlsRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_tls_route(
                 request, metadata
@@ -4972,7 +6666,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5032,6 +6726,300 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     extra={
                         "serviceName": "google.cloud.networkservices.v1.NetworkServices",
                         "rpcName": "DeleteTlsRoute",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteWasmPlugin(
+        _BaseNetworkServicesRestTransport._BaseDeleteWasmPlugin, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.DeleteWasmPlugin")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.DeleteWasmPluginRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete wasm plugin method over HTTP.
+
+            Args:
+                request (~.extensibility.DeleteWasmPluginRequest):
+                    The request object. Request used by the ``DeleteWasmPlugin`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteWasmPlugin._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_wasm_plugin(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseDeleteWasmPlugin._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseDeleteWasmPlugin._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.DeleteWasmPlugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteWasmPlugin",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._DeleteWasmPlugin._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_wasm_plugin(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_wasm_plugin_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.delete_wasm_plugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteWasmPlugin",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteWasmPluginVersion(
+        _BaseNetworkServicesRestTransport._BaseDeleteWasmPluginVersion,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.DeleteWasmPluginVersion")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.DeleteWasmPluginVersionRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete wasm plugin
+            version method over HTTP.
+
+                Args:
+                    request (~.extensibility.DeleteWasmPluginVersionRequest):
+                        The request object. Request used by the ``DeleteWasmPluginVersion`` method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.operations_pb2.Operation:
+                        This resource represents a
+                    long-running operation that is the
+                    result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteWasmPluginVersion._get_http_options()
+
+            request, metadata = self._interceptor.pre_delete_wasm_plugin_version(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseDeleteWasmPluginVersion._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseDeleteWasmPluginVersion._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.DeleteWasmPluginVersion",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteWasmPluginVersion",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._DeleteWasmPluginVersion._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_wasm_plugin_version(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_wasm_plugin_version_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.delete_wasm_plugin_version",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "DeleteWasmPluginVersion",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5100,9 +7088,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseGetEndpointPolicy._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseGetEndpointPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_endpoint_policy(
                 request, metadata
@@ -5339,6 +7325,154 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     extra={
                         "serviceName": "google.cloud.networkservices.v1.NetworkServices",
                         "rpcName": "GetGateway",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetGatewayRouteView(
+        _BaseNetworkServicesRestTransport._BaseGetGatewayRouteView,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.GetGatewayRouteView")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: route_view.GetGatewayRouteViewRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> route_view.GatewayRouteView:
+            r"""Call the get gateway route view method over HTTP.
+
+            Args:
+                request (~.route_view.GetGatewayRouteViewRequest):
+                    The request object. Request used with the
+                GetGatewayRouteView method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.route_view.GatewayRouteView:
+                    GatewayRouteView defines view-only
+                resource for Routes to a Gateway
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseGetGatewayRouteView._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_gateway_route_view(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseGetGatewayRouteView._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseGetGatewayRouteView._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.GetGatewayRouteView",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetGatewayRouteView",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._GetGatewayRouteView._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = route_view.GatewayRouteView()
+            pb_resp = route_view.GatewayRouteView.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_gateway_route_view(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_gateway_route_view_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = route_view.GatewayRouteView.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.get_gateway_route_view",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetGatewayRouteView",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5795,6 +7929,153 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _GetMeshRouteView(
+        _BaseNetworkServicesRestTransport._BaseGetMeshRouteView, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.GetMeshRouteView")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: route_view.GetMeshRouteViewRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> route_view.MeshRouteView:
+            r"""Call the get mesh route view method over HTTP.
+
+            Args:
+                request (~.route_view.GetMeshRouteViewRequest):
+                    The request object. Request used with the
+                GetMeshRouteView method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.route_view.MeshRouteView:
+                    MeshRouteView defines view-only
+                resource for Routes to a Mesh
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseGetMeshRouteView._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_mesh_route_view(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseGetMeshRouteView._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseGetMeshRouteView._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.GetMeshRouteView",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetMeshRouteView",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._GetMeshRouteView._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = route_view.MeshRouteView()
+            pb_resp = route_view.MeshRouteView.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_mesh_route_view(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_mesh_route_view_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = route_view.MeshRouteView.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.get_mesh_route_view",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetMeshRouteView",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _GetServiceBinding(
         _BaseNetworkServicesRestTransport._BaseGetServiceBinding,
         NetworkServicesRestStub,
@@ -5848,15 +8129,22 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             Returns:
                 ~.service_binding.ServiceBinding:
-                    ServiceBinding is the resource that
-                defines a Service Directory Service to
-                be used in a BackendService resource.
+                    ServiceBinding can be used to:
+
+                - Bind a Service Directory Service to be
+                  used in a BackendService resource.
+                  This feature will be deprecated soon.
+                - Bind a Private Service Connect
+                  producer service to be used in
+                  consumer   Cloud Service Mesh or
+                  Application Load Balancers.
+                - Bind a Cloud Run service to be used in
+                  consumer Cloud Service Mesh or
+                  Application Load Balancers.
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseGetServiceBinding._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseGetServiceBinding._get_http_options()
 
             request, metadata = self._interceptor.pre_get_service_binding(
                 request, metadata
@@ -5940,6 +8228,158 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     extra={
                         "serviceName": "google.cloud.networkservices.v1.NetworkServices",
                         "rpcName": "GetServiceBinding",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetServiceLbPolicy(
+        _BaseNetworkServicesRestTransport._BaseGetServiceLbPolicy,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.GetServiceLbPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service_lb_policy.GetServiceLbPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service_lb_policy.ServiceLbPolicy:
+            r"""Call the get service lb policy method over HTTP.
+
+            Args:
+                request (~.service_lb_policy.GetServiceLbPolicyRequest):
+                    The request object. Request used by the
+                GetServiceLbPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service_lb_policy.ServiceLbPolicy:
+                    ServiceLbPolicy holds global load
+                balancing and traffic distribution
+                configuration that can be applied to a
+                BackendService.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseGetServiceLbPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_service_lb_policy(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseGetServiceLbPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseGetServiceLbPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.GetServiceLbPolicy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetServiceLbPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._GetServiceLbPolicy._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service_lb_policy.ServiceLbPolicy()
+            pb_resp = service_lb_policy.ServiceLbPolicy.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_service_lb_policy(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_service_lb_policy_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = service_lb_policy.ServiceLbPolicy.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.get_service_lb_policy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetServiceLbPolicy",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -6242,6 +8682,300 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _GetWasmPlugin(
+        _BaseNetworkServicesRestTransport._BaseGetWasmPlugin, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.GetWasmPlugin")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.GetWasmPluginRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> extensibility.WasmPlugin:
+            r"""Call the get wasm plugin method over HTTP.
+
+            Args:
+                request (~.extensibility.GetWasmPluginRequest):
+                    The request object. Request used by the ``GetWasmPlugin`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.extensibility.WasmPlugin:
+                    ``WasmPlugin`` is a resource representing a service
+                executing a customer-provided Wasm module.
+
+            """
+
+            http_options = (
+                _BaseNetworkServicesRestTransport._BaseGetWasmPlugin._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_wasm_plugin(request, metadata)
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseGetWasmPlugin._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseGetWasmPlugin._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.GetWasmPlugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetWasmPlugin",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._GetWasmPlugin._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = extensibility.WasmPlugin()
+            pb_resp = extensibility.WasmPlugin.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_wasm_plugin(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_wasm_plugin_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = extensibility.WasmPlugin.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.get_wasm_plugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetWasmPlugin",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetWasmPluginVersion(
+        _BaseNetworkServicesRestTransport._BaseGetWasmPluginVersion,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.GetWasmPluginVersion")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.GetWasmPluginVersionRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> extensibility.WasmPluginVersion:
+            r"""Call the get wasm plugin version method over HTTP.
+
+            Args:
+                request (~.extensibility.GetWasmPluginVersionRequest):
+                    The request object. Request used by the ``GetWasmPluginVersion`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.extensibility.WasmPluginVersion:
+                    A single immutable version of a ``WasmPlugin`` resource.
+                Defines the Wasm module used and optionally its runtime
+                config.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseGetWasmPluginVersion._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_wasm_plugin_version(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseGetWasmPluginVersion._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseGetWasmPluginVersion._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.GetWasmPluginVersion",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetWasmPluginVersion",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._GetWasmPluginVersion._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = extensibility.WasmPluginVersion()
+            pb_resp = extensibility.WasmPluginVersion.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_wasm_plugin_version(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_wasm_plugin_version_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = extensibility.WasmPluginVersion.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.get_wasm_plugin_version",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "GetWasmPluginVersion",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _ListEndpointPolicies(
         _BaseNetworkServicesRestTransport._BaseListEndpointPolicies,
         NetworkServicesRestStub,
@@ -6300,9 +9034,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseListEndpointPolicies._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseListEndpointPolicies._get_http_options()
 
             request, metadata = self._interceptor.pre_list_endpoint_policies(
                 request, metadata
@@ -6388,6 +9120,158 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     extra={
                         "serviceName": "google.cloud.networkservices.v1.NetworkServices",
                         "rpcName": "ListEndpointPolicies",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListGatewayRouteViews(
+        _BaseNetworkServicesRestTransport._BaseListGatewayRouteViews,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.ListGatewayRouteViews")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: route_view.ListGatewayRouteViewsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> route_view.ListGatewayRouteViewsResponse:
+            r"""Call the list gateway route views method over HTTP.
+
+            Args:
+                request (~.route_view.ListGatewayRouteViewsRequest):
+                    The request object. Request used with the
+                ListGatewayRouteViews method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.route_view.ListGatewayRouteViewsResponse:
+                    Response returned by the
+                ListGatewayRouteViews method.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseListGatewayRouteViews._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_gateway_route_views(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseListGatewayRouteViews._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseListGatewayRouteViews._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.ListGatewayRouteViews",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListGatewayRouteViews",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._ListGatewayRouteViews._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = route_view.ListGatewayRouteViewsResponse()
+            pb_resp = route_view.ListGatewayRouteViewsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_gateway_route_views(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_gateway_route_views_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = route_view.ListGatewayRouteViewsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.list_gateway_route_views",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListGatewayRouteViews",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -6598,9 +9482,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseListGrpcRoutes._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseListGrpcRoutes._get_http_options()
 
             request, metadata = self._interceptor.pre_list_grpc_routes(
                 request, metadata
@@ -6749,9 +9631,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseListHttpRoutes._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseListHttpRoutes._get_http_options()
 
             request, metadata = self._interceptor.pre_list_http_routes(
                 request, metadata
@@ -6990,6 +9870,156 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _ListMeshRouteViews(
+        _BaseNetworkServicesRestTransport._BaseListMeshRouteViews,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.ListMeshRouteViews")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: route_view.ListMeshRouteViewsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> route_view.ListMeshRouteViewsResponse:
+            r"""Call the list mesh route views method over HTTP.
+
+            Args:
+                request (~.route_view.ListMeshRouteViewsRequest):
+                    The request object. Request used with the
+                ListMeshRouteViews method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.route_view.ListMeshRouteViewsResponse:
+                    Response returned by the
+                ListMeshRouteViews method.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseListMeshRouteViews._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_mesh_route_views(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseListMeshRouteViews._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseListMeshRouteViews._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.ListMeshRouteViews",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListMeshRouteViews",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._ListMeshRouteViews._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = route_view.ListMeshRouteViewsResponse()
+            pb_resp = route_view.ListMeshRouteViewsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_mesh_route_views(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_mesh_route_views_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = route_view.ListMeshRouteViewsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.list_mesh_route_views",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListMeshRouteViews",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _ListServiceBindings(
         _BaseNetworkServicesRestTransport._BaseListServiceBindings,
         NetworkServicesRestStub,
@@ -7048,9 +10078,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseListServiceBindings._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseListServiceBindings._get_http_options()
 
             request, metadata = self._interceptor.pre_list_service_bindings(
                 request, metadata
@@ -7136,6 +10164,160 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     extra={
                         "serviceName": "google.cloud.networkservices.v1.NetworkServices",
                         "rpcName": "ListServiceBindings",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListServiceLbPolicies(
+        _BaseNetworkServicesRestTransport._BaseListServiceLbPolicies,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.ListServiceLbPolicies")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: service_lb_policy.ListServiceLbPoliciesRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> service_lb_policy.ListServiceLbPoliciesResponse:
+            r"""Call the list service lb policies method over HTTP.
+
+            Args:
+                request (~.service_lb_policy.ListServiceLbPoliciesRequest):
+                    The request object. Request used with the
+                ListServiceLbPolicies method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.service_lb_policy.ListServiceLbPoliciesResponse:
+                    Response returned by the
+                ListServiceLbPolicies method.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseListServiceLbPolicies._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_service_lb_policies(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseListServiceLbPolicies._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseListServiceLbPolicies._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.ListServiceLbPolicies",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListServiceLbPolicies",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._ListServiceLbPolicies._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = service_lb_policy.ListServiceLbPoliciesResponse()
+            pb_resp = service_lb_policy.ListServiceLbPoliciesResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_service_lb_policies(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_service_lb_policies_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        service_lb_policy.ListServiceLbPoliciesResponse.to_json(
+                            response
+                        )
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.list_service_lb_policies",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListServiceLbPolicies",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -7436,6 +10618,303 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _ListWasmPlugins(
+        _BaseNetworkServicesRestTransport._BaseListWasmPlugins, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.ListWasmPlugins")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.ListWasmPluginsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> extensibility.ListWasmPluginsResponse:
+            r"""Call the list wasm plugins method over HTTP.
+
+            Args:
+                request (~.extensibility.ListWasmPluginsRequest):
+                    The request object. Request used with the ``ListWasmPlugins`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.extensibility.ListWasmPluginsResponse:
+                    Response returned by the ``ListWasmPlugins`` method.
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseListWasmPlugins._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_wasm_plugins(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseListWasmPlugins._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseListWasmPlugins._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.ListWasmPlugins",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListWasmPlugins",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._ListWasmPlugins._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = extensibility.ListWasmPluginsResponse()
+            pb_resp = extensibility.ListWasmPluginsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_wasm_plugins(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_wasm_plugins_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = extensibility.ListWasmPluginsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.list_wasm_plugins",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListWasmPlugins",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListWasmPluginVersions(
+        _BaseNetworkServicesRestTransport._BaseListWasmPluginVersions,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.ListWasmPluginVersions")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.ListWasmPluginVersionsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> extensibility.ListWasmPluginVersionsResponse:
+            r"""Call the list wasm plugin versions method over HTTP.
+
+            Args:
+                request (~.extensibility.ListWasmPluginVersionsRequest):
+                    The request object. Request used with the ``ListWasmPluginVersions`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.extensibility.ListWasmPluginVersionsResponse:
+                    Response returned by the ``ListWasmPluginVersions``
+                method.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseListWasmPluginVersions._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_wasm_plugin_versions(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseListWasmPluginVersions._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseListWasmPluginVersions._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.ListWasmPluginVersions",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListWasmPluginVersions",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._ListWasmPluginVersions._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = extensibility.ListWasmPluginVersionsResponse()
+            pb_resp = extensibility.ListWasmPluginVersionsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_wasm_plugin_versions(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_wasm_plugin_versions_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        extensibility.ListWasmPluginVersionsResponse.to_json(response)
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.list_wasm_plugin_versions",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "ListWasmPluginVersions",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _UpdateEndpointPolicy(
         _BaseNetworkServicesRestTransport._BaseUpdateEndpointPolicy,
         NetworkServicesRestStub,
@@ -7496,9 +10975,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseUpdateEndpointPolicy._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateEndpointPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_update_endpoint_policy(
                 request, metadata
@@ -7524,7 +11001,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7676,7 +11153,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7802,9 +11279,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseUpdateGrpcRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateGrpcRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_update_grpc_route(
                 request, metadata
@@ -7830,7 +11305,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -7956,9 +11431,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseUpdateHttpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateHttpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_update_http_route(
                 request, metadata
@@ -7984,7 +11457,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8136,7 +11609,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8203,6 +11676,314 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _UpdateServiceBinding(
+        _BaseNetworkServicesRestTransport._BaseUpdateServiceBinding,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.UpdateServiceBinding")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: gcn_service_binding.UpdateServiceBindingRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update service binding method over HTTP.
+
+            Args:
+                request (~.gcn_service_binding.UpdateServiceBindingRequest):
+                    The request object. Request used by the
+                UpdateServiceBinding method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateServiceBinding._get_http_options()
+
+            request, metadata = self._interceptor.pre_update_service_binding(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseUpdateServiceBinding._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseUpdateServiceBinding._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseUpdateServiceBinding._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.UpdateServiceBinding",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateServiceBinding",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._UpdateServiceBinding._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_service_binding(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_service_binding_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.update_service_binding",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateServiceBinding",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _UpdateServiceLbPolicy(
+        _BaseNetworkServicesRestTransport._BaseUpdateServiceLbPolicy,
+        NetworkServicesRestStub,
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.UpdateServiceLbPolicy")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: gcn_service_lb_policy.UpdateServiceLbPolicyRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update service lb policy method over HTTP.
+
+            Args:
+                request (~.gcn_service_lb_policy.UpdateServiceLbPolicyRequest):
+                    The request object. Request used by the
+                UpdateServiceLbPolicy method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateServiceLbPolicy._get_http_options()
+
+            request, metadata = self._interceptor.pre_update_service_lb_policy(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseUpdateServiceLbPolicy._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseUpdateServiceLbPolicy._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseUpdateServiceLbPolicy._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.UpdateServiceLbPolicy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateServiceLbPolicy",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = (
+                NetworkServicesRestTransport._UpdateServiceLbPolicy._get_response(
+                    self._host,
+                    metadata,
+                    query_params,
+                    self._session,
+                    timeout,
+                    transcoded_request,
+                    body,
+                )
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_service_lb_policy(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_service_lb_policy_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.update_service_lb_policy",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateServiceLbPolicy",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _UpdateTcpRoute(
         _BaseNetworkServicesRestTransport._BaseUpdateTcpRoute, NetworkServicesRestStub
     ):
@@ -8262,9 +12043,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseUpdateTcpRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateTcpRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_update_tcp_route(
                 request, metadata
@@ -8290,7 +12069,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8416,9 +12195,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
 
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseUpdateTlsRoute._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateTlsRoute._get_http_options()
 
             request, metadata = self._interceptor.pre_update_tls_route(
                 request, metadata
@@ -8444,7 +12221,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -8511,6 +12288,157 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 )
             return resp
 
+    class _UpdateWasmPlugin(
+        _BaseNetworkServicesRestTransport._BaseUpdateWasmPlugin, NetworkServicesRestStub
+    ):
+        def __hash__(self):
+            return hash("NetworkServicesRestTransport.UpdateWasmPlugin")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: extensibility.UpdateWasmPluginRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update wasm plugin method over HTTP.
+
+            Args:
+                request (~.extensibility.UpdateWasmPluginRequest):
+                    The request object. Request used by the ``UpdateWasmPlugin`` method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = _BaseNetworkServicesRestTransport._BaseUpdateWasmPlugin._get_http_options()
+
+            request, metadata = self._interceptor.pre_update_wasm_plugin(
+                request, metadata
+            )
+            transcoded_request = _BaseNetworkServicesRestTransport._BaseUpdateWasmPlugin._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseNetworkServicesRestTransport._BaseUpdateWasmPlugin._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseNetworkServicesRestTransport._BaseUpdateWasmPlugin._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.networkservices_v1.NetworkServicesClient.UpdateWasmPlugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateWasmPlugin",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = NetworkServicesRestTransport._UpdateWasmPlugin._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_wasm_plugin(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_wasm_plugin_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.networkservices_v1.NetworkServicesClient.update_wasm_plugin",
+                    extra={
+                        "serviceName": "google.cloud.networkservices.v1.NetworkServices",
+                        "rpcName": "UpdateWasmPlugin",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     @property
     def create_endpoint_policy(
         self,
@@ -8564,6 +12492,16 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._CreateServiceBinding(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def create_service_lb_policy(
+        self,
+    ) -> Callable[
+        [gcn_service_lb_policy.CreateServiceLbPolicyRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateServiceLbPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def create_tcp_route(
         self,
     ) -> Callable[[gcn_tcp_route.CreateTcpRouteRequest], operations_pb2.Operation]:
@@ -8578,6 +12516,26 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._CreateTlsRoute(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def create_wasm_plugin(
+        self,
+    ) -> Callable[[extensibility.CreateWasmPluginRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateWasmPlugin(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def create_wasm_plugin_version(
+        self,
+    ) -> Callable[
+        [extensibility.CreateWasmPluginVersionRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateWasmPluginVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_endpoint_policy(
@@ -8632,6 +12590,16 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._DeleteServiceBinding(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def delete_service_lb_policy(
+        self,
+    ) -> Callable[
+        [service_lb_policy.DeleteServiceLbPolicyRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteServiceLbPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def delete_tcp_route(
         self,
     ) -> Callable[[tcp_route.DeleteTcpRouteRequest], operations_pb2.Operation]:
@@ -8648,6 +12616,26 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._DeleteTlsRoute(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def delete_wasm_plugin(
+        self,
+    ) -> Callable[[extensibility.DeleteWasmPluginRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteWasmPlugin(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def delete_wasm_plugin_version(
+        self,
+    ) -> Callable[
+        [extensibility.DeleteWasmPluginVersionRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteWasmPluginVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
     def get_endpoint_policy(
         self,
     ) -> Callable[
@@ -8662,6 +12650,14 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetGateway(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_gateway_route_view(
+        self,
+    ) -> Callable[[route_view.GetGatewayRouteViewRequest], route_view.GatewayRouteView]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetGatewayRouteView(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_grpc_route(
@@ -8686,6 +12682,14 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._GetMesh(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def get_mesh_route_view(
+        self,
+    ) -> Callable[[route_view.GetMeshRouteViewRequest], route_view.MeshRouteView]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetMeshRouteView(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def get_service_binding(
         self,
     ) -> Callable[
@@ -8694,6 +12698,16 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetServiceBinding(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_service_lb_policy(
+        self,
+    ) -> Callable[
+        [service_lb_policy.GetServiceLbPolicyRequest], service_lb_policy.ServiceLbPolicy
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetServiceLbPolicy(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_tcp_route(
@@ -8712,6 +12726,24 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._GetTlsRoute(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def get_wasm_plugin(
+        self,
+    ) -> Callable[[extensibility.GetWasmPluginRequest], extensibility.WasmPlugin]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetWasmPlugin(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_wasm_plugin_version(
+        self,
+    ) -> Callable[
+        [extensibility.GetWasmPluginVersionRequest], extensibility.WasmPluginVersion
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetWasmPluginVersion(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def list_endpoint_policies(
         self,
     ) -> Callable[
@@ -8721,6 +12753,17 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListEndpointPolicies(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_gateway_route_views(
+        self,
+    ) -> Callable[
+        [route_view.ListGatewayRouteViewsRequest],
+        route_view.ListGatewayRouteViewsResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListGatewayRouteViews(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def list_gateways(
@@ -8759,6 +12802,16 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._ListMeshes(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def list_mesh_route_views(
+        self,
+    ) -> Callable[
+        [route_view.ListMeshRouteViewsRequest], route_view.ListMeshRouteViewsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListMeshRouteViews(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def list_service_bindings(
         self,
     ) -> Callable[
@@ -8768,6 +12821,17 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListServiceBindings(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_service_lb_policies(
+        self,
+    ) -> Callable[
+        [service_lb_policy.ListServiceLbPoliciesRequest],
+        service_lb_policy.ListServiceLbPoliciesResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListServiceLbPolicies(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def list_tcp_routes(
@@ -8784,6 +12848,29 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListTlsRoutes(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_wasm_plugins(
+        self,
+    ) -> Callable[
+        [extensibility.ListWasmPluginsRequest], extensibility.ListWasmPluginsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListWasmPlugins(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_wasm_plugin_versions(
+        self,
+    ) -> Callable[
+        [extensibility.ListWasmPluginVersionsRequest],
+        extensibility.ListWasmPluginVersionsResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListWasmPluginVersions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_endpoint_policy(
@@ -8828,6 +12915,26 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         return self._UpdateMesh(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def update_service_binding(
+        self,
+    ) -> Callable[
+        [gcn_service_binding.UpdateServiceBindingRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateServiceBinding(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def update_service_lb_policy(
+        self,
+    ) -> Callable[
+        [gcn_service_lb_policy.UpdateServiceLbPolicyRequest], operations_pb2.Operation
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateServiceLbPolicy(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def update_tcp_route(
         self,
     ) -> Callable[[gcn_tcp_route.UpdateTcpRouteRequest], operations_pb2.Operation]:
@@ -8842,6 +12949,14 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._UpdateTlsRoute(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def update_wasm_plugin(
+        self,
+    ) -> Callable[[extensibility.UpdateWasmPluginRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateWasmPlugin(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_location(self):
@@ -9468,9 +13583,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -9613,9 +13726,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -9732,9 +13843,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -9989,9 +14098,7 @@ class NetworkServicesRestTransport(_BaseNetworkServicesRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseNetworkServicesRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseNetworkServicesRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseNetworkServicesRestTransport._BaseListOperations._get_transcoded_request(

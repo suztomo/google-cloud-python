@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,35 +17,40 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.netapp_v1 import gapic_version as package_version
+from google.cloud.netapp_v1.types import (
+    active_directory,
+    backup,
+    backup_policy,
+    backup_vault,
+    host_group,
+    kms,
+    ontap,
+    quota_rule,
+    replication,
+    snapshot,
+    storage_pool,
+    volume,
+)
 from google.cloud.netapp_v1.types import active_directory as gcn_active_directory
-from google.cloud.netapp_v1.types import active_directory
-from google.cloud.netapp_v1.types import backup
 from google.cloud.netapp_v1.types import backup as gcn_backup
-from google.cloud.netapp_v1.types import backup_policy
 from google.cloud.netapp_v1.types import backup_policy as gcn_backup_policy
-from google.cloud.netapp_v1.types import backup_vault
 from google.cloud.netapp_v1.types import backup_vault as gcn_backup_vault
-from google.cloud.netapp_v1.types import kms
-from google.cloud.netapp_v1.types import quota_rule
+from google.cloud.netapp_v1.types import host_group as gcn_host_group
 from google.cloud.netapp_v1.types import quota_rule as gcn_quota_rule
-from google.cloud.netapp_v1.types import replication
 from google.cloud.netapp_v1.types import replication as gcn_replication
-from google.cloud.netapp_v1.types import snapshot
 from google.cloud.netapp_v1.types import snapshot as gcn_snapshot
-from google.cloud.netapp_v1.types import storage_pool
 from google.cloud.netapp_v1.types import storage_pool as gcn_storage_pool
-from google.cloud.netapp_v1.types import volume
 from google.cloud.netapp_v1.types import volume as gcn_volume
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
@@ -86,9 +91,10 @@ class NetAppTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -99,9 +105,11 @@ class NetAppTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -117,11 +125,16 @@ class NetAppTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -144,6 +157,8 @@ class NetAppTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -251,6 +266,11 @@ class NetAppTransport(abc.ABC):
             self.revert_volume: gapic_v1.method.wrap_method(
                 self.revert_volume,
                 default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.establish_volume_peering: gapic_v1.method.wrap_method(
+                self.establish_volume_peering,
+                default_timeout=None,
                 client_info=client_info,
             ),
             self.list_snapshots: gapic_v1.method.wrap_method(
@@ -614,6 +634,56 @@ class NetAppTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.restore_backup_files: gapic_v1.method.wrap_method(
+                self.restore_backup_files,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_host_groups: gapic_v1.method.wrap_method(
+                self.list_host_groups,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_host_group: gapic_v1.method.wrap_method(
+                self.get_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_host_group: gapic_v1.method.wrap_method(
+                self.create_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_host_group: gapic_v1.method.wrap_method(
+                self.update_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_host_group: gapic_v1.method.wrap_method(
+                self.delete_host_group,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_post: gapic_v1.method.wrap_method(
+                self.execute_ontap_post,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_get: gapic_v1.method.wrap_method(
+                self.execute_ontap_get,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_delete: gapic_v1.method.wrap_method(
+                self.execute_ontap_delete,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_ontap_patch: gapic_v1.method.wrap_method(
+                self.execute_ontap_patch,
+                default_timeout=None,
+                client_info=client_info,
+            ),
             self.get_location: gapic_v1.method.wrap_method(
                 self.get_location,
                 default_timeout=None,
@@ -775,6 +845,15 @@ class NetAppTransport(abc.ABC):
         self,
     ) -> Callable[
         [volume.RevertVolumeRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def establish_volume_peering(
+        self,
+    ) -> Callable[
+        [volume.EstablishVolumePeeringRequest],
         Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
     ]:
         raise NotImplementedError()
@@ -1221,6 +1300,106 @@ class NetAppTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def restore_backup_files(
+        self,
+    ) -> Callable[
+        [volume.RestoreBackupFilesRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_host_groups(
+        self,
+    ) -> Callable[
+        [host_group.ListHostGroupsRequest],
+        Union[
+            host_group.ListHostGroupsResponse,
+            Awaitable[host_group.ListHostGroupsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_host_group(
+        self,
+    ) -> Callable[
+        [host_group.GetHostGroupRequest],
+        Union[host_group.HostGroup, Awaitable[host_group.HostGroup]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_host_group(
+        self,
+    ) -> Callable[
+        [gcn_host_group.CreateHostGroupRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_host_group(
+        self,
+    ) -> Callable[
+        [gcn_host_group.UpdateHostGroupRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_host_group(
+        self,
+    ) -> Callable[
+        [host_group.DeleteHostGroupRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def execute_ontap_post(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapPostRequest],
+        Union[
+            ontap.ExecuteOntapPostResponse, Awaitable[ontap.ExecuteOntapPostResponse]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def execute_ontap_get(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapGetRequest],
+        Union[ontap.ExecuteOntapGetResponse, Awaitable[ontap.ExecuteOntapGetResponse]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def execute_ontap_delete(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapDeleteRequest],
+        Union[
+            ontap.ExecuteOntapDeleteResponse,
+            Awaitable[ontap.ExecuteOntapDeleteResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def execute_ontap_patch(
+        self,
+    ) -> Callable[
+        [ontap.ExecuteOntapPatchRequest],
+        Union[
+            ontap.ExecuteOntapPatchResponse, Awaitable[ontap.ExecuteOntapPatchResponse]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -1244,13 +1423,19 @@ class NetAppTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,18 +38,17 @@ class ValidationError(proto.Message):
             The names of the entries that the error is associated with.
             Format:
 
-            -  ``projects/<Project ID>/agent``, if the error is
-               associated with the entire agent.
-            -  ``projects/<Project ID>/agent/intents/<Intent ID>``, if
-               the error is associated with certain intents.
-            -  ``projects/<Project ID>/agent/intents/<Intent Id>/trainingPhrases/<Training Phrase ID>``,
-               if the error is associated with certain intent training
-               phrases.
-            -  ``projects/<Project ID>/agent/intents/<Intent Id>/parameters/<Parameter ID>``,
-               if the error is associated with certain intent
-               parameters.
-            -  ``projects/<Project ID>/agent/entities/<Entity ID>``, if
-               the error is associated with certain entities.
+            - ``projects/<Project ID>/agent``, if the error is
+              associated with the entire agent.
+            - ``projects/<Project ID>/agent/intents/<Intent ID>``, if
+              the error is associated with certain intents.
+            - ``projects/<Project ID>/agent/intents/<Intent Id>/trainingPhrases/<Training Phrase ID>``,
+              if the error is associated with certain intent training
+              phrases.
+            - ``projects/<Project ID>/agent/intents/<Intent Id>/parameters/<Parameter ID>``,
+              if the error is associated with certain intent parameters.
+            - ``projects/<Project ID>/agent/entities/<Entity ID>``, if
+              the error is associated with certain entities.
         error_message (str):
             The detailed error message.
     """
@@ -71,6 +70,7 @@ class ValidationError(proto.Message):
             CRITICAL (4):
                 The agent may completely fail.
         """
+
         SEVERITY_UNSPECIFIED = 0
         INFO = 1
         WARNING = 2

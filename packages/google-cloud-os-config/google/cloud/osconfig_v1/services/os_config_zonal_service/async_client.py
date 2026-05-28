@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.osconfig_v1 import gapic_version as package_version
 
@@ -44,11 +44,11 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.osconfig_v1.services.os_config_zonal_service import pagers
 from google.cloud.osconfig_v1.types import (
@@ -156,7 +156,10 @@ class OsConfigZonalServiceAsyncClient:
         Returns:
             OsConfigZonalServiceAsyncClient: The constructed client.
         """
-        return OsConfigZonalServiceClient.from_service_account_info.__func__(OsConfigZonalServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            OsConfigZonalServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(OsConfigZonalServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -172,7 +175,10 @@ class OsConfigZonalServiceAsyncClient:
         Returns:
             OsConfigZonalServiceAsyncClient: The constructed client.
         """
-        return OsConfigZonalServiceClient.from_service_account_file.__func__(OsConfigZonalServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            OsConfigZonalServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(OsConfigZonalServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -210,7 +216,9 @@ class OsConfigZonalServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return OsConfigZonalServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return OsConfigZonalServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> OsConfigZonalServiceTransport:
@@ -222,7 +230,7 @@ class OsConfigZonalServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -390,11 +398,11 @@ class OsConfigZonalServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_os_policy_assignment(request=request)
+                operation = await client.create_os_policy_assignment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -422,12 +430,12 @@ class OsConfigZonalServiceAsyncClient:
                 Required. The logical name of the OS policy assignment
                 in the project with the following restrictions:
 
-                -  Must contain only lowercase letters, numbers, and
-                   hyphens.
-                -  Must start with a letter.
-                -  Must be between 1-63 characters.
-                -  Must end with a number or a letter.
-                -  Must be unique within the project.
+                - Must contain only lowercase letters, numbers, and
+                  hyphens.
+                - Must start with a letter.
+                - Must be between 1-63 characters.
+                - Must end with a number or a letter.
+                - Must be unique within the project.
 
                 This corresponds to the ``os_policy_assignment_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -455,7 +463,7 @@ class OsConfigZonalServiceAsyncClient:
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -573,11 +581,11 @@ class OsConfigZonalServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_os_policy_assignment(request=request)
+                operation = await client.update_os_policy_assignment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -624,7 +632,7 @@ class OsConfigZonalServiceAsyncClient:
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -767,7 +775,7 @@ class OsConfigZonalServiceAsyncClient:
                    packages, or executing a script.
 
                    For more information, see [OS policy and OS policy
-                   assignment](\ https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
+                   assignment](https://cloud.google.com/compute/docs/os-configuration-management/working-with-os-policies).
 
         """
         # Create or coerce a protobuf request object.
@@ -1129,11 +1137,11 @@ class OsConfigZonalServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_os_policy_assignment(request=request)
+                operation = await client.delete_os_policy_assignment(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1596,7 +1604,7 @@ class OsConfigZonalServiceAsyncClient:
 
                    For more information, see [Information provided by OS
                    inventory
-                   management](\ https://cloud.google.com/compute/docs/instances/os-inventory-management#data-collected).
+                   management](https://cloud.google.com/compute/docs/instances/os-inventory-management#data-collected).
 
         """
         # Create or coerce a protobuf request object.
@@ -1858,7 +1866,7 @@ class OsConfigZonalServiceAsyncClient:
                    given point in time.
 
                    For more information, see [Vulnerability
-                   reports](\ https://cloud.google.com/compute/docs/instances/os-inventory-management#vulnerability-reports).
+                   reports](https://cloud.google.com/compute/docs/instances/os-inventory-management#vulnerability-reports).
 
         """
         # Create or coerce a protobuf request object.

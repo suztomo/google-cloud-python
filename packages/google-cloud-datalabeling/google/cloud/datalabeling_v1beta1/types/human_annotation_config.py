@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -53,6 +53,7 @@ class StringAggregationType(proto.Enum):
         NO_AGGREGATION (3):
             Preserve all answers by crowd compute.
     """
+
     STRING_AGGREGATION_TYPE_UNSPECIFIED = 0
     MAJORITY_VOTE = 1
     UNANIMOUS_VOTE = 2
@@ -284,12 +285,12 @@ class VideoClassificationConfig(proto.Message):
             number=2,
         )
 
-    annotation_spec_set_configs: MutableSequence[
-        AnnotationSpecSetConfig
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=AnnotationSpecSetConfig,
+    annotation_spec_set_configs: MutableSequence[AnnotationSpecSetConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=AnnotationSpecSetConfig,
+        )
     )
     apply_shot_detection: bool = proto.Field(
         proto.BOOL,

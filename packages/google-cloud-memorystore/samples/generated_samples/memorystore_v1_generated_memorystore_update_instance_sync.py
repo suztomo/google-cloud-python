@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_instance():
     client = memorystore_v1.MemorystoreClient()
 
     # Initialize request argument(s)
-    request = memorystore_v1.UpdateInstanceRequest(
-    )
+    request = memorystore_v1.UpdateInstanceRequest()
 
     # Make the request
     operation = client.update_instance(request=request)
@@ -51,5 +50,6 @@ def sample_update_instance():
 
     # Handle the response
     print(response)
+
 
 # [END memorystore_v1_generated_Memorystore_UpdateInstance_sync]
