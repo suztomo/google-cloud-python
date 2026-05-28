@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_session_entity_type():
     client = dialogflow_v2beta1.SessionEntityTypesAsyncClient()
 
     # Initialize request argument(s)
-    request = dialogflow_v2beta1.UpdateSessionEntityTypeRequest(
-    )
+    request = dialogflow_v2beta1.UpdateSessionEntityTypeRequest()
 
     # Make the request
     response = await client.update_session_entity_type(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2beta1_generated_SessionEntityTypes_UpdateSessionEntityType_async]

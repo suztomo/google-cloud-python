@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_delete_authorized_certificate():
     client = appengine_admin_v1.AuthorizedCertificatesClient()
 
     # Initialize request argument(s)
-    request = appengine_admin_v1.DeleteAuthorizedCertificateRequest(
-    )
+    request = appengine_admin_v1.DeleteAuthorizedCertificateRequest()
 
     # Make the request
     client.delete_authorized_certificate(request=request)

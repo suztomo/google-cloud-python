@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import interval_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataproc_v1.types import shared
@@ -179,6 +179,12 @@ class ClusterConfig(proto.Message):
     r"""The cluster config.
 
     Attributes:
+        cluster_type (google.cloud.dataproc_v1.types.ClusterConfig.ClusterType):
+            Optional. The type of the cluster.
+        cluster_tier (google.cloud.dataproc_v1.types.ClusterConfig.ClusterTier):
+            Optional. The cluster tier.
+        engine (google.cloud.dataproc_v1.types.ClusterConfig.Engine):
+            Optional. The cluster engine.
         config_bucket (str):
             Optional. A Cloud Storage bucket used to stage job
             dependencies, config files, and job driver console output.
@@ -258,6 +264,76 @@ class ClusterConfig(proto.Message):
             Optional. The node group settings.
     """
 
+    class ClusterType(proto.Enum):
+        r"""The type of the cluster.
+
+        Values:
+            CLUSTER_TYPE_UNSPECIFIED (0):
+                Not set.
+            STANDARD (1):
+                Standard dataproc cluster with a minimum of
+                two primary workers.
+            SINGLE_NODE (2):
+                https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/single-node-clusters
+            ZERO_SCALE (3):
+                Clusters that can use only secondary workers
+                and be scaled down to zero secondary worker
+                nodes.
+        """
+
+        CLUSTER_TYPE_UNSPECIFIED = 0
+        STANDARD = 1
+        SINGLE_NODE = 2
+        ZERO_SCALE = 3
+
+    class ClusterTier(proto.Enum):
+        r"""The cluster tier.
+
+        Values:
+            CLUSTER_TIER_UNSPECIFIED (0):
+                Not set. Works the same as CLUSTER_TIER_STANDARD.
+            CLUSTER_TIER_STANDARD (1):
+                Standard Dataproc cluster.
+            CLUSTER_TIER_PREMIUM (2):
+                Premium Dataproc cluster.
+        """
+
+        CLUSTER_TIER_UNSPECIFIED = 0
+        CLUSTER_TIER_STANDARD = 1
+        CLUSTER_TIER_PREMIUM = 2
+
+    class Engine(proto.Enum):
+        r"""The cluster engine.
+
+        Values:
+            ENGINE_UNSPECIFIED (0):
+                The engine is not specified. Works the same as
+                ENGINE_DEFAULT.
+            DEFAULT (1):
+                The cluster is a default engine cluster.
+            LIGHTNING (2):
+                The cluster is a lightning engine cluster.
+        """
+
+        ENGINE_UNSPECIFIED = 0
+        DEFAULT = 1
+        LIGHTNING = 2
+
+    cluster_type: ClusterType = proto.Field(
+        proto.ENUM,
+        number=27,
+        enum=ClusterType,
+    )
+    cluster_tier: ClusterTier = proto.Field(
+        proto.ENUM,
+        number=29,
+        enum=ClusterTier,
+    )
+    engine: Engine = proto.Field(
+        proto.ENUM,
+        number=30,
+        enum=Engine,
+    )
     config_bucket: str = proto.Field(
         proto.STRING,
         number=1,
@@ -291,12 +367,12 @@ class ClusterConfig(proto.Message):
         number=13,
         message="SoftwareConfig",
     )
-    initialization_actions: MutableSequence[
-        "NodeInitializationAction"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=11,
-        message="NodeInitializationAction",
+    initialization_actions: MutableSequence["NodeInitializationAction"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=11,
+            message="NodeInitializationAction",
+        )
     )
     encryption_config: "EncryptionConfig" = proto.Field(
         proto.MESSAGE,
@@ -446,8 +522,8 @@ class AutoscalingConfig(proto.Message):
             Only resource names including projectid and location
             (region) are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/locations/[dataproc_region]/autoscalingPolicies/[policy_id]``
-            -  ``projects/[project_id]/locations/[dataproc_region]/autoscalingPolicies/[policy_id]``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/locations/[dataproc_region]/autoscalingPolicies/[policy_id]``
+            - ``projects/[project_id]/locations/[dataproc_region]/autoscalingPolicies/[policy_id]``
 
             Note that the policy must be in the same project and
             Dataproc region.
@@ -480,24 +556,24 @@ class EncryptionConfig(proto.Message):
             arguments of the following job types submitted to the
             cluster are encrypted using CMEK:
 
-            -  `FlinkJob
-               args <https://cloud.google.com/dataproc/docs/reference/rest/v1/FlinkJob>`__
-            -  `HadoopJob
-               args <https://cloud.google.com/dataproc/docs/reference/rest/v1/HadoopJob>`__
-            -  `SparkJob
-               args <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkJob>`__
-            -  `SparkRJob
-               args <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkRJob>`__
-            -  `PySparkJob
-               args <https://cloud.google.com/dataproc/docs/reference/rest/v1/PySparkJob>`__
-            -  `SparkSqlJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkSqlJob>`__
-               scriptVariables and queryList.queries
-            -  `HiveJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/HiveJob>`__
-               scriptVariables and queryList.queries
-            -  `PigJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/PigJob>`__
-               scriptVariables and queryList.queries
-            -  `PrestoJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/PrestoJob>`__
-               scriptVariables and queryList.queries
+            - `FlinkJob
+              args <https://cloud.google.com/dataproc/docs/reference/rest/v1/FlinkJob>`__
+            - `HadoopJob
+              args <https://cloud.google.com/dataproc/docs/reference/rest/v1/HadoopJob>`__
+            - `SparkJob
+              args <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkJob>`__
+            - `SparkRJob
+              args <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkRJob>`__
+            - `PySparkJob
+              args <https://cloud.google.com/dataproc/docs/reference/rest/v1/PySparkJob>`__
+            - `SparkSqlJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/SparkSqlJob>`__
+              scriptVariables and queryList.queries
+            - `HiveJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/HiveJob>`__
+              scriptVariables and queryList.queries
+            - `PigJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/PigJob>`__
+              scriptVariables and queryList.queries
+            - `PrestoJob <https://cloud.google.com/dataproc/docs/reference/rest/v1/PrestoJob>`__
+              scriptVariables and queryList.queries
     """
 
     gce_pd_kms_key_name: str = proto.Field(
@@ -526,9 +602,9 @@ class GceClusterConfig(proto.Message):
 
             A full URL, partial URI, or short name are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]``
-            -  ``projects/[project_id]/zones/[zone]``
-            -  ``[zone]``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]``
+            - ``projects/[project_id]/zones/[zone]``
+            - ``[zone]``
         network_uri (str):
             Optional. The Compute Engine network to be used for machine
             communications. Cannot be specified with subnetwork_uri. If
@@ -540,9 +616,9 @@ class GceClusterConfig(proto.Message):
 
             A full URL, partial URI, or short name are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/networks/default``
-            -  ``projects/[project_id]/global/networks/default``
-            -  ``default``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/networks/default``
+            - ``projects/[project_id]/global/networks/default``
+            - ``default``
         subnetwork_uri (str):
             Optional. The Compute Engine subnetwork to be used for
             machine communications. Cannot be specified with
@@ -550,9 +626,9 @@ class GceClusterConfig(proto.Message):
 
             A full URL, partial URI, or short name are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/regions/[region]/subnetworks/sub0``
-            -  ``projects/[project_id]/regions/[region]/subnetworks/sub0``
-            -  ``sub0``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/regions/[region]/subnetworks/sub0``
+            - ``projects/[project_id]/regions/[region]/subnetworks/sub0``
+            - ``sub0``
         internal_ip_only (bool):
             Optional. This setting applies to subnetwork-enabled
             networks. It is set to ``true`` by default in clusters
@@ -560,19 +636,19 @@ class GceClusterConfig(proto.Message):
 
             When set to ``true``:
 
-            -  All cluster VMs have internal IP addresses.
-            -  [Google Private Access]
-               (https://cloud.google.com/vpc/docs/private-google-access)
-               must be enabled to access Dataproc and other Google Cloud
-               APIs.
-            -  Off-cluster dependencies must be configured to be
-               accessible without external IP addresses.
+            - All cluster VMs have internal IP addresses.
+            - [Google Private Access]
+              (https://cloud.google.com/vpc/docs/private-google-access)
+              must be enabled to access Dataproc and other Google Cloud
+              APIs.
+            - Off-cluster dependencies must be configured to be
+              accessible without external IP addresses.
 
             When set to ``false``:
 
-            -  Cluster VMs are not restricted to internal IP addresses.
-            -  Ephemeral external IP addresses are assigned to each
-               cluster VM.
+            - Cluster VMs are not restricted to internal IP addresses.
+            - Ephemeral external IP addresses are assigned to each
+              cluster VM.
 
             This field is a member of `oneof`_ ``_internal_ip_only``.
         private_ipv6_google_access (google.cloud.dataproc_v1.types.GceClusterConfig.PrivateIpv6GoogleAccess):
@@ -594,17 +670,17 @@ class GceClusterConfig(proto.Message):
             in Compute Engine instances. The following base set of
             scopes is always included:
 
-            -  https://www.googleapis.com/auth/cloud.useraccounts.readonly
-            -  https://www.googleapis.com/auth/devstorage.read_write
-            -  https://www.googleapis.com/auth/logging.write
+            - https://www.googleapis.com/auth/cloud.useraccounts.readonly
+            - https://www.googleapis.com/auth/devstorage.read_write
+            - https://www.googleapis.com/auth/logging.write
 
             If no scopes are specified, the following defaults are also
             provided:
 
-            -  https://www.googleapis.com/auth/bigquery
-            -  https://www.googleapis.com/auth/bigtable.admin.table
-            -  https://www.googleapis.com/auth/bigtable.data
-            -  https://www.googleapis.com/auth/devstorage.full_control
+            - https://www.googleapis.com/auth/bigquery
+            - https://www.googleapis.com/auth/bigtable.admin.table
+            - https://www.googleapis.com/auth/bigtable.data
+            - https://www.googleapis.com/auth/devstorage.full_control
         tags (MutableSequence[str]):
             The Compute Engine network tags to add to all instances (see
             `Tagging
@@ -654,6 +730,7 @@ class GceClusterConfig(proto.Message):
                 between Google Services and the Dataproc
                 cluster.
         """
+
         PRIVATE_IPV6_GOOGLE_ACCESS_UNSPECIFIED = 0
         INHERIT_FROM_SUBNETWORK = 1
         OUTBOUND = 2
@@ -734,9 +811,9 @@ class NodeGroupAffinity(proto.Message):
             A full URL, partial URI, or node group name are valid.
             Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/nodeGroups/node-group-1``
-            -  ``projects/[project_id]/zones/[zone]/nodeGroups/node-group-1``
-            -  ``node-group-1``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/nodeGroups/node-group-1``
+            - ``projects/[project_id]/zones/[zone]/nodeGroups/node-group-1``
+            - ``node-group-1``
     """
 
     node_group_uri: str = proto.Field(
@@ -831,15 +908,15 @@ class InstanceGroupConfig(proto.Message):
 
             Image examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/images/[image-id]``
-            -  ``projects/[project_id]/global/images/[image-id]``
-            -  ``image-id``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/images/[image-id]``
+            - ``projects/[project_id]/global/images/[image-id]``
+            - ``image-id``
 
             Image family examples. Dataproc will use the most recent
             image from the family:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/images/family/[custom-image-family-name]``
-            -  ``projects/[project_id]/global/images/family/[custom-image-family-name]``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/global/images/family/[custom-image-family-name]``
+            - ``projects/[project_id]/global/images/family/[custom-image-family-name]``
 
             If the URI is unspecified, it will be inferred from
             ``SoftwareConfig.image_version`` or the system default.
@@ -849,9 +926,9 @@ class InstanceGroupConfig(proto.Message):
 
             A full URL, partial URI, or short name are valid. Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/machineTypes/n1-standard-2``
-            -  ``projects/[project_id]/zones/[zone]/machineTypes/n1-standard-2``
-            -  ``n1-standard-2``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/machineTypes/n1-standard-2``
+            - ``projects/[project_id]/zones/[zone]/machineTypes/n1-standard-2``
+            - ``n1-standard-2``
 
             **Auto Zone Exception**: If you are using the Dataproc `Auto
             Zone
@@ -893,12 +970,12 @@ class InstanceGroupConfig(proto.Message):
             Example: Cluster creation request with ``num_instances`` =
             ``5`` and ``min_num_instances`` = ``3``:
 
-            -  If 4 VMs are created and 1 instance fails, the failed VM
-               is deleted. The cluster is resized to 4 instances and
-               placed in a ``RUNNING`` state.
-            -  If 2 instances are created and 3 instances fail, the
-               cluster in placed in an ``ERROR`` state. The failed VMs
-               are not deleted.
+            - If 4 VMs are created and 1 instance fails, the failed VM
+              is deleted. The cluster is resized to 4 instances and
+              placed in a ``RUNNING`` state.
+            - If 2 instances are created and 3 instances fail, the
+              cluster in placed in an ``ERROR`` state. The failed VMs
+              are not deleted.
         instance_flexibility_policy (google.cloud.dataproc_v1.types.InstanceFlexibilityPolicy):
             Optional. Instance flexibility Policy
             allowing a mixture of VM shapes and provisioning
@@ -940,6 +1017,7 @@ class InstanceGroupConfig(proto.Message):
                 (https://cloud.google.com/compute/docs/instances/preemptible),
                 and provide additional features.
         """
+
         PREEMPTIBILITY_UNSPECIFIED = 0
         NON_PREEMPTIBLE = 1
         PREEMPTIBLE = 2
@@ -1234,12 +1312,12 @@ class InstanceFlexibilityPolicy(proto.Message):
         number=2,
         message=InstanceSelection,
     )
-    instance_selection_results: MutableSequence[
-        InstanceSelectionResult
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=InstanceSelectionResult,
+    instance_selection_results: MutableSequence[InstanceSelectionResult] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=InstanceSelectionResult,
+        )
     )
 
 
@@ -1256,9 +1334,9 @@ class AcceleratorConfig(proto.Message):
 
             Examples:
 
-            -  ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/acceleratorTypes/nvidia-tesla-t4``
-            -  ``projects/[project_id]/zones/[zone]/acceleratorTypes/nvidia-tesla-t4``
-            -  ``nvidia-tesla-t4``
+            - ``https://www.googleapis.com/compute/v1/projects/[project_id]/zones/[zone]/acceleratorTypes/nvidia-tesla-t4``
+            - ``projects/[project_id]/zones/[zone]/acceleratorTypes/nvidia-tesla-t4``
+            - ``nvidia-tesla-t4``
 
             **Auto Zone Exception**: If you are using the Dataproc `Auto
             Zone
@@ -1369,7 +1447,7 @@ class AuxiliaryNodeGroup(proto.Message):
             Optional. A node group ID. Generated if not specified.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). Cannot begin or end with
+            underscores (\_), and hyphens (-). Cannot begin or end with
             underscore or hyphen. Must consist of from 3 to 33
             characters.
     """
@@ -1402,13 +1480,13 @@ class NodeGroup(proto.Message):
         labels (MutableMapping[str, str]):
             Optional. Node group labels.
 
-            -  Label **keys** must consist of from 1 to 63 characters
-               and conform to `RFC
-               1035 <https://www.ietf.org/rfc/rfc1035.txt>`__.
-            -  Label **values** can be empty. If specified, they must
-               consist of from 1 to 63 characters and conform to [RFC
-               1035] (https://www.ietf.org/rfc/rfc1035.txt).
-            -  The node group must have no more than 32 labels.
+            - Label **keys** must consist of from 1 to 63 characters and
+              conform to `RFC
+              1035 <https://www.ietf.org/rfc/rfc1035.txt>`__.
+            - Label **values** can be empty. If specified, they must
+              consist of from 1 to 63 characters and conform to [RFC
+              1035] (https://www.ietf.org/rfc/rfc1035.txt).
+            - The node group must have no more than 32 labels.
     """
 
     class Role(proto.Enum):
@@ -1420,6 +1498,7 @@ class NodeGroup(proto.Message):
             DRIVER (1):
                 Job drivers run on the node pool.
         """
+
         ROLE_UNSPECIFIED = 0
         DRIVER = 1
 
@@ -1535,6 +1614,7 @@ class ClusterStatus(proto.Message):
                 The cluster is being repaired. It is not
                 ready for use.
         """
+
         UNKNOWN = 0
         CREATING = 1
         RUNNING = 2
@@ -1566,6 +1646,7 @@ class ClusterStatus(proto.Message):
 
                 Applies to RUNNING state.
         """
+
         UNSPECIFIED = 0
         UNHEALTHY = 1
         STALE_STATUS = 2
@@ -1789,15 +1870,15 @@ class SoftwareConfig(proto.Message):
             for example ``core:hadoop.tmp.dir``. The following are
             supported prefixes and their mappings:
 
-            -  capacity-scheduler: ``capacity-scheduler.xml``
-            -  core: ``core-site.xml``
-            -  distcp: ``distcp-default.xml``
-            -  hdfs: ``hdfs-site.xml``
-            -  hive: ``hive-site.xml``
-            -  mapred: ``mapred-site.xml``
-            -  pig: ``pig.properties``
-            -  spark: ``spark-defaults.conf``
-            -  yarn: ``yarn-site.xml``
+            - capacity-scheduler: ``capacity-scheduler.xml``
+            - core: ``core-site.xml``
+            - distcp: ``distcp-default.xml``
+            - hdfs: ``hdfs-site.xml``
+            - hive: ``hive-site.xml``
+            - mapred: ``mapred-site.xml``
+            - pig: ``pig.properties``
+            - spark: ``spark-defaults.conf``
+            - yarn: ``yarn-site.xml``
 
             For more information, see `Cluster
             properties <https://cloud.google.com/dataproc/docs/concepts/cluster-properties>`__.
@@ -1854,6 +1935,28 @@ class LifecycleConfig(proto.Message):
             `Duration <https://developers.google.com/protocol-buffers/docs/proto3#json>`__).
 
             This field is a member of `oneof`_ ``ttl``.
+        idle_stop_ttl (google.protobuf.duration_pb2.Duration):
+            Optional. The duration to keep the cluster started while
+            idling (when no jobs are running). Passing this threshold
+            will cause the cluster to be stopped. Minimum value is 5
+            minutes; maximum value is 14 days (see JSON representation
+            of
+            `Duration <https://developers.google.com/protocol-buffers/docs/proto3#json>`__).
+        auto_stop_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. The time when cluster will be auto-stopped (see
+            JSON representation of
+            `Timestamp <https://developers.google.com/protocol-buffers/docs/proto3#json>`__).
+
+            This field is a member of `oneof`_ ``stop_ttl``.
+        auto_stop_ttl (google.protobuf.duration_pb2.Duration):
+            Optional. The lifetime duration of the cluster. The cluster
+            will be auto-stopped at the end of this period, calculated
+            from the time of submission of the create or update cluster
+            request. Minimum value is 10 minutes; maximum value is 14
+            days (see JSON representation of
+            `Duration <https://developers.google.com/protocol-buffers/docs/proto3#json>`__).
+
+            This field is a member of `oneof`_ ``stop_ttl``.
         idle_start_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time when cluster became idle (most recent
             job finished) and became eligible for deletion due to
@@ -1878,6 +1981,23 @@ class LifecycleConfig(proto.Message):
         oneof="ttl",
         message=duration_pb2.Duration,
     )
+    idle_stop_ttl: duration_pb2.Duration = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=duration_pb2.Duration,
+    )
+    auto_stop_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        oneof="stop_ttl",
+        message=timestamp_pb2.Timestamp,
+    )
+    auto_stop_ttl: duration_pb2.Duration = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        oneof="stop_ttl",
+        message=duration_pb2.Duration,
+    )
     idle_start_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
         number=4,
@@ -1895,7 +2015,7 @@ class MetastoreConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/locations/[dataproc_region]/services/[service-name]``
+            - ``projects/[project_id]/locations/[dataproc_region]/services/[service-name]``
     """
 
     dataproc_metastore_service: str = proto.Field(
@@ -1965,6 +2085,7 @@ class DataprocMetricConfig(proto.Message):
             FLINK (8):
                 flink metric source
         """
+
         METRIC_SOURCE_UNSPECIFIED = 0
         MONITORING_AGENT_DEFAULTS = 1
         HDFS = 2
@@ -2008,15 +2129,15 @@ class DataprocMetricConfig(proto.Message):
 
                 Notes:
 
-                -  Only the specified overridden metrics are collected for
-                   the metric source. For example, if one or more
-                   ``spark:executive`` metrics are listed as metric
-                   overrides, other ``SPARK`` metrics are not collected. The
-                   collection of the metrics for other enabled custom metric
-                   sources is unaffected. For example, if both ``SPARK``
-                   andd ``YARN`` metric sources are enabled, and overrides
-                   are provided for Spark metrics only, all YARN metrics are
-                   collected.
+                - Only the specified overridden metrics are collected for
+                  the metric source. For example, if one or more
+                  ``spark:executive`` metrics are listed as metric
+                  overrides, other ``SPARK`` metrics are not collected. The
+                  collection of the metrics for other enabled custom metric
+                  sources is unaffected. For example, if both ``SPARK`` andd
+                  ``YARN`` metric sources are enabled, and overrides are
+                  provided for Spark metrics only, all YARN metrics are
+                  collected.
         """
 
         metric_source: "DataprocMetricConfig.MetricSource" = proto.Field(
@@ -2061,7 +2182,7 @@ class CreateClusterRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
         action_on_failed_primary_workers (google.cloud.dataproc_v1.types.FailureAction):
             Optional. Failure action when primary worker
@@ -2192,7 +2313,7 @@ class UpdateClusterRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -2258,7 +2379,7 @@ class StopClusterRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -2313,7 +2434,7 @@ class StartClusterRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -2368,7 +2489,7 @@ class DeleteClusterRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -2561,6 +2682,7 @@ class DiagnoseClusterRequest(proto.Message):
                 account has read access to the diagnostic
                 tarball
         """
+
         TARBALL_ACCESS_UNSPECIFIED = 0
         GOOGLE_CLOUD_SUPPORT = 1
         GOOGLE_DATAPROC_DIAGNOSE = 2
@@ -2648,6 +2770,7 @@ class ReservationAffinity(proto.Message):
                 Must specify key value fields for specifying the
                 reservations.
         """
+
         TYPE_UNSPECIFIED = 0
         NO_RESERVATION = 1
         ANY_RESERVATION = 2

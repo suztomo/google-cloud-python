@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import color_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.color_pb2 as color_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.vision_v1p4beta1.types import (
@@ -96,6 +96,7 @@ class Likelihood(proto.Enum):
         VERY_LIKELY (5):
             It is very likely.
     """
+
     UNKNOWN = 0
     VERY_UNLIKELY = 1
     UNLIKELY = 2
@@ -162,6 +163,7 @@ class Feature(proto.Message):
             OBJECT_LOCALIZATION (19):
                 Run localizer for object detection.
         """
+
         TYPE_UNSPECIFIED = 0
         FACE_DETECTION = 1
         LANDMARK_DETECTION = 2
@@ -416,6 +418,7 @@ class FaceAnnotation(proto.Message):
                 CHIN_RIGHT_GONION (34):
                     Chin right gonion.
             """
+
             UNKNOWN_LANDMARK = 0
             LEFT_EYE = 1
             RIGHT_EYE = 2
@@ -533,12 +536,12 @@ class FaceAnnotation(proto.Message):
         number=15,
         enum="Likelihood",
     )
-    recognition_result: MutableSequence[
-        face.FaceRecognitionResult
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=16,
-        message=face.FaceRecognitionResult,
+    recognition_result: MutableSequence[face.FaceRecognitionResult] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=16,
+            message=face.FaceRecognitionResult,
+        )
     )
 
 
@@ -1152,12 +1155,12 @@ class AnnotateImageResponse(proto.Message):
         number=4,
         message="EntityAnnotation",
     )
-    localized_object_annotations: MutableSequence[
-        "LocalizedObjectAnnotation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=22,
-        message="LocalizedObjectAnnotation",
+    localized_object_annotations: MutableSequence["LocalizedObjectAnnotation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=22,
+            message="LocalizedObjectAnnotation",
+        )
     )
     text_annotations: MutableSequence["EntityAnnotation"] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1599,16 +1602,16 @@ class GcsDestination(proto.Message):
 
             Examples:
 
-            -  File Prefix: gs://bucket-name/here/filenameprefix The
-               output files will be created in gs://bucket-name/here/
-               and the names of the output files will begin with
-               "filenameprefix".
+            - File Prefix: gs://bucket-name/here/filenameprefix The
+              output files will be created in gs://bucket-name/here/ and
+              the names of the output files will begin with
+              "filenameprefix".
 
-            -  Directory Prefix: gs://bucket-name/some/location/ The
-               output files will be created in
-               gs://bucket-name/some/location/ and the names of the
-               output files could be anything because there was no
-               filename prefix specified.
+            - Directory Prefix: gs://bucket-name/some/location/ The
+              output files will be created in
+              gs://bucket-name/some/location/ and the names of the
+              output files could be anything because there was no
+              filename prefix specified.
 
             If multiple outputs, each response is still
             AnnotateFileResponse, each of which contains some subset of
@@ -1651,6 +1654,7 @@ class OperationMetadata(proto.Message):
             CANCELLED (4):
                 The batch processing was cancelled.
         """
+
         STATE_UNSPECIFIED = 0
         CREATED = 1
         RUNNING = 2

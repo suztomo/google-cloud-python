@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.security.privateca_v1.types import resources, service
 
@@ -58,7 +60,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +95,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -156,9 +158,10 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -189,6 +192,10 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -292,9 +299,10 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -512,12 +520,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "activate_certificate_authority" not in self._stubs:
-            self._stubs[
-                "activate_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/ActivateCertificateAuthority",
-                request_serializer=service.ActivateCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["activate_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/ActivateCertificateAuthority",
+                    request_serializer=service.ActivateCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["activate_certificate_authority"]
 
@@ -544,12 +552,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_certificate_authority" not in self._stubs:
-            self._stubs[
-                "create_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/CreateCertificateAuthority",
-                request_serializer=service.CreateCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/CreateCertificateAuthority",
+                    request_serializer=service.CreateCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_certificate_authority"]
 
@@ -575,12 +583,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "disable_certificate_authority" not in self._stubs:
-            self._stubs[
-                "disable_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/DisableCertificateAuthority",
-                request_serializer=service.DisableCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["disable_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/DisableCertificateAuthority",
+                    request_serializer=service.DisableCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["disable_certificate_authority"]
 
@@ -606,12 +614,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "enable_certificate_authority" not in self._stubs:
-            self._stubs[
-                "enable_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/EnableCertificateAuthority",
-                request_serializer=service.EnableCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["enable_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/EnableCertificateAuthority",
+                    request_serializer=service.EnableCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["enable_certificate_authority"]
 
@@ -648,12 +656,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "fetch_certificate_authority_csr" not in self._stubs:
-            self._stubs[
-                "fetch_certificate_authority_csr"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/FetchCertificateAuthorityCsr",
-                request_serializer=service.FetchCertificateAuthorityCsrRequest.serialize,
-                response_deserializer=service.FetchCertificateAuthorityCsrResponse.deserialize,
+            self._stubs["fetch_certificate_authority_csr"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/FetchCertificateAuthorityCsr",
+                    request_serializer=service.FetchCertificateAuthorityCsrRequest.serialize,
+                    response_deserializer=service.FetchCertificateAuthorityCsrResponse.deserialize,
+                )
             )
         return self._stubs["fetch_certificate_authority_csr"]
 
@@ -709,12 +717,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_certificate_authorities" not in self._stubs:
-            self._stubs[
-                "list_certificate_authorities"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateAuthorities",
-                request_serializer=service.ListCertificateAuthoritiesRequest.serialize,
-                response_deserializer=service.ListCertificateAuthoritiesResponse.deserialize,
+            self._stubs["list_certificate_authorities"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateAuthorities",
+                    request_serializer=service.ListCertificateAuthoritiesRequest.serialize,
+                    response_deserializer=service.ListCertificateAuthoritiesResponse.deserialize,
+                )
             )
         return self._stubs["list_certificate_authorities"]
 
@@ -741,12 +749,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "undelete_certificate_authority" not in self._stubs:
-            self._stubs[
-                "undelete_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/UndeleteCertificateAuthority",
-                request_serializer=service.UndeleteCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["undelete_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/UndeleteCertificateAuthority",
+                    request_serializer=service.UndeleteCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["undelete_certificate_authority"]
 
@@ -772,12 +780,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_certificate_authority" not in self._stubs:
-            self._stubs[
-                "delete_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/DeleteCertificateAuthority",
-                request_serializer=service.DeleteCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["delete_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/DeleteCertificateAuthority",
+                    request_serializer=service.DeleteCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["delete_certificate_authority"]
 
@@ -803,12 +811,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_certificate_authority" not in self._stubs:
-            self._stubs[
-                "update_certificate_authority"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateAuthority",
-                request_serializer=service.UpdateCertificateAuthorityRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_certificate_authority"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateAuthority",
+                    request_serializer=service.UpdateCertificateAuthorityRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_certificate_authority"]
 
@@ -993,12 +1001,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_certificate_revocation_list" not in self._stubs:
-            self._stubs[
-                "get_certificate_revocation_list"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/GetCertificateRevocationList",
-                request_serializer=service.GetCertificateRevocationListRequest.serialize,
-                response_deserializer=resources.CertificateRevocationList.deserialize,
+            self._stubs["get_certificate_revocation_list"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/GetCertificateRevocationList",
+                    request_serializer=service.GetCertificateRevocationListRequest.serialize,
+                    response_deserializer=resources.CertificateRevocationList.deserialize,
+                )
             )
         return self._stubs["get_certificate_revocation_list"]
 
@@ -1026,12 +1034,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_certificate_revocation_lists" not in self._stubs:
-            self._stubs[
-                "list_certificate_revocation_lists"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateRevocationLists",
-                request_serializer=service.ListCertificateRevocationListsRequest.serialize,
-                response_deserializer=service.ListCertificateRevocationListsResponse.deserialize,
+            self._stubs["list_certificate_revocation_lists"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateRevocationLists",
+                    request_serializer=service.ListCertificateRevocationListsRequest.serialize,
+                    response_deserializer=service.ListCertificateRevocationListsResponse.deserialize,
+                )
             )
         return self._stubs["list_certificate_revocation_lists"]
 
@@ -1058,12 +1066,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_certificate_revocation_list" not in self._stubs:
-            self._stubs[
-                "update_certificate_revocation_list"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateRevocationList",
-                request_serializer=service.UpdateCertificateRevocationListRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_certificate_revocation_list"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateRevocationList",
+                    request_serializer=service.UpdateCertificateRevocationListRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_certificate_revocation_list"]
 
@@ -1088,12 +1096,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_certificate_template" not in self._stubs:
-            self._stubs[
-                "create_certificate_template"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/CreateCertificateTemplate",
-                request_serializer=service.CreateCertificateTemplateRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_certificate_template"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/CreateCertificateTemplate",
+                    request_serializer=service.CreateCertificateTemplateRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_certificate_template"]
 
@@ -1117,12 +1125,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_certificate_template" not in self._stubs:
-            self._stubs[
-                "delete_certificate_template"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/DeleteCertificateTemplate",
-                request_serializer=service.DeleteCertificateTemplateRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["delete_certificate_template"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/DeleteCertificateTemplate",
+                    request_serializer=service.DeleteCertificateTemplateRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["delete_certificate_template"]
 
@@ -1178,12 +1186,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_certificate_templates" not in self._stubs:
-            self._stubs[
-                "list_certificate_templates"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateTemplates",
-                request_serializer=service.ListCertificateTemplatesRequest.serialize,
-                response_deserializer=service.ListCertificateTemplatesResponse.deserialize,
+            self._stubs["list_certificate_templates"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/ListCertificateTemplates",
+                    request_serializer=service.ListCertificateTemplatesRequest.serialize,
+                    response_deserializer=service.ListCertificateTemplatesResponse.deserialize,
+                )
             )
         return self._stubs["list_certificate_templates"]
 
@@ -1207,12 +1215,12 @@ class CertificateAuthorityServiceGrpcTransport(CertificateAuthorityServiceTransp
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_certificate_template" not in self._stubs:
-            self._stubs[
-                "update_certificate_template"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateTemplate",
-                request_serializer=service.UpdateCertificateTemplateRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_certificate_template"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.security.privateca.v1.CertificateAuthorityService/UpdateCertificateTemplate",
+                    request_serializer=service.UpdateCertificateTemplateRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_certificate_template"]
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,9 +44,16 @@ from .delivery_vehicles import (
     VehicleJourneySegment,
     VehicleStop,
 )
-from .header import DeliveryRequestHeader
-from .task_tracking_info import TaskTrackingInfo
-from .tasks import Task, TaskTrackingViewConfig
+from .header import (
+    DeliveryRequestHeader,
+)
+from .task_tracking_info import (
+    TaskTrackingInfo,
+)
+from .tasks import (
+    Task,
+    TaskTrackingViewConfig,
+)
 
 __all__ = (
     "DeliveryVehicleAttribute",

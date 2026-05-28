@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_evaluation_job():
     client = datalabeling_v1beta1.DataLabelingServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = datalabeling_v1beta1.UpdateEvaluationJobRequest(
-    )
+    request = datalabeling_v1beta1.UpdateEvaluationJobRequest()
 
     # Make the request
     response = await client.update_evaluation_job(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END datalabeling_v1beta1_generated_DataLabelingService_UpdateEvaluationJob_async]

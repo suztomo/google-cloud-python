@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -733,9 +733,10 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
                  are specified, the client will attempt to ascertain the
                  credentials from the environment.
 
-             credentials_file (Optional[str]): A file with credentials that can
+             credentials_file (Optional[str]): Deprecated. A file with credentials that can
                  be loaded with :func:`google.auth.load_credentials_from_file`.
-                 This argument is ignored if ``channel`` is provided.
+                 This argument is ignored if ``channel`` is provided. This argument will be
+                 removed in the next major version of this library.
              scopes (Optional(Sequence[str])): A list of scopes. This argument is
                  ignored if ``channel`` is provided.
              client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -753,6 +754,12 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
              url_scheme: the protocol scheme for the API endpoint.  Normally
                  "https", but for testing or local servers,
                  "http" can be specified.
+             interceptor (Optional[ReservationsRestInterceptor]): Interceptor used
+                 to manipulate requests, request metadata, and responses.
+             api_audience (Optional[str]): The intended audience for the API calls
+                 to the service that will be set when using certain 3rd party
+                 authentication flows. Audience is typically a resource identifier.
+                 If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -973,21 +980,32 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1138,11 +1156,11 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Reservation:
-                    Represents a reservation resource. A
+                    Represents a reservation resource.  A
                 reservation ensures that capacity is
                 held in a specific zone even if the
                 reserved VMs are not running. For more
-                information, read Reserving zonal
+                information, read  Reserving zonal
                 resources.
 
             """
@@ -1291,26 +1309,77 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
             Returns:
                 ~.compute.Policy:
                     An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                ``Policy`` is a collection of ``bindings``. A
+                specifies access controls for Google Cloud resources.
+
+                A ``Policy`` is a collection of ``bindings``. A
                 ``binding`` binds one or more ``members``, or
                 principals, to a single ``role``. Principals can be user
                 accounts, service accounts, Google groups, and domains
                 (such as G Suite). A ``role`` is a named list of
                 permissions; each ``role`` can be an IAM predefined role
-                or a user-created custom role. For some types of Google
-                Cloud resources, a ``binding`` can also specify a
-                ``condition``, which is a logical expression that allows
-                access to a resource only if the expression evaluates to
-                ``true``. A condition can add constraints based on
-                attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the `IAM
+                or a user-created custom role.
+
+                For some types of Google Cloud resources, a ``binding``
+                can also specify a ``condition``, which is a logical
+                expression that allows access to a resource only if the
+                expression evaluates to ``true``. A condition can add
+                constraints based on attributes of the request, the
+                resource, or both. To learn which resources support
+                conditions in their IAM policies, see the `IAM
                 documentation <https://cloud.google.com/iam/help/conditions/resource-policies>`__.
+
                 **JSON example:**
-                ``{ "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }``
+
+                ::
+
+                       {
+                         "bindings": [
+                           {
+                             "role": "roles/resourcemanager.organizationAdmin",
+                             "members": [
+                               "user:mike@example.com",
+                               "group:admins@example.com",
+                               "domain:google.com",
+                               "serviceAccount:my-project-id@appspot.gserviceaccount.com"
+                             ]
+                           },
+                           {
+                             "role": "roles/resourcemanager.organizationViewer",
+                             "members": [
+                               "user:eve@example.com"
+                             ],
+                             "condition": {
+                               "title": "expirable access",
+                               "description": "Does not grant access after Sep 2020",
+                               "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",
+                             }
+                           }
+                         ],
+                         "etag": "BwWWja0YfJA=",
+                         "version": 3
+                       }
+
                 **YAML example:**
-                ``bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3``
+
+                ::
+
+                       bindings:
+                       - members:
+                         - user:mike@example.com
+                         - group:admins@example.com
+                         - domain:google.com
+                         - serviceAccount:my-project-id@appspot.gserviceaccount.com
+                         role: roles/resourcemanager.organizationAdmin
+                       - members:
+                         - user:eve@example.com
+                         role: roles/resourcemanager.organizationViewer
+                         condition:
+                           title: expirable access
+                           description: Does not grant access after Sep 2020
+                           expression: request.time < timestamp('2020-10-01T00:00:00.000Z')
+                       etag: BwWWja0YfJA=
+                       version: 3
+
                 For a description of IAM and its features, see the `IAM
                 documentation <https://cloud.google.com/iam/docs/>`__.
 
@@ -1460,21 +1529,32 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1777,29 +1857,38 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
             """
 
-            http_options = (
-                _BaseReservationsRestTransport._BasePerformMaintenance._get_http_options()
-            )
+            http_options = _BaseReservationsRestTransport._BasePerformMaintenance._get_http_options()
 
             request, metadata = self._interceptor.pre_perform_maintenance(
                 request, metadata
@@ -1946,21 +2035,32 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -2120,26 +2220,77 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
             Returns:
                 ~.compute.Policy:
                     An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                ``Policy`` is a collection of ``bindings``. A
+                specifies access controls for Google Cloud resources.
+
+                A ``Policy`` is a collection of ``bindings``. A
                 ``binding`` binds one or more ``members``, or
                 principals, to a single ``role``. Principals can be user
                 accounts, service accounts, Google groups, and domains
                 (such as G Suite). A ``role`` is a named list of
                 permissions; each ``role`` can be an IAM predefined role
-                or a user-created custom role. For some types of Google
-                Cloud resources, a ``binding`` can also specify a
-                ``condition``, which is a logical expression that allows
-                access to a resource only if the expression evaluates to
-                ``true``. A condition can add constraints based on
-                attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the `IAM
+                or a user-created custom role.
+
+                For some types of Google Cloud resources, a ``binding``
+                can also specify a ``condition``, which is a logical
+                expression that allows access to a resource only if the
+                expression evaluates to ``true``. A condition can add
+                constraints based on attributes of the request, the
+                resource, or both. To learn which resources support
+                conditions in their IAM policies, see the `IAM
                 documentation <https://cloud.google.com/iam/help/conditions/resource-policies>`__.
+
                 **JSON example:**
-                ``{ "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }``
+
+                ::
+
+                       {
+                         "bindings": [
+                           {
+                             "role": "roles/resourcemanager.organizationAdmin",
+                             "members": [
+                               "user:mike@example.com",
+                               "group:admins@example.com",
+                               "domain:google.com",
+                               "serviceAccount:my-project-id@appspot.gserviceaccount.com"
+                             ]
+                           },
+                           {
+                             "role": "roles/resourcemanager.organizationViewer",
+                             "members": [
+                               "user:eve@example.com"
+                             ],
+                             "condition": {
+                               "title": "expirable access",
+                               "description": "Does not grant access after Sep 2020",
+                               "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",
+                             }
+                           }
+                         ],
+                         "etag": "BwWWja0YfJA=",
+                         "version": 3
+                       }
+
                 **YAML example:**
-                ``bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3``
+
+                ::
+
+                       bindings:
+                       - members:
+                         - user:mike@example.com
+                         - group:admins@example.com
+                         - domain:google.com
+                         - serviceAccount:my-project-id@appspot.gserviceaccount.com
+                         role: roles/resourcemanager.organizationAdmin
+                       - members:
+                         - user:eve@example.com
+                         role: roles/resourcemanager.organizationViewer
+                         condition:
+                           title: expirable access
+                           description: Does not grant access after Sep 2020
+                           expression: request.time < timestamp('2020-10-01T00:00:00.000Z')
+                       etag: BwWWja0YfJA=
+                       version: 3
+
                 For a description of IAM and its features, see the `IAM
                 documentation <https://cloud.google.com/iam/docs/>`__.
 
@@ -2301,9 +2452,7 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationsRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseReservationsRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -2450,21 +2599,32 @@ class ReservationsRestTransport(_BaseReservationsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 

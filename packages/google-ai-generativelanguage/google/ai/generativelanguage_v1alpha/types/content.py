@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -66,6 +66,7 @@ class Type(proto.Enum):
         OBJECT (6):
             Object type.
     """
+
     TYPE_UNSPECIFIED = 0
     STRING = 1
     NUMBER = 2
@@ -214,11 +215,11 @@ class Blob(proto.Message):
         mime_type (str):
             The IANA standard MIME type of the source data. Examples:
 
-            -  image/png
-            -  image/jpeg If an unsupported MIME type is provided, an
-               error will be returned. For a complete list of supported
-               types, see `Supported file
-               formats <https://ai.google.dev/gemini-api/docs/prompting_with_media#supported_file_formats>`__.
+            - image/png
+            - image/jpeg If an unsupported MIME type is provided, an
+              error will be returned. For a complete list of supported
+              types, see `Supported file
+              formats <https://ai.google.dev/gemini-api/docs/prompting_with_media#supported_file_formats>`__.
         data (bytes):
             Raw bytes for media formats.
     """
@@ -280,6 +281,7 @@ class ExecutableCode(proto.Message):
                 Python >= 3.10, with numpy and simpy
                 available.
         """
+
         LANGUAGE_UNSPECIFIED = 0
         PYTHON = 1
 
@@ -326,6 +328,7 @@ class CodeExecutionResult(proto.Message):
                 cancelled. There may or may not be a partial
                 output present.
         """
+
         OUTCOME_UNSPECIFIED = 0
         OUTCOME_OK = 1
         OUTCOME_FAILED = 2
@@ -449,6 +452,7 @@ class DynamicRetrievalConfig(proto.Message):
                 Run retrieval only when system decides it is
                 necessary.
         """
+
         MODE_UNSPECIFIED = 0
         MODE_DYNAMIC = 1
 
@@ -531,6 +535,7 @@ class FunctionCallingConfig(proto.Message):
                 Model behavior is same as when not passing any
                 function declarations.
         """
+
         MODE_UNSPECIFIED = 0
         AUTO = 1
         ANY = 2

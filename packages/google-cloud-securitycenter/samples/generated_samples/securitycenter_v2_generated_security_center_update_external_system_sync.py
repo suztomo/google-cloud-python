@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_external_system():
     client = securitycenter_v2.SecurityCenterClient()
 
     # Initialize request argument(s)
-    request = securitycenter_v2.UpdateExternalSystemRequest(
-    )
+    request = securitycenter_v2.UpdateExternalSystemRequest()
 
     # Make the request
     response = client.update_external_system(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END securitycenter_v2_generated_SecurityCenter_UpdateExternalSystem_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,9 +40,9 @@ async def sample_import_crypto_key_version():
 
     # Initialize request argument(s)
     request = kms_v1.ImportCryptoKeyVersionRequest(
-        rsa_aes_wrapped_key=b'rsa_aes_wrapped_key_blob',
+        rsa_aes_wrapped_key=b"rsa_aes_wrapped_key_blob",
         parent="parent_value",
-        algorithm="PQ_SIGN_SLH_DSA_SHA2_128S",
+        algorithm="PQ_SIGN_ML_DSA_87_EXTERNAL_MU",
         import_job="import_job_value",
     )
 
@@ -51,5 +51,6 @@ async def sample_import_crypto_key_version():
 
     # Handle the response
     print(response)
+
 
 # [END cloudkms_v1_generated_KeyManagementService_ImportCryptoKeyVersion_async]

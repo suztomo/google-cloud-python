@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,20 +16,20 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers
 import google.auth  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import playbook
 from google.cloud.dialogflowcx_v3beta1.types import playbook as gcdc_playbook
@@ -58,7 +58,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +93,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -155,9 +155,10 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -188,6 +189,10 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -198,6 +203,7 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
         self._grpc_channel = None
         self._ssl_channel_credentials = ssl_channel_credentials
         self._stubs: Dict[str, Callable] = {}
+        self._operations_client: Optional[operations_v1.OperationsClient] = None
 
         if api_mtls_endpoint:
             warnings.warn("api_mtls_endpoint is deprecated", DeprecationWarning)
@@ -290,9 +296,10 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -323,6 +330,22 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
     def grpc_channel(self) -> grpc.Channel:
         """Return the channel designed to connect to this service."""
         return self._grpc_channel
+
+    @property
+    def operations_client(self) -> operations_v1.OperationsClient:
+        """Create the client designed to process long-running operations.
+
+        This property caches on the instance; repeated calls return the same
+        client.
+        """
+        # Quick check: Only create a new client if we do not already have one.
+        if self._operations_client is None:
+            self._operations_client = operations_v1.OperationsClient(
+                self._logged_channel
+            )
+
+        # Return the client from cache.
+        return self._operations_client
 
     @property
     def create_playbook(
@@ -429,6 +452,62 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
         return self._stubs["get_playbook"]
 
     @property
+    def export_playbook(
+        self,
+    ) -> Callable[[playbook.ExportPlaybookRequest], operations_pb2.Operation]:
+        r"""Return a callable for the export playbook method over gRPC.
+
+        Exports the specified playbook to a binary file.
+
+        Note that resources (e.g. examples, tools) that the
+        playbook references will also be exported.
+
+        Returns:
+            Callable[[~.ExportPlaybookRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "export_playbook" not in self._stubs:
+            self._stubs["export_playbook"] = self._logged_channel.unary_unary(
+                "/google.cloud.dialogflow.cx.v3beta1.Playbooks/ExportPlaybook",
+                request_serializer=playbook.ExportPlaybookRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["export_playbook"]
+
+    @property
+    def import_playbook(
+        self,
+    ) -> Callable[[playbook.ImportPlaybookRequest], operations_pb2.Operation]:
+        r"""Return a callable for the import playbook method over gRPC.
+
+        Imports the specified playbook to the specified agent
+        from a binary file.
+
+        Returns:
+            Callable[[~.ImportPlaybookRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "import_playbook" not in self._stubs:
+            self._stubs["import_playbook"] = self._logged_channel.unary_unary(
+                "/google.cloud.dialogflow.cx.v3beta1.Playbooks/ImportPlaybook",
+                request_serializer=playbook.ImportPlaybookRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["import_playbook"]
+
+    @property
     def update_playbook(
         self,
     ) -> Callable[[gcdc_playbook.UpdatePlaybookRequest], gcdc_playbook.Playbook]:
@@ -505,6 +584,37 @@ class PlaybooksGrpcTransport(PlaybooksTransport):
                 response_deserializer=playbook.PlaybookVersion.deserialize,
             )
         return self._stubs["get_playbook_version"]
+
+    @property
+    def restore_playbook_version(
+        self,
+    ) -> Callable[
+        [playbook.RestorePlaybookVersionRequest],
+        playbook.RestorePlaybookVersionResponse,
+    ]:
+        r"""Return a callable for the restore playbook version method over gRPC.
+
+        Retrieves the specified version of the Playbook and
+        stores it as the current playbook draft, returning the
+        playbook with resources updated.
+
+        Returns:
+            Callable[[~.RestorePlaybookVersionRequest],
+                    ~.RestorePlaybookVersionResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "restore_playbook_version" not in self._stubs:
+            self._stubs["restore_playbook_version"] = self._logged_channel.unary_unary(
+                "/google.cloud.dialogflow.cx.v3beta1.Playbooks/RestorePlaybookVersion",
+                request_serializer=playbook.RestorePlaybookVersionRequest.serialize,
+                response_deserializer=playbook.RestorePlaybookVersionResponse.deserialize,
+            )
+        return self._stubs["restore_playbook_version"]
 
     @property
     def list_playbook_versions(

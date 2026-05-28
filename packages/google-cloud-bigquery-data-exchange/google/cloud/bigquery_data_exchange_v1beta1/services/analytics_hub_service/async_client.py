@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.bigquery_data_exchange_v1beta1 import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.cloud.bigquery_data_exchange_v1beta1.services.analytics_hub_service import (
     pagers,
@@ -133,7 +133,10 @@ class AnalyticsHubServiceAsyncClient:
         Returns:
             AnalyticsHubServiceAsyncClient: The constructed client.
         """
-        return AnalyticsHubServiceClient.from_service_account_info.__func__(AnalyticsHubServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            AnalyticsHubServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(AnalyticsHubServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -149,7 +152,10 @@ class AnalyticsHubServiceAsyncClient:
         Returns:
             AnalyticsHubServiceAsyncClient: The constructed client.
         """
-        return AnalyticsHubServiceClient.from_service_account_file.__func__(AnalyticsHubServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            AnalyticsHubServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(AnalyticsHubServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -187,7 +193,9 @@ class AnalyticsHubServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return AnalyticsHubServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return AnalyticsHubServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> AnalyticsHubServiceTransport:
@@ -199,7 +207,7 @@ class AnalyticsHubServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1778,7 +1786,7 @@ class AnalyticsHubServiceAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import bigquery_data_exchange_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_get_iam_policy():
                 # Create a client
@@ -1825,19 +1833,19 @@ class AnalyticsHubServiceAsyncClient:
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -1894,7 +1902,7 @@ class AnalyticsHubServiceAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import bigquery_data_exchange_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_set_iam_policy():
                 # Create a client
@@ -1941,19 +1949,19 @@ class AnalyticsHubServiceAsyncClient:
                    constraints based on attributes of the request, the
                    resource, or both. To learn which resources support
                    conditions in their IAM policies, see the [IAM
-                   documentation](\ https://cloud.google.com/iam/help/conditions/resource-policies).
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
 
                    **JSON example:**
 
-                   :literal:`\`     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
 
                    **YAML example:**
 
-                   :literal:`\`     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
 
                    For a description of IAM and its features, see the
                    [IAM
-                   documentation](\ https://cloud.google.com/iam/docs/).
+                   documentation](https://cloud.google.com/iam/docs/).
 
         """
         # Create or coerce a protobuf request object.
@@ -2010,7 +2018,7 @@ class AnalyticsHubServiceAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import bigquery_data_exchange_v1beta1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_test_iam_permissions():
                 # Create a client
@@ -2079,7 +2087,7 @@ class AnalyticsHubServiceAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2105,8 +2113,12 @@ class AnalyticsHubServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2115,7 +2127,7 @@ class AnalyticsHubServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2123,7 +2135,7 @@ class AnalyticsHubServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2134,7 +2146,7 @@ class AnalyticsHubServiceAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2160,8 +2172,12 @@ class AnalyticsHubServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2170,7 +2186,7 @@ class AnalyticsHubServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2178,7 +2194,7 @@ class AnalyticsHubServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

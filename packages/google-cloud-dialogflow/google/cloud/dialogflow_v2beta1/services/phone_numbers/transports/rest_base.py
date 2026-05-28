@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf import json_format
 
-from google.cloud.dialogflow_v2beta1.types import phone_number as gcd_phone_number
 from google.cloud.dialogflow_v2beta1.types import phone_number
+from google.cloud.dialogflow_v2beta1.types import phone_number as gcd_phone_number
 
 from .base import DEFAULT_CLIENT_INFO, PhoneNumbersTransport
 

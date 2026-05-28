@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -58,6 +58,7 @@ class CalendarPeriod(proto.Enum):
         YEAR (3):
             A year. Year starts on January 1.
     """
+
     CALENDAR_PERIOD_UNSPECIFIED = 0
     MONTH = 1
     QUARTER = 2
@@ -246,6 +247,7 @@ class ThresholdRule(proto.Message):
                 It cannot be set in combination with
                 [Filter.custom_period][google.cloud.billing.budgets.v1.Filter.custom_period].
         """
+
         BASIS_UNSPECIFIED = 0
         CURRENT_SPEND = 1
         FORECASTED_SPEND = 2
@@ -482,6 +484,7 @@ class Filter(proto.Message):
                 gross cost to determine the spend for threshold
                 calculations.
         """
+
         CREDIT_TYPES_TREATMENT_UNSPECIFIED = 0
         INCLUDE_ALL_CREDITS = 1
         EXCLUDE_ALL_CREDITS = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -49,7 +49,7 @@ class Span(proto.Message):
             Required. The resource name of the span in the following
             format:
 
-            -  ``projects/[PROJECT_ID]/traces/[TRACE_ID]/spans/[SPAN_ID]``
+            - ``projects/[PROJECT_ID]/traces/[TRACE_ID]/spans/[SPAN_ID]``
 
             ``[TRACE_ID]`` is a unique identifier for a trace within a
             project; it is a 32-character hexadecimal encoding of a
@@ -153,6 +153,7 @@ class Span(proto.Message):
                 consumer spans (e.g. receiving a message from a
                 pubsub service subscription).
         """
+
         SPAN_KIND_UNSPECIFIED = 0
         INTERNAL = 1
         SERVER = 2
@@ -274,6 +275,7 @@ class Span(proto.Message):
                     RECEIVED (2):
                         Indicates a received message.
                 """
+
                 TYPE_UNSPECIFIED = 0
                 SENT = 1
                 RECEIVED = 2
@@ -380,6 +382,7 @@ class Span(proto.Message):
                     The linked span is a parent of the current
                     span.
             """
+
             TYPE_UNSPECIFIED = 0
             CHILD_LINKED_SPAN = 1
             PARENT_LINKED_SPAN = 2

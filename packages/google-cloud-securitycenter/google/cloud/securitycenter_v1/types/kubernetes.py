@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -156,6 +156,7 @@ class Kubernetes(proto.Message):
                 CLUSTER_ROLE (2):
                     Kubernetes ClusterRole.
             """
+
             KIND_UNSPECIFIED = 0
             ROLE = 1
             CLUSTER_ROLE = 2
@@ -236,6 +237,7 @@ class Kubernetes(proto.Message):
                 GROUP (3):
                     Collection of users.
             """
+
             AUTH_TYPE_UNSPECIFIED = 0
             USER = 1
             SERVICEACCOUNT = 2
@@ -263,7 +265,7 @@ class Kubernetes(proto.Message):
 
         Attributes:
             group (str):
-                The API group of the resource. "*" means all.
+                The API group of the resource. "\*" means all.
             ns (str):
                 Namespace of the action being requested.
                 Currently, there is no distinction between no
@@ -273,14 +275,14 @@ class Kubernetes(proto.Message):
                 The name of the resource being requested.
                 Empty means all.
             resource (str):
-                The optional resource type requested. "*" means all.
+                The optional resource type requested. "\*" means all.
             subresource (str):
                 The optional subresource type.
             verb (str):
                 A Kubernetes resource API verb, like get, list, watch,
-                create, update, delete, proxy. "*" means all.
+                create, update, delete, proxy. "\*" means all.
             version (str):
-                The API version of the resource. "*" means all.
+                The API version of the resource. "\*" means all.
         """
 
         group: str = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ async def sample_search_organizations():
     client = resourcemanager_v3.OrganizationsAsyncClient()
 
     # Initialize request argument(s)
-    request = resourcemanager_v3.SearchOrganizationsRequest(
-    )
+    request = resourcemanager_v3.SearchOrganizationsRequest()
 
     # Make the request
     page_result = client.search_organizations(request=request)
@@ -48,5 +47,6 @@ async def sample_search_organizations():
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END cloudresourcemanager_v3_generated_Organizations_SearchOrganizations_async]

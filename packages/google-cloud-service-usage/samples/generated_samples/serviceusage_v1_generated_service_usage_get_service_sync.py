@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_get_service():
     client = service_usage_v1.ServiceUsageClient()
 
     # Initialize request argument(s)
-    request = service_usage_v1.GetServiceRequest(
-    )
+    request = service_usage_v1.GetServiceRequest()
 
     # Make the request
     response = client.get_service(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END serviceusage_v1_generated_ServiceUsage_GetService_sync]

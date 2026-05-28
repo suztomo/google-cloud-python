@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import google.api_core as api_core
+
 from google.apps.chat_v1 import gapic_version as package_version
 
 __version__ = package_version.__version__
 
+from importlib import metadata
 
 from .services.chat_service import ChatServiceAsyncClient, ChatServiceClient
 from .types.action_status import ActionStatus
 from .types.annotation import (
     Annotation,
     AnnotationType,
+    CalendarEventLinkData,
     ChatSpaceLinkData,
     CustomEmojiMetadata,
     DriveLinkData,
+    MeetSpaceLinkData,
     RichLinkMetadata,
     SlashCommandMetadata,
     UserMentionMetadata,
@@ -77,15 +84,18 @@ from .types.message import (
     ActionResponse,
     AttachedGif,
     CardWithId,
+    CreateMessageNotificationOptions,
     CreateMessageRequest,
     DeleteMessageRequest,
     Dialog,
     DialogAction,
+    ForwardedMetadata,
     GetMessageRequest,
     ListMessagesRequest,
     ListMessagesResponse,
     Message,
     QuotedMessageMetadata,
+    QuotedMessageSnapshot,
     Thread,
     UpdateMessageRequest,
 )
@@ -104,6 +114,21 @@ from .types.reaction import (
     ListReactionsResponse,
     Reaction,
 )
+from .types.section import (
+    CreateSectionRequest,
+    DeleteSectionRequest,
+    ListSectionItemsRequest,
+    ListSectionItemsResponse,
+    ListSectionsRequest,
+    ListSectionsResponse,
+    MoveSectionItemRequest,
+    MoveSectionItemResponse,
+    PositionSectionRequest,
+    PositionSectionResponse,
+    Section,
+    SectionItem,
+    UpdateSectionRequest,
+)
 from .types.slash_command import SlashCommand
 from .types.space import (
     CompleteImportSpaceRequest,
@@ -111,12 +136,15 @@ from .types.space import (
     CreateSpaceRequest,
     DeleteSpaceRequest,
     FindDirectMessageRequest,
+    FindGroupChatsRequest,
+    FindGroupChatsResponse,
     GetSpaceRequest,
     ListSpacesRequest,
     ListSpacesResponse,
     SearchSpacesRequest,
     SearchSpacesResponse,
     Space,
+    SpaceView,
     UpdateSpaceRequest,
 )
 from .types.space_event import (
@@ -140,6 +168,89 @@ from .types.thread_read_state import GetThreadReadStateRequest, ThreadReadState
 from .types.user import User
 from .types.widgets import WidgetMarkup
 
+if hasattr(api_core, "check_python_version") and hasattr(
+    api_core, "check_dependency_versions"
+):  # pragma: NO COVER
+    api_core.check_python_version("google.apps.chat_v1")  # type: ignore
+    api_core.check_dependency_versions("google.apps.chat_v1")  # type: ignore
+else:  # pragma: NO COVER
+    # An older version of api_core is installed which does not define the
+    # functions above. We do equivalent checks manually.
+    try:
+        import warnings
+
+        _py_version_str = sys.version.split()[0]
+        _package_label = "google.apps.chat_v1"
+        if sys.version_info < (3, 10):
+            warnings.warn(
+                "You are using a non-supported Python version "
+                + f"({_py_version_str}).  Google will not post any further "
+                + f"updates to {_package_label} supporting this Python version. "
+                + "Please upgrade to the latest Python version, or at "
+                + f"least to Python 3.10, and then update {_package_label}.",
+                FutureWarning,
+            )
+
+        def parse_version_to_tuple(version_string: str):
+            """Safely converts a semantic version string to a comparable tuple of integers.
+            Example: "4.25.8" -> (4, 25, 8)
+            Ignores non-numeric parts and handles common version formats.
+            Args:
+                version_string: Version string in the format "x.y.z" or "x.y.z<suffix>"
+            Returns:
+                Tuple of integers for the parsed version string.
+            """
+            parts = []
+            for part in version_string.split("."):
+                try:
+                    parts.append(int(part))
+                except ValueError:
+                    # If it's a non-numeric part (e.g., '1.0.0b1' -> 'b1'), stop here.
+                    # This is a simplification compared to 'packaging.parse_version', but sufficient
+                    # for comparing strictly numeric semantic versions.
+                    break
+            return tuple(parts)
+
+        def _get_version(dependency_name):
+            try:
+                version_string: str = metadata.version(dependency_name)
+                parsed_version = parse_version_to_tuple(version_string)
+                return (parsed_version, version_string)
+            except Exception:
+                # Catch exceptions from metadata.version() (e.g., PackageNotFoundError)
+                # or errors during parse_version_to_tuple
+                return (None, "--")
+
+        _dependency_package = "google.protobuf"
+        _next_supported_version = "4.25.8"
+        _next_supported_version_tuple = (4, 25, 8)
+        _recommendation = " (we recommend 6.x)"
+        (_version_used, _version_used_string) = _get_version(_dependency_package)
+        if _version_used and _version_used < _next_supported_version_tuple:
+            warnings.warn(
+                f"Package {_package_label} depends on "
+                + f"{_dependency_package}, currently installed at version "
+                + f"{_version_used_string}. Future updates to "
+                + f"{_package_label} will require {_dependency_package} at "
+                + f"version {_next_supported_version} or higher{_recommendation}."
+                + " Please ensure "
+                + "that either (a) your Python environment doesn't pin the "
+                + f"version of {_dependency_package}, so that updates to "
+                + f"{_package_label} can require the higher version, or "
+                + "(b) you manually update your Python environment to use at "
+                + f"least version {_next_supported_version} of "
+                + f"{_dependency_package}.",
+                FutureWarning,
+            )
+    except Exception:
+        warnings.warn(
+            "Could not determine the version of Python "
+            + "currently being used. To continue receiving "
+            + "updates for {_package_label}, ensure you are "
+            + "using a supported version of Python; see "
+            + "https://devguide.python.org/versions/"
+        )
+
 __all__ = (
     "ChatServiceAsyncClient",
     "AccessoryWidget",
@@ -150,6 +261,7 @@ __all__ = (
     "AttachedGif",
     "Attachment",
     "AttachmentDataRef",
+    "CalendarEventLinkData",
     "CardWithId",
     "ChatServiceClient",
     "ChatSpaceLinkData",
@@ -158,8 +270,10 @@ __all__ = (
     "ContextualAddOnMarkup",
     "CreateCustomEmojiRequest",
     "CreateMembershipRequest",
+    "CreateMessageNotificationOptions",
     "CreateMessageRequest",
     "CreateReactionRequest",
+    "CreateSectionRequest",
     "CreateSpaceRequest",
     "CustomEmoji",
     "CustomEmojiMetadata",
@@ -167,6 +281,7 @@ __all__ = (
     "DeleteMembershipRequest",
     "DeleteMessageRequest",
     "DeleteReactionRequest",
+    "DeleteSectionRequest",
     "DeleteSpaceRequest",
     "DeletionMetadata",
     "Dialog",
@@ -176,6 +291,9 @@ __all__ = (
     "Emoji",
     "EmojiReactionSummary",
     "FindDirectMessageRequest",
+    "FindGroupChatsRequest",
+    "FindGroupChatsResponse",
+    "ForwardedMetadata",
     "GetAttachmentRequest",
     "GetCustomEmojiRequest",
     "GetMembershipRequest",
@@ -195,11 +313,16 @@ __all__ = (
     "ListMessagesResponse",
     "ListReactionsRequest",
     "ListReactionsResponse",
+    "ListSectionItemsRequest",
+    "ListSectionItemsResponse",
+    "ListSectionsRequest",
+    "ListSectionsResponse",
     "ListSpaceEventsRequest",
     "ListSpaceEventsResponse",
     "ListSpacesRequest",
     "ListSpacesResponse",
     "MatchedUrl",
+    "MeetSpaceLinkData",
     "Membership",
     "MembershipBatchCreatedEventData",
     "MembershipBatchDeletedEventData",
@@ -214,7 +337,12 @@ __all__ = (
     "MessageCreatedEventData",
     "MessageDeletedEventData",
     "MessageUpdatedEventData",
+    "MoveSectionItemRequest",
+    "MoveSectionItemResponse",
+    "PositionSectionRequest",
+    "PositionSectionResponse",
     "QuotedMessageMetadata",
+    "QuotedMessageSnapshot",
     "Reaction",
     "ReactionBatchCreatedEventData",
     "ReactionBatchDeletedEventData",
@@ -223,6 +351,8 @@ __all__ = (
     "RichLinkMetadata",
     "SearchSpacesRequest",
     "SearchSpacesResponse",
+    "Section",
+    "SectionItem",
     "SetUpSpaceRequest",
     "SlashCommand",
     "SlashCommandMetadata",
@@ -232,10 +362,12 @@ __all__ = (
     "SpaceNotificationSetting",
     "SpaceReadState",
     "SpaceUpdatedEventData",
+    "SpaceView",
     "Thread",
     "ThreadReadState",
     "UpdateMembershipRequest",
     "UpdateMessageRequest",
+    "UpdateSectionRequest",
     "UpdateSpaceNotificationSettingRequest",
     "UpdateSpaceReadStateRequest",
     "UpdateSpaceRequest",

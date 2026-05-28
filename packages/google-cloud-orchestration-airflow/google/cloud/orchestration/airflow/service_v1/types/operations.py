@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -73,6 +73,7 @@ class OperationMetadata(proto.Message):
                 The operation is no longer running but did
                 not succeed.
         """
+
         _pb_options = {"allow_alias": True}
         STATE_UNSPECIFIED = 0
         PENDING = 1
@@ -104,6 +105,7 @@ class OperationMetadata(proto.Message):
                 instance (only for highly resilient
                 environments).
         """
+
         TYPE_UNSPECIFIED = 0
         CREATE = 1
         DELETE = 2

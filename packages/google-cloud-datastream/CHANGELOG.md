@@ -1,5 +1,65 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-datastream/#history
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.17.0...google-cloud-datastream-v1.18.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.17.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.16.0...google-cloud-datastream-v1.17.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.16.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.15.0...google-cloud-datastream-v1.16.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.15.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.14.1...google-cloud-datastream-v1.15.0) (2025-08-10)
+
+
+### Features
+
+* Add new field `mongodb_cluster` to message `DiscoverConnectionProfileRequest` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field `mongodb_profile` to message `ConnectionProfile` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field `project_id` to message `BigQueryDestinationConfig` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field `psc_interface_config` to message `PrivateConnection` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field `salesforce_org` to message `DiscoverConnectionProfileRequest` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field `validate_only` to message `CreatePrivateConnectionRequest` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field for server certificate  to message `OracleSslConfig` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+* Add new field for server certificate to message `PostgresqlSslConfig` ([7aed62d](https://github.com/googleapis/google-cloud-python/commit/7aed62d6a94d47c9e75ecfb2ec4a41c92b32578a))
+
+## [1.14.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.14.0...google-cloud-datastream-v1.14.1) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([3d5bc37](https://github.com/googleapis/google-cloud-python/commit/3d5bc3782da6b37742ae83802de8a8b6db96fe29))
+
 ## [1.14.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-datastream-v1.13.2...google-cloud-datastream-v1.14.0) (2025-03-27)
 
 

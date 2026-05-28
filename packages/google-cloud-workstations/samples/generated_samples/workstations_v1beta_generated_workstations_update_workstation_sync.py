@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_workstation():
     client = workstations_v1beta.WorkstationsClient()
 
     # Initialize request argument(s)
-    request = workstations_v1beta.UpdateWorkstationRequest(
-    )
+    request = workstations_v1beta.UpdateWorkstationRequest()
 
     # Make the request
     operation = client.update_workstation(request=request)
@@ -51,5 +50,6 @@ def sample_update_workstation():
 
     # Handle the response
     print(response)
+
 
 # [END workstations_v1beta_generated_Workstations_UpdateWorkstation_sync]

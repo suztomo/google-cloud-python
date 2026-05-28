@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -143,6 +143,14 @@ class CloudRedisClusterRestInterceptor:
                 return request, metadata
 
             def post_get_cluster_certificate_authority(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_shared_regional_certificate_authority(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_shared_regional_certificate_authority(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -634,6 +642,58 @@ class CloudRedisClusterRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_shared_regional_certificate_authority(
+        self,
+        request: cloud_redis_cluster.GetSharedRegionalCertificateAuthorityRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        cloud_redis_cluster.GetSharedRegionalCertificateAuthorityRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for get_shared_regional_certificate_authority
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the CloudRedisCluster server.
+        """
+        return request, metadata
+
+    def post_get_shared_regional_certificate_authority(
+        self, response: cloud_redis_cluster.SharedRegionalCertificateAuthority
+    ) -> cloud_redis_cluster.SharedRegionalCertificateAuthority:
+        """Post-rpc interceptor for get_shared_regional_certificate_authority
+
+        DEPRECATED. Please use the `post_get_shared_regional_certificate_authority_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the CloudRedisCluster server but before
+        it is returned to user code. This `post_get_shared_regional_certificate_authority` interceptor runs
+        before the `post_get_shared_regional_certificate_authority_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_shared_regional_certificate_authority_with_metadata(
+        self,
+        response: cloud_redis_cluster.SharedRegionalCertificateAuthority,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        cloud_redis_cluster.SharedRegionalCertificateAuthority,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for get_shared_regional_certificate_authority
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the CloudRedisCluster server but before it is returned to user code.
+
+        We recommend only using this `post_get_shared_regional_certificate_authority_with_metadata`
+        interceptor in new development instead of the `post_get_shared_regional_certificate_authority` interceptor.
+        When both interceptors are used, this `post_get_shared_regional_certificate_authority_with_metadata` interceptor runs after the
+        `post_get_shared_regional_certificate_authority` interceptor. The (possibly modified) response returned by
+        `post_get_shared_regional_certificate_authority` will be passed to
+        `post_get_shared_regional_certificate_authority_with_metadata`.
+        """
+        return response, metadata
+
     def pre_list_backup_collections(
         self,
         request: cloud_redis_cluster.ListBackupCollectionsRequest,
@@ -1050,18 +1110,18 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
     Memorystore for Redis API and defines the following resource model
     for managing Redis clusters:
 
-    -  The service works with a collection of cloud projects, named:
-       ``/projects/*``
-    -  Each project has a collection of available locations, named:
-       ``/locations/*``
-    -  Each location has a collection of Redis clusters, named:
-       ``/clusters/*``
-    -  As such, Redis clusters are resources of the form:
-       ``/projects/{project_id}/locations/{location_id}/clusters/{instance_id}``
+    - The service works with a collection of cloud projects, named:
+      ``/projects/*``
+    - Each project has a collection of available locations, named:
+      ``/locations/*``
+    - Each location has a collection of Redis clusters, named:
+      ``/clusters/*``
+    - As such, Redis clusters are resources of the form:
+      ``/projects/{project_id}/locations/{location_id}/clusters/{instance_id}``
 
     Note that location_id must be a GCP ``region``; for example:
 
-    -  ``projects/redpepper-1290/locations/us-central1/clusters/my-redis``
+    - ``projects/redpepper-1290/locations/us-central1/clusters/my-redis``
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -1096,9 +1156,10 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1116,6 +1177,12 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[CloudRedisClusterRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1249,9 +1316,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseBackupCluster._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseBackupCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_backup_cluster(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseBackupCluster._get_transcoded_request(
@@ -1275,7 +1340,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1401,9 +1466,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseCreateCluster._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseCreateCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_create_cluster(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseCreateCluster._get_transcoded_request(
@@ -1427,7 +1490,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1551,9 +1614,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseDeleteBackup._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseDeleteBackup._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_backup(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseDeleteBackup._get_transcoded_request(
@@ -1573,7 +1634,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1697,9 +1758,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseDeleteCluster._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseDeleteCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_cluster(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseDeleteCluster._get_transcoded_request(
@@ -1719,7 +1778,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1843,9 +1902,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseExportBackup._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseExportBackup._get_http_options()
 
             request, metadata = self._interceptor.pre_export_backup(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseExportBackup._get_transcoded_request(
@@ -1869,7 +1926,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2135,9 +2192,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     BackupCollection of a cluster.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseGetBackupCollection._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseGetBackupCollection._get_http_options()
 
             request, metadata = self._interceptor.pre_get_backup_collection(
                 request, metadata
@@ -2432,9 +2487,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                         Redis cluster certificate authority
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseGetClusterCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseGetClusterCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_get_cluster_certificate_authority(
                 request, metadata
@@ -2498,11 +2551,10 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             resp = self._interceptor.post_get_cluster_certificate_authority(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_cluster_certificate_authority_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_cluster_certificate_authority_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -2523,6 +2575,165 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     extra={
                         "serviceName": "google.cloud.redis.cluster.v1.CloudRedisCluster",
                         "rpcName": "GetClusterCertificateAuthority",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetSharedRegionalCertificateAuthority(
+        _BaseCloudRedisClusterRestTransport._BaseGetSharedRegionalCertificateAuthority,
+        CloudRedisClusterRestStub,
+    ):
+        def __hash__(self):
+            return hash(
+                "CloudRedisClusterRestTransport.GetSharedRegionalCertificateAuthority"
+            )
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: cloud_redis_cluster.GetSharedRegionalCertificateAuthorityRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> cloud_redis_cluster.SharedRegionalCertificateAuthority:
+            r"""Call the get shared regional
+            certificate authority method over HTTP.
+
+                Args:
+                    request (~.cloud_redis_cluster.GetSharedRegionalCertificateAuthorityRequest):
+                        The request object. Request for
+                    [GetSharedRegionalCertificateAuthority][CloudRedis.GetSharedRegionalCertificateAuthority].
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.cloud_redis_cluster.SharedRegionalCertificateAuthority:
+                        Shared regional certificate authority
+            """
+
+            http_options = _BaseCloudRedisClusterRestTransport._BaseGetSharedRegionalCertificateAuthority._get_http_options()
+
+            request, metadata = (
+                self._interceptor.pre_get_shared_regional_certificate_authority(
+                    request, metadata
+                )
+            )
+            transcoded_request = _BaseCloudRedisClusterRestTransport._BaseGetSharedRegionalCertificateAuthority._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseCloudRedisClusterRestTransport._BaseGetSharedRegionalCertificateAuthority._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.redis.cluster_v1.CloudRedisClusterClient.GetSharedRegionalCertificateAuthority",
+                    extra={
+                        "serviceName": "google.cloud.redis.cluster.v1.CloudRedisCluster",
+                        "rpcName": "GetSharedRegionalCertificateAuthority",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = CloudRedisClusterRestTransport._GetSharedRegionalCertificateAuthority._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = cloud_redis_cluster.SharedRegionalCertificateAuthority()
+            pb_resp = cloud_redis_cluster.SharedRegionalCertificateAuthority.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_shared_regional_certificate_authority(
+                resp
+            )
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = (
+                self._interceptor.post_get_shared_regional_certificate_authority_with_metadata(
+                    resp, response_metadata
+                )
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        cloud_redis_cluster.SharedRegionalCertificateAuthority.to_json(
+                            response
+                        )
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.redis.cluster_v1.CloudRedisClusterClient.get_shared_regional_certificate_authority",
+                    extra={
+                        "serviceName": "google.cloud.redis.cluster.v1.CloudRedisCluster",
+                        "rpcName": "GetSharedRegionalCertificateAuthority",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -2584,9 +2795,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     Response for [ListBackupCollections].
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseListBackupCollections._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseListBackupCollections._get_http_options()
 
             request, metadata = self._interceptor.pre_list_backup_collections(
                 request, metadata
@@ -2882,9 +3091,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     Response for [ListClusters][CloudRedis.ListClusters].
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseListClusters._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseListClusters._get_http_options()
 
             request, metadata = self._interceptor.pre_list_clusters(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseListClusters._get_transcoded_request(
@@ -3035,9 +3242,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseRescheduleClusterMaintenance._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseRescheduleClusterMaintenance._get_http_options()
 
             request, metadata = self._interceptor.pre_reschedule_cluster_maintenance(
                 request, metadata
@@ -3063,7 +3268,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3104,11 +3309,10 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             resp = self._interceptor.post_reschedule_cluster_maintenance(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_reschedule_cluster_maintenance_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_reschedule_cluster_maintenance_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3192,9 +3396,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
 
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseUpdateCluster._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseUpdateCluster._get_http_options()
 
             request, metadata = self._interceptor.pre_update_cluster(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseUpdateCluster._get_transcoded_request(
@@ -3218,7 +3420,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3361,7 +3563,22 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetClusterCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetClusterCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def get_shared_regional_certificate_authority(
+        self,
+    ) -> Callable[
+        [cloud_redis_cluster.GetSharedRegionalCertificateAuthorityRequest],
+        cloud_redis_cluster.SharedRegionalCertificateAuthority,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetSharedRegionalCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_backup_collections(
@@ -3405,7 +3622,9 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RescheduleClusterMaintenance(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RescheduleClusterMaintenance(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_cluster(
@@ -3613,9 +3832,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseListLocations._get_transcoded_request(
@@ -3751,9 +3968,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -3866,9 +4081,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -3983,9 +4196,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseGetOperation._get_transcoded_request(
@@ -4124,9 +4335,7 @@ class CloudRedisClusterRestTransport(_BaseCloudRedisClusterRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseCloudRedisClusterRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseCloudRedisClusterRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseCloudRedisClusterRestTransport._BaseListOperations._get_transcoded_request(

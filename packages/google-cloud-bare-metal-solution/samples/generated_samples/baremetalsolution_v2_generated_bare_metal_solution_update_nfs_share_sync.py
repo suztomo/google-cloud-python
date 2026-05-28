@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_update_nfs_share():
     client = bare_metal_solution_v2.BareMetalSolutionClient()
 
     # Initialize request argument(s)
-    request = bare_metal_solution_v2.UpdateNfsShareRequest(
-    )
+    request = bare_metal_solution_v2.UpdateNfsShareRequest()
 
     # Make the request
     operation = client.update_nfs_share(request=request)
@@ -51,5 +50,6 @@ def sample_update_nfs_share():
 
     # Handle the response
     print(response)
+
 
 # [END baremetalsolution_v2_generated_BareMetalSolution_UpdateNfsShare_sync]

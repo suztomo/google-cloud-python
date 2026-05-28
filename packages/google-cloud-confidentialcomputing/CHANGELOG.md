@@ -1,5 +1,79 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-confidentialcomputing/#history
+
+## [0.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.8.0...google-cloud-confidentialcomputing-v0.9.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.7.0...google-cloud-confidentialcomputing-v0.8.0) (2026-02-12)
+
+
+### Features
+
+* add Nvidia Attestation proto message with its relevant fields and ConfidentialGke options ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+## [0.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.6.0...google-cloud-confidentialcomputing-v0.7.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.5.0...google-cloud-confidentialcomputing-v0.6.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.4.18...google-cloud-confidentialcomputing-v0.5.0) (2025-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* Move `AwsPrincipalTagsOptions` out from `TokenOptions` message
+
+### Features
+
+* Add new `VerifyConfidentialSpace` and `VerifyConfidentialGke` rpcs and relevant fields ([cb89cdd](https://github.com/googleapis/google-cloud-python/commit/cb89cdd46498a1012b0a5caf01a2d965bb63a232))
+
+
+### Bug Fixes
+
+* Move `AwsPrincipalTagsOptions` out from `TokenOptions` message ([cb89cdd](https://github.com/googleapis/google-cloud-python/commit/cb89cdd46498a1012b0a5caf01a2d965bb63a232))
+
+
+### Documentation
+
+* A comment for field `aws_principal_tags_options` in message `.google.cloud.confidentialcomputing.v1.TokenOptions` is changed ([cb89cdd](https://github.com/googleapis/google-cloud-python/commit/cb89cdd46498a1012b0a5caf01a2d965bb63a232))
+* Updated comment for method `VerifyAttestation`, `VerifyAttestationRequest` and  `VerifyAttestationResponse` in service `ConfidentialComputing` is changed ([cb89cdd](https://github.com/googleapis/google-cloud-python/commit/cb89cdd46498a1012b0a5caf01a2d965bb63a232))
+
+## [0.4.18](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.4.17...google-cloud-confidentialcomputing-v0.4.18) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [0.4.17](https://github.com/googleapis/google-cloud-python/compare/google-cloud-confidentialcomputing-v0.4.16...google-cloud-confidentialcomputing-v0.4.17) (2025-03-15)
 
 

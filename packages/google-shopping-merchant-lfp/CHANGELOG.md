@@ -1,5 +1,59 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-shopping-merchant-lfp/#history
+
+## [1.3.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v1.2.0...google-shopping-merchant-lfp-v1.3.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.2.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v1.1.0...google-shopping-merchant-lfp-v1.2.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.1.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v1.0.0...google-shopping-merchant-lfp-v1.1.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.0.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v0.1.11...google-shopping-merchant-lfp-v1.0.0) (2025-08-29)
+
+
+### Features
+
+* set `google.shopping.merchant_lfp_v1` as the default import for `google.shopping.merchant_lfp` ([e2f3a1a](https://github.com/googleapis/google-cloud-python/commit/e2f3a1a804f7458fe8180800b5157713b23fcac4))
+* update release level to stable ([e2f3a1a](https://github.com/googleapis/google-cloud-python/commit/e2f3a1a804f7458fe8180800b5157713b23fcac4))
+
+## [0.1.11](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v0.1.10...google-shopping-merchant-lfp-v0.1.11) (2025-08-06)
+
+
+### Features
+
+* [google-shopping-merchant-lfp] add lfp API for v1 ([#14176](https://github.com/googleapis/google-cloud-python/issues/14176)) ([4181153](https://github.com/googleapis/google-cloud-python/commit/4181153ce7701f3c3ebae9465842d6d235075d57))
+
 ## [0.1.10](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-lfp-v0.1.9...google-shopping-merchant-lfp-v0.1.10) (2025-04-29)
 
 

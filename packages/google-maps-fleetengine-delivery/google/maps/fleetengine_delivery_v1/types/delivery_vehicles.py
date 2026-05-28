@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.fleetengine_delivery_v1.types import common
@@ -81,19 +81,19 @@ class DeliveryVehicle(proto.Message):
             ``Task.journeySharingInfo.remainingVehicleJourneySegments[0].path``
             (REST):
 
-            -  The endpoint of the ``current_route_segment`` does not
-               match
-               ``DeliveryVehicle.remaining_vehicle_journey_segments[0].stop``
-               (gRPC) or
-               ``DeliveryVehicle.remainingVehicleJourneySegments[0].stop``
-               (REST).
+            - The endpoint of the ``current_route_segment`` does not
+              match
+              ``DeliveryVehicle.remaining_vehicle_journey_segments[0].stop``
+              (gRPC) or
+              ``DeliveryVehicle.remainingVehicleJourneySegments[0].stop``
+              (REST).
 
-            -  The driver app has not updated its location recently, so
-               the last updated value for this field might be stale.
+            - The driver app has not updated its location recently, so
+              the last updated value for this field might be stale.
 
-            -  The driver app has recently updated its location, but the
-               ``current_route_segment`` is stale, and points to a
-               previous vehicle stop.
+            - The driver app has recently updated its location, but the
+              ``current_route_segment`` is stale, and points to a
+              previous vehicle stop.
 
             In these cases, Fleet Engine populates this field with a
             route from the most recently passed VehicleStop to the
@@ -177,6 +177,7 @@ class DeliveryVehicle(proto.Message):
                 A human transporter, typically walking or
                 running, traveling along pedestrian pathways.
         """
+
         DELIVERY_VEHICLE_TYPE_UNSPECIFIED = 0
         AUTO = 1
         TWO_WHEELER = 2
@@ -192,12 +193,12 @@ class DeliveryVehicle(proto.Message):
         number=2,
         message=common.DeliveryVehicleLocation,
     )
-    past_locations: MutableSequence[
-        common.DeliveryVehicleLocation
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=12,
-        message=common.DeliveryVehicleLocation,
+    past_locations: MutableSequence[common.DeliveryVehicleLocation] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=12,
+            message=common.DeliveryVehicleLocation,
+        )
     )
     navigation_status: common.DeliveryVehicleNavigationStatus = proto.Field(
         proto.ENUM,
@@ -223,12 +224,12 @@ class DeliveryVehicle(proto.Message):
         number=7,
         message=duration_pb2.Duration,
     )
-    remaining_vehicle_journey_segments: MutableSequence[
-        "VehicleJourneySegment"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=8,
-        message="VehicleJourneySegment",
+    remaining_vehicle_journey_segments: MutableSequence["VehicleJourneySegment"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=8,
+            message="VehicleJourneySegment",
+        )
     )
     attributes: MutableSequence[common.DeliveryVehicleAttribute] = proto.RepeatedField(
         proto.MESSAGE,
@@ -367,6 +368,7 @@ class VehicleStop(proto.Message):
                 Vehicle is routing to the next stop, that all
                 previous stops have been completed.
         """
+
         STATE_UNSPECIFIED = 0
         NEW = 1
         ENROUTE = 2
@@ -381,12 +383,12 @@ class VehicleStop(proto.Message):
                 of a ``GetTask`` call. Task IDs are subject to the following
                 restrictions:
 
-                -  Must be a valid Unicode string.
-                -  Limited to a maximum length of 64 characters.
-                -  Normalized according to [Unicode Normalization Form C]
-                   (http://www.unicode.org/reports/tr15/).
-                -  May not contain any of the following ASCII characters:
-                   '/', ':', '?', ',', or '#'.
+                - Must be a valid Unicode string.
+                - Limited to a maximum length of 64 characters.
+                - Normalized according to [Unicode Normalization Form C]
+                  (http://www.unicode.org/reports/tr15/).
+                - May not contain any of the following ASCII characters:
+                  '/', ':', '?', ',', or '#'.
             task_duration (google.protobuf.duration_pb2.Duration):
                 Output only. The time required to perform the
                 Task.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,25 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.functions_v1.types import functions
 
@@ -58,7 +62,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +97,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -155,9 +159,10 @@ class CloudFunctionsServiceGrpcTransport(CloudFunctionsServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -188,6 +193,10 @@ class CloudFunctionsServiceGrpcTransport(CloudFunctionsServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -291,9 +300,10 @@ class CloudFunctionsServiceGrpcTransport(CloudFunctionsServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -526,23 +536,23 @@ class CloudFunctionsServiceGrpcTransport(CloudFunctionsServiceTransport):
         When uploading source code to the generated signed URL, please
         follow these restrictions:
 
-        -  Source file type should be a zip file.
-        -  Source file size should not exceed 100MB limit.
-        -  No credentials should be attached - the signed URLs provide
-           access to the target bucket using internal service identity;
-           if credentials were attached, the identity from the
-           credentials would be used, but that identity does not have
-           permissions to upload files to the URL.
+        - Source file type should be a zip file.
+        - Source file size should not exceed 100MB limit.
+        - No credentials should be attached - the signed URLs provide
+          access to the target bucket using internal service identity;
+          if credentials were attached, the identity from the
+          credentials would be used, but that identity does not have
+          permissions to upload files to the URL.
 
         When making a HTTP PUT request, these two headers need to be
         specified:
 
-        -  ``content-type: application/zip``
-        -  ``x-goog-content-length-range: 0,104857600``
+        - ``content-type: application/zip``
+        - ``x-goog-content-length-range: 0,104857600``
 
         And this header SHOULD NOT be specified:
 
-        -  ``Authorization: Bearer YOUR_TOKEN``
+        - ``Authorization: Bearer YOUR_TOKEN``
 
         Returns:
             Callable[[~.GenerateUploadUrlRequest],

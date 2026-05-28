@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -60,6 +60,8 @@ class Component(proto.Enum):
             (https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-version-clusters#supported-dataproc-image-versions).
             It cannot be activated on clusters created with supported
             Dataproc on Compute Engine image versions.
+        DELTA (20):
+            Delta Lake.
         DOCKER (13):
             Docker
         DRUID (9):
@@ -73,8 +75,12 @@ class Component(proto.Enum):
             accessing HCatalog).
         HUDI (18):
             Hudi.
+        ICEBERG (19):
+            Iceberg.
         JUPYTER (1):
             The Jupyter Notebook.
+        PIG (21):
+            The Pig component.
         PRESTO (6):
             The Presto query engine.
         TRINO (17):
@@ -87,22 +93,29 @@ class Component(proto.Enum):
             The Zeppelin notebook.
         ZOOKEEPER (8):
             The Zookeeper service.
+        JUPYTER_KERNEL_GATEWAY (22):
+            The Jupyter Kernel Gateway.
     """
+
     COMPONENT_UNSPECIFIED = 0
     ANACONDA = 5
+    DELTA = 20
     DOCKER = 13
     DRUID = 9
     FLINK = 14
     HBASE = 11
     HIVE_WEBHCAT = 3
     HUDI = 18
+    ICEBERG = 19
     JUPYTER = 1
+    PIG = 21
     PRESTO = 6
     TRINO = 17
     RANGER = 12
     SOLR = 10
     ZEPPELIN = 4
     ZOOKEEPER = 8
+    JUPYTER_KERNEL_GATEWAY = 22
 
 
 class FailureAction(proto.Enum):
@@ -119,6 +132,7 @@ class FailureAction(proto.Enum):
         DELETE (2):
             Delete the failed cluster resource.
     """
+
     FAILURE_ACTION_UNSPECIFIED = 0
     NO_ACTION = 1
     DELETE = 2
@@ -146,8 +160,8 @@ class RuntimeConfig(proto.Message):
             workload.
         cohort (str):
             Optional. Cohort identifier. Identifies
-            families of the workloads having the same shape,
-            e.g. daily ETL jobs.
+            families of the workloads that have the same
+            shape, for example, daily ETL jobs.
     """
 
     version: str = proto.Field(
@@ -278,6 +292,14 @@ class ExecutionConfig(proto.Message):
             identity (service account or user) that will be
             used by workloads to access resources on the
             project(s).
+        resource_manager_tags (MutableMapping[str, str]):
+            Optional. Associates Resource Manager tags with the workload
+            nodes. There is a max limit of 30 tags. Keys and values can
+            be either in numeric format, such as
+            ``tagKeys/{tag_key_id}`` and ``tagValues/{tag_value_id}``,
+            or in namespaced format, such as
+            ``{org_id|project_id}/{tag_key_short_name}`` and
+            ``{tag_value_short_name}``.
     """
 
     service_account: str = proto.Field(
@@ -321,6 +343,11 @@ class ExecutionConfig(proto.Message):
         number=11,
         message="AuthenticationConfig",
     )
+    resource_manager_tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=12,
+    )
 
 
 class SparkHistoryServerConfig(proto.Message):
@@ -333,7 +360,7 @@ class SparkHistoryServerConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
+            - ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
     """
 
     dataproc_cluster: str = proto.Field(
@@ -352,7 +379,7 @@ class PeripheralsConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/locations/[region]/services/[service_id]``
+            - ``projects/[project_id]/locations/[region]/services/[service_id]``
         spark_history_server_config (google.cloud.dataproc_v1.types.SparkHistoryServerConfig):
             Optional. The Spark History Server
             configuration for the workload.
@@ -440,11 +467,14 @@ class UsageMetrics(proto.Message):
             (see [Dataproc Serverless pricing]
             (https://cloud.google.com/dataproc-serverless/pricing)).
         milli_accelerator_seconds (int):
-            Optional. Accelerator usage in (``milliAccelerator`` x
-            ``seconds``) (see [Dataproc Serverless pricing]
+            Optional. [DEPRECATED] Accelerator usage in
+            (``milliAccelerator`` x ``seconds``) (see [Dataproc
+            Serverless pricing]
             (https://cloud.google.com/dataproc-serverless/pricing)).
         accelerator_type (str):
-            Optional. Accelerator type being used, if any
+            Optional. [DEPRECATED] Accelerator type being used, if any
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. The timestamp of the usage metrics.
     """
 
     milli_dcu_seconds: int = proto.Field(
@@ -462,6 +492,11 @@ class UsageMetrics(proto.Message):
     accelerator_type: str = proto.Field(
         proto.STRING,
         number=4,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message=timestamp_pb2.Timestamp,
     )
 
 
@@ -620,7 +655,7 @@ class KubernetesSoftwareConfig(proto.Message):
             for example ``spark:spark.kubernetes.container.image``. The
             following are supported prefixes and their mappings:
 
-            -  spark: ``spark-defaults.conf``
+            - spark: ``spark-defaults.conf``
 
             For more information, see `Cluster
             properties <https://cloud.google.com/dataproc/docs/concepts/cluster-properties>`__.
@@ -694,6 +729,7 @@ class GkeNodePoolTarget(proto.Message):
                 Run work associated with a Spark executor of
                 a job.
         """
+
         ROLE_UNSPECIFIED = 0
         DEFAULT = 1
         CONTROLLER = 2
@@ -783,7 +819,7 @@ class GkeNodePoolConfig(proto.Message):
                 (https://cloud.google.com/kubernetes-engine/docs/how-to/using-cmek)
                 used to encrypt the boot disk attached to each node in the
                 node pool. Specify the key using the following format:
-                projects/KEY_PROJECT_ID/locations/LOCATION/keyRings/RING_NAME/cryptoKeys/KEY_NAME.
+                ``projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}``
             spot (bool):
                 Optional. Whether the nodes are created as [Spot VM
                 instances]
@@ -930,6 +966,7 @@ class AuthenticationConfig(proto.Message):
                 workload creator/user for authenticating to
                 other services.
         """
+
         AUTHENTICATION_TYPE_UNSPECIFIED = 0
         SERVICE_ACCOUNT = 1
         END_USER_CREDENTIALS = 2
@@ -965,11 +1002,18 @@ class AutotuningConfig(proto.Message):
                 broadcasts.
             MEMORY (4):
                 Memory management for workloads.
+            NONE (5):
+                No autotuning.
+            AUTO (6):
+                Automatic selection of scenarios.
         """
+
         SCENARIO_UNSPECIFIED = 0
         SCALING = 2
         BROADCAST_HASH_JOIN = 3
         MEMORY = 4
+        NONE = 5
+        AUTO = 6
 
     scenarios: MutableSequence[Scenario] = proto.RepeatedField(
         proto.ENUM,
@@ -998,7 +1042,8 @@ class PyPiRepositoryConfig(proto.Message):
 
     Attributes:
         pypi_repository (str):
-            Optional. PyPi repository address
+            Optional. The PyPi repository address. **Note: This field is
+            not available for batch workloads.**
     """
 
     pypi_repository: str = proto.Field(

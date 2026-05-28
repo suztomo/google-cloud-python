@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.datalabeling_v1beta1.types import dataset
@@ -59,10 +59,10 @@ class Instruction(proto.Message):
             classification task. The CSV file should have exact two
             columns, in the following format:
 
-            -  The first column is labeled data, such as an image
-               reference, text.
-            -  The second column is comma separated labels associated
-               with data.
+            - The first column is labeled data, such as an image
+              reference, text.
+            - The second column is comma separated labels associated
+              with data.
         pdf_instruction (google.cloud.datalabeling_v1beta1.types.PdfInstruction):
             Instruction from a PDF document. The PDF
             should be in a Cloud Storage bucket.

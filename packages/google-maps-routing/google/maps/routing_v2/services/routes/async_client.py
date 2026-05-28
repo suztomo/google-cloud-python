@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     AsyncIterable,
     Awaitable,
@@ -31,13 +31,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.maps.routing_v2 import gapic_version as package_version
 
@@ -46,8 +46,8 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.maps.routing_v2.types import (
     fallback_info,
@@ -110,7 +110,10 @@ class RoutesAsyncClient:
         Returns:
             RoutesAsyncClient: The constructed client.
         """
-        return RoutesClient.from_service_account_info.__func__(RoutesAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            RoutesClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(RoutesAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -126,7 +129,10 @@ class RoutesAsyncClient:
         Returns:
             RoutesAsyncClient: The constructed client.
         """
-        return RoutesClient.from_service_account_file.__func__(RoutesAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            RoutesClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(RoutesAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -176,7 +182,7 @@ class RoutesAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -307,28 +313,28 @@ class RoutesAsyncClient:
 
         For example, in this method:
 
-        -  Field mask of all available fields (for manual inspection):
-           ``X-Goog-FieldMask: *``
-        -  Field mask of Route-level duration, distance, and polyline
-           (an example production setup):
-           ``X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline``
+        - Field mask of all available fields (for manual inspection):
+          ``X-Goog-FieldMask: *``
+        - Field mask of Route-level duration, distance, and polyline (an
+          example production setup):
+          ``X-Goog-FieldMask: routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline``
 
         Google discourage the use of the wildcard (``*``) response field
         mask, or specifying the field mask at the top level
         (``routes``), because:
 
-        -  Selecting only the fields that you need helps our server save
-           computation cycles, allowing us to return the result to you
-           with a lower latency.
-        -  Selecting only the fields that you need in your production
-           job ensures stable latency performance. We might add more
-           response fields in the future, and those new fields might
-           require extra computation time. If you select all fields, or
-           if you select all fields at the top level, then you might
-           experience performance degradation because any new field we
-           add will be automatically included in the response.
-        -  Selecting only the fields that you need results in a smaller
-           response size, and thus higher network throughput.
+        - Selecting only the fields that you need helps our server save
+          computation cycles, allowing us to return the result to you
+          with a lower latency.
+        - Selecting only the fields that you need in your production job
+          ensures stable latency performance. We might add more response
+          fields in the future, and those new fields might require extra
+          computation time. If you select all fields, or if you select
+          all fields at the top level, then you might experience
+          performance degradation because any new field we add will be
+          automatically included in the response.
+        - Selecting only the fields that you need results in a smaller
+          response size, and thus higher network throughput.
 
         .. code-block:: python
 
@@ -420,28 +426,28 @@ class RoutesAsyncClient:
 
         For example, in this method:
 
-        -  Field mask of all available fields (for manual inspection):
-           ``X-Goog-FieldMask: *``
-        -  Field mask of route durations, distances, element status,
-           condition, and element indices (an example production setup):
-           ``X-Goog-FieldMask: originIndex,destinationIndex,status,condition,distanceMeters,duration``
+        - Field mask of all available fields (for manual inspection):
+          ``X-Goog-FieldMask: *``
+        - Field mask of route durations, distances, element status,
+          condition, and element indices (an example production setup):
+          ``X-Goog-FieldMask: originIndex,destinationIndex,status,condition,distanceMeters,duration``
 
         It is critical that you include ``status`` in your field mask as
         otherwise all messages will appear to be OK. Google discourages
         the use of the wildcard (``*``) response field mask, because:
 
-        -  Selecting only the fields that you need helps our server save
-           computation cycles, allowing us to return the result to you
-           with a lower latency.
-        -  Selecting only the fields that you need in your production
-           job ensures stable latency performance. We might add more
-           response fields in the future, and those new fields might
-           require extra computation time. If you select all fields, or
-           if you select all fields at the top level, then you might
-           experience performance degradation because any new field we
-           add will be automatically included in the response.
-        -  Selecting only the fields that you need results in a smaller
-           response size, and thus higher network throughput.
+        - Selecting only the fields that you need helps our server save
+          computation cycles, allowing us to return the result to you
+          with a lower latency.
+        - Selecting only the fields that you need in your production job
+          ensures stable latency performance. We might add more response
+          fields in the future, and those new fields might require extra
+          computation time. If you select all fields, or if you select
+          all fields at the top level, then you might experience
+          performance degradation because any new field we add will be
+          automatically included in the response.
+        - Selecting only the fields that you need results in a smaller
+          response size, and thus higher network throughput.
 
         .. code-block:: python
 

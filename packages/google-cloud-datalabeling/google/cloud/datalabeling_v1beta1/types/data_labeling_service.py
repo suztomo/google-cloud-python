@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.datalabeling_v1beta1.types import (
     annotation_spec_set as gcd_annotation_spec_set,
 )
+from google.cloud.datalabeling_v1beta1.types import dataset as gcd_dataset
+from google.cloud.datalabeling_v1beta1.types import evaluation, human_annotation_config
 from google.cloud.datalabeling_v1beta1.types import evaluation_job as gcd_evaluation_job
 from google.cloud.datalabeling_v1beta1.types import instruction as gcd_instruction
-from google.cloud.datalabeling_v1beta1.types import dataset as gcd_dataset
-from google.cloud.datalabeling_v1beta1.types import evaluation
-from google.cloud.datalabeling_v1beta1.types import human_annotation_config
 
 __protobuf__ = proto.module(
     package="google.cloud.datalabeling.v1beta1",
@@ -424,12 +423,12 @@ class ListAnnotatedDatasetsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    annotated_datasets: MutableSequence[
-        gcd_dataset.AnnotatedDataset
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcd_dataset.AnnotatedDataset,
+    annotated_datasets: MutableSequence[gcd_dataset.AnnotatedDataset] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcd_dataset.AnnotatedDataset,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -524,6 +523,7 @@ class LabelImageRequest(proto.Message):
                 is different from bounding poly since it is more
                 fine-grained, pixel level annotation.
         """
+
         FEATURE_UNSPECIFIED = 0
         CLASSIFICATION = 1
         BOUNDING_BOX = 2
@@ -636,6 +636,7 @@ class LabelVideoRequest(proto.Message):
                 Label the range of video for the specified
                 events.
         """
+
         FEATURE_UNSPECIFIED = 0
         CLASSIFICATION = 1
         OBJECT_DETECTION = 2
@@ -729,6 +730,7 @@ class LabelTextRequest(proto.Message):
             TEXT_ENTITY_EXTRACTION (2):
                 Label entities and their span in text.
         """
+
         FEATURE_UNSPECIFIED = 0
         TEXT_CLASSIFICATION = 1
         TEXT_ENTITY_EXTRACTION = 2
@@ -946,12 +948,12 @@ class ListAnnotationSpecSetsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    annotation_spec_sets: MutableSequence[
-        gcd_annotation_spec_set.AnnotationSpecSet
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcd_annotation_spec_set.AnnotationSpecSet,
+    annotation_spec_sets: MutableSequence[gcd_annotation_spec_set.AnnotationSpecSet] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcd_annotation_spec_set.AnnotationSpecSet,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -1119,23 +1121,23 @@ class SearchEvaluationsRequest(proto.Message):
             Optional. To search evaluations, you can filter by the
             following:
 
-            -  evaluation\_job.evaluation_job_id (the last part of
-               [EvaluationJob.name][google.cloud.datalabeling.v1beta1.EvaluationJob.name])
-            -  evaluation\_job.model_id (the {model_name} portion of
-               [EvaluationJob.modelVersion][google.cloud.datalabeling.v1beta1.EvaluationJob.model_version])
-            -  evaluation\_job.evaluation_job_run_time_start (Minimum
-               threshold for the
-               [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
-               that created the evaluation)
-            -  evaluation\_job.evaluation_job_run_time_end (Maximum
-               threshold for the
-               [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
-               that created the evaluation)
-            -  evaluation\_job.job_state
-               ([EvaluationJob.state][google.cloud.datalabeling.v1beta1.EvaluationJob.state])
-            -  annotation\_spec.display_name (the Evaluation contains a
-               metric for the annotation spec with this
-               [displayName][google.cloud.datalabeling.v1beta1.AnnotationSpec.display_name])
+            - evaluation\_job.evaluation_job_id (the last part of
+              [EvaluationJob.name][google.cloud.datalabeling.v1beta1.EvaluationJob.name])
+            - evaluation\_job.model_id (the {model_name} portion of
+              [EvaluationJob.modelVersion][google.cloud.datalabeling.v1beta1.EvaluationJob.model_version])
+            - evaluation\_job.evaluation_job_run_time_start (Minimum
+              threshold for the
+              [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
+              that created the evaluation)
+            - evaluation\_job.evaluation_job_run_time_end (Maximum
+              threshold for the
+              [evaluationJobRunTime][google.cloud.datalabeling.v1beta1.Evaluation.evaluation_job_run_time]
+              that created the evaluation)
+            - evaluation\_job.job_state
+              ([EvaluationJob.state][google.cloud.datalabeling.v1beta1.EvaluationJob.state])
+            - annotation\_spec.display_name (the Evaluation contains a
+              metric for the annotation spec with this
+              [displayName][google.cloud.datalabeling.v1beta1.AnnotationSpec.display_name])
 
             To filter by multiple critiera, use the ``AND`` operator or
             the ``OR`` operator. The following examples shows a string
@@ -1269,12 +1271,12 @@ class SearchExampleComparisonsResponse(proto.Message):
             number=1,
             message=gcd_dataset.Example,
         )
-        model_created_examples: MutableSequence[
-            gcd_dataset.Example
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message=gcd_dataset.Example,
+        model_created_examples: MutableSequence[gcd_dataset.Example] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message=gcd_dataset.Example,
+            )
         )
 
     @property
@@ -1325,9 +1327,9 @@ class UpdateEvaluationJobRequest(proto.Message):
             Optional. Mask for which fields to update. You can only
             provide the following fields:
 
-            -  ``evaluationJobConfig.humanAnnotationConfig.instruction``
-            -  ``evaluationJobConfig.exampleCount``
-            -  ``evaluationJobConfig.exampleSamplePercentage``
+            - ``evaluationJobConfig.humanAnnotationConfig.instruction``
+            - ``evaluationJobConfig.exampleCount``
+            - ``evaluationJobConfig.exampleSamplePercentage``
 
             You can provide more than one of these fields by separating
             them with commas.
@@ -1474,12 +1476,12 @@ class ListEvaluationJobsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    evaluation_jobs: MutableSequence[
-        gcd_evaluation_job.EvaluationJob
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gcd_evaluation_job.EvaluationJob,
+    evaluation_jobs: MutableSequence[gcd_evaluation_job.EvaluationJob] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gcd_evaluation_job.EvaluationJob,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

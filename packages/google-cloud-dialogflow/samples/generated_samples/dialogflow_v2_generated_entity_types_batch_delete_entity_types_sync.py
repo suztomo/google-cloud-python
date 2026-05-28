@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ def sample_batch_delete_entity_types():
     # Initialize request argument(s)
     request = dialogflow_v2.BatchDeleteEntityTypesRequest(
         parent="parent_value",
-        entity_type_names=['entity_type_names_value1', 'entity_type_names_value2'],
+        entity_type_names=["entity_type_names_value1", "entity_type_names_value2"],
     )
 
     # Make the request
@@ -53,5 +53,6 @@ def sample_batch_delete_entity_types():
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v2_generated_EntityTypes_BatchDeleteEntityTypes_sync]

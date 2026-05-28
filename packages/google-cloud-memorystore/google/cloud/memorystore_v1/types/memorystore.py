@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -63,7 +63,10 @@ __protobuf__ = proto.module(
         "BackupInstanceRequest",
         "GetCertificateAuthorityRequest",
         "CertificateAuthority",
+        "SharedRegionalCertificateAuthority",
+        "GetSharedRegionalCertificateAuthorityRequest",
         "OperationMetadata",
+        "EncryptionInfo",
     },
 )
 
@@ -79,6 +82,7 @@ class PscConnectionStatus(proto.Enum):
         NOT_FOUND (2):
             Connection not found
     """
+
     PSC_CONNECTION_STATUS_UNSPECIFIED = 0
     ACTIVE = 1
     NOT_FOUND = 2
@@ -100,6 +104,7 @@ class ConnectionType(proto.Enum):
             Connection that will be used as reader
             endpoint to access replicas.
     """
+
     CONNECTION_TYPE_UNSPECIFIED = 0
     CONNECTION_TYPE_DISCOVERY = 1
     CONNECTION_TYPE_PRIMARY = 2
@@ -165,9 +170,13 @@ class Instance(proto.Message):
         shard_count (int):
             Optional. Number of shards for the instance.
         discovery_endpoints (MutableSequence[google.cloud.memorystore_v1.types.DiscoveryEndpoint]):
-            Output only. Deprecated: Use the
-            endpoints.connections.psc_auto_connection or
-            endpoints.connections.psc_connection values instead.
+            Output only. Deprecated: The discovery_endpoints parameter
+            is deprecated. As a result, it will not be populated if the
+            connections are created using endpoints parameter. Instead
+            of this parameter, for discovery, use
+            endpoints.connections.pscConnection and
+            endpoints.connections.pscAutoConnection with connectionType
+            CONNECTION_TYPE_DISCOVERY.
         node_type (google.cloud.memorystore_v1.types.Instance.NodeType):
             Optional. Machine type for individual nodes
             of the instance.
@@ -201,11 +210,26 @@ class Instance(proto.Message):
             Optional. Endpoints for the instance.
         mode (google.cloud.memorystore_v1.types.Instance.Mode):
             Optional. The mode config for the instance.
+        simulate_maintenance_event (bool):
+            Optional. Input only. Simulate a maintenance
+            event.
+
+            This field is a member of `oneof`_ ``_simulate_maintenance_event``.
         ondemand_maintenance (bool):
             Optional. Input only. Ondemand maintenance
             for the instance.
 
             This field is a member of `oneof`_ ``_ondemand_maintenance``.
+        satisfies_pzs (bool):
+            Optional. Output only. Reserved for future
+            use.
+
+            This field is a member of `oneof`_ ``_satisfies_pzs``.
+        satisfies_pzi (bool):
+            Optional. Output only. Reserved for future
+            use.
+
+            This field is a member of `oneof`_ ``_satisfies_pzi``.
         maintenance_policy (google.cloud.memorystore_v1.types.MaintenancePolicy):
             Optional. The maintenance policy for the
             instance. If not provided, the maintenance event
@@ -225,6 +249,14 @@ class Instance(proto.Message):
             are deleted.
 
             This field is a member of `oneof`_ ``_async_instance_endpoints_deletion_enabled``.
+        kms_key (str):
+            Optional. The KMS key used to encrypt the
+            at-rest data of the cluster.
+
+            This field is a member of `oneof`_ ``_kms_key``.
+        encryption_info (google.cloud.memorystore_v1.types.EncryptionInfo):
+            Output only. Encryption information of the
+            data at rest of the cluster.
         backup_collection (str):
             Output only. The backup collection full
             resource name. Example:
@@ -234,6 +266,41 @@ class Instance(proto.Message):
         automated_backup_config (google.cloud.memorystore_v1.types.AutomatedBackupConfig):
             Optional. The automated backup config for the
             instance.
+        maintenance_version (str):
+            Optional. This field can be used to trigger self service
+            update to indicate the desired maintenance version. The
+            input to this field can be determined by the
+            available_maintenance_versions field.
+
+            This field is a member of `oneof`_ ``_maintenance_version``.
+        effective_maintenance_version (str):
+            Output only. This field represents the actual
+            maintenance version of the instance.
+
+            This field is a member of `oneof`_ ``_effective_maintenance_version``.
+        available_maintenance_versions (MutableSequence[str]):
+            Output only. This field is used to determine
+            the available maintenance versions for the self
+            service update.
+        allow_fewer_zones_deployment (bool):
+            Optional. Immutable. Deprecated, do not use.
+        server_ca_mode (google.cloud.memorystore_v1.types.Instance.ServerCaMode):
+            Optional. Immutable. The Server CA mode for
+            the instance.
+
+            This field is a member of `oneof`_ ``_server_ca_mode``.
+        server_ca_pool (str):
+            Optional. Immutable. The customer-managed CA pool for the
+            instance. Only applicable if the Server CA mode is
+            CUSTOMER_MANAGED_CAS_CA. Format:
+            "projects/{project}/locations/{region}/caPools/{ca_pool}".
+
+            This field is a member of `oneof`_ ``_server_ca_pool``.
+        rotate_server_certificate (bool):
+            Optional. Input only. Rotate the server
+            certificates.
+
+            This field is a member of `oneof`_ ``_rotate_server_certificate``.
     """
 
     class State(proto.Enum):
@@ -251,6 +318,7 @@ class Instance(proto.Message):
             DELETING (4):
                 Instance is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -268,6 +336,7 @@ class Instance(proto.Message):
             IAM_AUTH (2):
                 IAM basic authorization.
         """
+
         AUTHORIZATION_MODE_UNSPECIFIED = 0
         AUTH_DISABLED = 1
         IAM_AUTH = 2
@@ -284,6 +353,7 @@ class Instance(proto.Message):
                 Server-managed encryption is used for
                 in-transit encryption.
         """
+
         TRANSIT_ENCRYPTION_MODE_UNSPECIFIED = 0
         TRANSIT_ENCRYPTION_DISABLED = 1
         SERVER_AUTHENTICATION = 2
@@ -304,12 +374,31 @@ class Instance(proto.Message):
                 High memory extra large.
             STANDARD_SMALL (4):
                 Standard small.
+            CUSTOM_MICRO (5):
+                Custom micro.
+            CUSTOM_MINI (6):
+                Custom mini.
+            HIGHCPU_MEDIUM (7):
+                High cpu medium.
+            STANDARD_LARGE (8):
+                Standard large.
+            HIGHMEM_2XLARGE (9):
+                High memory 2x large.
+            CUSTOM_PICO (10):
+                Custom pico.
         """
+
         NODE_TYPE_UNSPECIFIED = 0
         SHARED_CORE_NANO = 1
         HIGHMEM_MEDIUM = 2
         HIGHMEM_XLARGE = 3
         STANDARD_SMALL = 4
+        CUSTOM_MICRO = 5
+        CUSTOM_MINI = 6
+        HIGHCPU_MEDIUM = 7
+        STANDARD_LARGE = 8
+        HIGHMEM_2XLARGE = 9
+        CUSTOM_PICO = 10
 
     class Mode(proto.Enum):
         r"""The mode config, which is used to enable/disable cluster
@@ -325,10 +414,42 @@ class Instance(proto.Message):
             CLUSTER_DISABLED (4):
                 Cluster mode is disabled for the instance.
         """
+
         MODE_UNSPECIFIED = 0
         STANDALONE = 1
         CLUSTER = 2
         CLUSTER_DISABLED = 4
+
+    class ServerCaMode(proto.Enum):
+        r"""The Server CA mode for the instance.
+
+        Values:
+            SERVER_CA_MODE_UNSPECIFIED (0):
+                Server CA mode not specified.
+            GOOGLE_MANAGED_PER_INSTANCE_CA (1):
+                Each instance has its own Google-managed CA.
+            GOOGLE_MANAGED_SHARED_CA (2):
+                The instance uses a Google-managed shared CA
+                for the instance's region.
+            CUSTOMER_MANAGED_CAS_CA (3):
+                The instance uses a customer-managed CA from
+                CAS.
+            SERVER_CA_MODE_GOOGLE_MANAGED_PER_INSTANCE_CA (1):
+                Deprecated: Use GOOGLE_MANAGED_PER_INSTANCE_CA instead.
+            SERVER_CA_MODE_GOOGLE_MANAGED_SHARED_CA (2):
+                Deprecated: Use GOOGLE_MANAGED_SHARED_CA instead.
+            SERVER_CA_MODE_CUSTOMER_MANAGED_CAS_CA (3):
+                Deprecated: Use CUSTOMER_MANAGED_CAS_CA instead.
+        """
+
+        _pb_options = {"allow_alias": True}
+        SERVER_CA_MODE_UNSPECIFIED = 0
+        GOOGLE_MANAGED_PER_INSTANCE_CA = 1
+        GOOGLE_MANAGED_SHARED_CA = 2
+        CUSTOMER_MANAGED_CAS_CA = 3
+        SERVER_CA_MODE_GOOGLE_MANAGED_PER_INSTANCE_CA = 1
+        SERVER_CA_MODE_GOOGLE_MANAGED_SHARED_CA = 2
+        SERVER_CA_MODE_CUSTOMER_MANAGED_CAS_CA = 3
 
     class StateInfo(proto.Message):
         r"""Additional information about the state of the instance.
@@ -599,12 +720,12 @@ class Instance(proto.Message):
         number=20,
         message="PscAutoConnection",
     )
-    psc_attachment_details: MutableSequence[
-        "PscAttachmentDetail"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=21,
-        message="PscAttachmentDetail",
+    psc_attachment_details: MutableSequence["PscAttachmentDetail"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=21,
+            message="PscAttachmentDetail",
+        )
     )
     endpoints: MutableSequence[InstanceEndpoint] = proto.RepeatedField(
         proto.MESSAGE,
@@ -616,9 +737,24 @@ class Instance(proto.Message):
         number=26,
         enum=Mode,
     )
+    simulate_maintenance_event: bool = proto.Field(
+        proto.BOOL,
+        number=27,
+        optional=True,
+    )
     ondemand_maintenance: bool = proto.Field(
         proto.BOOL,
         number=28,
+        optional=True,
+    )
+    satisfies_pzs: bool = proto.Field(
+        proto.BOOL,
+        number=29,
+        optional=True,
+    )
+    satisfies_pzi: bool = proto.Field(
+        proto.BOOL,
+        number=30,
         optional=True,
     )
     maintenance_policy: "MaintenancePolicy" = proto.Field(
@@ -641,6 +777,16 @@ class Instance(proto.Message):
         number=44,
         optional=True,
     )
+    kms_key: str = proto.Field(
+        proto.STRING,
+        number=45,
+        optional=True,
+    )
+    encryption_info: "EncryptionInfo" = proto.Field(
+        proto.MESSAGE,
+        number=46,
+        message="EncryptionInfo",
+    )
     backup_collection: str = proto.Field(
         proto.STRING,
         number=47,
@@ -650,6 +796,40 @@ class Instance(proto.Message):
         proto.MESSAGE,
         number=48,
         message="AutomatedBackupConfig",
+    )
+    maintenance_version: str = proto.Field(
+        proto.STRING,
+        number=49,
+        optional=True,
+    )
+    effective_maintenance_version: str = proto.Field(
+        proto.STRING,
+        number=50,
+        optional=True,
+    )
+    available_maintenance_versions: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=51,
+    )
+    allow_fewer_zones_deployment: bool = proto.Field(
+        proto.BOOL,
+        number=54,
+    )
+    server_ca_mode: ServerCaMode = proto.Field(
+        proto.ENUM,
+        number=56,
+        optional=True,
+        enum=ServerCaMode,
+    )
+    server_ca_pool: str = proto.Field(
+        proto.STRING,
+        number=57,
+        optional=True,
+    )
+    rotate_server_certificate: bool = proto.Field(
+        proto.BOOL,
+        number=58,
+        optional=True,
     )
 
 
@@ -687,6 +867,7 @@ class AutomatedBackupConfig(proto.Message):
             ENABLED (2):
                 Automated backup config enabled.
         """
+
         AUTOMATED_BACKUP_MODE_UNSPECIFIED = 0
         DISABLED = 1
         ENABLED = 2
@@ -751,6 +932,15 @@ class BackupCollection(proto.Message):
         create_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time when the backup
             collection was created.
+        total_backup_size_bytes (int):
+            Output only. Total size of all backups in the
+            backup collection.
+        total_backup_count (int):
+            Output only. Total number of backups in the
+            backup collection.
+        last_backup_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The last time a backup was
+            created in the backup collection.
     """
 
     name: str = proto.Field(
@@ -778,6 +968,19 @@ class BackupCollection(proto.Message):
         number=7,
         message=timestamp_pb2.Timestamp,
     )
+    total_backup_size_bytes: int = proto.Field(
+        proto.INT64,
+        number=8,
+    )
+    total_backup_count: int = proto.Field(
+        proto.INT64,
+        number=10,
+    )
+    last_backup_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=11,
+        message=timestamp_pb2.Timestamp,
+    )
 
 
 class Backup(proto.Message):
@@ -787,7 +990,7 @@ class Backup(proto.Message):
         name (str):
             Identifier. Full resource path of the backup. the last part
             of the name is the backup id with the following format:
-            [YYYYMMDDHHMMSS]_[Shorted Instance UID] OR customer
+            [YYYYMMDDHHMMSS]\_[Shorted Instance UID] OR customer
             specified while backup instance. Example:
             20240515123000_1234
         create_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -821,6 +1024,9 @@ class Backup(proto.Message):
             Output only. Type of the backup.
         state (google.cloud.memorystore_v1.types.Backup.State):
             Output only. State of the backup.
+        encryption_info (google.cloud.memorystore_v1.types.EncryptionInfo):
+            Output only. Encryption information of the
+            backup.
         uid (str):
             Output only. System assigned unique
             identifier of the backup.
@@ -837,6 +1043,7 @@ class Backup(proto.Message):
             AUTOMATED (2):
                 Automated backup.
         """
+
         BACKUP_TYPE_UNSPECIFIED = 0
         ON_DEMAND = 1
         AUTOMATED = 2
@@ -858,6 +1065,7 @@ class Backup(proto.Message):
                 reasons like project deletion, billing account
                 closure, etc.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -921,6 +1129,11 @@ class Backup(proto.Message):
         proto.ENUM,
         number=13,
         enum=State,
+    )
+    encryption_info: "EncryptionInfo" = proto.Field(
+        proto.MESSAGE,
+        number=14,
+        message="EncryptionInfo",
     )
     uid: str = proto.Field(
         proto.STRING,
@@ -1017,6 +1230,7 @@ class CrossInstanceReplicationConfig(proto.Message):
                 A instance that allows only reads and
                 replicates data from a primary instance.
         """
+
         INSTANCE_ROLE_UNSPECIFIED = 0
         NONE = 1
         PRIMARY = 2
@@ -1125,12 +1339,12 @@ class MaintenancePolicy(proto.Message):
         number=2,
         message=timestamp_pb2.Timestamp,
     )
-    weekly_maintenance_window: MutableSequence[
-        "WeeklyMaintenanceWindow"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message="WeeklyMaintenanceWindow",
+    weekly_maintenance_window: MutableSequence["WeeklyMaintenanceWindow"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message="WeeklyMaintenanceWindow",
+        )
     )
 
 
@@ -1435,6 +1649,7 @@ class PersistenceConfig(proto.Message):
             AOF (3):
                 AOF based persistence is enabled.
         """
+
         PERSISTENCE_MODE_UNSPECIFIED = 0
         DISABLED = 1
         RDB = 2
@@ -1468,6 +1683,7 @@ class PersistenceConfig(proto.Message):
                 TWENTY_FOUR_HOURS (4):
                     Twenty four hours.
             """
+
             SNAPSHOT_PERIOD_UNSPECIFIED = 0
             ONE_HOUR = 1
             SIX_HOURS = 2
@@ -1511,6 +1727,7 @@ class PersistenceConfig(proto.Message):
                     appended to the AOF. The best data loss
                     protection at the cost of performance.
             """
+
             APPEND_FSYNC_UNSPECIFIED = 0
             NEVER = 1
             EVERY_SEC = 2
@@ -1579,6 +1796,7 @@ class ZoneDistributionConfig(proto.Message):
                 Provision resources in a single zone. Zone
                 field must be specified.
         """
+
         ZONE_DISTRIBUTION_MODE_UNSPECIFIED = 0
         MULTI_ZONE = 1
         SINGLE_ZONE = 2
@@ -1624,6 +1842,7 @@ class RescheduleMaintenanceRequest(proto.Message):
                 If the user wants to reschedule the
                 maintenance to a specific time.
         """
+
         RESCHEDULE_TYPE_UNSPECIFIED = 0
         IMMEDIATE = 1
         SPECIFIC_TIME = 3
@@ -1754,11 +1973,11 @@ class CreateInstanceRequest(proto.Message):
 
             This value is subject to the following restrictions:
 
-            -  Must be 4-63 characters in length
-            -  Must begin with a letter or digit
-            -  Must contain only lowercase letters, digits, and hyphens
-            -  Must not end with a hyphen
-            -  Must be unique within a location
+            - Must be 4-63 characters in length
+            - Must begin with a letter or digit
+            - Must contain only lowercase letters, digits, and hyphens
+            - Must not end with a hyphen
+            - Must be unique within a location
         instance (google.cloud.memorystore_v1.types.Instance):
             Required. The instance to create.
         request_id (str):
@@ -2136,7 +2355,7 @@ class BackupInstanceRequest(proto.Message):
             the default value is 100 years.
         backup_id (str):
             Optional. The id of the backup to be created. If not
-            specified, the default value ([YYYYMMDDHHMMSS]_[Shortened
+            specified, the default value ([YYYYMMDDHHMMSS]\_[Shortened
             Instance UID] is used.
 
             This field is a member of `oneof`_ ``_backup_id``.
@@ -2235,6 +2454,86 @@ class CertificateAuthority(proto.Message):
     )
 
 
+class SharedRegionalCertificateAuthority(proto.Message):
+    r"""Shared regional certificate authority for an instance.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        managed_server_ca (google.cloud.memorystore_v1.types.SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority):
+            CA certificate chains for memorystore managed
+            server authentication.
+
+            This field is a member of `oneof`_ ``server_ca``.
+        name (str):
+            Identifier. Unique name of the resource in this scope
+            including project and location using the form:
+            ``projects/{project}/locations/{location}/sharedRegionalCertificateAuthority``
+    """
+
+    class RegionalManagedCertificateAuthority(proto.Message):
+        r"""CA certificate chains for memorystore managed server
+        authentication.
+
+        Attributes:
+            ca_certs (MutableSequence[google.cloud.memorystore_v1.types.SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain]):
+                The PEM encoded CA certificate chains for
+                memorystore managed server authentication
+        """
+
+        class RegionalCertChain(proto.Message):
+            r"""The certificates that form the CA chain, from leaf to root
+            order.
+
+            Attributes:
+                certificates (MutableSequence[str]):
+                    The certificates that form the CA chain, from
+                    leaf to root order.
+            """
+
+            certificates: MutableSequence[str] = proto.RepeatedField(
+                proto.STRING,
+                number=1,
+            )
+
+        ca_certs: MutableSequence[
+            "SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain"
+        ] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SharedRegionalCertificateAuthority.RegionalManagedCertificateAuthority.RegionalCertChain",
+        )
+
+    managed_server_ca: RegionalManagedCertificateAuthority = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="server_ca",
+        message=RegionalManagedCertificateAuthority,
+    )
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class GetSharedRegionalCertificateAuthorityRequest(proto.Message):
+    r"""Request for
+    [GetSharedRegionalCertificateAuthority][google.cloud.memorystore.v1.Memorystore.GetSharedRegionalCertificateAuthority].
+
+    Attributes:
+        name (str):
+            Required. Regional certificate authority resource name using
+            the form:
+            ``projects/{project}/locations/{location}/sharedRegionalCertificateAuthority``
+            where ``location_id`` refers to a Google Cloud region.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
 class OperationMetadata(proto.Message):
     r"""Represents the metadata of a long-running operation.
 
@@ -2294,6 +2593,103 @@ class OperationMetadata(proto.Message):
     api_version: str = proto.Field(
         proto.STRING,
         number=7,
+    )
+
+
+class EncryptionInfo(proto.Message):
+    r"""EncryptionInfo describes the encryption information of a
+    cluster.
+
+    Attributes:
+        encryption_type (google.cloud.memorystore_v1.types.EncryptionInfo.Type):
+            Output only. Type of encryption.
+        kms_key_versions (MutableSequence[str]):
+            Output only. KMS key versions that are being
+            used to protect the data at-rest.
+        kms_key_primary_state (google.cloud.memorystore_v1.types.EncryptionInfo.KmsKeyState):
+            Output only. The state of the primary version
+            of the KMS key perceived by the system. This
+            field is not populated in backups.
+        last_update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The most recent time when the
+            encryption info was updated.
+    """
+
+    class Type(proto.Enum):
+        r"""Possible encryption types.
+
+        Values:
+            TYPE_UNSPECIFIED (0):
+                Encryption type not specified. Defaults to
+                GOOGLE_DEFAULT_ENCRYPTION.
+            GOOGLE_DEFAULT_ENCRYPTION (1):
+                The data is encrypted at rest with a key that
+                is fully managed by Google. No key version will
+                be populated. This is the default state.
+            CUSTOMER_MANAGED_ENCRYPTION (2):
+                The data is encrypted at rest with a key that
+                is managed by the customer. KMS key versions
+                will be populated.
+        """
+
+        TYPE_UNSPECIFIED = 0
+        GOOGLE_DEFAULT_ENCRYPTION = 1
+        CUSTOMER_MANAGED_ENCRYPTION = 2
+
+    class KmsKeyState(proto.Enum):
+        r"""The state of the KMS key perceived by the system. Refer to
+        the public documentation for the impact of each state.
+
+        Values:
+            KMS_KEY_STATE_UNSPECIFIED (0):
+                The default value. This value is unused.
+            ENABLED (1):
+                The KMS key is enabled and correctly
+                configured.
+            PERMISSION_DENIED (2):
+                Permission denied on the KMS key.
+            DISABLED (3):
+                The KMS key is disabled.
+            DESTROYED (4):
+                The KMS key is destroyed.
+            DESTROY_SCHEDULED (5):
+                The KMS key is scheduled to be destroyed.
+            EKM_KEY_UNREACHABLE_DETECTED (6):
+                The EKM key is unreachable.
+            BILLING_DISABLED (7):
+                Billing is disabled for the project.
+            UNKNOWN_FAILURE (8):
+                All other unknown failures.
+        """
+
+        KMS_KEY_STATE_UNSPECIFIED = 0
+        ENABLED = 1
+        PERMISSION_DENIED = 2
+        DISABLED = 3
+        DESTROYED = 4
+        DESTROY_SCHEDULED = 5
+        EKM_KEY_UNREACHABLE_DETECTED = 6
+        BILLING_DISABLED = 7
+        UNKNOWN_FAILURE = 8
+
+    encryption_type: Type = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum=Type,
+    )
+    kms_key_versions: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=2,
+    )
+    kms_key_primary_state: KmsKeyState = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum=KmsKeyState,
+    )
+    last_update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message=timestamp_pb2.Timestamp,
     )
 
 

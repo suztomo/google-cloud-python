@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.analytics.data.v1alpha",
     manifest={
+        "Section",
         "UserCriteriaScoping",
         "UserExclusionDuration",
         "SessionCriteriaScoping",
@@ -37,6 +38,7 @@ __protobuf__ = proto.module(
         "Dimension",
         "DimensionExpression",
         "Metric",
+        "Comparison",
         "FilterExpression",
         "FilterExpressionList",
         "Filter",
@@ -97,8 +99,41 @@ __protobuf__ = proto.module(
         "FunnelParameterFilter",
         "FunnelResponseMetadata",
         "SamplingMetadata",
+        "ConversionSpec",
+        "DimensionMetadata",
+        "MetricMetadata",
+        "ComparisonMetadata",
+        "ConversionMetadata",
     },
 )
+
+
+class Section(proto.Enum):
+    r"""Identifies if the report data is from the standard report
+    data or conversion data
+
+    Values:
+        SECTION_UNSPECIFIED (0):
+            Should never be specified.
+        SECTION_REPORT (1):
+            The report data is from the standard report
+            data. Google Analytics reports include
+            acquisition, engagement, and user behavior
+            reports. Reports use dimensions like session
+            source & landing page; reports use metrics like
+            sessions, views, and engagement time.
+        SECTION_ADVERTISING (2):
+            The report data is from the conversion data.
+            The Google Analytics Advertising section reports
+            on conversion performance. Advertising reports
+            use dimensions like source & medium; advertising
+            reports use metrics like all conversions and ads
+            cost.
+    """
+
+    SECTION_UNSPECIFIED = 0
+    SECTION_REPORT = 1
+    SECTION_ADVERTISING = 2
 
 
 class UserCriteriaScoping(proto.Enum):
@@ -118,6 +153,7 @@ class UserCriteriaScoping(proto.Enum):
             If the criteria is satisfied by any events
             for the user, the user matches the criteria.
     """
+
     USER_CRITERIA_SCOPING_UNSPECIFIED = 0
     USER_CRITERIA_WITHIN_SAME_EVENT = 1
     USER_CRITERIA_WITHIN_SAME_SESSION = 2
@@ -139,6 +175,7 @@ class UserExclusionDuration(proto.Enum):
             Permanently exclude users from the segment if the user ever
             meets the ``userExclusionCriteria`` condition.
     """
+
     USER_EXCLUSION_DURATION_UNSPECIFIED = 0
     USER_EXCLUSION_TEMPORARY = 1
     USER_EXCLUSION_PERMANENT = 2
@@ -158,6 +195,7 @@ class SessionCriteriaScoping(proto.Enum):
             If the criteria is satisfied within one
             session, the session matches the criteria.
     """
+
     SESSION_CRITERIA_SCOPING_UNSPECIFIED = 0
     SESSION_CRITERIA_WITHIN_SAME_EVENT = 1
     SESSION_CRITERIA_WITHIN_SAME_SESSION = 2
@@ -179,6 +217,7 @@ class SessionExclusionDuration(proto.Enum):
             Permanently exclude sessions from the segment if the session
             ever meets the ``sessionExclusionCriteria`` condition.
     """
+
     SESSION_EXCLUSION_DURATION_UNSPECIFIED = 0
     SESSION_EXCLUSION_TEMPORARY = 1
     SESSION_EXCLUSION_PERMANENT = 2
@@ -195,6 +234,7 @@ class EventCriteriaScoping(proto.Enum):
             If the criteria is satisfied within one
             event, the event matches the criteria.
     """
+
     EVENT_CRITERIA_SCOPING_UNSPECIFIED = 0
     EVENT_CRITERIA_WITHIN_SAME_EVENT = 1
 
@@ -211,6 +251,7 @@ class EventExclusionDuration(proto.Enum):
             Permanently exclude events from the segment if the event
             ever meets the ``eventExclusionCriteria`` condition.
     """
+
     EVENT_EXCLUSION_DURATION_UNSPECIFIED = 0
     EVENT_EXCLUSION_PERMANENT = 1
 
@@ -230,6 +271,7 @@ class MetricAggregation(proto.Enum):
         COUNT (4):
             Count operator.
     """
+
     METRIC_AGGREGATION_UNSPECIFIED = 0
     TOTAL = 1
     MINIMUM = 5
@@ -278,6 +320,7 @@ class MetricType(proto.Enum):
             A length in kilometers; a special floating
             point type.
     """
+
     METRIC_TYPE_UNSPECIFIED = 0
     TYPE_INTEGER = 1
     TYPE_FLOAT = 2
@@ -305,6 +348,7 @@ class RestrictedMetricType(proto.Enum):
         REVENUE_DATA (2):
             Revenue metrics such as ``purchaseRevenue``.
     """
+
     RESTRICTED_METRIC_TYPE_UNSPECIFIED = 0
     COST_DATA = 1
     REVENUE_DATA = 2
@@ -330,6 +374,7 @@ class SamplingLevel(proto.Enum):
             explorations. To learn more, see
             https://support.google.com/analytics/answer/10896953.
     """
+
     SAMPLING_LEVEL_UNSPECIFIED = 0
     LOW = 1
     MEDIUM = 2
@@ -481,7 +526,7 @@ class DimensionExpression(proto.Message):
             delimiter (str):
                 The delimiter placed between dimension names.
 
-                Delimiters are often single characters such as "|" or ","
+                Delimiters are often single characters such as "\|" or ","
                 but can be longer strings. If a dimension value contains the
                 delimiter, both will be present in response with no
                 distinction. For example if dimension 1 value = "US,FR",
@@ -568,6 +613,56 @@ class Metric(proto.Message):
     invisible: bool = proto.Field(
         proto.BOOL,
         number=3,
+    )
+
+
+class Comparison(proto.Message):
+    r"""Defines an individual comparison. Most requests will include
+    multiple comparisons so that the report compares between the
+    comparisons.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Each comparison produces separate rows in the
+            response. In the response, this comparison is
+            identified by this name. If name is unspecified,
+            we will use the saved comparisons display name.
+
+            This field is a member of `oneof`_ ``_name``.
+        dimension_filter (google.analytics.data_v1alpha.types.FilterExpression):
+            A basic comparison.
+
+            This field is a member of `oneof`_ ``one_comparison``.
+        comparison (str):
+            A saved comparison identified by the
+            comparison's resource name. For example,
+            'comparisons/1234'.
+
+            This field is a member of `oneof`_ ``one_comparison``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+        optional=True,
+    )
+    dimension_filter: "FilterExpression" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="one_comparison",
+        message="FilterExpression",
+    )
+    comparison: str = proto.Field(
+        proto.STRING,
+        number=3,
+        oneof="one_comparison",
     )
 
 
@@ -752,6 +847,7 @@ class StringFilter(proto.Message):
                 Partial match for the regular expression with
                 the string value.
         """
+
         MATCH_TYPE_UNSPECIFIED = 0
         EXACT = 1
         BEGINS_WITH = 2
@@ -823,6 +919,7 @@ class NumericFilter(proto.Message):
             GREATER_THAN_OR_EQUAL (5):
                 Greater than or equal
         """
+
         OPERATION_UNSPECIFIED = 0
         EQUAL = 1
         LESS_THAN = 2
@@ -912,6 +1009,7 @@ class OrderBy(proto.Message):
                     values all have equal ordering value below all numeric
                     values.
             """
+
             ORDER_TYPE_UNSPECIFIED = 0
             ALPHANUMERIC = 1
             CASE_INSENSITIVE_ALPHANUMERIC = 2
@@ -1180,6 +1278,7 @@ class CohortsRange(proto.Message):
                 ``dateRange`` is a month in duration and the request
                 contains ``cohortNthMonth``.
         """
+
         GRANULARITY_UNSPECIFIED = 0
         DAILY = 1
         WEEKLY = 2
@@ -1289,15 +1388,17 @@ class ResponseMetaData(proto.Message):
 
             This field is a member of `oneof`_ ``_subject_to_thresholding``.
         sampling_metadatas (MutableSequence[google.analytics.data_v1alpha.types.SamplingMetadata]):
-            If this report's results are
+            If this report results is
             `sampled <https://support.google.com/analytics/answer/13331292>`__,
             this describes the percentage of events used in this report.
             One ``samplingMetadatas`` is populated for each date range.
             Each ``samplingMetadatas`` corresponds to a date range in
-            the order that date ranges were specified in the request.
+            order that date ranges were specified in the request.
 
             However if the results are not sampled, this field will not
             be defined.
+        section (google.analytics.data_v1alpha.types.Section):
+            Identifies the type of data in the report.
     """
 
     class SchemaRestrictionResponse(proto.Message):
@@ -1333,12 +1434,12 @@ class ResponseMetaData(proto.Message):
                 number=1,
                 optional=True,
             )
-            restricted_metric_types: MutableSequence[
-                "RestrictedMetricType"
-            ] = proto.RepeatedField(
-                proto.ENUM,
-                number=2,
-                enum="RestrictedMetricType",
+            restricted_metric_types: MutableSequence["RestrictedMetricType"] = (
+                proto.RepeatedField(
+                    proto.ENUM,
+                    number=2,
+                    enum="RestrictedMetricType",
+                )
             )
 
         active_metric_restrictions: MutableSequence[
@@ -1383,6 +1484,11 @@ class ResponseMetaData(proto.Message):
         proto.MESSAGE,
         number=9,
         message="SamplingMetadata",
+    )
+    section: "Section" = proto.Field(
+        proto.ENUM,
+        number=10,
+        enum="Section",
     )
 
 
@@ -1886,19 +1992,19 @@ class UserSegmentCriteria(proto.Message):
             if ``andConditionGroups`` are specified.
     """
 
-    and_condition_groups: MutableSequence[
-        "UserSegmentConditionGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="UserSegmentConditionGroup",
+    and_condition_groups: MutableSequence["UserSegmentConditionGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="UserSegmentConditionGroup",
+        )
     )
-    and_sequence_groups: MutableSequence[
-        "UserSegmentSequenceGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="UserSegmentSequenceGroup",
+    and_sequence_groups: MutableSequence["UserSegmentSequenceGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="UserSegmentSequenceGroup",
+        )
     )
 
 
@@ -2100,12 +2206,12 @@ class SessionSegmentCriteria(proto.Message):
             of these ``andConditionGroups``.
     """
 
-    and_condition_groups: MutableSequence[
-        "SessionSegmentConditionGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="SessionSegmentConditionGroup",
+    and_condition_groups: MutableSequence["SessionSegmentConditionGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SessionSegmentConditionGroup",
+        )
     )
 
 
@@ -2215,12 +2321,12 @@ class EventSegmentCriteria(proto.Message):
             these ``andConditionGroups``.
     """
 
-    and_condition_groups: MutableSequence[
-        "EventSegmentConditionGroup"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="EventSegmentConditionGroup",
+    and_condition_groups: MutableSequence["EventSegmentConditionGroup"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="EventSegmentConditionGroup",
+        )
     )
 
 
@@ -2646,12 +2752,12 @@ class SegmentParameterFilterExpressionList(proto.Message):
             expressions.
     """
 
-    expressions: MutableSequence[
-        "SegmentParameterFilterExpression"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="SegmentParameterFilterExpression",
+    expressions: MutableSequence["SegmentParameterFilterExpression"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="SegmentParameterFilterExpression",
+        )
     )
 
 
@@ -3061,12 +3167,12 @@ class FunnelParameterFilterExpressionList(proto.Message):
             expressions.
     """
 
-    expressions: MutableSequence[
-        "FunnelParameterFilterExpression"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="FunnelParameterFilterExpression",
+    expressions: MutableSequence["FunnelParameterFilterExpression"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="FunnelParameterFilterExpression",
+        )
     )
 
 
@@ -3176,8 +3282,8 @@ class FunnelResponseMetadata(proto.Message):
             this describes what percentage of events were used in this
             funnel report. One ``samplingMetadatas`` is populated for
             each date range. Each ``samplingMetadatas`` corresponds to a
-            date range in the order that date ranges were specified in
-            the request.
+            date range in order that date ranges were specified in the
+            request.
 
             However if the results are not sampled, this field will not
             be defined.
@@ -3222,6 +3328,305 @@ class SamplingMetadata(proto.Message):
     )
     sampling_space_size: int = proto.Field(
         proto.INT64,
+        number=2,
+    )
+
+
+class ConversionSpec(proto.Message):
+    r"""Controls conversion reporting.
+
+    <aside class="caution">
+      This feature may not be available to your Google Analytics
+    property. The   Google Analytics team is actively working to
+    expand this feature to more   properties. Please reach out to
+    your
+      <a href="https://support.google.com/analytics/gethelp">support
+    team</a> if   you have questions about the eligibility of your
+    property. </aside>
+
+    Attributes:
+        conversion_actions (MutableSequence[str]):
+            The conversion action IDs to include in the report. If
+            empty, all conversions are included. Valid conversion action
+            IDs can be retrieved from the ``conversion_action`` field
+            within the ``conversions`` list in the response of the
+            ``GetMetadata`` method. For example,
+            'conversionActions/1234'.
+        attribution_model (google.analytics.data_v1alpha.types.ConversionSpec.AttributionModel):
+            The attribution model to use in the Conversion Report. If
+            unspecified, ``DATA_DRIVEN`` is used.
+    """
+
+    class AttributionModel(proto.Enum):
+        r"""Attribution model to use in the Conversion Report
+
+        Values:
+            ATTRIBUTION_MODEL_UNSPECIFIED (0):
+                Unspecified attribution model.
+            DATA_DRIVEN (1):
+                Attribution was based on the paid and organic
+                data driven model
+            LAST_CLICK (2):
+                Attribution was based on the paid and organic
+                last click model
+        """
+
+        ATTRIBUTION_MODEL_UNSPECIFIED = 0
+        DATA_DRIVEN = 1
+        LAST_CLICK = 2
+
+    conversion_actions: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=1,
+    )
+    attribution_model: AttributionModel = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=AttributionModel,
+    )
+
+
+class DimensionMetadata(proto.Message):
+    r"""Explains a dimension.
+
+    Attributes:
+        api_name (str):
+            This dimension's name. Usable in
+            `Dimension <#Dimension>`__'s ``name``. For example,
+            ``eventName``.
+        ui_name (str):
+            This dimension's name within the Google Analytics user
+            interface. For example, ``Event name``.
+        description (str):
+            Description of how this dimension is used and
+            calculated.
+        deprecated_api_names (MutableSequence[str]):
+            Still usable but deprecated names for this dimension. If
+            populated, this dimension is available by either ``apiName``
+            or one of ``deprecatedApiNames`` for a period of time. After
+            the deprecation period, the dimension will be available only
+            by ``apiName``.
+        custom_definition (bool):
+            True if the dimension is custom to this
+            property. This includes user, event, & item
+            scoped custom dimensions; to learn more about
+            custom dimensions, see
+            https://support.google.com/analytics/answer/14240153.
+            This also include custom channel groups; to
+            learn more about custom channel groups, see
+            https://support.google.com/analytics/answer/13051316.
+        category (str):
+            The display name of the category that this
+            dimension belongs to. Similar dimensions and
+            metrics are categorized together.
+        sections (MutableSequence[google.analytics.data_v1alpha.types.Section]):
+            Specifies the Google Analytics sections this
+            dimension applies to.
+    """
+
+    api_name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    ui_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    description: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    deprecated_api_names: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    custom_definition: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
+    category: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+    sections: MutableSequence["Section"] = proto.RepeatedField(
+        proto.ENUM,
+        number=7,
+        enum="Section",
+    )
+
+
+class MetricMetadata(proto.Message):
+    r"""Explains a metric.
+
+    Attributes:
+        api_name (str):
+            A metric name. Usable in `Metric <#Metric>`__'s ``name``.
+            For example, ``eventCount``.
+        ui_name (str):
+            This metric's name within the Google Analytics user
+            interface. For example, ``Event count``.
+        description (str):
+            Description of how this metric is used and
+            calculated.
+        deprecated_api_names (MutableSequence[str]):
+            Still usable but deprecated names for this metric. If
+            populated, this metric is available by either ``apiName`` or
+            one of ``deprecatedApiNames`` for a period of time. After
+            the deprecation period, the metric will be available only by
+            ``apiName``.
+        type_ (google.analytics.data_v1alpha.types.MetricType):
+            The type of this metric.
+        expression (str):
+            The mathematical expression for this derived metric. Can be
+            used in `Metric <#Metric>`__'s ``expression`` field for
+            equivalent reports. Most metrics are not expressions, and
+            for non-expressions, this field is empty.
+        custom_definition (bool):
+            True if the metric is a custom metric for
+            this property.
+        blocked_reasons (MutableSequence[google.analytics.data_v1alpha.types.MetricMetadata.BlockedReason]):
+            If reasons are specified, your access is blocked to this
+            metric for this property. API requests from you to this
+            property for this metric will succeed; however, the report
+            will contain only zeros for this metric. API requests with
+            metric filters on blocked metrics will fail. If reasons are
+            empty, you have access to this metric.
+
+            To learn more, see `Access and data-restriction
+            management <https://support.google.com/analytics/answer/10851388>`__.
+        category (str):
+            The display name of the category that this
+            metrics belongs to. Similar dimensions and
+            metrics are categorized together.
+        sections (MutableSequence[google.analytics.data_v1alpha.types.Section]):
+            Specifies the Google Analytics sections this
+            metric applies to.
+    """
+
+    class BlockedReason(proto.Enum):
+        r"""Justifications for why this metric is blocked.
+
+        Values:
+            BLOCKED_REASON_UNSPECIFIED (0):
+                Will never be specified in API response.
+            NO_REVENUE_METRICS (1):
+                If present, your access is blocked to revenue
+                related metrics for this property, and this
+                metric is revenue related.
+            NO_COST_METRICS (2):
+                If present, your access is blocked to cost
+                related metrics for this property, and this
+                metric is cost related.
+        """
+
+        BLOCKED_REASON_UNSPECIFIED = 0
+        NO_REVENUE_METRICS = 1
+        NO_COST_METRICS = 2
+
+    api_name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    ui_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    description: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    deprecated_api_names: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=4,
+    )
+    type_: "MetricType" = proto.Field(
+        proto.ENUM,
+        number=5,
+        enum="MetricType",
+    )
+    expression: str = proto.Field(
+        proto.STRING,
+        number=6,
+    )
+    custom_definition: bool = proto.Field(
+        proto.BOOL,
+        number=7,
+    )
+    blocked_reasons: MutableSequence[BlockedReason] = proto.RepeatedField(
+        proto.ENUM,
+        number=8,
+        enum=BlockedReason,
+    )
+    category: str = proto.Field(
+        proto.STRING,
+        number=9,
+    )
+    sections: MutableSequence["Section"] = proto.RepeatedField(
+        proto.ENUM,
+        number=10,
+        enum="Section",
+    )
+
+
+class ComparisonMetadata(proto.Message):
+    r"""The metadata for a single comparison.
+
+    Attributes:
+        api_name (str):
+            This comparison's resource name. Usable in
+            `Comparison <#Comparison>`__'s ``comparison`` field. For
+            example, 'comparisons/1234'.
+        ui_name (str):
+            This comparison's name within the Google
+            Analytics user interface.
+        description (str):
+            This comparison's description.
+    """
+
+    api_name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    ui_name: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    description: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
+class ConversionMetadata(proto.Message):
+    r"""The metadata for a single conversion.
+
+    <aside class="caution">
+      This feature may not be available to your Google Analytics
+    property. The   Google Analytics team is actively working to
+    expand this feature to more   properties. Please reach out to
+    your
+      <a href="https://support.google.com/analytics/gethelp">support
+    team</a> if   you have questions about the eligibility of your
+    property. </aside>
+
+    Attributes:
+        conversion_action (str):
+            The unique identifier of the conversion action. This ID is
+            used to specify which conversions to include in a report by
+            populating the ``conversion_actions`` field in the
+            ``ConversionsSpec`` of a report request. For example,
+            'conversionActions/1234'.
+        display_name (str):
+            This conversion's name within the Google
+            Analytics user interface.
+    """
+
+    conversion_action: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    display_name: str = proto.Field(
+        proto.STRING,
         number=2,
     )
 

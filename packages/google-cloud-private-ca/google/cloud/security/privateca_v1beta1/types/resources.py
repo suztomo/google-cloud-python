@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -94,6 +94,7 @@ class RevocationReason(proto.Enum):
             [Certificate][google.cloud.security.privateca.v1beta1.Certificate]
             may have been compromised.
     """
+
     REVOCATION_REASON_UNSPECIFIED = 0
     KEY_COMPROMISE = 1
     CERTIFICATE_AUTHORITY_COMPROMISE = 2
@@ -228,6 +229,7 @@ class CertificateAuthority(proto.Message):
                 [CertificateAuthority][google.cloud.security.privateca.v1beta1.CertificateAuthority]
                 or an unmanaged CA.
         """
+
         TYPE_UNSPECIFIED = 0
         SELF_SIGNED = 1
         SUBORDINATE = 2
@@ -245,6 +247,7 @@ class CertificateAuthority(proto.Message):
             DEVOPS (2):
                 DevOps tier.
         """
+
         TIER_UNSPECIFIED = 0
         ENTERPRISE = 1
         DEVOPS = 2
@@ -270,6 +273,7 @@ class CertificateAuthority(proto.Message):
                 Certificates cannot be issued from this CA.
                 CRLs will not be generated.
         """
+
         STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -307,6 +311,7 @@ class CertificateAuthority(proto.Message):
             EC_P384_SHA384 (5):
                 maps to CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384
         """
+
         SIGN_HASH_ALGORITHM_UNSPECIFIED = 0
         RSA_PSS_2048_SHA256 = 1
         RSA_PSS_3072_SHA256 = 2
@@ -445,12 +450,12 @@ class CertificateAuthority(proto.Message):
                     field.
             """
 
-            allowed_config_values: MutableSequence[
-                "ReusableConfigWrapper"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=1,
-                message="ReusableConfigWrapper",
+            allowed_config_values: MutableSequence["ReusableConfigWrapper"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=1,
+                    message="ReusableConfigWrapper",
+                )
             )
 
         class AllowedSubjectAltNames(proto.Message):
@@ -475,7 +480,7 @@ class CertificateAuthority(proto.Message):
                 allowed_uris (MutableSequence[str]):
                     Optional. Contains valid RFC 3986 URIs. Glob patterns are
                     also supported. To match across path seperators (i.e. '/')
-                    use the double star glob pattern (i.e. '**').
+                    use the double star glob pattern (i.e. '\*\*').
                 allowed_email_addresses (MutableSequence[str]):
                     Optional. Contains valid RFC 2822 E-mail
                     addresses. Glob patterns are also supported.
@@ -561,12 +566,12 @@ class CertificateAuthority(proto.Message):
             oneof="config_policy",
             message="ReusableConfigWrapper",
         )
-        allowed_locations_and_organizations: MutableSequence[
-            "Subject"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="Subject",
+        allowed_locations_and_organizations: MutableSequence["Subject"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="Subject",
+            )
         )
         allowed_common_names: MutableSequence[str] = proto.RepeatedField(
             proto.STRING,
@@ -711,12 +716,12 @@ class CertificateAuthority(proto.Message):
         proto.STRING,
         number=9,
     )
-    ca_certificate_descriptions: MutableSequence[
-        "CertificateDescription"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=12,
-        message="CertificateDescription",
+    ca_certificate_descriptions: MutableSequence["CertificateDescription"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=12,
+            message="CertificateDescription",
+        )
     )
     gcs_bucket: str = proto.Field(
         proto.STRING,
@@ -806,6 +811,7 @@ class CertificateRevocationList(proto.Message):
                 [CertificateRevocationList][google.cloud.security.privateca.v1beta1.CertificateRevocationList]
                 is no longer current.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SUPERSEDED = 2
@@ -1304,6 +1310,7 @@ class PublicKey(proto.Message):
                 A PEM-encoded compressed NIST
                 P-256/secp256r1/prime256v1 or P-384 key.
         """
+
         KEY_TYPE_UNSPECIFIED = 0
         PEM_RSA_KEY = 1
         PEM_EC_KEY = 2

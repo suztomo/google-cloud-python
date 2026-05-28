@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,6 +87,348 @@ class _BaseAdUnitServiceRestTransport(AdUnitServiceTransport):
             always_use_jwt_access=always_use_jwt_access,
             api_audience=api_audience,
         )
+
+    class _BaseBatchActivateAdUnits:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits:batchActivate",
+                    "body": "*",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.BatchActivateAdUnitsRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseBatchActivateAdUnits._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseBatchArchiveAdUnits:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits:batchArchive",
+                    "body": "*",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.BatchArchiveAdUnitsRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseBatchArchiveAdUnits._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseBatchCreateAdUnits:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits:batchCreate",
+                    "body": "*",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.BatchCreateAdUnitsRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseBatchCreateAdUnits._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseBatchDeactivateAdUnits:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits:batchDeactivate",
+                    "body": "*",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.BatchDeactivateAdUnitsRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseBatchDeactivateAdUnits._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseBatchUpdateAdUnits:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits:batchUpdate",
+                    "body": "*",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.BatchUpdateAdUnitsRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseBatchUpdateAdUnits._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseCreateAdUnit:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{parent=networks/*}/adUnits",
+                    "body": "ad_unit",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.CreateAdUnitRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseCreateAdUnit._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
 
     class _BaseGetAdUnit:
         def __hash__(self):  # pragma: NO COVER
@@ -229,6 +571,88 @@ class _BaseAdUnitServiceRestTransport(AdUnitServiceTransport):
             query_params["$alt"] = "json;enum-encoding=int"
             return query_params
 
+    class _BaseUpdateAdUnit:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        __REQUIRED_FIELDS_DEFAULT_VALUES: Dict[str, Any] = {}
+
+        @classmethod
+        def _get_unset_required_fields(cls, message_dict):
+            return {
+                k: v
+                for k, v in cls.__REQUIRED_FIELDS_DEFAULT_VALUES.items()
+                if k not in message_dict
+            }
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "patch",
+                    "uri": "/v1/{ad_unit.name=networks/*/adUnits/*}",
+                    "body": "ad_unit",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            pb_request = ad_unit_service.UpdateAdUnitRequest.pb(request)
+            transcoded_request = path_template.transcode(http_options, pb_request)
+            return transcoded_request
+
+        @staticmethod
+        def _get_request_body_json(transcoded_request):
+            # Jsonify the request body
+
+            body = json_format.MessageToJson(
+                transcoded_request["body"], use_integers_for_enums=True
+            )
+            return body
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(
+                json_format.MessageToJson(
+                    transcoded_request["query_params"],
+                    use_integers_for_enums=True,
+                )
+            )
+            query_params.update(
+                _BaseAdUnitServiceRestTransport._BaseUpdateAdUnit._get_unset_required_fields(
+                    query_params
+                )
+            )
+
+            query_params["$alt"] = "json;enum-encoding=int"
+            return query_params
+
+    class _BaseCancelOperation:
+        def __hash__(self):  # pragma: NO COVER
+            return NotImplementedError("__hash__ must be implemented.")
+
+        @staticmethod
+        def _get_http_options():
+            http_options: List[Dict[str, str]] = [
+                {
+                    "method": "post",
+                    "uri": "/v1/{name=networks/*/operations/reports/runs/*}:cancel",
+                },
+            ]
+            return http_options
+
+        @staticmethod
+        def _get_transcoded_request(http_options, request):
+            request_kwargs = json_format.MessageToDict(request)
+            transcoded_request = path_template.transcode(http_options, **request_kwargs)
+            return transcoded_request
+
+        @staticmethod
+        def _get_query_params_json(transcoded_request):
+            query_params = json.loads(json.dumps(transcoded_request["query_params"]))
+            return query_params
+
     class _BaseGetOperation:
         def __hash__(self):  # pragma: NO COVER
             return NotImplementedError("__hash__ must be implemented.")
@@ -239,10 +663,6 @@ class _BaseAdUnitServiceRestTransport(AdUnitServiceTransport):
                 {
                     "method": "get",
                     "uri": "/v1/{name=networks/*/operations/reports/runs/*}",
-                },
-                {
-                    "method": "get",
-                    "uri": "/v1/{name=networks/*/operations/reports/exports/*}",
                 },
             ]
             return http_options

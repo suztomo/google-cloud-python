@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_folder_intelligence_config():
     client = storage_control_v2.StorageControlAsyncClient()
 
     # Initialize request argument(s)
-    request = storage_control_v2.UpdateFolderIntelligenceConfigRequest(
-    )
+    request = storage_control_v2.UpdateFolderIntelligenceConfigRequest()
 
     # Make the request
     response = await client.update_folder_intelligence_config(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END storage_v2_generated_StorageControl_UpdateFolderIntelligenceConfig_async]

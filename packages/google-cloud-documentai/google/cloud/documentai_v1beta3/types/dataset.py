@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ from typing import MutableMapping, MutableSequence
 
 import proto  # type: ignore
 
-from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
 from google.cloud.documentai_v1beta3.types import document, document_io
+from google.cloud.documentai_v1beta3.types import document_schema as gcd_document_schema
 
 __protobuf__ = proto.module(
     package="google.cloud.documentai.v1beta3",
@@ -65,13 +65,6 @@ class Dataset(proto.Message):
             (not user-managed).
 
             This field is a member of `oneof`_ ``storage_source``.
-        spanner_indexing_config (google.cloud.documentai_v1beta3.types.Dataset.SpannerIndexingConfig):
-            Optional. A lightweight indexing source with
-            low latency and high reliability, but lacking
-            advanced features like CMEK and content-based
-            search.
-
-            This field is a member of `oneof`_ ``indexing_source``.
         name (str):
             Dataset resource name. Format:
             ``projects/{project}/locations/{location}/processors/{processor}/dataset``
@@ -97,6 +90,7 @@ class Dataset(proto.Message):
             INITIALIZED (3):
                 Dataset has been initialized.
         """
+
         STATE_UNSPECIFIED = 0
         UNINITIALIZED = 1
         INITIALIZING = 2
@@ -144,9 +138,6 @@ class Dataset(proto.Message):
     class UnmanagedDatasetConfig(proto.Message):
         r"""Configuration specific to an unmanaged dataset."""
 
-    class SpannerIndexingConfig(proto.Message):
-        r"""Configuration specific to spanner-based indexing."""
-
     gcs_managed_config: GCSManagedConfig = proto.Field(
         proto.MESSAGE,
         number=3,
@@ -164,12 +155,6 @@ class Dataset(proto.Message):
         number=6,
         oneof="storage_source",
         message=UnmanagedDatasetConfig,
-    )
-    spanner_indexing_config: SpannerIndexingConfig = proto.Field(
-        proto.MESSAGE,
-        number=4,
-        oneof="indexing_source",
-        message=SpannerIndexingConfig,
     )
     name: str = proto.Field(
         proto.STRING,

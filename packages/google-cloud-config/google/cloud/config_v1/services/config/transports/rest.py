@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,20 +16,22 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -85,6 +87,14 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_create_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_create_deployment_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_create_preview(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -101,6 +111,14 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_delete_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_delete_deployment_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_delete_preview(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -112,6 +130,14 @@ class ConfigRestInterceptor:
             def pre_delete_statefile(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
+
+            def pre_deprovision_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_deprovision_deployment_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
 
             def pre_export_deployment_statefile(self, request, metadata):
                 logging.log(f"Received request: {request}")
@@ -145,11 +171,35 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_get_auto_migration_config(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_auto_migration_config(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_get_deployment(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_get_deployment(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_deployment_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_deployment_group_revision(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_deployment_group_revision(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -166,6 +216,22 @@ class ConfigRestInterceptor:
                 return request, metadata
 
             def post_get_resource(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_resource_change(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_resource_change(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_get_resource_drift(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_get_resource_drift(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -193,6 +259,22 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_list_deployment_group_revisions(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_deployment_group_revisions(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_deployment_groups(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_deployment_groups(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_list_deployments(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -206,6 +288,22 @@ class ConfigRestInterceptor:
                 return request, metadata
 
             def post_list_previews(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_resource_changes(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_resource_changes(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_list_resource_drifts(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_list_resource_drifts(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -241,6 +339,14 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_provision_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_provision_deployment_group(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_unlock_deployment(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
@@ -249,11 +355,27 @@ class ConfigRestInterceptor:
                 logging.log(f"Received response: {response}")
                 return response
 
+            def pre_update_auto_migration_config(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_auto_migration_config(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
             def pre_update_deployment(self, request, metadata):
                 logging.log(f"Received request: {request}")
                 return request, metadata
 
             def post_update_deployment(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_update_deployment_group(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_deployment_group(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -306,6 +428,54 @@ class ConfigRestInterceptor:
         `post_create_deployment` interceptor. The (possibly modified) response returned by
         `post_create_deployment` will be passed to
         `post_create_deployment_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_create_deployment_group(
+        self,
+        request: config.CreateDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.CreateDeploymentGroupRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for create_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_create_deployment_group(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for create_deployment_group
+
+        DEPRECATED. Please use the `post_create_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_create_deployment_group` interceptor runs
+        before the `post_create_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_create_deployment_group_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for create_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_create_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_create_deployment_group` interceptor.
+        When both interceptors are used, this `post_create_deployment_group_with_metadata` interceptor runs after the
+        `post_create_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_create_deployment_group` will be passed to
+        `post_create_deployment_group_with_metadata`.
         """
         return response, metadata
 
@@ -401,6 +571,54 @@ class ConfigRestInterceptor:
         """
         return response, metadata
 
+    def pre_delete_deployment_group(
+        self,
+        request: config.DeleteDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.DeleteDeploymentGroupRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for delete_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_delete_deployment_group(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for delete_deployment_group
+
+        DEPRECATED. Please use the `post_delete_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_delete_deployment_group` interceptor runs
+        before the `post_delete_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_delete_deployment_group_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for delete_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_delete_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_delete_deployment_group` interceptor.
+        When both interceptors are used, this `post_delete_deployment_group_with_metadata` interceptor runs after the
+        `post_delete_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_delete_deployment_group` will be passed to
+        `post_delete_deployment_group_with_metadata`.
+        """
+        return response, metadata
+
     def pre_delete_preview(
         self,
         request: config.DeletePreviewRequest,
@@ -458,6 +676,55 @@ class ConfigRestInterceptor:
         before they are sent to the Config server.
         """
         return request, metadata
+
+    def pre_deprovision_deployment_group(
+        self,
+        request: config.DeprovisionDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.DeprovisionDeploymentGroupRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for deprovision_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_deprovision_deployment_group(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for deprovision_deployment_group
+
+        DEPRECATED. Please use the `post_deprovision_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_deprovision_deployment_group` interceptor runs
+        before the `post_deprovision_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_deprovision_deployment_group_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for deprovision_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_deprovision_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_deprovision_deployment_group` interceptor.
+        When both interceptors are used, this `post_deprovision_deployment_group_with_metadata` interceptor runs after the
+        `post_deprovision_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_deprovision_deployment_group` will be passed to
+        `post_deprovision_deployment_group_with_metadata`.
+        """
+        return response, metadata
 
     def pre_export_deployment_statefile(
         self,
@@ -649,6 +916,54 @@ class ConfigRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_auto_migration_config(
+        self,
+        request: config.GetAutoMigrationConfigRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.GetAutoMigrationConfigRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_auto_migration_config
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_get_auto_migration_config(
+        self, response: config.AutoMigrationConfig
+    ) -> config.AutoMigrationConfig:
+        """Post-rpc interceptor for get_auto_migration_config
+
+        DEPRECATED. Please use the `post_get_auto_migration_config_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_get_auto_migration_config` interceptor runs
+        before the `post_get_auto_migration_config_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_auto_migration_config_with_metadata(
+        self,
+        response: config.AutoMigrationConfig,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.AutoMigrationConfig, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_auto_migration_config
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_get_auto_migration_config_with_metadata`
+        interceptor in new development instead of the `post_get_auto_migration_config` interceptor.
+        When both interceptors are used, this `post_get_auto_migration_config_with_metadata` interceptor runs after the
+        `post_get_auto_migration_config` interceptor. The (possibly modified) response returned by
+        `post_get_auto_migration_config` will be passed to
+        `post_get_auto_migration_config_with_metadata`.
+        """
+        return response, metadata
+
     def pre_get_deployment(
         self,
         request: config.GetDeploymentRequest,
@@ -690,6 +1005,103 @@ class ConfigRestInterceptor:
         `post_get_deployment` interceptor. The (possibly modified) response returned by
         `post_get_deployment` will be passed to
         `post_get_deployment_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_deployment_group(
+        self,
+        request: config.GetDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.GetDeploymentGroupRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_get_deployment_group(
+        self, response: config.DeploymentGroup
+    ) -> config.DeploymentGroup:
+        """Post-rpc interceptor for get_deployment_group
+
+        DEPRECATED. Please use the `post_get_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_get_deployment_group` interceptor runs
+        before the `post_get_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_deployment_group_with_metadata(
+        self,
+        response: config.DeploymentGroup,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.DeploymentGroup, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_get_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_get_deployment_group` interceptor.
+        When both interceptors are used, this `post_get_deployment_group_with_metadata` interceptor runs after the
+        `post_get_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_get_deployment_group` will be passed to
+        `post_get_deployment_group_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_deployment_group_revision(
+        self,
+        request: config.GetDeploymentGroupRevisionRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.GetDeploymentGroupRevisionRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for get_deployment_group_revision
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_get_deployment_group_revision(
+        self, response: config.DeploymentGroupRevision
+    ) -> config.DeploymentGroupRevision:
+        """Post-rpc interceptor for get_deployment_group_revision
+
+        DEPRECATED. Please use the `post_get_deployment_group_revision_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_get_deployment_group_revision` interceptor runs
+        before the `post_get_deployment_group_revision_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_deployment_group_revision_with_metadata(
+        self,
+        response: config.DeploymentGroupRevision,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.DeploymentGroupRevision, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_deployment_group_revision
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_get_deployment_group_revision_with_metadata`
+        interceptor in new development instead of the `post_get_deployment_group_revision` interceptor.
+        When both interceptors are used, this `post_get_deployment_group_revision_with_metadata` interceptor runs after the
+        `post_get_deployment_group_revision` interceptor. The (possibly modified) response returned by
+        `post_get_deployment_group_revision` will be passed to
+        `post_get_deployment_group_revision_with_metadata`.
         """
         return response, metadata
 
@@ -778,6 +1190,100 @@ class ConfigRestInterceptor:
         `post_get_resource` interceptor. The (possibly modified) response returned by
         `post_get_resource` will be passed to
         `post_get_resource_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_resource_change(
+        self,
+        request: config.GetResourceChangeRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.GetResourceChangeRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_resource_change
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_get_resource_change(
+        self, response: config.ResourceChange
+    ) -> config.ResourceChange:
+        """Post-rpc interceptor for get_resource_change
+
+        DEPRECATED. Please use the `post_get_resource_change_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_get_resource_change` interceptor runs
+        before the `post_get_resource_change_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_resource_change_with_metadata(
+        self,
+        response: config.ResourceChange,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.ResourceChange, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_resource_change
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_get_resource_change_with_metadata`
+        interceptor in new development instead of the `post_get_resource_change` interceptor.
+        When both interceptors are used, this `post_get_resource_change_with_metadata` interceptor runs after the
+        `post_get_resource_change` interceptor. The (possibly modified) response returned by
+        `post_get_resource_change` will be passed to
+        `post_get_resource_change_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_get_resource_drift(
+        self,
+        request: config.GetResourceDriftRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.GetResourceDriftRequest, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Pre-rpc interceptor for get_resource_drift
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_get_resource_drift(
+        self, response: config.ResourceDrift
+    ) -> config.ResourceDrift:
+        """Post-rpc interceptor for get_resource_drift
+
+        DEPRECATED. Please use the `post_get_resource_drift_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_get_resource_drift` interceptor runs
+        before the `post_get_resource_drift_with_metadata` interceptor.
+        """
+        return response
+
+    def post_get_resource_drift_with_metadata(
+        self,
+        response: config.ResourceDrift,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[config.ResourceDrift, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for get_resource_drift
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_get_resource_drift_with_metadata`
+        interceptor in new development instead of the `post_get_resource_drift` interceptor.
+        When both interceptors are used, this `post_get_resource_drift_with_metadata` interceptor runs after the
+        `post_get_resource_drift` interceptor. The (possibly modified) response returned by
+        `post_get_resource_drift` will be passed to
+        `post_get_resource_drift_with_metadata`.
         """
         return response, metadata
 
@@ -917,6 +1423,108 @@ class ConfigRestInterceptor:
         """
         return response, metadata
 
+    def pre_list_deployment_group_revisions(
+        self,
+        request: config.ListDeploymentGroupRevisionsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListDeploymentGroupRevisionsRequest,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Pre-rpc interceptor for list_deployment_group_revisions
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_list_deployment_group_revisions(
+        self, response: config.ListDeploymentGroupRevisionsResponse
+    ) -> config.ListDeploymentGroupRevisionsResponse:
+        """Post-rpc interceptor for list_deployment_group_revisions
+
+        DEPRECATED. Please use the `post_list_deployment_group_revisions_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_list_deployment_group_revisions` interceptor runs
+        before the `post_list_deployment_group_revisions_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_deployment_group_revisions_with_metadata(
+        self,
+        response: config.ListDeploymentGroupRevisionsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListDeploymentGroupRevisionsResponse,
+        Sequence[Tuple[str, Union[str, bytes]]],
+    ]:
+        """Post-rpc interceptor for list_deployment_group_revisions
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_list_deployment_group_revisions_with_metadata`
+        interceptor in new development instead of the `post_list_deployment_group_revisions` interceptor.
+        When both interceptors are used, this `post_list_deployment_group_revisions_with_metadata` interceptor runs after the
+        `post_list_deployment_group_revisions` interceptor. The (possibly modified) response returned by
+        `post_list_deployment_group_revisions` will be passed to
+        `post_list_deployment_group_revisions_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_deployment_groups(
+        self,
+        request: config.ListDeploymentGroupsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListDeploymentGroupsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_deployment_groups
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_list_deployment_groups(
+        self, response: config.ListDeploymentGroupsResponse
+    ) -> config.ListDeploymentGroupsResponse:
+        """Post-rpc interceptor for list_deployment_groups
+
+        DEPRECATED. Please use the `post_list_deployment_groups_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_list_deployment_groups` interceptor runs
+        before the `post_list_deployment_groups_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_deployment_groups_with_metadata(
+        self,
+        response: config.ListDeploymentGroupsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListDeploymentGroupsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_deployment_groups
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_list_deployment_groups_with_metadata`
+        interceptor in new development instead of the `post_list_deployment_groups` interceptor.
+        When both interceptors are used, this `post_list_deployment_groups_with_metadata` interceptor runs after the
+        `post_list_deployment_groups` interceptor. The (possibly modified) response returned by
+        `post_list_deployment_groups` will be passed to
+        `post_list_deployment_groups_with_metadata`.
+        """
+        return response, metadata
+
     def pre_list_deployments(
         self,
         request: config.ListDeploymentsRequest,
@@ -1006,6 +1614,106 @@ class ConfigRestInterceptor:
         `post_list_previews` interceptor. The (possibly modified) response returned by
         `post_list_previews` will be passed to
         `post_list_previews_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_resource_changes(
+        self,
+        request: config.ListResourceChangesRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListResourceChangesRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_resource_changes
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_list_resource_changes(
+        self, response: config.ListResourceChangesResponse
+    ) -> config.ListResourceChangesResponse:
+        """Post-rpc interceptor for list_resource_changes
+
+        DEPRECATED. Please use the `post_list_resource_changes_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_list_resource_changes` interceptor runs
+        before the `post_list_resource_changes_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_resource_changes_with_metadata(
+        self,
+        response: config.ListResourceChangesResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListResourceChangesResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_resource_changes
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_list_resource_changes_with_metadata`
+        interceptor in new development instead of the `post_list_resource_changes` interceptor.
+        When both interceptors are used, this `post_list_resource_changes_with_metadata` interceptor runs after the
+        `post_list_resource_changes` interceptor. The (possibly modified) response returned by
+        `post_list_resource_changes` will be passed to
+        `post_list_resource_changes_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_list_resource_drifts(
+        self,
+        request: config.ListResourceDriftsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListResourceDriftsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_resource_drifts
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_list_resource_drifts(
+        self, response: config.ListResourceDriftsResponse
+    ) -> config.ListResourceDriftsResponse:
+        """Post-rpc interceptor for list_resource_drifts
+
+        DEPRECATED. Please use the `post_list_resource_drifts_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_list_resource_drifts` interceptor runs
+        before the `post_list_resource_drifts_with_metadata` interceptor.
+        """
+        return response
+
+    def post_list_resource_drifts_with_metadata(
+        self,
+        response: config.ListResourceDriftsResponse,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ListResourceDriftsResponse, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Post-rpc interceptor for list_resource_drifts
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_list_resource_drifts_with_metadata`
+        interceptor in new development instead of the `post_list_resource_drifts` interceptor.
+        When both interceptors are used, this `post_list_resource_drifts_with_metadata` interceptor runs after the
+        `post_list_resource_drifts` interceptor. The (possibly modified) response returned by
+        `post_list_resource_drifts` will be passed to
+        `post_list_resource_drifts_with_metadata`.
         """
         return response, metadata
 
@@ -1197,6 +1905,54 @@ class ConfigRestInterceptor:
         """
         return response, metadata
 
+    def pre_provision_deployment_group(
+        self,
+        request: config.ProvisionDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.ProvisionDeploymentGroupRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for provision_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_provision_deployment_group(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for provision_deployment_group
+
+        DEPRECATED. Please use the `post_provision_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_provision_deployment_group` interceptor runs
+        before the `post_provision_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_provision_deployment_group_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for provision_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_provision_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_provision_deployment_group` interceptor.
+        When both interceptors are used, this `post_provision_deployment_group_with_metadata` interceptor runs after the
+        `post_provision_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_provision_deployment_group` will be passed to
+        `post_provision_deployment_group_with_metadata`.
+        """
+        return response, metadata
+
     def pre_unlock_deployment(
         self,
         request: config.UnlockDeploymentRequest,
@@ -1243,6 +1999,54 @@ class ConfigRestInterceptor:
         """
         return response, metadata
 
+    def pre_update_auto_migration_config(
+        self,
+        request: config.UpdateAutoMigrationConfigRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.UpdateAutoMigrationConfigRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for update_auto_migration_config
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_update_auto_migration_config(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_auto_migration_config
+
+        DEPRECATED. Please use the `post_update_auto_migration_config_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_update_auto_migration_config` interceptor runs
+        before the `post_update_auto_migration_config_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_auto_migration_config_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_auto_migration_config
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_update_auto_migration_config_with_metadata`
+        interceptor in new development instead of the `post_update_auto_migration_config` interceptor.
+        When both interceptors are used, this `post_update_auto_migration_config_with_metadata` interceptor runs after the
+        `post_update_auto_migration_config` interceptor. The (possibly modified) response returned by
+        `post_update_auto_migration_config` will be passed to
+        `post_update_auto_migration_config_with_metadata`.
+        """
+        return response, metadata
+
     def pre_update_deployment(
         self,
         request: config.UpdateDeploymentRequest,
@@ -1286,6 +2090,54 @@ class ConfigRestInterceptor:
         `post_update_deployment` interceptor. The (possibly modified) response returned by
         `post_update_deployment` will be passed to
         `post_update_deployment_with_metadata`.
+        """
+        return response, metadata
+
+    def pre_update_deployment_group(
+        self,
+        request: config.UpdateDeploymentGroupRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        config.UpdateDeploymentGroupRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for update_deployment_group
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Config server.
+        """
+        return request, metadata
+
+    def post_update_deployment_group(
+        self, response: operations_pb2.Operation
+    ) -> operations_pb2.Operation:
+        """Post-rpc interceptor for update_deployment_group
+
+        DEPRECATED. Please use the `post_update_deployment_group_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Config server but before
+        it is returned to user code. This `post_update_deployment_group` interceptor runs
+        before the `post_update_deployment_group_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_deployment_group_with_metadata(
+        self,
+        response: operations_pb2.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[operations_pb2.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_deployment_group
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Config server but before it is returned to user code.
+
+        We recommend only using this `post_update_deployment_group_with_metadata`
+        interceptor in new development instead of the `post_update_deployment_group` interceptor.
+        When both interceptors are used, this `post_update_deployment_group_with_metadata` interceptor runs after the
+        `post_update_deployment_group` interceptor. The (possibly modified) response returned by
+        `post_update_deployment_group` will be passed to
+        `post_update_deployment_group_with_metadata`.
         """
         return response, metadata
 
@@ -1555,9 +2407,10 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1575,6 +2428,12 @@ class ConfigRestTransport(_BaseConfigRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ConfigRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1742,7 +2601,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1803,6 +2662,160 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "CreateDeployment",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _CreateDeploymentGroup(
+        _BaseConfigRestTransport._BaseCreateDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.CreateDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.CreateDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the create deployment group method over HTTP.
+
+            Args:
+                request (~.config.CreateDeploymentGroupRequest):
+                    The request object. A request to create a deployment
+                group
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseCreateDeploymentGroup._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_create_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseCreateDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfigRestTransport._BaseCreateDeploymentGroup._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseCreateDeploymentGroup._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.CreateDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "CreateDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._CreateDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_create_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_create_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.create_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "CreateDeploymentGroup",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -1895,7 +2908,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2047,7 +3060,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2107,6 +3120,154 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "DeleteDeployment",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _DeleteDeploymentGroup(
+        _BaseConfigRestTransport._BaseDeleteDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.DeleteDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.DeleteDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the delete deployment group method over HTTP.
+
+            Args:
+                request (~.config.DeleteDeploymentGroupRequest):
+                    The request object. Request message for Delete
+                DeploymentGroup
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseDeleteDeploymentGroup._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_delete_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseDeleteDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseDeleteDeploymentGroup._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.DeleteDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "DeleteDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._DeleteDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_delete_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_delete_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.delete_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "DeleteDeploymentGroup",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -2194,7 +3355,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2344,7 +3505,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2378,6 +3539,159 @@ class ConfigRestTransport(_BaseConfigRestTransport):
             # subclass.
             if response.status_code >= 400:
                 raise core_exceptions.from_http_response(response)
+
+    class _DeprovisionDeploymentGroup(
+        _BaseConfigRestTransport._BaseDeprovisionDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.DeprovisionDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.DeprovisionDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the deprovision deployment
+            group method over HTTP.
+
+                Args:
+                    request (~.config.DeprovisionDeploymentGroupRequest):
+                        The request object. The request message for the
+                    DeprovisionDeploymentGroup method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.operations_pb2.Operation:
+                        This resource represents a
+                    long-running operation that is the
+                    result of a network API call.
+
+            """
+
+            http_options = _BaseConfigRestTransport._BaseDeprovisionDeploymentGroup._get_http_options()
+
+            request, metadata = self._interceptor.pre_deprovision_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseDeprovisionDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfigRestTransport._BaseDeprovisionDeploymentGroup._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseDeprovisionDeploymentGroup._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.DeprovisionDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "DeprovisionDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._DeprovisionDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_deprovision_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_deprovision_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.deprovision_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "DeprovisionDeploymentGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
 
     class _ExportDeploymentStatefile(
         _BaseConfigRestTransport._BaseExportDeploymentStatefile, ConfigRestStub
@@ -2439,9 +3753,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
 
             """
 
-            http_options = (
-                _BaseConfigRestTransport._BaseExportDeploymentStatefile._get_http_options()
-            )
+            http_options = _BaseConfigRestTransport._BaseExportDeploymentStatefile._get_http_options()
 
             request, metadata = self._interceptor.pre_export_deployment_statefile(
                 request, metadata
@@ -2902,9 +4214,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
 
             """
 
-            http_options = (
-                _BaseConfigRestTransport._BaseExportRevisionStatefile._get_http_options()
-            )
+            http_options = _BaseConfigRestTransport._BaseExportRevisionStatefile._get_http_options()
 
             request, metadata = self._interceptor.pre_export_revision_statefile(
                 request, metadata
@@ -2993,6 +4303,156 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "ExportRevisionStatefile",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetAutoMigrationConfig(
+        _BaseConfigRestTransport._BaseGetAutoMigrationConfig, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.GetAutoMigrationConfig")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.GetAutoMigrationConfigRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.AutoMigrationConfig:
+            r"""Call the get auto migration config method over HTTP.
+
+            Args:
+                request (~.config.GetAutoMigrationConfigRequest):
+                    The request object. The request message for the
+                GetAutoMigrationConfig method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.AutoMigrationConfig:
+                    AutoMigrationConfig contains the
+                automigration configuration for a
+                project.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseGetAutoMigrationConfig._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_auto_migration_config(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseGetAutoMigrationConfig._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseGetAutoMigrationConfig._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.GetAutoMigrationConfig",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetAutoMigrationConfig",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._GetAutoMigrationConfig._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.AutoMigrationConfig()
+            pb_resp = config.AutoMigrationConfig.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_auto_migration_config(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_auto_migration_config_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.AutoMigrationConfig.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.get_auto_migration_config",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetAutoMigrationConfig",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3142,6 +4602,310 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "GetDeployment",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetDeploymentGroup(
+        _BaseConfigRestTransport._BaseGetDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.GetDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.GetDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.DeploymentGroup:
+            r"""Call the get deployment group method over HTTP.
+
+            Args:
+                request (~.config.GetDeploymentGroupRequest):
+                    The request object. The request message for the
+                GetDeploymentGroup method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.DeploymentGroup:
+                    A DeploymentGroup is a collection of
+                DeploymentUnits that in a DAG-like
+                structure.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseGetDeploymentGroup._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseGetDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = (
+                _BaseConfigRestTransport._BaseGetDeploymentGroup._get_query_params_json(
+                    transcoded_request
+                )
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.GetDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._GetDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.DeploymentGroup()
+            pb_resp = config.DeploymentGroup.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.DeploymentGroup.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.get_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetDeploymentGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetDeploymentGroupRevision(
+        _BaseConfigRestTransport._BaseGetDeploymentGroupRevision, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.GetDeploymentGroupRevision")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.GetDeploymentGroupRevisionRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.DeploymentGroupRevision:
+            r"""Call the get deployment group
+            revision method over HTTP.
+
+                Args:
+                    request (~.config.GetDeploymentGroupRevisionRequest):
+                        The request object. The request message for the
+                    GetDeploymentGroupRevision method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.config.DeploymentGroupRevision:
+                        A DeploymentGroupRevision represents a snapshot of a
+                    [DeploymentGroup][google.cloud.config.v1.DeploymentGroup]
+                    at a given point in time, created when a DeploymentGroup
+                    is provisioned or deprovisioned.
+
+            """
+
+            http_options = _BaseConfigRestTransport._BaseGetDeploymentGroupRevision._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_deployment_group_revision(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseGetDeploymentGroupRevision._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseGetDeploymentGroupRevision._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.GetDeploymentGroupRevision",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetDeploymentGroupRevision",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._GetDeploymentGroupRevision._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.DeploymentGroupRevision()
+            pb_resp = config.DeploymentGroupRevision.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_deployment_group_revision(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = (
+                self._interceptor.post_get_deployment_group_revision_with_metadata(
+                    resp, response_metadata
+                )
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.DeploymentGroupRevision.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.get_deployment_group_revision",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetDeploymentGroupRevision",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3440,6 +5204,312 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "GetResource",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetResourceChange(
+        _BaseConfigRestTransport._BaseGetResourceChange, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.GetResourceChange")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.GetResourceChangeRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ResourceChange:
+            r"""Call the get resource change method over HTTP.
+
+            Args:
+                request (~.config.GetResourceChangeRequest):
+                    The request object. The request message for the
+                GetResourceChange method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.ResourceChange:
+                    A resource change represents a change
+                to a resource in the state file.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseGetResourceChange._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_resource_change(
+                request, metadata
+            )
+            transcoded_request = (
+                _BaseConfigRestTransport._BaseGetResourceChange._get_transcoded_request(
+                    http_options, request
+                )
+            )
+
+            # Jsonify the query params
+            query_params = (
+                _BaseConfigRestTransport._BaseGetResourceChange._get_query_params_json(
+                    transcoded_request
+                )
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.GetResourceChange",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetResourceChange",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._GetResourceChange._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ResourceChange()
+            pb_resp = config.ResourceChange.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_resource_change(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_resource_change_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.ResourceChange.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.get_resource_change",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetResourceChange",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _GetResourceDrift(
+        _BaseConfigRestTransport._BaseGetResourceDrift, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.GetResourceDrift")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.GetResourceDriftRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ResourceDrift:
+            r"""Call the get resource drift method over HTTP.
+
+            Args:
+                request (~.config.GetResourceDriftRequest):
+                    The request object. The request message for the
+                GetResourceDrift method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.ResourceDrift:
+                    A resource drift represents a drift
+                to a resource in the state file.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseGetResourceDrift._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_get_resource_drift(
+                request, metadata
+            )
+            transcoded_request = (
+                _BaseConfigRestTransport._BaseGetResourceDrift._get_transcoded_request(
+                    http_options, request
+                )
+            )
+
+            # Jsonify the query params
+            query_params = (
+                _BaseConfigRestTransport._BaseGetResourceDrift._get_query_params_json(
+                    transcoded_request
+                )
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.GetResourceDrift",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetResourceDrift",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._GetResourceDrift._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ResourceDrift()
+            pb_resp = config.ResourceDrift.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_get_resource_drift(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_get_resource_drift_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.ResourceDrift.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.get_resource_drift",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "GetResourceDrift",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -3905,6 +5975,309 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
             return resp
 
+    class _ListDeploymentGroupRevisions(
+        _BaseConfigRestTransport._BaseListDeploymentGroupRevisions, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.ListDeploymentGroupRevisions")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.ListDeploymentGroupRevisionsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ListDeploymentGroupRevisionsResponse:
+            r"""Call the list deployment group
+            revisions method over HTTP.
+
+                Args:
+                    request (~.config.ListDeploymentGroupRevisionsRequest):
+                        The request object. The request message for the
+                    ListDeploymentGroupRevisions method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.config.ListDeploymentGroupRevisionsResponse:
+                        The response message for the
+                    ListDeploymentGroupRevisions method.
+
+            """
+
+            http_options = _BaseConfigRestTransport._BaseListDeploymentGroupRevisions._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_deployment_group_revisions(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseListDeploymentGroupRevisions._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseListDeploymentGroupRevisions._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.ListDeploymentGroupRevisions",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListDeploymentGroupRevisions",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._ListDeploymentGroupRevisions._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ListDeploymentGroupRevisionsResponse()
+            pb_resp = config.ListDeploymentGroupRevisionsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_deployment_group_revisions(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = (
+                self._interceptor.post_list_deployment_group_revisions_with_metadata(
+                    resp, response_metadata
+                )
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = (
+                        config.ListDeploymentGroupRevisionsResponse.to_json(response)
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.list_deployment_group_revisions",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListDeploymentGroupRevisions",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListDeploymentGroups(
+        _BaseConfigRestTransport._BaseListDeploymentGroups, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.ListDeploymentGroups")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.ListDeploymentGroupsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ListDeploymentGroupsResponse:
+            r"""Call the list deployment groups method over HTTP.
+
+            Args:
+                request (~.config.ListDeploymentGroupsRequest):
+                    The request object. The request message for the
+                ListDeploymentGroups method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.ListDeploymentGroupsResponse:
+                    The response message for the
+                ListDeploymentGroups method.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseListDeploymentGroups._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_list_deployment_groups(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseListDeploymentGroups._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseListDeploymentGroups._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.ListDeploymentGroups",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListDeploymentGroups",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._ListDeploymentGroups._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ListDeploymentGroupsResponse()
+            pb_resp = config.ListDeploymentGroupsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_deployment_groups(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_deployment_groups_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.ListDeploymentGroupsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.list_deployment_groups",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListDeploymentGroups",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     class _ListDeployments(
         _BaseConfigRestTransport._BaseListDeployments, ConfigRestStub
     ):
@@ -4198,6 +6571,311 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "ListPreviews",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListResourceChanges(
+        _BaseConfigRestTransport._BaseListResourceChanges, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.ListResourceChanges")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.ListResourceChangesRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ListResourceChangesResponse:
+            r"""Call the list resource changes method over HTTP.
+
+            Args:
+                request (~.config.ListResourceChangesRequest):
+                    The request object. The request message for the
+                ListResourceChanges method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.ListResourceChangesResponse:
+                    A response to a 'ListResourceChanges'
+                call. Contains a list of
+                ResourceChanges.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseListResourceChanges._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_list_resource_changes(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseListResourceChanges._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseListResourceChanges._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.ListResourceChanges",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListResourceChanges",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._ListResourceChanges._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ListResourceChangesResponse()
+            pb_resp = config.ListResourceChangesResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_resource_changes(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_resource_changes_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.ListResourceChangesResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.list_resource_changes",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListResourceChanges",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ListResourceDrifts(
+        _BaseConfigRestTransport._BaseListResourceDrifts, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.ListResourceDrifts")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.ListResourceDriftsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> config.ListResourceDriftsResponse:
+            r"""Call the list resource drifts method over HTTP.
+
+            Args:
+                request (~.config.ListResourceDriftsRequest):
+                    The request object. The request message for the
+                ListResourceDrifts method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.config.ListResourceDriftsResponse:
+                    A response to a 'ListResourceDrifts'
+                call. Contains a list of ResourceDrifts.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseListResourceDrifts._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_list_resource_drifts(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseListResourceDrifts._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = (
+                _BaseConfigRestTransport._BaseListResourceDrifts._get_query_params_json(
+                    transcoded_request
+                )
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.ListResourceDrifts",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListResourceDrifts",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._ListResourceDrifts._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = config.ListResourceDriftsResponse()
+            pb_resp = config.ListResourceDriftsResponse.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_list_resource_drifts(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_list_resource_drifts_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = config.ListResourceDriftsResponse.to_json(
+                        response
+                    )
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.list_resource_drifts",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ListResourceDrifts",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -4740,7 +7418,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4801,6 +7479,159 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "LockDeployment",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _ProvisionDeploymentGroup(
+        _BaseConfigRestTransport._BaseProvisionDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.ProvisionDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.ProvisionDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the provision deployment
+            group method over HTTP.
+
+                Args:
+                    request (~.config.ProvisionDeploymentGroupRequest):
+                        The request object. The request message for the
+                    ProvisionDeploymentGroup method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.operations_pb2.Operation:
+                        This resource represents a
+                    long-running operation that is the
+                    result of a network API call.
+
+            """
+
+            http_options = _BaseConfigRestTransport._BaseProvisionDeploymentGroup._get_http_options()
+
+            request, metadata = self._interceptor.pre_provision_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseProvisionDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfigRestTransport._BaseProvisionDeploymentGroup._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseProvisionDeploymentGroup._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.ProvisionDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ProvisionDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._ProvisionDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_provision_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_provision_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.provision_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "ProvisionDeploymentGroup",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -4900,7 +7731,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4961,6 +7792,159 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                     extra={
                         "serviceName": "google.cloud.config.v1.Config",
                         "rpcName": "UnlockDeployment",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
+    class _UpdateAutoMigrationConfig(
+        _BaseConfigRestTransport._BaseUpdateAutoMigrationConfig, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.UpdateAutoMigrationConfig")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.UpdateAutoMigrationConfigRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update auto migration
+            config method over HTTP.
+
+                Args:
+                    request (~.config.UpdateAutoMigrationConfigRequest):
+                        The request object. The request message for the
+                    UpdateAutoMigrationConfig method.
+                    retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                        should be retried.
+                    timeout (float): The timeout for this request.
+                    metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                        sent along with the request as metadata. Normally, each value must be of type `str`,
+                        but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                        be of type `bytes`.
+
+                Returns:
+                    ~.operations_pb2.Operation:
+                        This resource represents a
+                    long-running operation that is the
+                    result of a network API call.
+
+            """
+
+            http_options = _BaseConfigRestTransport._BaseUpdateAutoMigrationConfig._get_http_options()
+
+            request, metadata = self._interceptor.pre_update_auto_migration_config(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseUpdateAutoMigrationConfig._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfigRestTransport._BaseUpdateAutoMigrationConfig._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseUpdateAutoMigrationConfig._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.UpdateAutoMigrationConfig",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "UpdateAutoMigrationConfig",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._UpdateAutoMigrationConfig._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_auto_migration_config(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_auto_migration_config_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.update_auto_migration_config",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "UpdateAutoMigrationConfig",
                         "metadata": http_response["headers"],
                         "httpResponse": http_response,
                     },
@@ -5059,7 +8043,7 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5126,6 +8110,160 @@ class ConfigRestTransport(_BaseConfigRestTransport):
                 )
             return resp
 
+    class _UpdateDeploymentGroup(
+        _BaseConfigRestTransport._BaseUpdateDeploymentGroup, ConfigRestStub
+    ):
+        def __hash__(self):
+            return hash("ConfigRestTransport.UpdateDeploymentGroup")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: config.UpdateDeploymentGroupRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> operations_pb2.Operation:
+            r"""Call the update deployment group method over HTTP.
+
+            Args:
+                request (~.config.UpdateDeploymentGroupRequest):
+                    The request object. A request message for updating a
+                deployment group
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.operations_pb2.Operation:
+                    This resource represents a
+                long-running operation that is the
+                result of a network API call.
+
+            """
+
+            http_options = (
+                _BaseConfigRestTransport._BaseUpdateDeploymentGroup._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_update_deployment_group(
+                request, metadata
+            )
+            transcoded_request = _BaseConfigRestTransport._BaseUpdateDeploymentGroup._get_transcoded_request(
+                http_options, request
+            )
+
+            body = _BaseConfigRestTransport._BaseUpdateDeploymentGroup._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseConfigRestTransport._BaseUpdateDeploymentGroup._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.config_v1.ConfigClient.UpdateDeploymentGroup",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "UpdateDeploymentGroup",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = ConfigRestTransport._UpdateDeploymentGroup._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = operations_pb2.Operation()
+            json_format.Parse(response.content, resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_deployment_group(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_deployment_group_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.config_v1.ConfigClient.update_deployment_group",
+                    extra={
+                        "serviceName": "google.cloud.config.v1.Config",
+                        "rpcName": "UpdateDeploymentGroup",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     @property
     def create_deployment(
         self,
@@ -5133,6 +8271,14 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._CreateDeployment(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def create_deployment_group(
+        self,
+    ) -> Callable[[config.CreateDeploymentGroupRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._CreateDeploymentGroup(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def create_preview(
@@ -5151,6 +8297,14 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         return self._DeleteDeployment(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def delete_deployment_group(
+        self,
+    ) -> Callable[[config.DeleteDeploymentGroupRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeleteDeploymentGroup(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def delete_preview(
         self,
     ) -> Callable[[config.DeletePreviewRequest], operations_pb2.Operation]:
@@ -5167,12 +8321,24 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         return self._DeleteStatefile(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def deprovision_deployment_group(
+        self,
+    ) -> Callable[[config.DeprovisionDeploymentGroupRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._DeprovisionDeploymentGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
     def export_deployment_statefile(
         self,
     ) -> Callable[[config.ExportDeploymentStatefileRequest], config.Statefile]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportDeploymentStatefile(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportDeploymentStatefile(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def export_lock_info(
@@ -5198,7 +8364,19 @@ class ConfigRestTransport(_BaseConfigRestTransport):
     ) -> Callable[[config.ExportRevisionStatefileRequest], config.Statefile]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ExportRevisionStatefile(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ExportRevisionStatefile(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def get_auto_migration_config(
+        self,
+    ) -> Callable[[config.GetAutoMigrationConfigRequest], config.AutoMigrationConfig]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetAutoMigrationConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_deployment(
@@ -5207,6 +8385,26 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetDeployment(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_deployment_group(
+        self,
+    ) -> Callable[[config.GetDeploymentGroupRequest], config.DeploymentGroup]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetDeploymentGroup(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_deployment_group_revision(
+        self,
+    ) -> Callable[
+        [config.GetDeploymentGroupRevisionRequest], config.DeploymentGroupRevision
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetDeploymentGroupRevision(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_preview(self) -> Callable[[config.GetPreviewRequest], config.Preview]:
@@ -5219,6 +8417,22 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._GetResource(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_resource_change(
+        self,
+    ) -> Callable[[config.GetResourceChangeRequest], config.ResourceChange]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetResourceChange(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def get_resource_drift(
+        self,
+    ) -> Callable[[config.GetResourceDriftRequest], config.ResourceDrift]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._GetResourceDrift(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_revision(self) -> Callable[[config.GetRevisionRequest], config.Revision]:
@@ -5243,6 +8457,29 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         return self._ImportStatefile(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def list_deployment_group_revisions(
+        self,
+    ) -> Callable[
+        [config.ListDeploymentGroupRevisionsRequest],
+        config.ListDeploymentGroupRevisionsResponse,
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListDeploymentGroupRevisions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
+    def list_deployment_groups(
+        self,
+    ) -> Callable[
+        [config.ListDeploymentGroupsRequest], config.ListDeploymentGroupsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListDeploymentGroups(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
     def list_deployments(
         self,
     ) -> Callable[[config.ListDeploymentsRequest], config.ListDeploymentsResponse]:
@@ -5257,6 +8494,26 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._ListPreviews(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_resource_changes(
+        self,
+    ) -> Callable[
+        [config.ListResourceChangesRequest], config.ListResourceChangesResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListResourceChanges(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def list_resource_drifts(
+        self,
+    ) -> Callable[
+        [config.ListResourceDriftsRequest], config.ListResourceDriftsResponse
+    ]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ListResourceDrifts(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def list_resources(
@@ -5293,6 +8550,16 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         return self._LockDeployment(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def provision_deployment_group(
+        self,
+    ) -> Callable[[config.ProvisionDeploymentGroupRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._ProvisionDeploymentGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
     def unlock_deployment(
         self,
     ) -> Callable[[config.UnlockDeploymentRequest], operations_pb2.Operation]:
@@ -5301,12 +8568,30 @@ class ConfigRestTransport(_BaseConfigRestTransport):
         return self._UnlockDeployment(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def update_auto_migration_config(
+        self,
+    ) -> Callable[[config.UpdateAutoMigrationConfigRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateAutoMigrationConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
+
+    @property
     def update_deployment(
         self,
     ) -> Callable[[config.UpdateDeploymentRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._UpdateDeployment(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def update_deployment_group(
+        self,
+    ) -> Callable[[config.UpdateDeploymentGroupRequest], operations_pb2.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateDeploymentGroup(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def get_location(self):

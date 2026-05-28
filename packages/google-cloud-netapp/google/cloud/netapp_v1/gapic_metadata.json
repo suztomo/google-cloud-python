@@ -30,6 +30,11 @@
                 "create_backup_vault"
               ]
             },
+            "CreateHostGroup": {
+              "methods": [
+                "create_host_group"
+              ]
+            },
             "CreateKmsConfig": {
               "methods": [
                 "create_kms_config"
@@ -80,6 +85,11 @@
                 "delete_backup_vault"
               ]
             },
+            "DeleteHostGroup": {
+              "methods": [
+                "delete_host_group"
+              ]
+            },
             "DeleteKmsConfig": {
               "methods": [
                 "delete_kms_config"
@@ -120,6 +130,31 @@
                 "establish_peering"
               ]
             },
+            "EstablishVolumePeering": {
+              "methods": [
+                "establish_volume_peering"
+              ]
+            },
+            "ExecuteOntapDelete": {
+              "methods": [
+                "execute_ontap_delete"
+              ]
+            },
+            "ExecuteOntapGet": {
+              "methods": [
+                "execute_ontap_get"
+              ]
+            },
+            "ExecuteOntapPatch": {
+              "methods": [
+                "execute_ontap_patch"
+              ]
+            },
+            "ExecuteOntapPost": {
+              "methods": [
+                "execute_ontap_post"
+              ]
+            },
             "GetActiveDirectory": {
               "methods": [
                 "get_active_directory"
@@ -138,6 +173,11 @@
             "GetBackupVault": {
               "methods": [
                 "get_backup_vault"
+              ]
+            },
+            "GetHostGroup": {
+              "methods": [
+                "get_host_group"
               ]
             },
             "GetKmsConfig": {
@@ -190,6 +230,11 @@
                 "list_backups"
               ]
             },
+            "ListHostGroups": {
+              "methods": [
+                "list_host_groups"
+              ]
+            },
             "ListKmsConfigs": {
               "methods": [
                 "list_kms_configs"
@@ -218,6 +263,11 @@
             "ListVolumes": {
               "methods": [
                 "list_volumes"
+              ]
+            },
+            "RestoreBackupFiles": {
+              "methods": [
+                "restore_backup_files"
               ]
             },
             "ResumeReplication": {
@@ -268,6 +318,11 @@
             "UpdateBackupVault": {
               "methods": [
                 "update_backup_vault"
+              ]
+            },
+            "UpdateHostGroup": {
+              "methods": [
+                "update_host_group"
               ]
             },
             "UpdateKmsConfig": {
@@ -335,6 +390,11 @@
                 "create_backup_vault"
               ]
             },
+            "CreateHostGroup": {
+              "methods": [
+                "create_host_group"
+              ]
+            },
             "CreateKmsConfig": {
               "methods": [
                 "create_kms_config"
@@ -385,6 +445,11 @@
                 "delete_backup_vault"
               ]
             },
+            "DeleteHostGroup": {
+              "methods": [
+                "delete_host_group"
+              ]
+            },
             "DeleteKmsConfig": {
               "methods": [
                 "delete_kms_config"
@@ -425,6 +490,31 @@
                 "establish_peering"
               ]
             },
+            "EstablishVolumePeering": {
+              "methods": [
+                "establish_volume_peering"
+              ]
+            },
+            "ExecuteOntapDelete": {
+              "methods": [
+                "execute_ontap_delete"
+              ]
+            },
+            "ExecuteOntapGet": {
+              "methods": [
+                "execute_ontap_get"
+              ]
+            },
+            "ExecuteOntapPatch": {
+              "methods": [
+                "execute_ontap_patch"
+              ]
+            },
+            "ExecuteOntapPost": {
+              "methods": [
+                "execute_ontap_post"
+              ]
+            },
             "GetActiveDirectory": {
               "methods": [
                 "get_active_directory"
@@ -443,6 +533,11 @@
             "GetBackupVault": {
               "methods": [
                 "get_backup_vault"
+              ]
+            },
+            "GetHostGroup": {
+              "methods": [
+                "get_host_group"
               ]
             },
             "GetKmsConfig": {
@@ -495,6 +590,11 @@
                 "list_backups"
               ]
             },
+            "ListHostGroups": {
+              "methods": [
+                "list_host_groups"
+              ]
+            },
             "ListKmsConfigs": {
               "methods": [
                 "list_kms_configs"
@@ -523,6 +623,11 @@
             "ListVolumes": {
               "methods": [
                 "list_volumes"
+              ]
+            },
+            "RestoreBackupFiles": {
+              "methods": [
+                "restore_backup_files"
               ]
             },
             "ResumeReplication": {
@@ -573,6 +678,11 @@
             "UpdateBackupVault": {
               "methods": [
                 "update_backup_vault"
+              ]
+            },
+            "UpdateHostGroup": {
+              "methods": [
+                "update_host_group"
               ]
             },
             "UpdateKmsConfig": {
@@ -640,6 +750,11 @@
                 "create_backup_vault"
               ]
             },
+            "CreateHostGroup": {
+              "methods": [
+                "create_host_group"
+              ]
+            },
             "CreateKmsConfig": {
               "methods": [
                 "create_kms_config"
@@ -690,6 +805,11 @@
                 "delete_backup_vault"
               ]
             },
+            "DeleteHostGroup": {
+              "methods": [
+                "delete_host_group"
+              ]
+            },
             "DeleteKmsConfig": {
               "methods": [
                 "delete_kms_config"
@@ -730,6 +850,31 @@
                 "establish_peering"
               ]
             },
+            "EstablishVolumePeering": {
+              "methods": [
+                "establish_volume_peering"
+              ]
+            },
+            "ExecuteOntapDelete": {
+              "methods": [
+                "execute_ontap_delete"
+              ]
+            },
+            "ExecuteOntapGet": {
+              "methods": [
+                "execute_ontap_get"
+              ]
+            },
+            "ExecuteOntapPatch": {
+              "methods": [
+                "execute_ontap_patch"
+              ]
+            },
+            "ExecuteOntapPost": {
+              "methods": [
+                "execute_ontap_post"
+              ]
+            },
             "GetActiveDirectory": {
               "methods": [
                 "get_active_directory"
@@ -748,6 +893,11 @@
             "GetBackupVault": {
               "methods": [
                 "get_backup_vault"
+              ]
+            },
+            "GetHostGroup": {
+              "methods": [
+                "get_host_group"
               ]
             },
             "GetKmsConfig": {
@@ -800,6 +950,11 @@
                 "list_backups"
               ]
             },
+            "ListHostGroups": {
+              "methods": [
+                "list_host_groups"
+              ]
+            },
             "ListKmsConfigs": {
               "methods": [
                 "list_kms_configs"
@@ -828,6 +983,11 @@
             "ListVolumes": {
               "methods": [
                 "list_volumes"
+              ]
+            },
+            "RestoreBackupFiles": {
+              "methods": [
+                "restore_backup_files"
               ]
             },
             "ResumeReplication": {
@@ -878,6 +1038,11 @@
             "UpdateBackupVault": {
               "methods": [
                 "update_backup_vault"
+              ]
+            },
+            "UpdateHostGroup": {
+              "methods": [
+                "update_host_group"
               ]
             },
             "UpdateKmsConfig": {

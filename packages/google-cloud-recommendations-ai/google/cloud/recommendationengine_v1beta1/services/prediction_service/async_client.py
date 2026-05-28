@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.recommendationengine_v1beta1 import gapic_version as package_version
 
@@ -45,8 +45,8 @@ except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
 from google.cloud.recommendationengine_v1beta1.services.prediction_service import pagers
-from google.cloud.recommendationengine_v1beta1.types import user_event as gcr_user_event
 from google.cloud.recommendationengine_v1beta1.types import prediction_service
+from google.cloud.recommendationengine_v1beta1.types import user_event as gcr_user_event
 
 from .client import PredictionServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, PredictionServiceTransport
@@ -114,7 +114,10 @@ class PredictionServiceAsyncClient:
         Returns:
             PredictionServiceAsyncClient: The constructed client.
         """
-        return PredictionServiceClient.from_service_account_info.__func__(PredictionServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            PredictionServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(PredictionServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -130,7 +133,10 @@ class PredictionServiceAsyncClient:
         Returns:
             PredictionServiceAsyncClient: The constructed client.
         """
-        return PredictionServiceClient.from_service_account_file.__func__(PredictionServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            PredictionServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(PredictionServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -180,7 +186,7 @@ class PredictionServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -353,31 +359,31 @@ class PredictionServiceAsyncClient:
                 We currently support three placements with the following
                 IDs by default:
 
-                -  ``shopping_cart``: Predicts items frequently bought
-                   together with one or more catalog items in the same
-                   shopping session. Commonly displayed after
-                   ``add-to-cart`` events, on product detail pages, or
-                   on the shopping cart page.
+                - ``shopping_cart``: Predicts items frequently bought
+                  together with one or more catalog items in the same
+                  shopping session. Commonly displayed after
+                  ``add-to-cart`` events, on product detail pages, or on
+                  the shopping cart page.
 
-                -  ``home_page``: Predicts the next product that a user
-                   will most likely engage with or purchase based on the
-                   shopping or viewing history of the specified
-                   ``userId`` or ``visitorId``. For example -
-                   Recommendations for you.
+                - ``home_page``: Predicts the next product that a user
+                  will most likely engage with or purchase based on the
+                  shopping or viewing history of the specified
+                  ``userId`` or ``visitorId``. For example -
+                  Recommendations for you.
 
-                -  ``product_detail``: Predicts the next product that a
-                   user will most likely engage with or purchase. The
-                   prediction is based on the shopping or viewing
-                   history of the specified ``userId`` or ``visitorId``
-                   and its relevance to a specified ``CatalogItem``.
-                   Typically used on product detail pages. For example -
-                   More items like this.
+                - ``product_detail``: Predicts the next product that a
+                  user will most likely engage with or purchase. The
+                  prediction is based on the shopping or viewing history
+                  of the specified ``userId`` or ``visitorId`` and its
+                  relevance to a specified ``CatalogItem``. Typically
+                  used on product detail pages. For example - More items
+                  like this.
 
-                -  ``recently_viewed_default``: Returns up to 75 items
-                   recently viewed by the specified ``userId`` or
-                   ``visitorId``, most recent ones first. Returns
-                   nothing if neither of them has viewed any items yet.
-                   For example - Recently viewed.
+                - ``recently_viewed_default``: Returns up to 75 items
+                  recently viewed by the specified ``userId`` or
+                  ``visitorId``, most recent ones first. Returns nothing
+                  if neither of them has viewed any items yet. For
+                  example - Recently viewed.
 
                 The full list of available placements can be seen at
                 https://console.cloud.google.com/recommendation/datafeeds/default_catalog/dashboard

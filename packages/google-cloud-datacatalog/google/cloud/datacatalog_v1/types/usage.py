@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -35,12 +35,12 @@ class UsageStats(proto.Message):
 
     Usage statistics have the following limitations:
 
-    -  Only BigQuery tables have them.
-    -  They only include BigQuery query jobs.
-    -  They might be underestimated because wildcard table references
-       are not yet counted. For more information, see [Querying multiple
-       tables using a wildcard table]
-       (https://cloud.google.com/bigquery/docs/querying-wildcard-tables)
+    - Only BigQuery tables have them.
+    - They only include BigQuery query jobs.
+    - They might be underestimated because wildcard table references are
+      not yet counted. For more information, see [Querying multiple
+      tables using a wildcard table]
+      (https://cloud.google.com/bigquery/docs/querying-wildcard-tables)
 
     Attributes:
         total_completions (float):
@@ -138,13 +138,13 @@ class UsageSignal(proto.Message):
         number=2,
         message="UsageStats",
     )
-    common_usage_within_time_range: MutableMapping[
-        str, "CommonUsageStats"
-    ] = proto.MapField(
-        proto.STRING,
-        proto.MESSAGE,
-        number=3,
-        message="CommonUsageStats",
+    common_usage_within_time_range: MutableMapping[str, "CommonUsageStats"] = (
+        proto.MapField(
+            proto.STRING,
+            proto.MESSAGE,
+            number=3,
+            message="CommonUsageStats",
+        )
     )
     favorite_count: int = proto.Field(
         proto.INT64,

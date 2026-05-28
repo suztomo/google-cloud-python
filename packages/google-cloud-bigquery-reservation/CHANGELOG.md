@@ -1,5 +1,81 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-bigquery-reservation/#history
+
+## [1.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.23.0...google-cloud-bigquery-reservation-v1.24.0) (2026-05-06)
+
+## [1.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.22.0...google-cloud-bigquery-reservation-v1.23.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.22.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.21.0...google-cloud-bigquery-reservation-v1.22.0) (2026-01-08)
+
+
+### Documentation
+
+* change comment indicating `enable_gemini_in_bigquery` field for BigQuery Reservation Assignments is deprecated ([17cc12897e6afdf3f3131531c50a8226a3f57c0f](https://github.com/googleapis/google-cloud-python/commit/17cc12897e6afdf3f3131531c50a8226a3f57c0f))
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.20.0...google-cloud-bigquery-reservation-v1.21.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.19.0...google-cloud-bigquery-reservation-v1.20.0) (2025-10-07)
+
+
+### Features
+
+* [google-cloud-bigquery-reservation] Add new `BACKGROUND_CHANGE_DATA_CAPTURE`, `BACKGROUND_COLUMN_METADATA_INDEX`, and `BACKGROUND_SEARCH_INDEX_REFRESH` reservation assignment types  ([4e5a0b50d1919fdc592478184e349d8e3ef0b658](https://github.com/googleapis/google-cloud-python/commit/4e5a0b50d1919fdc592478184e349d8e3ef0b658))
+
+## [1.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.18.0...google-cloud-bigquery-reservation-v1.19.0) (2025-09-04)
+
+
+### Features
+
+* Add a new field `failover_mode` to `.google.cloud.bigquery.reservation.v1.FailoverReservationRequest` that allows users to choose between the HARD or SOFT failover modes when they initiate a failover operation on a reservation ([c7bbbfc](https://github.com/googleapis/google-cloud-python/commit/c7bbbfc6e83795e2f813a60ca146a8fd4f232fa2))
+* Add a new field `soft_failover_start_time` in the existing `replication_status` in `.google.cloud.bigquery.reservation.v1.Reservation` to provide visibility into the state of ongoing soft failover operations onthe reservation ([c7bbbfc](https://github.com/googleapis/google-cloud-python/commit/c7bbbfc6e83795e2f813a60ca146a8fd4f232fa2))
+
+## [1.18.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.17.2...google-cloud-bigquery-reservation-v1.18.0) (2025-08-29)
+
+
+### Features
+
+* Add Reservation.max_slots field to Reservation proto, indicating the total max number of slots this reservation can use up to ([8ab5fcc](https://github.com/googleapis/google-cloud-python/commit/8ab5fcc4409674815979bd6b378af5165ab0e901))
+* Add Reservation.scaling_mode field and its corresponding enum message ScalingMode. This field should be used together with Reservation.max_slots ([8ab5fcc](https://github.com/googleapis/google-cloud-python/commit/8ab5fcc4409674815979bd6b378af5165ab0e901))
+
+## [1.17.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.17.1...google-cloud-bigquery-reservation-v1.17.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [1.17.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-bigquery-reservation-v1.17.0...google-cloud-bigquery-reservation-v1.17.1) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,26 +17,27 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.geo.type.types import viewport as ggt_viewport
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import localized_text_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.localized_text_pb2 as localized_text_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
+from google.geo.type.types import viewport as ggt_viewport
 
 from google.maps.routing_v2.types import (
+    localized_time,
+    location,
     route_label,
     route_travel_mode,
     speed_reading_interval,
+    transit,
 )
 from google.maps.routing_v2.types import (
     navigation_instruction as gmr_navigation_instruction,
 )
-from google.maps.routing_v2.types import polyline_details as gmr_polyline_details
-from google.maps.routing_v2.types import localized_time, location
 from google.maps.routing_v2.types import polyline as gmr_polyline
+from google.maps.routing_v2.types import polyline_details as gmr_polyline_details
 from google.maps.routing_v2.types import toll_info as gmr_toll_info
-from google.maps.routing_v2.types import transit
 
 __protobuf__ = proto.module(
     package="google.maps.routing.v2",
@@ -64,10 +65,10 @@ class Route(proto.Message):
         legs (MutableSequence[google.maps.routing_v2.types.RouteLeg]):
             A collection of legs (path segments between waypoints) that
             make up the route. Each leg corresponds to the trip between
-            two non-\ ``via``
+            two non-``via``
             [``Waypoints``][google.maps.routing.v2.Waypoint]. For
             example, a route with no intermediate waypoints has only one
-            leg. A route that includes one non-\ ``via`` intermediate
+            leg. A route that includes one non-``via`` intermediate
             waypoint has two legs. A route that includes one ``via``
             intermediate waypoint has one leg. The order of the legs
             matches the order of waypoints from ``origin`` to
@@ -112,7 +113,7 @@ class Route(proto.Message):
             Text representations of properties of the ``Route``.
         route_token (str):
             An opaque token that can be passed to `Navigation
-            SDK <https://developers.google.com/maps/documentation/navigation>`__
+            SDK <https://developers.google.com/maps/documentation/mobility/driver-sdk/navigation>`__
             to reconstruct the route during navigation, and, in the
             event of rerouting, honor the original intention when the
             route was created. Treat this token as an opaque blob. Don't
@@ -243,18 +244,23 @@ class RouteTravelAdvisory(proto.Message):
     Attributes:
         toll_info (google.maps.routing_v2.types.TollInfo):
             Contains information about tolls on the route. This field is
-            only populated if tolls are expected on the route. If this
-            field is set, but the ``estimatedPrice`` subfield is not
-            populated, then the route contains tolls, but the estimated
-            price is unknown. If this field is not set, then there are
-            no tolls expected on the route.
+            only populated if tolls are expected on the route and
+            ``TOLLS`` is included in the request's
+            [ComputeRoutesRequest.extra_computations][google.maps.routing.v2.ComputeRoutesRequest.extra_computations].
+            If this field is set, but the ``estimatedPrice`` subfield is
+            not populated, then the route contains tolls, but the
+            estimated price is unknown. If ``toll_info`` is not set,
+            then there are no tolls expected on the route.
         speed_reading_intervals (MutableSequence[google.maps.routing_v2.types.SpeedReadingInterval]):
-            Speed reading intervals detailing traffic density.
-            Applicable in case of ``TRAFFIC_AWARE`` and
-            ``TRAFFIC_AWARE_OPTIMAL`` routing preferences. The intervals
-            cover the entire polyline of the route without overlap. The
-            start point of a specified interval is the same as the end
-            point of the preceding interval.
+            Speed reading intervals indicating traffic density. This
+            field is only populated for requests when the request has a
+            ``TRAFFIC_AWARE`` or ``TRAFFIC_AWARE_OPTIMAL``
+            [ComputeRoutesRequest.routing_preference][google.maps.routing.v2.ComputeRoutesRequest.routing_preference]
+            value, and ``TRAFFIC_ON_POLYLINE`` is included in the
+            [ComputeRoutesRequest.extra_computations][google.maps.routing.v2.ComputeRoutesRequest.extra_computations].
+            The intervals cover the entire polyline of the route without
+            overlap. The start point of a specified interval is the same
+            as the end point of the preceding interval.
 
             Example:
 
@@ -263,8 +269,10 @@ class RouteTravelAdvisory(proto.Message):
                 polyline: A ---- B ---- C ---- D ---- E ---- F ---- G
                 speed_reading_intervals: [A,C), [C,D), [D,G).
         fuel_consumption_microliters (int):
-            The predicted fuel consumption in
-            microliters.
+            The predicted fuel consumption in microliters. This field is
+            only populated when ``FUEL_CONSUMPTION`` is included in the
+            request's
+            [ComputeRoutesRequest.extra_computations][google.maps.routing.v2.ComputeRoutesRequest.extra_computations].
         route_restrictions_partially_ignored (bool):
             Returned route may have restrictions that are
             not suitable for requested travel mode or route
@@ -312,18 +320,23 @@ class RouteLegTravelAdvisory(proto.Message):
         toll_info (google.maps.routing_v2.types.TollInfo):
             Contains information about tolls on the specific
             ``RouteLeg``. This field is only populated if we expect
-            there are tolls on the ``RouteLeg``. If this field is set
-            but the estimated_price subfield is not populated, we expect
-            that road contains tolls but we do not know an estimated
-            price. If this field does not exist, then there is no toll
-            on the ``RouteLeg``.
+            there are tolls on the ``RouteLeg`` and ``TOLLS`` is
+            included in the request's
+            [ComputeRoutesRequest.extra_computations][google.maps.routing.v2.ComputeRoutesRequest.extra_computations].
+            If this field is set but the estimated_price subfield is not
+            populated, we expect that road contains tolls but we do not
+            know an estimated price. If ``toll_info`` does not exist,
+            then there is no toll on the ``RouteLeg``.
         speed_reading_intervals (MutableSequence[google.maps.routing_v2.types.SpeedReadingInterval]):
-            Speed reading intervals detailing traffic density.
-            Applicable in case of ``TRAFFIC_AWARE`` and
-            ``TRAFFIC_AWARE_OPTIMAL`` routing preferences. The intervals
-            cover the entire polyline of the ``RouteLeg`` without
-            overlap. The start point of a specified interval is the same
-            as the end point of the preceding interval.
+            Speed reading intervals indicating traffic density. This
+            field is only populated for requests when the request has a
+            ``TRAFFIC_AWARE`` or ``TRAFFIC_AWARE_OPTIMAL``
+            [ComputeRoutesRequest.routing_preference][google.maps.routing.v2.ComputeRoutesRequest.routing_preference]
+            value, and ``TRAFFIC_ON_POLYLINE`` is included in the
+            [ComputeRoutesRequest.extra_computations][google.maps.routing.v2.ComputeRoutesRequest.extra_computations].
+            The intervals cover the entire polyline of the ``RouteLeg``
+            without overlap. The start point of a specified interval is
+            the same as the end point of the preceding interval.
 
             Example:
 
@@ -367,7 +380,7 @@ class RouteLegStepTravelAdvisory(proto.Message):
 
 
 class RouteLeg(proto.Message):
-    r"""Contains a segment between non-\ ``via`` waypoints.
+    r"""Contains a segment between non-``via`` waypoints.
 
     Attributes:
         distance_meters (int):

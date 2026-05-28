@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.beyondcorp_clientconnectorservices_v1.types import (
     client_connector_services_service,
@@ -60,7 +62,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -95,7 +97,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -127,8 +129,8 @@ class ClientConnectorServicesServiceGrpcTransport(
 
     The ClientConnectorServicesService exposes the following resources:
 
-    -  Client Connector Services, named as follows:
-       ``projects/{project_id}/locations/{location_id}/client_connector_services/{client_connector_service_id}``.
+    - Client Connector Services, named as follows:
+      ``projects/{project_id}/locations/{location_id}/client_connector_services/{client_connector_service_id}``.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -168,9 +170,10 @@ class ClientConnectorServicesServiceGrpcTransport(
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -201,6 +204,10 @@ class ClientConnectorServicesServiceGrpcTransport(
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -304,9 +311,10 @@ class ClientConnectorServicesServiceGrpcTransport(
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -377,12 +385,12 @@ class ClientConnectorServicesServiceGrpcTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_client_connector_services" not in self._stubs:
-            self._stubs[
-                "list_client_connector_services"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/ListClientConnectorServices",
-                request_serializer=client_connector_services_service.ListClientConnectorServicesRequest.serialize,
-                response_deserializer=client_connector_services_service.ListClientConnectorServicesResponse.deserialize,
+            self._stubs["list_client_connector_services"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/ListClientConnectorServices",
+                    request_serializer=client_connector_services_service.ListClientConnectorServicesRequest.serialize,
+                    response_deserializer=client_connector_services_service.ListClientConnectorServicesResponse.deserialize,
+                )
             )
         return self._stubs["list_client_connector_services"]
 
@@ -408,12 +416,12 @@ class ClientConnectorServicesServiceGrpcTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_client_connector_service" not in self._stubs:
-            self._stubs[
-                "get_client_connector_service"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/GetClientConnectorService",
-                request_serializer=client_connector_services_service.GetClientConnectorServiceRequest.serialize,
-                response_deserializer=client_connector_services_service.ClientConnectorService.deserialize,
+            self._stubs["get_client_connector_service"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/GetClientConnectorService",
+                    request_serializer=client_connector_services_service.GetClientConnectorServiceRequest.serialize,
+                    response_deserializer=client_connector_services_service.ClientConnectorService.deserialize,
+                )
             )
         return self._stubs["get_client_connector_service"]
 
@@ -441,12 +449,12 @@ class ClientConnectorServicesServiceGrpcTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_client_connector_service" not in self._stubs:
-            self._stubs[
-                "create_client_connector_service"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/CreateClientConnectorService",
-                request_serializer=client_connector_services_service.CreateClientConnectorServiceRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_client_connector_service"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/CreateClientConnectorService",
+                    request_serializer=client_connector_services_service.CreateClientConnectorServiceRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_client_connector_service"]
 
@@ -474,12 +482,12 @@ class ClientConnectorServicesServiceGrpcTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_client_connector_service" not in self._stubs:
-            self._stubs[
-                "update_client_connector_service"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/UpdateClientConnectorService",
-                request_serializer=client_connector_services_service.UpdateClientConnectorServiceRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_client_connector_service"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/UpdateClientConnectorService",
+                    request_serializer=client_connector_services_service.UpdateClientConnectorServiceRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_client_connector_service"]
 
@@ -506,12 +514,12 @@ class ClientConnectorServicesServiceGrpcTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_client_connector_service" not in self._stubs:
-            self._stubs[
-                "delete_client_connector_service"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/DeleteClientConnectorService",
-                request_serializer=client_connector_services_service.DeleteClientConnectorServiceRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["delete_client_connector_service"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.beyondcorp.clientconnectorservices.v1.ClientConnectorServicesService/DeleteClientConnectorService",
+                    request_serializer=client_connector_services_service.DeleteClientConnectorServiceRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["delete_client_connector_service"]
 

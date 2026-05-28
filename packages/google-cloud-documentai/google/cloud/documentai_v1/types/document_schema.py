@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,17 +67,17 @@ class DocumentSchema(proto.Message):
                 and cannot be a "Common Type". The following naming
                 conventions are used:
 
-                -  Use ``snake_casing``.
-                -  Name matching is case-sensitive.
-                -  Maximum 64 characters.
-                -  Must start with a letter.
-                -  Allowed characters: ASCII letters ``[a-z0-9_-]``. (For
-                   backward compatibility internal infrastructure and
-                   tooling can handle any ascii character.)
-                -  The ``/`` is sometimes used to denote a property of a
-                   type. For example ``line_item/amount``. This convention
-                   is deprecated, but will still be honored for backward
-                   compatibility.
+                - Use ``snake_casing``.
+                - Name matching is case-sensitive.
+                - Maximum 64 characters.
+                - Must start with a letter.
+                - Allowed characters: ASCII letters ``[a-z0-9_-]``. (For
+                  backward compatibility internal infrastructure and tooling
+                  can handle any ascii character.)
+                - The ``/`` is sometimes used to denote a property of a
+                  type. For example ``line_item/amount``. This convention is
+                  deprecated, but will still be honored for backward
+                  compatibility.
             base_types (MutableSequence[str]):
                 The entity type that this type is derived
                 from.  For now, one and only one should be set.
@@ -117,6 +117,8 @@ class DocumentSchema(proto.Message):
                     Occurrence type limits the number of
                     instances an entity type appears in the
                     document.
+                method (google.cloud.documentai_v1.types.DocumentSchema.EntityType.Property.Method):
+                    Specifies how the entity's value is obtained.
             """
 
             class OccurrenceType(proto.Enum):
@@ -148,11 +150,32 @@ class DocumentSchema(proto.Message):
                         The entity type will appear once or more
                         times.
                 """
+
                 OCCURRENCE_TYPE_UNSPECIFIED = 0
                 OPTIONAL_ONCE = 1
                 OPTIONAL_MULTIPLE = 2
                 REQUIRED_ONCE = 3
                 REQUIRED_MULTIPLE = 4
+
+            class Method(proto.Enum):
+                r"""Specifies how the entity's value is obtained from the
+                document.
+
+                Values:
+                    METHOD_UNSPECIFIED (0):
+                        Unspecified method. It defaults to ``EXTRACT``.
+                    EXTRACT (1):
+                        The entity's value is directly extracted
+                        as-is from the document text.
+                    DERIVE (2):
+                        The entity's value is derived through
+                        inference and is not necessarily an exact text
+                        extraction from the document.
+                """
+
+                METHOD_UNSPECIFIED = 0
+                EXTRACT = 1
+                DERIVE = 2
 
             name: str = proto.Field(
                 proto.STRING,
@@ -173,6 +196,11 @@ class DocumentSchema(proto.Message):
                     enum="DocumentSchema.EntityType.Property.OccurrenceType",
                 )
             )
+            method: "DocumentSchema.EntityType.Property.Method" = proto.Field(
+                proto.ENUM,
+                number=8,
+                enum="DocumentSchema.EntityType.Property.Method",
+            )
 
         enum_values: "DocumentSchema.EntityType.EnumValues" = proto.Field(
             proto.MESSAGE,
@@ -192,12 +220,12 @@ class DocumentSchema(proto.Message):
             proto.STRING,
             number=2,
         )
-        properties: MutableSequence[
-            "DocumentSchema.EntityType.Property"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=6,
-            message="DocumentSchema.EntityType.Property",
+        properties: MutableSequence["DocumentSchema.EntityType.Property"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=6,
+                message="DocumentSchema.EntityType.Property",
+            )
         )
 
     class Metadata(proto.Message):

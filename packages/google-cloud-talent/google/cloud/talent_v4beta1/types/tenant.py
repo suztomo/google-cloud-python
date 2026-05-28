@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,6 +81,7 @@ class Tenant(proto.Message):
                 search/recommendation quality for this tenant
                 only.
         """
+
         DATA_USAGE_TYPE_UNSPECIFIED = 0
         AGGREGATED = 1
         ISOLATED = 2
@@ -98,11 +99,11 @@ class Tenant(proto.Message):
         number=3,
         enum=DataUsageType,
     )
-    keyword_searchable_profile_custom_attributes: MutableSequence[
-        str
-    ] = proto.RepeatedField(
-        proto.STRING,
-        number=4,
+    keyword_searchable_profile_custom_attributes: MutableSequence[str] = (
+        proto.RepeatedField(
+            proto.STRING,
+            number=4,
+        )
     )
 
 

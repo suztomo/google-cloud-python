@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import interval_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -102,7 +102,7 @@ class DocumentQuery(proto.Message):
             Supported operators are: ``=``, ``!=``, ``<``, ``<=``,
             ``>``, and ``>=`` where the left of the operator is a
             property name and the right of the operator is a number or a
-            quoted string. You must escape backslash (\) and quote (")
+            quoted string. You must escape backslash (\\) and quote (")
             characters. Supported functions are
             ``LOWER([property_name])`` to perform a case insensitive
             match and ``EMPTY([property_name])`` to filter on the
@@ -261,6 +261,7 @@ class TimeFilter(proto.Message):
             DISPOSITION_TIME (3):
                 Time when document becomes mutable again.
         """
+
         TIME_FIELD_UNSPECIFIED = 0
         CREATE_TIME = 1
         UPDATE_TIME = 2
@@ -294,8 +295,8 @@ class PropertyFilter(proto.Message):
             Supported operators are: ``=``, ``!=``, ``<``, ``<=``,
             ``>``, ``>=``, and ``~~`` where the left of the operator is
             a property name and the right of the operator is a number or
-            a quoted string. You must escape backslash (\) and quote (")
-            characters.
+            a quoted string. You must escape backslash (\\) and quote
+            (") characters.
 
             ``~~`` is the LIKE operator. The right of the operator must
             be a string. The only supported property data type for LIKE
@@ -331,8 +332,8 @@ class PropertyFilter(proto.Message):
 
             CMEK compliant deployment only supports:
 
-            -  Operators: ``=``, ``<``, ``<=``, ``>``, and ``>=``.
-            -  Boolean expressions: AND and OR.
+            - Operators: ``=``, ``<``, ``<=``, ``>``, and ``>=``.
+            - Boolean expressions: AND and OR.
     """
 
     document_schema_name: str = proto.Field(
@@ -370,6 +371,7 @@ class FileTypeFilter(proto.Message):
             ROOT_FOLDER (4):
                 Returns only root folders
         """
+
         FILE_TYPE_UNSPECIFIED = 0
         ALL = 1
         FOLDER = 2
@@ -393,12 +395,12 @@ class CustomWeightsMetadata(proto.Message):
             relevance boosting.
     """
 
-    weighted_schema_properties: MutableSequence[
-        "WeightedSchemaProperty"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="WeightedSchemaProperty",
+    weighted_schema_properties: MutableSequence["WeightedSchemaProperty"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="WeightedSchemaProperty",
+        )
     )
 
 

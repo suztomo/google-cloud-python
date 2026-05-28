@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.dialogflow_v2beta1.types import audio_config, participant
+from google.cloud.dialogflow_v2beta1.types import audio_config, generator, participant
 
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.v2beta1",
@@ -64,6 +64,10 @@ class ConversationProfile(proto.Message):
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Update time of the conversation
             profile.
+        use_bidi_streaming (bool):
+            Optional. Whether to use the bidi streaming
+            API in telephony integration for the
+            conversation profile.
         automated_agent_config (google.cloud.dialogflow_v2beta1.types.AutomatedAgentConfig):
             Configuration for an automated agent to use
             with this profile.
@@ -94,9 +98,9 @@ class ConversationProfile(proto.Message):
             [ConversationEvent][google.cloud.dialogflow.v2beta1.ConversationEvent]
             Pub/Sub message attributes:
 
-            -  "participant_id"
-            -  "participant_role"
-            -  "message_id".
+            - "participant_id"
+            - "participant_role"
+            - "message_id".
         stt_config (google.cloud.dialogflow_v2beta1.types.SpeechToTextConfig):
             Settings for speech transcription.
         language_code (str):
@@ -141,6 +145,10 @@ class ConversationProfile(proto.Message):
         proto.MESSAGE,
         number=12,
         message=timestamp_pb2.Timestamp,
+    )
+    use_bidi_streaming: bool = proto.Field(
+        proto.BOOL,
+        number=23,
     )
     automated_agent_config: "AutomatedAgentConfig" = proto.Field(
         proto.MESSAGE,
@@ -213,17 +221,17 @@ class AutomatedAgentConfig(proto.Message):
             ``service-<Conversation Project Number>@gcp-sa-dialogflow.iam.gserviceaccount.com``
             the ``Dialogflow API Service Agent`` role in this project.
 
-            -  For ES agents, use format:
-               ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID or '-'>``.
-               If environment is not specified, the default ``draft``
-               environment is used. Refer to
-               `DetectIntentRequest </dialogflow/docs/reference/rpc/google.cloud.dialogflow.v2beta1#google.cloud.dialogflow.v2beta1.DetectIntentRequest>`__
-               for more details.
+            - For ES agents, use format:
+              ``projects/<Project ID>/locations/<Location ID>/agent/environments/<Environment ID or '-'>``.
+              If environment is not specified, the default ``draft``
+              environment is used. Refer to
+              `DetectIntentRequest </dialogflow/docs/reference/rpc/google.cloud.dialogflow.v2beta1#google.cloud.dialogflow.v2beta1.DetectIntentRequest>`__
+              for more details.
 
-            -  For CX agents, use format
-               ``projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/environments/<Environment ID or '-'>``.
-               If environment is not specified, the default ``draft``
-               environment is used.
+            - For CX agents, use format
+              ``projects/<Project ID>/locations/<Location ID>/agents/<Agent ID>/environments/<Environment ID or '-'>``.
+              If environment is not specified, the default ``draft``
+              environment is used.
         session_ttl (google.protobuf.duration_pb2.Duration):
             Optional. Configure lifetime of the
             Dialogflow session. By default, a Dialogflow CX
@@ -313,6 +321,20 @@ class HumanAgentAssistantConfig(proto.Message):
             enable_query_suggestion_only (bool):
                 Optional. Enable query suggestion only. Supported features:
                 KNOWLEDGE_ASSIST
+            enable_response_debug_info (bool):
+                Optional. Enable returning detailed reasons for suggestion
+                results.
+
+                For example, with this field disabled, Knowledge Search
+                feature returns NotFound error when no answer is found for
+                the input query. Enabling this field will change the
+                behavior to return an OK response with detailed information
+                indicating the lack of results.
+
+                Supported features: KNOWLEDGE_SEARCH, KNOWLEDGE_ASSIST
+            rai_settings (google.cloud.dialogflow_v2beta1.types.RaiSettings):
+                Optional. Settings for Responsible AI checks. Supported
+                features: KNOWLEDGE_ASSIST
             suggestion_trigger_settings (google.cloud.dialogflow_v2beta1.types.HumanAgentAssistantConfig.SuggestionTriggerSettings):
                 Settings of suggestion trigger.
 
@@ -350,6 +372,15 @@ class HumanAgentAssistantConfig(proto.Message):
         enable_query_suggestion_only: bool = proto.Field(
             proto.BOOL,
             number=17,
+        )
+        enable_response_debug_info: bool = proto.Field(
+            proto.BOOL,
+            number=18,
+        )
+        rai_settings: generator.RaiSettings = proto.Field(
+            proto.MESSAGE,
+            number=19,
+            message=generator.RaiSettings,
         )
         suggestion_trigger_settings: "HumanAgentAssistantConfig.SuggestionTriggerSettings" = proto.Field(
             proto.MESSAGE,
@@ -404,6 +435,22 @@ class HumanAgentAssistantConfig(proto.Message):
                 configured and enable_event_based_suggestion must be set to
                 true to receive the responses from high latency features in
                 Pub/Sub. High latency feature(s): KNOWLEDGE_ASSIST
+            skip_empty_event_based_suggestion (bool):
+                Optional. Enable skipping event based
+                suggestion if the suggestion is empty.
+
+                For example, with this field disabled, Knowledge
+                Assist feature sends a Pub/Sub message when
+                there are no suggestions. Enabling this field
+                will change the behavior to skip the Pub/Sub
+                message in this situation.
+            use_unredacted_conversation_data (bool):
+                Optional. If true, use unredacted transcript data (Supported
+                features: AI_COACH) and use unredacted ingested context
+                (Supported features: All Agent Assist features)
+            enable_async_tool_call (bool):
+                Optional. If true, enable asynchronous
+                execution of tools.
         """
 
         feature_configs: MutableSequence[
@@ -424,6 +471,18 @@ class HumanAgentAssistantConfig(proto.Message):
         disable_high_latency_features_sync_delivery: bool = proto.Field(
             proto.BOOL,
             number=5,
+        )
+        skip_empty_event_based_suggestion: bool = proto.Field(
+            proto.BOOL,
+            number=6,
+        )
+        use_unredacted_conversation_data: bool = proto.Field(
+            proto.BOOL,
+            number=8,
+        )
+        enable_async_tool_call: bool = proto.Field(
+            proto.BOOL,
+            number=9,
         )
 
     class SuggestionQueryConfig(proto.Message):
@@ -650,6 +709,7 @@ class HumanAgentAssistantConfig(proto.Message):
                         amount, etc. Section names are prefixed by
                         "entities/".
                 """
+
                 SECTION_TYPE_UNSPECIFIED = 0
                 SITUATION = 1
                 ACTION = 2
@@ -722,9 +782,16 @@ class HumanAgentAssistantConfig(proto.Message):
             baseline_model_version (str):
                 Version of current baseline model. It will be ignored if
                 [model][google.cloud.dialogflow.v2beta1.HumanAgentAssistantConfig.ConversationModelConfig.model]
-                is set. Valid versions are: Article Suggestion baseline
-                model: - 0.9 - 1.0 (default) Summarization baseline model: -
-                1.0
+                is set. Valid versions are:
+
+                - Article Suggestion baseline model:
+
+                  - 0.9
+                  - 1.0 (default)
+
+                - Summarization baseline model:
+
+                  - 1.0
         """
 
         model: str = proto.Field(
@@ -786,6 +853,30 @@ class HumanAgentAssistantConfig(proto.Message):
                 [ListMessagesResponse.messages.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.ListMessagesResponse.messages]
                 If Pub/Sub notification is configured, result will be in
                 [ConversationEvent.new_message_payload.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.ConversationEvent.new_message_payload].
+            enable_sentiment_analysis_v3 (bool):
+                Optional. Enables sentiment analysis for audio input and
+                conversation messages. If unspecified, defaults to false. If
+                this flag is set to true, other 'enable_sentiment_analysis'
+                fields will be ignored.
+
+                Sentiment analysis inspects user input and identifies the
+                prevailing subjective opinion, especially to determine a
+                user's attitude as positive, negative, or neutral.
+                https://cloud.google.com/natural-language/docs/basics#sentiment_analysis
+                For
+                [Participants.StreamingAnalyzeContent][google.cloud.dialogflow.v2beta1.Participants.StreamingAnalyzeContent]
+                method, result will be in
+                [StreamingAnalyzeContentResponse.message.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.StreamingAnalyzeContentResponse.message].
+                For
+                [Participants.AnalyzeContent][google.cloud.dialogflow.v2beta1.Participants.AnalyzeContent]
+                method, result will be in
+                [AnalyzeContentResponse.message.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.AnalyzeContentResponse.message]
+                For
+                [Conversations.ListMessages][google.cloud.dialogflow.v2beta1.Conversations.ListMessages]
+                method, result will be in
+                [ListMessagesResponse.messages.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.ListMessagesResponse.messages]
+                If Pub/Sub notification is configured, result will be in
+                [ConversationEvent.new_message_payload.SentimentAnalysisResult][google.cloud.dialogflow.v2beta1.ConversationEvent.new_message_payload].
         """
 
         enable_entity_extraction: bool = proto.Field(
@@ -795,6 +886,10 @@ class HumanAgentAssistantConfig(proto.Message):
         enable_sentiment_analysis: bool = proto.Field(
             proto.BOOL,
             number=3,
+        )
+        enable_sentiment_analysis_v3: bool = proto.Field(
+            proto.BOOL,
+            number=5,
         )
 
     notification_config: "NotificationConfig" = proto.Field(
@@ -949,6 +1044,7 @@ class NotificationConfig(proto.Message):
             JSON (2):
                 Pub/Sub message will be json.
         """
+
         MESSAGE_FORMAT_UNSPECIFIED = 0
         PROTO = 1
         JSON = 2

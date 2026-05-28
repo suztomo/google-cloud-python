@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_backup_v1.types import restore
@@ -64,8 +64,8 @@ class RestorePlan(proto.Message):
             cluster's region must be the same as the RestorePlan. Valid
             formats:
 
-            -  ``projects/*/locations/*/clusters/*``
-            -  ``projects/*/zones/*/clusters/*``
+            - ``projects/*/locations/*/clusters/*``
+            - ``projects/*/zones/*/clusters/*``
         restore_config (google.cloud.gke_backup_v1.types.RestoreConfig):
             Required. Configuration of Restores created
             via this RestorePlan.
@@ -118,6 +118,7 @@ class RestorePlan(proto.Message):
                 The RestorePlan is in the process of being
                 deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CLUSTER_PENDING = 1
         READY = 2

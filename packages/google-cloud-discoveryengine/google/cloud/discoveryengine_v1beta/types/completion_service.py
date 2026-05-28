@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1beta.types import common
@@ -52,24 +52,24 @@ class CompleteQueryRequest(proto.Message):
             model specified in the Configuration > Autocomplete section
             of the Cloud console. Currently supported values:
 
-            -  ``document`` - Using suggestions generated from
-               user-imported documents.
-            -  ``search-history`` - Using suggestions generated from the
-               past history of
-               [SearchService.Search][google.cloud.discoveryengine.v1beta.SearchService.Search]
-               API calls. Do not use it when there is no traffic for
-               Search API.
-            -  ``user-event`` - Using suggestions generated from
-               user-imported search events.
-            -  ``document-completable`` - Using suggestions taken
-               directly from user-imported document fields marked as
-               completable.
+            - ``document`` - Using suggestions generated from
+              user-imported documents.
+            - ``search-history`` - Using suggestions generated from the
+              past history of
+              [SearchService.Search][google.cloud.discoveryengine.v1beta.SearchService.Search]
+              API calls. Do not use it when there is no traffic for
+              Search API.
+            - ``user-event`` - Using suggestions generated from
+              user-imported search events.
+            - ``document-completable`` - Using suggestions taken
+              directly from user-imported document fields marked as
+              completable.
 
             Default values:
 
-            -  ``document`` is the default model for regular dataStores.
-            -  ``search-history`` is the default model for site search
-               dataStores.
+            - ``document`` is the default model for regular dataStores.
+            - ``search-history`` is the default model for site search
+              dataStores.
         user_pseudo_id (str):
             A unique identifier for tracking visitors. For example, this
             could be implemented with an HTTP cookie, which should be
@@ -199,24 +199,24 @@ class AdvancedCompleteQueryRequest(proto.Message):
             model specified in the Configuration > Autocomplete section
             of the Cloud console. Currently supported values:
 
-            -  ``document`` - Using suggestions generated from
-               user-imported documents.
-            -  ``search-history`` - Using suggestions generated from the
-               past history of
-               [SearchService.Search][google.cloud.discoveryengine.v1beta.SearchService.Search]
-               API calls. Do not use it when there is no traffic for
-               Search API.
-            -  ``user-event`` - Using suggestions generated from
-               user-imported search events.
-            -  ``document-completable`` - Using suggestions taken
-               directly from user-imported document fields marked as
-               completable.
+            - ``document`` - Using suggestions generated from
+              user-imported documents.
+            - ``search-history`` - Using suggestions generated from the
+              past history of
+              [SearchService.Search][google.cloud.discoveryengine.v1beta.SearchService.Search]
+              API calls. Do not use it when there is no traffic for
+              Search API.
+            - ``user-event`` - Using suggestions generated from
+              user-imported search events.
+            - ``document-completable`` - Using suggestions taken
+              directly from user-imported document fields marked as
+              completable.
 
             Default values:
 
-            -  ``document`` is the default model for regular dataStores.
-            -  ``search-history`` is the default model for site search
-               dataStores.
+            - ``document`` is the default model for regular dataStores.
+            - ``search-history`` is the default model for site search
+              dataStores.
         user_pseudo_id (str):
             A unique identifier for tracking visitors. For example, this
             could be implemented with an HTTP cookie, which should be
@@ -275,6 +275,7 @@ class AdvancedCompleteQueryRequest(proto.Message):
             GOOGLE_WORKSPACE (5):
                 Returns Google Workspace suggestions.
         """
+
         SUGGESTION_TYPE_UNSPECIFIED = 0
         QUERY = 1
         PEOPLE = 2
@@ -312,8 +313,8 @@ class AdvancedCompleteQueryRequest(proto.Message):
 
                     Example:
 
-                    -  To boost suggestions in languages ``en`` or ``fr``:
-                       ``(lang_code: ANY("en", "fr"))``
+                    - To boost suggestions in languages ``en`` or ``fr``:
+                      ``(lang_code: ANY("en", "fr"))``
                 boost (float):
                     Strength of the boost, which should be in [-1, 1]. Negative
                     boost means demotion. Default is 0.0.
@@ -472,6 +473,7 @@ class AdvancedCompleteQueryResponse(proto.Message):
                 THIRD_PARTY_IDENTITY (2):
                     The suggestion is from a THIRD_PARTY_IDENTITY source.
             """
+
             PERSON_TYPE_UNSPECIFIED = 0
             CLOUD_IDENTITY = 1
             THIRD_PARTY_IDENTITY = 2
@@ -525,6 +527,7 @@ class AdvancedCompleteQueryResponse(proto.Message):
                 THIRD_PARTY (2):
                     The suggestion is from a third party source.
             """
+
             CONTENT_TYPE_UNSPECIFIED = 0
             GOOGLE_WORKSPACE = 1
             THIRD_PARTY = 2
@@ -589,12 +592,12 @@ class AdvancedCompleteQueryResponse(proto.Message):
         number=4,
         message=ContentSuggestion,
     )
-    recent_search_suggestions: MutableSequence[
-        RecentSearchSuggestion
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=RecentSearchSuggestion,
+    recent_search_suggestions: MutableSequence[RecentSearchSuggestion] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=RecentSearchSuggestion,
+        )
     )
 
 

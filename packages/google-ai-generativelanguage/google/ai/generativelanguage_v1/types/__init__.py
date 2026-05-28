@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .citation import CitationMetadata, CitationSource
-from .content import Blob, Content, Modality, ModalityTokenCount, Part
+from .citation import (
+    CitationMetadata,
+    CitationSource,
+)
+from .content import (
+    Blob,
+    Content,
+    Modality,
+    ModalityTokenCount,
+    Part,
+    VideoMetadata,
+)
 from .generative_service import (
     BatchEmbedContentsRequest,
     BatchEmbedContentsResponse,
@@ -35,10 +45,22 @@ from .generative_service import (
     SearchEntryPoint,
     Segment,
     TaskType,
+    UrlContextMetadata,
+    UrlMetadata,
 )
-from .model import Model
-from .model_service import GetModelRequest, ListModelsRequest, ListModelsResponse
-from .safety import HarmCategory, SafetyRating, SafetySetting
+from .model import (
+    Model,
+)
+from .model_service import (
+    GetModelRequest,
+    ListModelsRequest,
+    ListModelsResponse,
+)
+from .safety import (
+    HarmCategory,
+    SafetyRating,
+    SafetySetting,
+)
 
 __all__ = (
     "CitationMetadata",
@@ -47,6 +69,7 @@ __all__ = (
     "Content",
     "ModalityTokenCount",
     "Part",
+    "VideoMetadata",
     "Modality",
     "BatchEmbedContentsRequest",
     "BatchEmbedContentsResponse",
@@ -66,6 +89,8 @@ __all__ = (
     "RetrievalMetadata",
     "SearchEntryPoint",
     "Segment",
+    "UrlContextMetadata",
+    "UrlMetadata",
     "TaskType",
     "Model",
     "GetModelRequest",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.storage_control_v2.types import storage_control
 
@@ -56,7 +58,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -91,7 +93,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -153,9 +155,10 @@ class StorageControlGrpcTransport(StorageControlTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -186,6 +189,10 @@ class StorageControlGrpcTransport(StorageControlTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -289,9 +296,10 @@ class StorageControlGrpcTransport(StorageControlTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -480,6 +488,35 @@ class StorageControlGrpcTransport(StorageControlTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["rename_folder"]
+
+    @property
+    def delete_folder_recursive(
+        self,
+    ) -> Callable[
+        [storage_control.DeleteFolderRecursiveRequest], operations_pb2.Operation
+    ]:
+        r"""Return a callable for the delete folder recursive method over gRPC.
+
+        Deletes a folder recursively. This operation is only
+        applicable to a hierarchical namespace enabled bucket.
+
+        Returns:
+            Callable[[~.DeleteFolderRecursiveRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "delete_folder_recursive" not in self._stubs:
+            self._stubs["delete_folder_recursive"] = self._logged_channel.unary_unary(
+                "/google.storage.control.v2.StorageControl/DeleteFolderRecursive",
+                request_serializer=storage_control.DeleteFolderRecursiveRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["delete_folder_recursive"]
 
     @property
     def get_storage_layout(
@@ -848,12 +885,12 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_project_intelligence_config" not in self._stubs:
-            self._stubs[
-                "get_project_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/GetProjectIntelligenceConfig",
-                request_serializer=storage_control.GetProjectIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["get_project_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/GetProjectIntelligenceConfig",
+                    request_serializer=storage_control.GetProjectIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["get_project_intelligence_config"]
 
@@ -881,12 +918,12 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_project_intelligence_config" not in self._stubs:
-            self._stubs[
-                "update_project_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/UpdateProjectIntelligenceConfig",
-                request_serializer=storage_control.UpdateProjectIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["update_project_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/UpdateProjectIntelligenceConfig",
+                    request_serializer=storage_control.UpdateProjectIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["update_project_intelligence_config"]
 
@@ -913,12 +950,12 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_folder_intelligence_config" not in self._stubs:
-            self._stubs[
-                "get_folder_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/GetFolderIntelligenceConfig",
-                request_serializer=storage_control.GetFolderIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["get_folder_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/GetFolderIntelligenceConfig",
+                    request_serializer=storage_control.GetFolderIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["get_folder_intelligence_config"]
 
@@ -946,12 +983,12 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_folder_intelligence_config" not in self._stubs:
-            self._stubs[
-                "update_folder_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/UpdateFolderIntelligenceConfig",
-                request_serializer=storage_control.UpdateFolderIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["update_folder_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/UpdateFolderIntelligenceConfig",
+                    request_serializer=storage_control.UpdateFolderIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["update_folder_intelligence_config"]
 
@@ -979,12 +1016,12 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_organization_intelligence_config" not in self._stubs:
-            self._stubs[
-                "get_organization_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/GetOrganizationIntelligenceConfig",
-                request_serializer=storage_control.GetOrganizationIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["get_organization_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/GetOrganizationIntelligenceConfig",
+                    request_serializer=storage_control.GetOrganizationIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["get_organization_intelligence_config"]
 
@@ -1012,14 +1049,110 @@ class StorageControlGrpcTransport(StorageControlTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_organization_intelligence_config" not in self._stubs:
-            self._stubs[
-                "update_organization_intelligence_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.storage.control.v2.StorageControl/UpdateOrganizationIntelligenceConfig",
-                request_serializer=storage_control.UpdateOrganizationIntelligenceConfigRequest.serialize,
-                response_deserializer=storage_control.IntelligenceConfig.deserialize,
+            self._stubs["update_organization_intelligence_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.storage.control.v2.StorageControl/UpdateOrganizationIntelligenceConfig",
+                    request_serializer=storage_control.UpdateOrganizationIntelligenceConfigRequest.serialize,
+                    response_deserializer=storage_control.IntelligenceConfig.deserialize,
+                )
             )
         return self._stubs["update_organization_intelligence_config"]
+
+    @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[[iam_policy_pb2.GetIamPolicyRequest], policy_pb2.Policy]:
+        r"""Return a callable for the get iam policy method over gRPC.
+
+        Gets the IAM policy for a specified bucket. The ``resource``
+        field in the request should be ``projects/_/buckets/{bucket}``
+        for a bucket, or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        Returns:
+            Callable[[~.GetIamPolicyRequest],
+                    ~.Policy]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "get_iam_policy" not in self._stubs:
+            self._stubs["get_iam_policy"] = self._logged_channel.unary_unary(
+                "/google.storage.control.v2.StorageControl/GetIamPolicy",
+                request_serializer=iam_policy_pb2.GetIamPolicyRequest.SerializeToString,
+                response_deserializer=policy_pb2.Policy.FromString,
+            )
+        return self._stubs["get_iam_policy"]
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[[iam_policy_pb2.SetIamPolicyRequest], policy_pb2.Policy]:
+        r"""Return a callable for the set iam policy method over gRPC.
+
+        Updates an IAM policy for the specified bucket. The ``resource``
+        field in the request should be ``projects/_/buckets/{bucket}``
+        for a bucket, or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        Returns:
+            Callable[[~.SetIamPolicyRequest],
+                    ~.Policy]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "set_iam_policy" not in self._stubs:
+            self._stubs["set_iam_policy"] = self._logged_channel.unary_unary(
+                "/google.storage.control.v2.StorageControl/SetIamPolicy",
+                request_serializer=iam_policy_pb2.SetIamPolicyRequest.SerializeToString,
+                response_deserializer=policy_pb2.Policy.FromString,
+            )
+        return self._stubs["set_iam_policy"]
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [iam_policy_pb2.TestIamPermissionsRequest],
+        iam_policy_pb2.TestIamPermissionsResponse,
+    ]:
+        r"""Return a callable for the test iam permissions method over gRPC.
+
+        Tests a set of permissions on the given bucket, object, or
+        managed folder to see which, if any, are held by the caller. The
+        ``resource`` field in the request should be
+        ``projects/_/buckets/{bucket}`` for a bucket,
+        ``projects/_/buckets/{bucket}/objects/{object}`` for an object,
+        or
+        ``projects/_/buckets/{bucket}/managedFolders/{managedFolder}``
+        for a managed folder.
+
+        Returns:
+            Callable[[~.TestIamPermissionsRequest],
+                    ~.TestIamPermissionsResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "test_iam_permissions" not in self._stubs:
+            self._stubs["test_iam_permissions"] = self._logged_channel.unary_unary(
+                "/google.storage.control.v2.StorageControl/TestIamPermissions",
+                request_serializer=iam_policy_pb2.TestIamPermissionsRequest.SerializeToString,
+                response_deserializer=iam_policy_pb2.TestIamPermissionsResponse.FromString,
+            )
+        return self._stubs["test_iam_permissions"]
 
     def close(self):
         self._logged_channel.close()

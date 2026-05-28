@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ __protobuf__ = proto.module(
 
 
 class ModelFeature(proto.Message):
-    r"""Representes a singular feature of a model. If the feature is
+    r"""Represents a singular feature of a model. If the feature is
     ``recognizer``, the release_state of the feature represents the
     release_state of the model
 
@@ -130,6 +130,7 @@ class AccessMetadata(proto.Message):
                 The project's org policy disallows the given
                 region.
         """
+
         CONSTRAINT_TYPE_UNSPECIFIED = 0
         RESOURCE_LOCATIONS_ORG_POLICY_CREATE_CONSTRAINT = 1
 

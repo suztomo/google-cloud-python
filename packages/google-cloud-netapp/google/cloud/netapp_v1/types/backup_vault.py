@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -70,7 +70,18 @@ class BackupVault(proto.Message):
             ``projects/{project_id}/locations/{location}/backupVaults/{backup_vault_id}``
         backup_retention_policy (google.cloud.netapp_v1.types.BackupVault.BackupRetentionPolicy):
             Optional. Backup retention policy defining
-            the retenton of backups.
+            the retention of backups.
+        kms_config (str):
+            Optional. Specifies the Key Management System (KMS)
+            configuration to be used for backup encryption. Format:
+            ``projects/{project}/locations/{location}/kmsConfigs/{kms_config}``
+        encryption_state (google.cloud.netapp_v1.types.BackupVault.EncryptionState):
+            Output only. Field indicating encryption
+            state of CMEK backups.
+        backups_crypto_key_version (str):
+            Output only. The crypto key version used to encrypt the
+            backup vault. Format:
+            ``projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}/cryptoKeyVersions/{crypto_key_version}``
     """
 
     class State(proto.Enum):
@@ -90,6 +101,7 @@ class BackupVault(proto.Message):
             UPDATING (5):
                 BackupVault is being updated.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -108,9 +120,33 @@ class BackupVault(proto.Message):
             CROSS_REGION (2):
                 BackupVault type is CROSS_REGION.
         """
+
         BACKUP_VAULT_TYPE_UNSPECIFIED = 0
         IN_REGION = 1
         CROSS_REGION = 2
+
+    class EncryptionState(proto.Enum):
+        r"""Encryption state of customer-managed encryption keys (CMEK)
+        backups.
+
+        Values:
+            ENCRYPTION_STATE_UNSPECIFIED (0):
+                Encryption state not set.
+            ENCRYPTION_STATE_PENDING (1):
+                Encryption state is pending.
+            ENCRYPTION_STATE_COMPLETED (2):
+                Encryption is complete.
+            ENCRYPTION_STATE_IN_PROGRESS (3):
+                Encryption is in progress.
+            ENCRYPTION_STATE_FAILED (4):
+                Encryption has failed.
+        """
+
+        ENCRYPTION_STATE_UNSPECIFIED = 0
+        ENCRYPTION_STATE_PENDING = 1
+        ENCRYPTION_STATE_COMPLETED = 2
+        ENCRYPTION_STATE_IN_PROGRESS = 3
+        ENCRYPTION_STATE_FAILED = 4
 
     class BackupRetentionPolicy(proto.Message):
         r"""Retention policy for backups in the backup vault
@@ -120,23 +156,23 @@ class BackupVault(proto.Message):
                 Required. Minimum retention duration in days
                 for backups in the backup vault.
             daily_backup_immutable (bool):
-                Optional. Indicates if the daily backups are immutable.
-                Atleast one of daily_backup_immutable,
+                Optional. Indicates if the daily backups are immutable. At
+                least one of daily_backup_immutable,
                 weekly_backup_immutable, monthly_backup_immutable and
                 manual_backup_immutable must be true.
             weekly_backup_immutable (bool):
-                Optional. Indicates if the weekly backups are immutable.
-                Atleast one of daily_backup_immutable,
+                Optional. Indicates if the weekly backups are immutable. At
+                least one of daily_backup_immutable,
                 weekly_backup_immutable, monthly_backup_immutable and
                 manual_backup_immutable must be true.
             monthly_backup_immutable (bool):
-                Optional. Indicates if the monthly backups are immutable.
-                Atleast one of daily_backup_immutable,
+                Optional. Indicates if the monthly backups are immutable. At
+                least one of daily_backup_immutable,
                 weekly_backup_immutable, monthly_backup_immutable and
                 manual_backup_immutable must be true.
             manual_backup_immutable (bool):
-                Optional. Indicates if the manual backups are immutable.
-                Atleast one of daily_backup_immutable,
+                Optional. Indicates if the manual backups are immutable. At
+                least one of daily_backup_immutable,
                 weekly_backup_immutable, monthly_backup_immutable and
                 manual_backup_immutable must be true.
         """
@@ -210,6 +246,19 @@ class BackupVault(proto.Message):
         proto.MESSAGE,
         number=11,
         message=BackupRetentionPolicy,
+    )
+    kms_config: str = proto.Field(
+        proto.STRING,
+        number=12,
+    )
+    encryption_state: EncryptionState = proto.Field(
+        proto.ENUM,
+        number=13,
+        enum=EncryptionState,
+    )
+    backups_crypto_key_version: str = proto.Field(
+        proto.STRING,
+        number=14,
     )
 
 

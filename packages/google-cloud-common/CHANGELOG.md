@@ -1,5 +1,58 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-common/#history
+
+## [1.9.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.8.0...google-cloud-common-v1.9.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.8.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.7.0...google-cloud-common-v1.8.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.7.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.6.0...google-cloud-common-v1.7.0) (2025-10-28)
+
+
+### Bug Fixes
+
+* upgrade gRPC service registration func An update to Go gRPC Protobuf generation will change service registration function signatures to use an interface instead of a concrete type in generated .pb.go service files. This change should affect very few client library users. See release notes advisories in https://github.com/googleapis/google-cloud-go/pull/11025.  ([c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb](https://github.com/googleapis/google-cloud-python/commit/c3c2fbbacf03dcaf015bbfb949f95d46d9e669cb))
+
+## [1.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.5.2...google-cloud-common-v1.6.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.5.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.5.1...google-cloud-common-v1.5.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([8697120](https://github.com/googleapis/google-cloud-python/commit/869712032803cb31d93f3b16abc2abdb14f733a4))
+
 ## [1.5.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-common-v1.5.0...google-cloud-common-v1.5.1) (2025-03-15)
 
 

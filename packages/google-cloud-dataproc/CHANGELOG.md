@@ -4,6 +4,75 @@
 
 [1]: https://pypi.org/project/google-cloud-dataproc/#history
 
+## [5.26.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.25.0...google-cloud-dataproc-v5.26.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [5.25.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.24.0...google-cloud-dataproc-v5.25.0) (2026-02-19)
+
+
+### Features
+
+* Add `ClusterType` to support creating Zero-Scale clusters ([4ca6f9e2f825c185d092f9879c05098659b1a871](https://github.com/googleapis/google-cloud-python/commit/4ca6f9e2f825c185d092f9879c05098659b1a871))
+
+## [5.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.23.0...google-cloud-dataproc-v5.24.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [5.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.22.0...google-cloud-dataproc-v5.23.0) (2025-10-16)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [5.22.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.21.0...google-cloud-dataproc-v5.22.0) (2025-09-24)
+
+
+### Features
+
+* [google-cloud-dataproc] Added support for JUPYTER_KERNEL_GATEWAY component ([#14516](https://github.com/googleapis/google-cloud-python/issues/14516)) ([741d1c5](https://github.com/googleapis/google-cloud-python/commit/741d1c5d018360dbfb0fd1d69f6af27fec8e436b))
+
+## [5.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.20.0...google-cloud-dataproc-v5.21.0) (2025-07-02)
+
+
+### Features
+
+* [google-cloud-dataproc] Add `cluster_tier` to support creating premium clusters ([#14047](https://github.com/googleapis/google-cloud-python/issues/14047)) ([5a27ea2](https://github.com/googleapis/google-cloud-python/commit/5a27ea27c9a6016628957d1e1d118d3caaca9498))
+
+## [5.20.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.19.0...google-cloud-dataproc-v5.20.0) (2025-06-11)
+
+
+### Features
+
+* Added support for DELTA, ICEBERG, PIG components ([#13982](https://github.com/googleapis/google-cloud-python/issues/13982)) ([5e57d1c](https://github.com/googleapis/google-cloud-python/commit/5e57d1c40d7edb932aa6192c2d41787856c6fe3b))
+
+## [5.19.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.18.1...google-cloud-dataproc-v5.19.0) (2025-06-05)
+
+
+### Features
+
+* [google-cloud-dataproc] add scenarios AUTO/NONE to autotuning config ([#13969](https://github.com/googleapis/google-cloud-python/issues/13969)) ([134af69](https://github.com/googleapis/google-cloud-python/commit/134af69b0494f3a96280f32a1435a91989271d13))
+
 ## [5.18.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-dataproc-v5.18.0...google-cloud-dataproc-v5.18.1) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_update_business_identity():
     client = merchant_accounts_v1beta.BusinessIdentityServiceAsyncClient()
 
     # Initialize request argument(s)
-    request = merchant_accounts_v1beta.UpdateBusinessIdentityRequest(
-    )
+    request = merchant_accounts_v1beta.UpdateBusinessIdentityRequest()
 
     # Make the request
     response = await client.update_business_identity(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END merchantapi_v1beta_generated_BusinessIdentityService_UpdateBusinessIdentity_async]

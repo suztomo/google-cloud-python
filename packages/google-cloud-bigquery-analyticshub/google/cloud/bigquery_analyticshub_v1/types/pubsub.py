@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -159,11 +159,11 @@ class PubSubSubscription(proto.Message):
             for the delivery of a message with a given value of
             ``message_id`` on this subscription:
 
-            -  The message sent to a subscriber is guaranteed not to be
-               resent before the message's acknowledgement deadline
-               expires.
-            -  An acknowledged message will not be resent to a
-               subscriber.
+            - The message sent to a subscriber is guaranteed not to be
+              resent before the message's acknowledgement deadline
+              expires.
+            - An acknowledged message will not be resent to a
+              subscriber.
 
             Note that subscribers may still receive multiple copies of a
             message when ``enable_exactly_once_delivery`` is true if the
@@ -175,6 +175,13 @@ class PubSubSubscription(proto.Message):
             messages before they are delivered to
             subscribers. Transforms are applied in the order
             specified.
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Tag
+            keys/values directly bound to this resource. For
+            example:
+
+              "123/environment": "production",
+              "123/costCenter": "marketing".
     """
 
     name: str = proto.Field(
@@ -249,6 +256,11 @@ class PubSubSubscription(proto.Message):
         proto.MESSAGE,
         number=25,
         message="MessageTransform",
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=26,
     )
 
 
@@ -415,10 +427,10 @@ class PushConfig(proto.Message):
             The only supported values for the ``x-goog-version``
             attribute are:
 
-            -  ``v1beta1``: uses the push format defined in the v1beta1
-               Pub/Sub API.
-            -  ``v1`` or ``v1beta2``: uses the push format defined in
-               the v1 Pub/Sub API.
+            - ``v1beta1``: uses the push format defined in the v1beta1
+              Pub/Sub API.
+            - ``v1`` or ``v1beta2``: uses the push format defined in the
+              v1 Pub/Sub API.
 
             For example: ``attributes { "x-goog-version": "v1" }``
     """

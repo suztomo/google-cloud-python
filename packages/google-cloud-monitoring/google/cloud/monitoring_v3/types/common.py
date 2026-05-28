@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import distribution_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.distribution_pb2 as distribution_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -60,6 +60,7 @@ class ComparisonType(proto.Enum):
             True if the left argument is not equal to the
             right argument.
     """
+
     COMPARISON_UNSPECIFIED = 0
     COMPARISON_GT = 1
     COMPARISON_GE = 2
@@ -94,6 +95,7 @@ class ServiceTier(proto.Enum):
             details, see `the service tiers
             documentation <https://cloud.google.com/monitoring/workspaces/tiers>`__.
     """
+
     _pb_options = {"deprecated": True}
     SERVICE_TIER_UNSPECIFIED = 0
     SERVICE_TIER_BASIC = 1
@@ -168,43 +170,43 @@ class TypedValue(proto.Message):
 class TimeInterval(proto.Message):
     r"""Describes a time interval:
 
-    -  Reads: A half-open time interval. It includes the end time but
-       excludes the start time: ``(startTime, endTime]``. The start time
-       must be specified, must be earlier than the end time, and should
-       be no older than the data retention period for the metric.
-    -  Writes: A closed time interval. It extends from the start time to
-       the end time, and includes both: ``[startTime, endTime]``. Valid
-       time intervals depend on the
-       ```MetricKind`` <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors#MetricKind>`__
-       of the metric value. The end time must not be earlier than the
-       start time, and the end time must not be more than 25 hours in
-       the past or more than five minutes in the future.
+    - Reads: A half-open time interval. It includes the end time but
+      excludes the start time: ``(startTime, endTime]``. The start time
+      must be specified, must be earlier than the end time, and should
+      be no older than the data retention period for the metric.
+    - Writes: A closed time interval. It extends from the start time to
+      the end time, and includes both: ``[startTime, endTime]``. Valid
+      time intervals depend on the
+      ```MetricKind`` <https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.metricDescriptors#MetricKind>`__
+      of the metric value. The end time must not be earlier than the
+      start time, and the end time must not be more than 25 hours in the
+      past or more than five minutes in the future.
 
-       -  For ``GAUGE`` metrics, the ``startTime`` value is technically
-          optional; if no value is specified, the start time defaults to
-          the value of the end time, and the interval represents a
-          single point in time. If both start and end times are
-          specified, they must be identical. Such an interval is valid
-          only for ``GAUGE`` metrics, which are point-in-time
-          measurements. The end time of a new interval must be at least
-          a millisecond after the end time of the previous interval.
-       -  For ``DELTA`` metrics, the start time and end time must
-          specify a non-zero interval, with subsequent points specifying
-          contiguous and non-overlapping intervals. For ``DELTA``
-          metrics, the start time of the next interval must be at least
-          a millisecond after the end time of the previous interval.
-       -  For ``CUMULATIVE`` metrics, the start time and end time must
-          specify a non-zero interval, with subsequent points specifying
-          the same start time and increasing end times, until an event
-          resets the cumulative value to zero and sets a new start time
-          for the following points. The new start time must be at least
-          a millisecond after the end time of the previous interval.
-       -  The start time of a new interval must be at least a
-          millisecond after the end time of the previous interval
-          because intervals are closed. If the start time of a new
-          interval is the same as the end time of the previous interval,
-          then data written at the new start time could overwrite data
-          written at the previous end time.
+      - For ``GAUGE`` metrics, the ``startTime`` value is technically
+        optional; if no value is specified, the start time defaults to
+        the value of the end time, and the interval represents a single
+        point in time. If both start and end times are specified, they
+        must be identical. Such an interval is valid only for ``GAUGE``
+        metrics, which are point-in-time measurements. The end time of a
+        new interval must be at least a millisecond after the end time
+        of the previous interval.
+      - For ``DELTA`` metrics, the start time and end time must specify
+        a non-zero interval, with subsequent points specifying
+        contiguous and non-overlapping intervals. For ``DELTA`` metrics,
+        the start time of the next interval must be at least a
+        millisecond after the end time of the previous interval.
+      - For ``CUMULATIVE`` metrics, the start time and end time must
+        specify a non-zero interval, with subsequent points specifying
+        the same start time and increasing end times, until an event
+        resets the cumulative value to zero and sets a new start time
+        for the following points. The new start time must be at least a
+        millisecond after the end time of the previous interval.
+      - The start time of a new interval must be at least a millisecond
+        after the end time of the previous interval because intervals
+        are closed. If the start time of a new interval is the same as
+        the end time of the previous interval, then data written at the
+        new start time could overwrite data written at the previous end
+        time.
 
     Attributes:
         end_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -493,6 +495,7 @@ class Aggregation(proto.Message):
                 that the values for the metric will always be positive. The
                 output is a ``GAUGE`` metric with ``value_type`` ``DOUBLE``.
         """
+
         ALIGN_NONE = 0
         ALIGN_DELTA = 1
         ALIGN_RATE = 2
@@ -608,6 +611,7 @@ class Aggregation(proto.Message):
                 numeric and distribution type. The value of the output is
                 ``DOUBLE``.
         """
+
         REDUCE_NONE = 0
         REDUCE_MEAN = 1
         REDUCE_MIN = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -48,9 +48,9 @@ class EffectiveEventThreatDetectionCustomModule(proto.Message):
 
             Its format is:
 
-            -  ``organizations/{organization}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
-            -  ``folders/{folder}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
-            -  ``projects/{project}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
+            - ``organizations/{organization}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
+            - ``folders/{folder}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
+            - ``projects/{project}/eventThreatDetectionSettings/effectiveCustomModules/{module}``.
         config (google.protobuf.struct_pb2.Struct):
             Output only. Config for the effective module.
         enablement_state (google.cloud.securitycenter_v1.types.EffectiveEventThreatDetectionCustomModule.EnablementState):
@@ -77,6 +77,7 @@ class EffectiveEventThreatDetectionCustomModule(proto.Message):
             DISABLED (2):
                 The module is disabled at the given level.
         """
+
         ENABLEMENT_STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2

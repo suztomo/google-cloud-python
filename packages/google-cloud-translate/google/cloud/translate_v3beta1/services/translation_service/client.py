@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.translate_v3beta1 import gapic_version as package_version
 
@@ -61,9 +61,15 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
 
 from google.cloud.translate_v3beta1.services.translation_service import pagers
 from google.cloud.translate_v3beta1.types import translation_service
@@ -82,9 +88,7 @@ class TranslationServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[TranslationServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[TranslationServiceTransport]]
     _transport_registry["grpc"] = TranslationServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = TranslationServiceGrpcAsyncIOTransport
     _transport_registry["rest"] = TranslationServiceRestTransport
@@ -115,7 +119,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
     """Provides natural language translation operations."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -123,7 +127,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -133,6 +137,10 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -152,6 +160,34 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "translate.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -340,12 +376,8 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = TranslationServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -353,7 +385,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -385,20 +417,14 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = TranslationServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -422,7 +448,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -519,7 +545,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -610,18 +636,16 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = TranslationServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            TranslationServiceClient._read_environment_variables()
+        )
         self._client_cert_source = TranslationServiceClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = TranslationServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -649,8 +673,7 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(TranslationServiceTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1037,11 +1060,11 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
 
                 The format depends on model type:
 
-                -  AutoML Translation models:
-                   ``projects/{project-number-or-id}/locations/{location-id}/models/{model-id}``
+                - AutoML Translation models:
+                  ``projects/{project-number-or-id}/locations/{location-id}/models/{model-id}``
 
-                -  General (built-in) models:
-                   ``projects/{project-number-or-id}/locations/{location-id}/models/general/nmt``,
+                - General (built-in) models:
+                  ``projects/{project-number-or-id}/locations/{location-id}/models/general/nmt``,
 
                 Returns languages supported by the specified model. If
                 missing, we get supported languages of Google general
@@ -1421,10 +1444,11 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             target_language_codes (MutableSequence[str]):
-                Required. The BCP-47 language code to
-                use for translation of the input
-                document. Specify up to 10 language
-                codes here.
+                Required. The BCP-47 language code to use for
+                translation of the input document. Specify up to 10
+                language codes here. Supported language codes are listed
+                in `Language
+                Support <https://cloud.google.com/translate/docs/languages>`__.
 
                 This corresponds to the ``target_language_codes`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2068,6 +2092,95 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
         # Done; return the response.
         return response
 
+    def refine_text(
+        self,
+        request: Optional[Union[translation_service.RefineTextRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> translation_service.RefineTextResponse:
+        r"""Refines the input translated text to improve the
+        quality.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import translate_v3beta1
+
+            def sample_refine_text():
+                # Create a client
+                client = translate_v3beta1.TranslationServiceClient()
+
+                # Initialize request argument(s)
+                refinement_entries = translate_v3beta1.RefinementEntry()
+                refinement_entries.source_text = "source_text_value"
+                refinement_entries.original_translation = "original_translation_value"
+
+                request = translate_v3beta1.RefineTextRequest(
+                    parent="parent_value",
+                    refinement_entries=refinement_entries,
+                    source_language_code="source_language_code_value",
+                    target_language_code="target_language_code_value",
+                )
+
+                # Make the request
+                response = client.refine_text(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.translate_v3beta1.types.RefineTextRequest, dict]):
+                The request object. Request message for RefineText.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.translate_v3beta1.types.RefineTextResponse:
+                Response message for RefineText.
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, translation_service.RefineTextRequest):
+            request = translation_service.RefineTextRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.refine_text]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def __enter__(self) -> "TranslationServiceClient":
         return self
 
@@ -2080,6 +2193,446 @@ class TranslationServiceClient(metaclass=TranslationServiceClientMeta):
             and may cause errors in other clients!
         """
         self.transport.close()
+
+    def list_operations(
+        self,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operations_pb2.ListOperationsResponse:
+        r"""Lists operations that match the specified filter in the request.
+
+        Args:
+            request (:class:`~.operations_pb2.ListOperationsRequest`):
+                The request object. Request message for
+                `ListOperations` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                    if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            ~.operations_pb2.ListOperationsResponse:
+                Response message for ``ListOperations`` method.
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_operations]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        try:
+            # Send the request.
+            response = rpc(
+                request_pb,
+                retry=retry,
+                timeout=timeout,
+                metadata=metadata,
+            )
+
+            # Done; return the response.
+            return response
+        except core_exceptions.GoogleAPICallError as e:
+            self._add_cred_info_for_auth_errors(e)
+            raise e
+
+    def get_operation(
+        self,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operations_pb2.Operation:
+        r"""Gets the latest state of a long-running operation.
+
+        Args:
+            request (:class:`~.operations_pb2.GetOperationRequest`):
+                The request object. Request message for
+                `GetOperation` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                    if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            ~.operations_pb2.Operation:
+                An ``Operation`` object.
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_operation]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        try:
+            # Send the request.
+            response = rpc(
+                request_pb,
+                retry=retry,
+                timeout=timeout,
+                metadata=metadata,
+            )
+
+            # Done; return the response.
+            return response
+        except core_exceptions.GoogleAPICallError as e:
+            self._add_cred_info_for_auth_errors(e)
+            raise e
+
+    def delete_operation(
+        self,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> None:
+        r"""Deletes a long-running operation.
+
+        This method indicates that the client is no longer interested
+        in the operation result. It does not cancel the operation.
+        If the server doesn't support this method, it returns
+        `google.rpc.Code.UNIMPLEMENTED`.
+
+        Args:
+            request (:class:`~.operations_pb2.DeleteOperationRequest`):
+                The request object. Request message for
+                `DeleteOperation` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                    if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            None
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.delete_operation]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        rpc(
+            request_pb,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+    def cancel_operation(
+        self,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> None:
+        r"""Starts asynchronous cancellation on a long-running operation.
+
+        The server makes a best effort to cancel the operation, but success
+        is not guaranteed.  If the server doesn't support this method, it returns
+        `google.rpc.Code.UNIMPLEMENTED`.
+
+        Args:
+            request (:class:`~.operations_pb2.CancelOperationRequest`):
+                The request object. Request message for
+                `CancelOperation` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                    if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            None
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.cancel_operation]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        rpc(
+            request_pb,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+    def wait_operation(
+        self,
+        request: Optional[Union[operations_pb2.WaitOperationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operations_pb2.Operation:
+        r"""Waits until the specified long-running operation is done or reaches at most
+        a specified timeout, returning the latest state.
+
+        If the operation is already done, the latest state is immediately returned.
+        If the timeout specified is greater than the default HTTP/RPC timeout, the HTTP/RPC
+        timeout is used.  If the server does not support this method, it returns
+        `google.rpc.Code.UNIMPLEMENTED`.
+
+        Args:
+            request (:class:`~.operations_pb2.WaitOperationRequest`):
+                The request object. Request message for
+                `WaitOperation` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                    if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            ~.operations_pb2.Operation:
+                An ``Operation`` object.
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = operations_pb2.WaitOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.WaitOperationRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.wait_operation]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        try:
+            # Send the request.
+            response = rpc(
+                request_pb,
+                retry=retry,
+                timeout=timeout,
+                metadata=metadata,
+            )
+
+            # Done; return the response.
+            return response
+        except core_exceptions.GoogleAPICallError as e:
+            self._add_cred_info_for_auth_errors(e)
+            raise e
+
+    def get_location(
+        self,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> locations_pb2.Location:
+        r"""Gets information about a location.
+
+        Args:
+            request (:class:`~.location_pb2.GetLocationRequest`):
+                The request object. Request message for
+                `GetLocation` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                 if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            ~.location_pb2.Location:
+                Location object.
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_location]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        try:
+            # Send the request.
+            response = rpc(
+                request_pb,
+                retry=retry,
+                timeout=timeout,
+                metadata=metadata,
+            )
+
+            # Done; return the response.
+            return response
+        except core_exceptions.GoogleAPICallError as e:
+            self._add_cred_info_for_auth_errors(e)
+            raise e
+
+    def list_locations(
+        self,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> locations_pb2.ListLocationsResponse:
+        r"""Lists information about the supported locations for this service.
+
+        Args:
+            request (:class:`~.location_pb2.ListLocationsRequest`):
+                The request object. Request message for
+                `ListLocations` method.
+            retry (google.api_core.retry.Retry): Designation of what errors,
+                 if any, should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        Returns:
+            ~.location_pb2.ListLocationsResponse:
+                Response message for ``ListLocations`` method.
+        """
+        # Create or coerce a protobuf request object.
+        # The request isn't a proto-plus wrapped type,
+        # so it must be constructed via keyword expansion.
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.list_locations]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        try:
+            # Send the request.
+            response = rpc(
+                request_pb,
+                retry=retry,
+                timeout=timeout,
+                metadata=metadata,
+            )
+
+            # Done; return the response.
+            return response
+        except core_exceptions.GoogleAPICallError as e:
+            self._add_cred_info_for_auth_errors(e)
+            raise e
 
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(

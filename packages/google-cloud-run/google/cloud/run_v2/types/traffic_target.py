@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ class TrafficTargetAllocationType(proto.Enum):
         TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION (2):
             Allocates instances to a Revision by name.
     """
+
     TRAFFIC_TARGET_ALLOCATION_TYPE_UNSPECIFIED = 0
     TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST = 1
     TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION = 2

@@ -1,5 +1,76 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-shopping-merchant-reports/#history
+
+## [1.4.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v1.3.0...google-shopping-merchant-reports-v1.4.0) (2026-05-06)
+
+## [1.3.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v1.2.0...google-shopping-merchant-reports-v1.3.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.2.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v1.1.0...google-shopping-merchant-reports-v1.2.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.1.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v1.0.0...google-shopping-merchant-reports-v1.1.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.0.0](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v0.1.17...google-shopping-merchant-reports-v1.0.0) (2025-08-29)
+
+
+### Features
+
+* set `google.shopping.merchant_reports_v1` as the default import for `google.shopping.merchant_reports` ([3e96c4f](https://github.com/googleapis/google-cloud-python/commit/3e96c4f9072580a4090aba5cdda272b216b577c7))
+* update release level to stable ([3e96c4f](https://github.com/googleapis/google-cloud-python/commit/3e96c4f9072580a4090aba5cdda272b216b577c7))
+
+## [0.1.17](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v0.1.16...google-shopping-merchant-reports-v0.1.17) (2025-08-06)
+
+
+### Features
+
+* [google-shopping-merchant-reports] Add additional YouTube report fields to Merchant reports endpoint ([#14166](https://github.com/googleapis/google-cloud-python/issues/14166)) ([b5678de](https://github.com/googleapis/google-cloud-python/commit/b5678de0d3f2306361f5e758fb1722582a6634b5))
+* [google-shopping-merchant-reports] add reports API client libraries for v1 ([#14186](https://github.com/googleapis/google-cloud-python/issues/14186)) ([7752ebf](https://github.com/googleapis/google-cloud-python/commit/7752ebf623a2b91638814a4abc80947dff6d1a72))
+
+## [0.1.16](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v0.1.15...google-shopping-merchant-reports-v0.1.16) (2025-07-04)
+
+
+### Features
+
+* [google-shopping-merchant-reports]Add v1alpha version to Merchant reports endpoint ([#14053](https://github.com/googleapis/google-cloud-python/issues/14053)) ([473cbaf](https://github.com/googleapis/google-cloud-python/commit/473cbaf8ee1a2c40c3de7f8f60bc6cdd14449267))
+
+## [0.1.15](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v0.1.14...google-shopping-merchant-reports-v0.1.15) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([4f0a027](https://github.com/googleapis/google-cloud-python/commit/4f0a0270b494d47e80373b87e7668283dbbceec7))
+
 ## [0.1.14](https://github.com/googleapis/google-cloud-python/compare/google-shopping-merchant-reports-v0.1.13...google-shopping-merchant-reports-v0.1.14) (2025-03-15)
 
 

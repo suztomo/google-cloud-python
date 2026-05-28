@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@ class NoteKind(proto.Enum):
         SECRET (13):
             This represents a secret.
     """
+
     NOTE_KIND_UNSPECIFIED = 0
     VULNERABILITY = 1
     BUILD = 2
@@ -126,9 +127,9 @@ class Signature(proto.Message):
     Verification implementations MUST reject signatures in any of the
     following circumstances:
 
-    -  The ``public_key_id`` is not recognized by the verifier.
-    -  The public key that ``public_key_id`` refers to does not verify
-       the signature with respect to the payload.
+    - The ``public_key_id`` is not recognized by the verifier.
+    - The public key that ``public_key_id`` refers to does not verify
+      the signature with respect to the payload.
 
     The ``signature`` contents SHOULD NOT be "attached" (where the
     payload is included with the serialized ``signature`` bytes).
@@ -152,26 +153,24 @@ class Signature(proto.Message):
             The identifier for the public key that verifies this
             signature.
 
-            -  The ``public_key_id`` is required.
-            -  The ``public_key_id`` SHOULD be an RFC3986 conformant
-               URI.
-            -  When possible, the ``public_key_id`` SHOULD be an
-               immutable reference, such as a cryptographic digest.
+            - The ``public_key_id`` is required.
+            - The ``public_key_id`` SHOULD be an RFC3986 conformant URI.
+            - When possible, the ``public_key_id`` SHOULD be an
+              immutable reference, such as a cryptographic digest.
 
             Examples of valid ``public_key_id``\ s:
 
             OpenPGP V4 public key fingerprint:
 
-            -  "openpgp4fpr:74FAF3B861BDA0870C7B6DEF607E48D2A663AEEA"
-               See
-               https://www.iana.org/assignments/uri-schemes/prov/openpgp4fpr
-               for more details on this scheme.
+            - "openpgp4fpr:74FAF3B861BDA0870C7B6DEF607E48D2A663AEEA" See
+              https://www.iana.org/assignments/uri-schemes/prov/openpgp4fpr
+              for more details on this scheme.
 
             RFC6920 digest-named SubjectPublicKeyInfo (digest of the DER
             serialization):
 
-            -  "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU"
-            -  "nih:///sha-256;703f68f42aba2c6de30f488a5ea122fef76324679c9bf89791ba95a1271589a5".
+            - "ni:///sha-256;cD9o9Cq6LG3jD0iKXqEi_vdjJGecm_iXkbqVoScViaU"
+            - "nih:///sha-256;703f68f42aba2c6de30f488a5ea122fef76324679c9bf89791ba95a1271589a5".
     """
 
     signature: bytes = proto.Field(
@@ -245,6 +244,10 @@ class FileLocation(proto.Message):
             Each package found in a file should have its
             own layer metadata (that is, information from
             the origin layer of the package).
+        line_number (int):
+            Line number in the file where the package was
+            found. Optional field that only applies to
+            source repository scanning.
     """
 
     file_path: str = proto.Field(
@@ -255,6 +258,10 @@ class FileLocation(proto.Message):
         proto.MESSAGE,
         number=2,
         message="LayerDetails",
+    )
+    line_number: int = proto.Field(
+        proto.INT32,
+        number=3,
     )
 
 
@@ -270,6 +277,8 @@ class BaseImage(proto.Message):
         layer_count (int):
             The number of layers that the base image is
             composed of.
+        registry (str):
+            The registry in which the base image is from.
     """
 
     name: str = proto.Field(
@@ -283,6 +292,10 @@ class BaseImage(proto.Message):
     layer_count: int = proto.Field(
         proto.INT32,
         number=3,
+    )
+    registry: str = proto.Field(
+        proto.STRING,
+        number=4,
     )
 
 

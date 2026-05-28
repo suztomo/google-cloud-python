@@ -1,5 +1,129 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-network-management/#history
+
+## [1.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.34.0...google-cloud-network-management-v1.35.0) (2026-05-06)
+
+## [1.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.33.0...google-cloud-network-management-v1.34.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.32.0...google-cloud-network-management-v1.33.0) (2026-03-05)
+
+
+### Features
+
+* Add API fields related to GKE Pods and Network Policies ([6120fb0db084f5e8d1502fb1bb37594ac9976f6e](https://github.com/googleapis/google-cloud-python/commit/6120fb0db084f5e8d1502fb1bb37594ac9976f6e))
+
+## [1.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.31.0...google-cloud-network-management-v1.32.0) (2026-01-29)
+
+
+### Features
+
+* add fields and messages for GKE Pods and IP masquerading ([38754bbd8765298482b679b027e9bc0ac5a66bb3](https://github.com/googleapis/google-cloud-python/commit/38754bbd8765298482b679b027e9bc0ac5a66bb3))
+
+## [1.31.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.30.0...google-cloud-network-management-v1.31.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.30.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.29.0...google-cloud-network-management-v1.30.0) (2025-11-06)
+
+
+### Documentation
+
+* Various documentation and comment improvements, Enable organization-level support for VPC Flow Logs  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+
+
+### Features
+
+* add enum `Status` to message `InstanceInfo`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add http additional_bindings  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum values `NO_ROUTE_FROM_EXTERNAL_IPV6_SOURCE_TO_PRIVATE_IPV6_ADDRESS`, `TRAFFIC_FROM_HYBRID_ENDPOINT_TO_INTERNET_DISALLOWED`, `NO_MATCHING_NAT64_GATEWAY`, `LOAD_BALANCER_BACKEND_IP_VERSION_MISMATCH`, and `NO_KNOWN_ROUTE_FROM_NCC_NETWORK_TO_DESTINATION` to `DropInfo.Cause`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* Enable organization-level support for VPC Flow Logs  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add field `running` to message `InstanceInfo`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add field `google_service_type` to message `DeliverInfo`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum `VpcFlowLogsConfig.TargetResourceState`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum value `AbortInfo.Cause.GOOGLE_MANAGED_SERVICE_AMBIGUOUS_ENDPOINT`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum `VpcFlowLogsConfig.CrossProjectMetadata`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum value `RouteInfo.NextHopType.SECURE_WEB_PROXY_GATEWAY`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add message `Endpoint.SingleEdgeResponse`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add enum `DeliverInfo.GoogleServiceType`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add rpc `VpcFlowLogsService.QueryOrgVpcFlowLogsConfigs`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add field `policy_priority` to message `NetworkInfo`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add fields `cross_project_metadata`, `target_resource_state`, `network`, and `subnet` to message `VpcFlowLogsConfig`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add service `OrganizationVpcFlowLogsService`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+* add field `service_uri` to message `Endpoint.CloudRunRevisionEndpoint`  ([735dcad100d7957ba5373a654b9a2d7c2a277903](https://github.com/googleapis/google-cloud-python/commit/735dcad100d7957ba5373a654b9a2d7c2a277903))
+
+## [1.29.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.28.0...google-cloud-network-management-v1.29.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.28.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.27.0...google-cloud-network-management-v1.28.0) (2025-08-10)
+
+
+### Features
+
+* [google-cloud-network-management] add `service_uri` field to CloudRunRevisionEndpoint ([#14210](https://github.com/googleapis/google-cloud-python/issues/14210)) ([c86a9cd](https://github.com/googleapis/google-cloud-python/commit/c86a9cd33d9b80bccfed552b4eecc4babee0c094))
+
+## [1.27.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.26.1...google-cloud-network-management-v1.27.0) (2025-07-10)
+
+
+### Features
+
+* add enum DeliverInfo.GoogleServiceType ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum Status to message InstanceInfo ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum value AbortInfo.Cause.GOOGLE_MANAGED_SERVICE_AMBIGUOUS_ENDPOINT ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum value RouteInfo.NextHopType.SECURE_WEB_PROXY_GATEWAY ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum values NO_ROUTE_FROM_EXTERNAL_IPV6_SOURCE_TO_PRIVATE_IPV6_ADDRESS, TRAFFIC_FROM_HYBRID_ENDPOINT_TO_INTERNET_DISALLOWED, NO_MATCHING_NAT64_GATEWAY, LOAD_BALANCER_BACKEND_IP_VERSION_MISMATCH, and NO_KNOWN_ROUTE_FROM_NCC_NETWORK_TO_DESTINATION to DropInfo.Cause ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum VpcFlowLogsConfig.CrossProjectMetadata ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add enum VpcFlowLogsConfig.TargetResourceState ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add field google_service_type to message DeliverInfo ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add field policy_priority to message NetworkInfo ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add field running to message InstanceInfo ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add field service_uri to message Endpoint.CloudRunRevisionEndpoint ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add fields cross_project_metadata, target_resource_state, network, and subnet to message VpcFlowLogsConfig ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add http additional_bindings ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add message Endpoint.SingleEdgeResponse ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add rpc VpcFlowLogsService.QueryOrgVpcFlowLogsConfigs ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* add service OrganizationVpcFlowLogsService ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+* Enable organization-level support for VPC Flow Logs ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+
+
+### Documentation
+
+* Various documentation and comment improvements, Enable organization-level support for VPC Flow Logs ([dc99ea0](https://github.com/googleapis/google-cloud-python/commit/dc99ea08c7928c32296a53f25e98c4ae0b16486d))
+
+## [1.26.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.26.0...google-cloud-network-management-v1.26.1) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([868b006](https://github.com/googleapis/google-cloud-python/commit/868b0069baf1a4bf6705986e0b6885419b35cdcc))
+
 ## [1.26.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-management-v1.25.3...google-cloud-network-management-v1.26.0) (2025-04-12)
 
 

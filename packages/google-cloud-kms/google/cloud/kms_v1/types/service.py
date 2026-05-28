@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.kms_v1.types import resources
@@ -30,18 +30,23 @@ __protobuf__ = proto.module(
         "ListCryptoKeysRequest",
         "ListCryptoKeyVersionsRequest",
         "ListImportJobsRequest",
+        "ListRetiredResourcesRequest",
         "ListKeyRingsResponse",
         "ListCryptoKeysResponse",
         "ListCryptoKeyVersionsResponse",
         "ListImportJobsResponse",
+        "ListRetiredResourcesResponse",
         "GetKeyRingRequest",
         "GetCryptoKeyRequest",
         "GetCryptoKeyVersionRequest",
         "GetPublicKeyRequest",
         "GetImportJobRequest",
+        "GetRetiredResourceRequest",
         "CreateKeyRingRequest",
         "CreateCryptoKeyRequest",
         "CreateCryptoKeyVersionRequest",
+        "DeleteCryptoKeyRequest",
+        "DeleteCryptoKeyVersionRequest",
         "ImportCryptoKeyVersionRequest",
         "CreateImportJobRequest",
         "UpdateCryptoKeyRequest",
@@ -57,6 +62,7 @@ __protobuf__ = proto.module(
         "AsymmetricDecryptRequest",
         "MacSignRequest",
         "MacVerifyRequest",
+        "DecapsulateRequest",
         "GenerateRandomBytesRequest",
         "EncryptResponse",
         "DecryptResponse",
@@ -66,9 +72,12 @@ __protobuf__ = proto.module(
         "AsymmetricDecryptResponse",
         "MacSignResponse",
         "MacVerifyResponse",
+        "DecapsulateResponse",
         "GenerateRandomBytesResponse",
         "Digest",
         "LocationMetadata",
+        "DeleteCryptoKeyMetadata",
+        "DeleteCryptoKeyVersionMetadata",
     },
 )
 
@@ -307,6 +316,43 @@ class ListImportJobsRequest(proto.Message):
     )
 
 
+class ListRetiredResourcesRequest(proto.Message):
+    r"""Request message for
+    [KeyManagementService.ListRetiredResources][google.cloud.kms.v1.KeyManagementService.ListRetiredResources].
+
+    Attributes:
+        parent (str):
+            Required. The project-specific location holding the
+            [RetiredResources][google.cloud.kms.v1.RetiredResource], in
+            the format ``projects/*/locations/*``.
+        page_size (int):
+            Optional. Optional limit on the number of
+            [RetiredResources][google.cloud.kms.v1.RetiredResource] to
+            be included in the response. Further
+            [RetiredResources][google.cloud.kms.v1.RetiredResource] can
+            subsequently be obtained by including the
+            [ListRetiredResourcesResponse.next_page_token][google.cloud.kms.v1.ListRetiredResourcesResponse.next_page_token]
+            in a subsequent request. If unspecified, the server will
+            pick an appropriate default.
+        page_token (str):
+            Optional. Optional pagination token, returned earlier via
+            [ListRetiredResourcesResponse.next_page_token][google.cloud.kms.v1.ListRetiredResourcesResponse.next_page_token].
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
 class ListKeyRingsResponse(proto.Message):
     r"""Response message for
     [KeyManagementService.ListKeyRings][google.cloud.kms.v1.KeyManagementService.ListKeyRings].
@@ -412,12 +458,12 @@ class ListCryptoKeyVersionsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    crypto_key_versions: MutableSequence[
-        resources.CryptoKeyVersion
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.CryptoKeyVersion,
+    crypto_key_versions: MutableSequence[resources.CryptoKeyVersion] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.CryptoKeyVersion,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -465,6 +511,44 @@ class ListImportJobsResponse(proto.Message):
     )
     total_size: int = proto.Field(
         proto.INT32,
+        number=3,
+    )
+
+
+class ListRetiredResourcesResponse(proto.Message):
+    r"""Response message for
+    [KeyManagementService.ListRetiredResources][google.cloud.kms.v1.KeyManagementService.ListRetiredResources].
+
+    Attributes:
+        retired_resources (MutableSequence[google.cloud.kms_v1.types.RetiredResource]):
+            The list of
+            [RetiredResources][google.cloud.kms.v1.RetiredResource].
+        next_page_token (str):
+            A token to retrieve the next page of results. Pass this
+            value in
+            [ListRetiredResourcesRequest.page_token][google.cloud.kms.v1.ListRetiredResourcesRequest.page_token]
+            to retrieve the next page of results.
+        total_size (int):
+            The total number of
+            [RetiredResources][google.cloud.kms.v1.RetiredResource] that
+            matched the query.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    retired_resources: MutableSequence[resources.RetiredResource] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=resources.RetiredResource,
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    total_size: int = proto.Field(
+        proto.INT64,
         number=3,
     )
 
@@ -560,6 +644,24 @@ class GetImportJobRequest(proto.Message):
         name (str):
             Required. The [name][google.cloud.kms.v1.ImportJob.name] of
             the [ImportJob][google.cloud.kms.v1.ImportJob] to get.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class GetRetiredResourceRequest(proto.Message):
+    r"""Request message for
+    [KeyManagementService.GetRetiredResource][google.cloud.kms.v1.KeyManagementService.GetRetiredResource].
+
+    Attributes:
+        name (str):
+            Required. The
+            [name][google.cloud.kms.v1.RetiredResource.name] of the
+            [RetiredResource][google.cloud.kms.v1.RetiredResource] to
+            get.
     """
 
     name: str = proto.Field(
@@ -670,6 +772,40 @@ class CreateCryptoKeyVersionRequest(proto.Message):
         proto.MESSAGE,
         number=2,
         message=resources.CryptoKeyVersion,
+    )
+
+
+class DeleteCryptoKeyRequest(proto.Message):
+    r"""Request message for
+    [KeyManagementService.DeleteCryptoKey][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKey].
+
+    Attributes:
+        name (str):
+            Required. The [name][google.cloud.kms.v1.CryptoKey.name] of
+            the [CryptoKey][google.cloud.kms.v1.CryptoKey] to delete.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class DeleteCryptoKeyVersionRequest(proto.Message):
+    r"""Request message for
+    [KeyManagementService.DeleteCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKeyVersion].
+
+    Attributes:
+        name (str):
+            Required. The
+            [name][google.cloud.kms.v1.CryptoKeyVersion.name] of the
+            [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion] to
+            delete.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
     )
 
 
@@ -1682,6 +1818,58 @@ class MacVerifyRequest(proto.Message):
     )
 
 
+class DecapsulateRequest(proto.Message):
+    r"""Request message for
+    [KeyManagementService.Decapsulate][google.cloud.kms.v1.KeyManagementService.Decapsulate].
+
+    Attributes:
+        name (str):
+            Required. The resource name of the
+            [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion] to
+            use for decapsulation.
+        ciphertext (bytes):
+            Required. The ciphertext produced from encapsulation with
+            the named
+            [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+            public key(s).
+        ciphertext_crc32c (google.protobuf.wrappers_pb2.Int64Value):
+            Optional. A CRC32C checksum of the
+            [DecapsulateRequest.ciphertext][google.cloud.kms.v1.DecapsulateRequest.ciphertext].
+            If specified,
+            [KeyManagementService][google.cloud.kms.v1.KeyManagementService]
+            will verify the integrity of the received
+            [DecapsulateRequest.ciphertext][google.cloud.kms.v1.DecapsulateRequest.ciphertext]
+            using this checksum.
+            [KeyManagementService][google.cloud.kms.v1.KeyManagementService]
+            will report an error if the checksum verification fails. If
+            you receive a checksum error, your client should verify that
+            CRC32C([DecapsulateRequest.ciphertext][google.cloud.kms.v1.DecapsulateRequest.ciphertext])
+            is equal to
+            [DecapsulateRequest.ciphertext_crc32c][google.cloud.kms.v1.DecapsulateRequest.ciphertext_crc32c],
+            and if so, perform a limited number of retries. A persistent
+            mismatch may indicate an issue in your computation of the
+            CRC32C checksum. Note: This field is defined as int64 for
+            reasons of compatibility across different languages.
+            However, it is a non-negative integer, which will never
+            exceed 2^32-1, and can be safely downconverted to uint32 in
+            languages that support this type.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    ciphertext: bytes = proto.Field(
+        proto.BYTES,
+        number=2,
+    )
+    ciphertext_crc32c: wrappers_pb2.Int64Value = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message=wrappers_pb2.Int64Value,
+    )
+
+
 class GenerateRandomBytesRequest(proto.Message):
     r"""Request message for
     [KeyManagementService.GenerateRandomBytes][google.cloud.kms.v1.KeyManagementService.GenerateRandomBytes].
@@ -2447,6 +2635,92 @@ class MacVerifyResponse(proto.Message):
     )
 
 
+class DecapsulateResponse(proto.Message):
+    r"""Response message for
+    [KeyManagementService.Decapsulate][google.cloud.kms.v1.KeyManagementService.Decapsulate].
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            The resource name of the
+            [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+            used for decapsulation. Check this field to verify that the
+            intended resource was used for decapsulation.
+        shared_secret (bytes):
+            The decapsulated shared_secret originally encapsulated with
+            the matching public key.
+        shared_secret_crc32c (int):
+            Integrity verification field. A CRC32C checksum of the
+            returned
+            [DecapsulateResponse.shared_secret][google.cloud.kms.v1.DecapsulateResponse.shared_secret].
+            An integrity check of
+            [DecapsulateResponse.shared_secret][google.cloud.kms.v1.DecapsulateResponse.shared_secret]
+            can be performed by computing the CRC32C checksum of
+            [DecapsulateResponse.shared_secret][google.cloud.kms.v1.DecapsulateResponse.shared_secret]
+            and comparing your results to this field. Discard the
+            response in case of non-matching checksum values, and
+            perform a limited number of retries. A persistent mismatch
+            may indicate an issue in your computation of the CRC32C
+            checksum. Note: receiving this response message indicates
+            that
+            [KeyManagementService][google.cloud.kms.v1.KeyManagementService]
+            is able to successfully decrypt the
+            [ciphertext][google.cloud.kms.v1.DecapsulateRequest.ciphertext].
+            Note: This field is defined as int64 for reasons of
+            compatibility across different languages. However, it is a
+            non-negative integer, which will never exceed 2^32-1, and
+            can be safely downconverted to uint32 in languages that
+            support this type.
+
+            This field is a member of `oneof`_ ``_shared_secret_crc32c``.
+        verified_ciphertext_crc32c (bool):
+            Integrity verification field. A flag indicating whether
+            [DecapsulateRequest.ciphertext_crc32c][google.cloud.kms.v1.DecapsulateRequest.ciphertext_crc32c]
+            was received by
+            [KeyManagementService][google.cloud.kms.v1.KeyManagementService]
+            and used for the integrity verification of the
+            [ciphertext][google.cloud.kms.v1.DecapsulateRequest.ciphertext].
+            A false value of this field indicates either that
+            [DecapsulateRequest.ciphertext_crc32c][google.cloud.kms.v1.DecapsulateRequest.ciphertext_crc32c]
+            was left unset or that it was not delivered to
+            [KeyManagementService][google.cloud.kms.v1.KeyManagementService].
+            If you've set
+            [DecapsulateRequest.ciphertext_crc32c][google.cloud.kms.v1.DecapsulateRequest.ciphertext_crc32c]
+            but this field is still false, discard the response and
+            perform a limited number of retries.
+        protection_level (google.cloud.kms_v1.types.ProtectionLevel):
+            The [ProtectionLevel][google.cloud.kms.v1.ProtectionLevel]
+            of the
+            [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+            used in decapsulation.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    shared_secret: bytes = proto.Field(
+        proto.BYTES,
+        number=2,
+    )
+    shared_secret_crc32c: int = proto.Field(
+        proto.INT64,
+        number=3,
+        optional=True,
+    )
+    verified_ciphertext_crc32c: bool = proto.Field(
+        proto.BOOL,
+        number=4,
+    )
+    protection_level: resources.ProtectionLevel = proto.Field(
+        proto.ENUM,
+        number=5,
+        enum=resources.ProtectionLevel,
+    )
+
+
 class GenerateRandomBytesResponse(proto.Message):
     r"""Response message for
     [KeyManagementService.GenerateRandomBytes][google.cloud.kms.v1.KeyManagementService.GenerateRandomBytes].
@@ -2511,6 +2785,15 @@ class Digest(proto.Message):
             algorithm.
 
             This field is a member of `oneof`_ ``digest``.
+        external_mu (bytes):
+            A message digest produced with SHAKE-256, to
+            be used with ML-DSA external-μ algorithms only.
+            See "message representative" note in section
+            6.2, algorithm 7 of the FIPS-204 standard:
+
+            https://doi.org/10.6028/nist.fips.204
+
+            This field is a member of `oneof`_ ``digest``.
     """
 
     sha256: bytes = proto.Field(
@@ -2526,6 +2809,11 @@ class Digest(proto.Message):
     sha512: bytes = proto.Field(
         proto.BYTES,
         number=3,
+        oneof="digest",
+    )
+    external_mu: bytes = proto.Field(
+        proto.BYTES,
+        number=4,
         oneof="digest",
     )
 
@@ -2547,6 +2835,12 @@ class LocationMetadata(proto.Message):
             [protection_level][google.cloud.kms.v1.CryptoKeyVersionTemplate.protection_level]
             [EXTERNAL][google.cloud.kms.v1.ProtectionLevel.EXTERNAL] can
             be created in this location.
+        hsm_single_tenant_available (bool):
+            Indicates whether
+            [CryptoKeys][google.cloud.kms.v1.CryptoKey] with
+            [protection_level][google.cloud.kms.v1.CryptoKeyVersionTemplate.protection_level]
+            [HSM_SINGLE_TENANT][google.cloud.kms.v1.ProtectionLevel.HSM_SINGLE_TENANT]
+            can be created in this location.
     """
 
     hsm_available: bool = proto.Field(
@@ -2557,6 +2851,37 @@ class LocationMetadata(proto.Message):
         proto.BOOL,
         number=2,
     )
+    hsm_single_tenant_available: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+
+
+class DeleteCryptoKeyMetadata(proto.Message):
+    r"""Represents the metadata of the
+    [KeyManagementService.DeleteCryptoKey][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKey]
+    long-running operation.
+
+    Attributes:
+        retired_resource (str):
+            Output only. The resource name of the
+            [RetiredResource][google.cloud.kms.v1.RetiredResource]
+            created as a result of this operation, in the format
+            ``projects/*/locations/*/retiredResources/*``.
+    """
+
+    retired_resource: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class DeleteCryptoKeyVersionMetadata(proto.Message):
+    r"""Represents the metadata of the
+    [KeyManagementService.DeleteCryptoKeyVersion][google.cloud.kms.v1.KeyManagementService.DeleteCryptoKeyVersion]
+    long-running operation.
+
+    """
 
 
 __all__ = tuple(sorted(__protobuf__.manifest))

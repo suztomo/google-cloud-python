@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_egress():
     client = apigeeconnect_v1.TetherClient()
 
     # Initialize request argument(s)
-    request = apigeeconnect_v1.EgressResponse(
-    )
+    request = apigeeconnect_v1.EgressResponse()
 
     # This method expects an iterator which contains
     # 'apigeeconnect_v1.EgressResponse' objects
@@ -58,5 +57,6 @@ def sample_egress():
     # Handle the response
     for response in stream:
         print(response)
+
 
 # [END apigeeconnect_v1_generated_Tether_Egress_sync]

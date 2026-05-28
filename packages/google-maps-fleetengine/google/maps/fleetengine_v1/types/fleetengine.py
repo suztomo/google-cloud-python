@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.fleetengine_v1.types import traffic
@@ -38,6 +38,7 @@ __protobuf__ = proto.module(
         "TripWaypoint",
         "VehicleAttribute",
         "VehicleLocation",
+        "TripAttribute",
     },
 )
 
@@ -55,6 +56,7 @@ class TripType(proto.Enum):
         EXCLUSIVE (2):
             The trip is exclusive to a vehicle.
     """
+
     UNKNOWN_TRIP_TYPE = 0
     SHARED = 1
     EXCLUSIVE = 2
@@ -74,6 +76,7 @@ class WaypointType(proto.Enum):
             Waypoints for intermediate destinations in a
             multi-destination trip.
     """
+
     UNKNOWN_WAYPOINT_TYPE = 0
     PICKUP_WAYPOINT_TYPE = 1
     DROP_OFF_WAYPOINT_TYPE = 2
@@ -93,6 +96,7 @@ class PolylineFormatType(proto.Enum):
             compression algorithm. Decoding is not yet
             supported.
     """
+
     UNKNOWN_FORMAT_TYPE = 0
     LAT_LNG_LIST_TYPE = 1
     ENCODED_POLYLINE_TYPE = 2
@@ -115,6 +119,7 @@ class NavigationStatus(proto.Enum):
             The vehicle is within approximately 50m of
             the destination.
     """
+
     UNKNOWN_NAVIGATION_STATUS = 0
     NO_GUIDANCE = 1
     ENROUTE_TO_DESTINATION = 2
@@ -157,6 +162,7 @@ class LocationSensor(proto.Enum):
             The location provider on Apple operating
             systems.
     """
+
     UNKNOWN_SENSOR = 0
     GPS = 1
     NETWORK = 2
@@ -467,6 +473,17 @@ class VehicleLocation(proto.Message):
             Source of the raw location. Defaults to ``GPS``.
         raw_location_accuracy (google.protobuf.wrappers_pb2.DoubleValue):
             Accuracy of ``raw_location`` as a radius, in meters.
+        flp_location (google.type.latlng_pb2.LatLng):
+            The location from Android's Fused Location
+            Provider.
+        flp_update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Update timestamp of ``flp_location``.
+        flp_latlng_accuracy_meters (google.protobuf.wrappers_pb2.DoubleValue):
+            Accuracy of ``flp_location`` in meters as a radius.
+        flp_heading_degrees (google.protobuf.wrappers_pb2.Int32Value):
+            Direction the vehicle is moving in degrees, as determined by
+            the Fused Location Provider. 0 represents North. The valid
+            range is [0,360).
         supplemental_location (google.type.latlng_pb2.LatLng):
             Supplemental location provided by the
             integrating app.
@@ -598,6 +615,26 @@ class VehicleLocation(proto.Message):
         number=25,
         message=wrappers_pb2.DoubleValue,
     )
+    flp_location: latlng_pb2.LatLng = proto.Field(
+        proto.MESSAGE,
+        number=29,
+        message=latlng_pb2.LatLng,
+    )
+    flp_update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=30,
+        message=timestamp_pb2.Timestamp,
+    )
+    flp_latlng_accuracy_meters: wrappers_pb2.DoubleValue = proto.Field(
+        proto.MESSAGE,
+        number=31,
+        message=wrappers_pb2.DoubleValue,
+    )
+    flp_heading_degrees: wrappers_pb2.Int32Value = proto.Field(
+        proto.MESSAGE,
+        number=32,
+        message=wrappers_pb2.Int32Value,
+    )
     supplemental_location: latlng_pb2.LatLng = proto.Field(
         proto.MESSAGE,
         number=18,
@@ -621,6 +658,56 @@ class VehicleLocation(proto.Message):
     road_snapped: bool = proto.Field(
         proto.BOOL,
         number=26,
+    )
+
+
+class TripAttribute(proto.Message):
+    r"""Describes a trip attribute as a key-value pair. The
+    "key:value" string length cannot exceed 256 characters.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        key (str):
+            The attribute's key. Keys may not contain the
+            colon character (:).
+        string_value (str):
+            String typed attribute value.
+
+            This field is a member of `oneof`_ ``trip_attribute_value``.
+        bool_value (bool):
+            Boolean typed attribute value.
+
+            This field is a member of `oneof`_ ``trip_attribute_value``.
+        number_value (float):
+            Double typed attribute value.
+
+            This field is a member of `oneof`_ ``trip_attribute_value``.
+    """
+
+    key: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    string_value: str = proto.Field(
+        proto.STRING,
+        number=2,
+        oneof="trip_attribute_value",
+    )
+    bool_value: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+        oneof="trip_attribute_value",
+    )
+    number_value: float = proto.Field(
+        proto.DOUBLE,
+        number=4,
+        oneof="trip_attribute_value",
     )
 
 

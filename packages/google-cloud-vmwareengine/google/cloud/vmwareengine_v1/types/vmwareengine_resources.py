@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -78,14 +78,13 @@ class NetworkConfig(proto.Message):
             Output only. The IP address layout version of the management
             IP address range. Possible versions include:
 
-            -  ``managementIpAddressLayoutVersion=1``: Indicates the
-               legacy IP address layout used by some existing private
-               clouds. This is no longer supported for new private
-               clouds as it does not support all features.
-            -  ``managementIpAddressLayoutVersion=2``: Indicates the
-               latest IP address layout used by all newly created
-               private clouds. This version supports all current
-               features.
+            - ``managementIpAddressLayoutVersion=1``: Indicates the
+              legacy IP address layout used by some existing private
+              clouds. This is no longer supported for new private clouds
+              as it does not support all features.
+            - ``managementIpAddressLayoutVersion=2``: Indicates the
+              latest IP address layout used by all newly created private
+              clouds. This version supports all current features.
         dns_server_ip (str):
             Output only. DNS Server IP of the Private
             Cloud. All DNS queries can be forwarded to this
@@ -251,6 +250,7 @@ class PrivateCloud(proto.Message):
                 The private cloud is irreversibly deleted and
                 is being removed from the system.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -277,6 +277,7 @@ class PrivateCloud(proto.Message):
                 resource with redundancy, with a minimum of 6
                 nodes, nodes count has to be even.
         """
+
         STANDARD = 0
         TIME_LIMITED = 1
         STRETCHED = 2
@@ -290,13 +291,13 @@ class PrivateCloud(proto.Message):
                 ``Cluster``. The identifier must meet the following
                 requirements:
 
-                -  Only contains 1-63 alphanumeric characters and hyphens
-                -  Begins with an alphabetical character
-                -  Ends with a non-hyphen character
-                -  Not formatted as a UUID
-                -  Complies with `RFC
-                   1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-                   (section 3.5)
+                - Only contains 1-63 alphanumeric characters and hyphens
+                - Begins with an alphabetical character
+                - Ends with a non-hyphen character
+                - Not formatted as a UUID
+                - Complies with `RFC
+                  1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+                  (section 3.5)
             node_type_configs (MutableMapping[str, google.cloud.vmwareengine_v1.types.NodeTypeConfig]):
                 Required. The map of cluster node types in this cluster,
                 where the key is canonical identifier of the node type
@@ -450,6 +451,7 @@ class Cluster(proto.Message):
                 The Cluster is undergoing maintenance, for
                 example: a failed node is getting replaced.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -547,6 +549,7 @@ class Node(proto.Message):
                 Node is undergoing maintenance, e.g.: during
                 private cloud upgrade.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -631,6 +634,7 @@ class ExternalAddress(proto.Message):
             DELETING (4):
                 The address is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -725,6 +729,7 @@ class Subnet(proto.Message):
                 Subnet's payload is reverted back to its most
                 recent working state.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -850,6 +855,7 @@ class ExternalAccessRule(proto.Message):
                 Blocks connections that match the other
                 specified components.
         """
+
         ACTION_UNSPECIFIED = 0
         ALLOW = 1
         DENY = 2
@@ -870,6 +876,7 @@ class ExternalAccessRule(proto.Message):
             DELETING (4):
                 The rule is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -1037,6 +1044,7 @@ class LoggingServer(proto.Message):
             RELP (5):
                 RELP
         """
+
         PROTOCOL_UNSPECIFIED = 0
         UDP = 1
         TCP = 2
@@ -1056,6 +1064,7 @@ class LoggingServer(proto.Message):
             VCSA (2):
                 Logs produced by vCenter server
         """
+
         SOURCE_TYPE_UNSPECIFIED = 0
         ESXI = 1
         VCSA = 2
@@ -1151,6 +1160,7 @@ class NodeType(proto.Message):
             STORAGE_ONLY (2):
                 Storage only Node.
         """
+
         KIND_UNSPECIFIED = 0
         STANDARD = 1
         STORAGE_ONLY = 2
@@ -1165,6 +1175,7 @@ class NodeType(proto.Message):
             STRETCHED_CLUSTERS (1):
                 This node type supports stretch clusters.
         """
+
         CAPABILITY_UNSPECIFIED = 0
         STRETCHED_CLUSTERS = 1
 
@@ -1279,6 +1290,7 @@ class HcxActivationKey(proto.Message):
             CREATING (3):
                 State of key when it is being created.
         """
+
         STATE_UNSPECIFIED = 0
         AVAILABLE = 1
         CONSUMED = 2
@@ -1336,6 +1348,7 @@ class Hcx(proto.Message):
             ACTIVATING (3):
                 The appliance is being activated.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -1386,6 +1399,7 @@ class Nsx(proto.Message):
             CREATING (2):
                 The appliance is being deployed.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -1435,6 +1449,7 @@ class Vcenter(proto.Message):
             CREATING (2):
                 The appliance is being deployed.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -1469,13 +1484,13 @@ class AutoscalingSettings(proto.Message):
             cluster. The key is the identifier of the policy. It must
             meet the following requirements:
 
-            -  Only contains 1-63 alphanumeric characters and hyphens
-            -  Begins with an alphabetical character
-            -  Ends with a non-hyphen character
-            -  Not formatted as a UUID
-            -  Complies with `RFC
-               1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
-               (section 3.5)
+            - Only contains 1-63 alphanumeric characters and hyphens
+            - Begins with an alphabetical character
+            - Ends with a non-hyphen character
+            - Not formatted as a UUID
+            - Complies with `RFC
+              1034 <https://datatracker.ietf.org/doc/html/rfc1034>`__
+              (section 3.5)
 
             Currently there map must contain only one element that
             describes the autoscaling policy for compute nodes.
@@ -1784,6 +1799,7 @@ class NetworkPeering(proto.Message):
             DELETING (4):
                 The peering is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         INACTIVE = 1
         ACTIVE = 2
@@ -1824,6 +1840,7 @@ class NetworkPeering(proto.Message):
                 Peering connection used for connecting to
                 Google Cloud NetApp Volumes.
         """
+
         PEER_NETWORK_TYPE_UNSPECIFIED = 0
         STANDARD = 1
         VMWARE_ENGINE_NETWORK = 2
@@ -1937,10 +1954,10 @@ class PeeringRoute(proto.Message):
             Output only. Direction of the routes exchanged with the peer
             network, from the VMware Engine network perspective:
 
-            -  Routes of direction ``INCOMING`` are imported from the
-               peer network.
-            -  Routes of direction ``OUTGOING`` are exported from the
-               intranet VPC network of the VMware Engine network.
+            - Routes of direction ``INCOMING`` are imported from the
+              peer network.
+            - Routes of direction ``OUTGOING`` are exported from the
+              intranet VPC network of the VMware Engine network.
     """
 
     class Type(proto.Enum):
@@ -1959,6 +1976,7 @@ class PeeringRoute(proto.Message):
                 by Google Cloud when subnets are created,
                 modified, or deleted in the peer network.
         """
+
         TYPE_UNSPECIFIED = 0
         DYNAMIC_PEERING_ROUTE = 1
         STATIC_PEERING_ROUTE = 2
@@ -1976,6 +1994,7 @@ class PeeringRoute(proto.Message):
             OUTGOING (2):
                 Routes exported to the peer network.
         """
+
         DIRECTION_UNSPECIFIED = 0
         INCOMING = 1
         OUTGOING = 2
@@ -2095,6 +2114,7 @@ class NetworkPolicy(proto.Message):
                 ACTIVE (3):
                     Service is active.
             """
+
             STATE_UNSPECIFIED = 0
             UNPROVISIONED = 1
             RECONCILING = 2
@@ -2227,6 +2247,7 @@ class ManagementDnsZoneBinding(proto.Message):
             FAILED (5):
                 The binding has failed.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CREATING = 2
@@ -2330,6 +2351,7 @@ class VmwareEngineNetwork(proto.Message):
             DELETING (4):
                 The VMware Engine network is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -2352,6 +2374,7 @@ class VmwareEngineNetwork(proto.Message):
                 Standard network type used for private cloud
                 connectivity.
         """
+
         TYPE_UNSPECIFIED = 0
         LEGACY = 1
         STANDARD = 2
@@ -2392,6 +2415,7 @@ class VmwareEngineNetwork(proto.Message):
                     VPC network used for access to Google Cloud
                     services like Cloud Storage.
             """
+
             TYPE_UNSPECIFIED = 0
             INTRANET = 1
             INTERNET = 2
@@ -2542,6 +2566,7 @@ class PrivateConnection(proto.Message):
             FAILED (6):
                 The private connection is in failed state.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         ACTIVE = 2
@@ -2570,6 +2595,7 @@ class PrivateConnection(proto.Message):
                 Connection used for connecting to third-party
                 services.
         """
+
         TYPE_UNSPECIFIED = 0
         PRIVATE_SERVICE_ACCESS = 1
         NETAPP_CLOUD_VOLUMES = 2
@@ -2588,6 +2614,7 @@ class PrivateConnection(proto.Message):
             REGIONAL (2):
                 Regional Routing Mode
         """
+
         ROUTING_MODE_UNSPECIFIED = 0
         GLOBAL = 1
         REGIONAL = 2
@@ -2606,6 +2633,7 @@ class PrivateConnection(proto.Message):
             PEERING_INACTIVE (2):
                 The peering is in inactive state.
         """
+
         PEERING_STATE_UNSPECIFIED = 0
         PEERING_ACTIVE = 1
         PEERING_INACTIVE = 2
@@ -2692,6 +2720,7 @@ class LocationMetadata(proto.Message):
                 Stretch clusters are supported in this
                 location.
         """
+
         CAPABILITY_UNSPECIFIED = 0
         STRETCHED_CLUSTERS = 1
 

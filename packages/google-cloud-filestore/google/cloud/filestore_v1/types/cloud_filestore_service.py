@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -74,10 +74,10 @@ class NetworkConfig(proto.Message):
             Optional, reserved_ip_range can have one of the following
             two types of values.
 
-            -  CIDR range value when using DIRECT_PEERING connect mode.
-            -  `Allocated IP address
-               range <https://cloud.google.com/compute/docs/ip-addresses/reserve-static-internal-ip-address>`__
-               when using PRIVATE_SERVICE_ACCESS connect mode.
+            - CIDR range value when using DIRECT_PEERING connect mode.
+            - `Allocated IP address
+              range <https://cloud.google.com/compute/docs/ip-addresses/reserve-static-internal-ip-address>`__
+              when using PRIVATE_SERVICE_ACCESS connect mode.
 
             When the name of an allocated IP address range is specified,
             it must be one of the ranges associated with the private
@@ -111,6 +111,7 @@ class NetworkConfig(proto.Message):
             MODE_IPV4 (1):
                 Use the IPv4 internet protocol.
         """
+
         ADDRESS_MODE_UNSPECIFIED = 0
         MODE_IPV4 = 1
 
@@ -129,6 +130,7 @@ class NetworkConfig(proto.Message):
                 provides an IP address range for multiple Google
                 Cloud services, including Filestore.
         """
+
         CONNECT_MODE_UNSPECIFIED = 0
         DIRECT_PEERING = 1
         PRIVATE_SERVICE_ACCESS = 2
@@ -249,6 +251,7 @@ class NfsExportOptions(proto.Message):
                 The client can read and write the file share
                 (default).
         """
+
         ACCESS_MODE_UNSPECIFIED = 0
         READ_ONLY = 1
         READ_WRITE = 2
@@ -266,6 +269,7 @@ class NfsExportOptions(proto.Message):
                 The Root user has squashed access to the
                 anonymous uid/gid.
         """
+
         SQUASH_MODE_UNSPECIFIED = 0
         NO_ROOT_SQUASH = 1
         ROOT_SQUASH = 2
@@ -328,6 +332,7 @@ class ReplicaConfig(proto.Message):
                 You can get further details from the ``stateReasons`` field
                 of the ``ReplicaConfig`` object.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 3
@@ -347,6 +352,7 @@ class ReplicaConfig(proto.Message):
                 The remove replica peer instance operation
                 failed.
         """
+
         STATE_REASON_UNSPECIFIED = 0
         PEER_INSTANCE_UNREACHABLE = 1
         REMOVE_FAILED = 2
@@ -397,6 +403,7 @@ class Replication(proto.Message):
                 The instance is the ``STANDBY`` replication member,
                 functions as the replication destination instance.
         """
+
         ROLE_UNSPECIFIED = 0
         ACTIVE = 1
         STANDBY = 2
@@ -467,10 +474,10 @@ class Instance(proto.Message):
             : "production", "123456789013/costCenter" : "marketing" See
             the documentation for more information:
 
-            -  Namespaced name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
-            -  Short name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
+            - Namespaced name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
+            - Short name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
         protocol (google.cloud.filestore_v1.types.Instance.FileProtocol):
             Immutable. The protocol indicates the access protocol for
             all shares in the instance. This field is immutable and it
@@ -533,6 +540,7 @@ class Instance(proto.Message):
             PROMOTING (13):
                 The replica instance is being promoted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -580,6 +588,7 @@ class Instance(proto.Message):
                 availability needed for mission-critical
                 workloads.
         """
+
         TIER_UNSPECIFIED = 0
         STANDARD = 1
         PREMIUM = 2
@@ -601,6 +610,7 @@ class Instance(proto.Message):
                 The KMS key used by the instance is either
                 revoked or denied access to.
         """
+
         SUSPENSION_REASON_UNSPECIFIED = 0
         KMS_KEY_ISSUE = 1
 
@@ -616,6 +626,7 @@ class Instance(proto.Message):
             NFS_V4_1 (2):
                 NFS 4.1.
         """
+
         FILE_PROTOCOL_UNSPECIFIED = 0
         NFS_V3 = 1
         NFS_V4_1 = 2
@@ -909,12 +920,12 @@ class UpdateInstanceRequest(proto.Message):
             in this field. The elements of the repeated paths field may
             only include these fields:
 
-            -  "description"
-            -  "file_shares"
-            -  "labels"
-            -  "performance_config"
-            -  "deletion_protection_enabled"
-            -  "deletion_protection_reason".
+            - "description"
+            - "file_shares"
+            - "labels"
+            - "performance_config"
+            - "deletion_protection_enabled"
+            - "deletion_protection_reason".
         instance (google.cloud.filestore_v1.types.Instance):
             Only fields specified in update_mask are updated.
     """
@@ -1133,10 +1144,10 @@ class Snapshot(proto.Message):
             : "production", "123456789013/costCenter" : "marketing" See
             the documentation for more information:
 
-            -  Namespaced name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
-            -  Short name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
+            - Namespaced name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
+            - Short name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
     """
 
     class State(proto.Enum):
@@ -1152,6 +1163,7 @@ class Snapshot(proto.Message):
             DELETING (3):
                 Snapshot is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -1424,10 +1436,10 @@ class Backup(proto.Message):
             : "production", "123456789013/costCenter" : "marketing" See
             the documentation for more information:
 
-            -  Namespaced name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
-            -  Short name:
-               https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
+            - Namespaced name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_key
+            - Short name:
+              https://cloud.google.com/resource-manager/docs/tags/tags-creating-and-managing#retrieving_tag_value
         file_system_protocol (google.cloud.filestore_v1.types.Instance.FileProtocol):
             Output only. The file system protocol of the
             source Filestore instance that this backup is
@@ -1455,6 +1467,7 @@ class Backup(proto.Message):
                 creating new instances or restoring existing
                 instances.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         FINALIZING = 2

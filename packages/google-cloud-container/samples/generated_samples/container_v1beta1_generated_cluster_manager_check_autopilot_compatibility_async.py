@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_check_autopilot_compatibility():
     client = container_v1beta1.ClusterManagerAsyncClient()
 
     # Initialize request argument(s)
-    request = container_v1beta1.CheckAutopilotCompatibilityRequest(
-    )
+    request = container_v1beta1.CheckAutopilotCompatibilityRequest()
 
     # Make the request
     response = await client.check_autopilot_compatibility(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END container_v1beta1_generated_ClusterManager_CheckAutopilotCompatibility_async]

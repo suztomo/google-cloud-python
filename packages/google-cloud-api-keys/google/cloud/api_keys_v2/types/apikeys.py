@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.api_keys_v2.types import resources
@@ -201,8 +201,8 @@ class UpdateKeyRequest(proto.Message):
             ``annotations``. If an update mask is not provided, the
             service treats it as an implied mask equivalent to all
             allowed fields that are set on the wire. If the field mask
-            has a special value "*", the service treats it equivalent to
-            replace all allowed mutable fields.
+            has a special value "\*", the service treats it equivalent
+            to replace all allowed mutable fields.
     """
 
     key: resources.Key = proto.Field(

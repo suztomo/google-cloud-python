@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,30 +25,42 @@ from google.cloud.confidentialcomputing_v1.services.confidential_computing.clien
     ConfidentialComputingClient,
 )
 from google.cloud.confidentialcomputing_v1.types.service import (
+    AwsPrincipalTagsOptions,
     Challenge,
     ConfidentialSpaceInfo,
     ContainerImageSignature,
     CreateChallengeRequest,
+    GceShieldedIdentity,
     GcpCredentials,
+    NvidiaAttestation,
     SevSnpAttestation,
+    SignatureType,
     SignedEntity,
     SigningAlgorithm,
     TdxCcelAttestation,
     TokenOptions,
+    TokenProfile,
     TokenType,
     TpmAttestation,
     VerifyAttestationRequest,
     VerifyAttestationResponse,
+    VerifyConfidentialGkeRequest,
+    VerifyConfidentialGkeResponse,
+    VerifyConfidentialSpaceRequest,
+    VerifyConfidentialSpaceResponse,
 )
 
 __all__ = (
     "ConfidentialComputingClient",
     "ConfidentialComputingAsyncClient",
+    "AwsPrincipalTagsOptions",
     "Challenge",
     "ConfidentialSpaceInfo",
     "ContainerImageSignature",
     "CreateChallengeRequest",
+    "GceShieldedIdentity",
     "GcpCredentials",
+    "NvidiaAttestation",
     "SevSnpAttestation",
     "SignedEntity",
     "TdxCcelAttestation",
@@ -56,6 +68,12 @@ __all__ = (
     "TpmAttestation",
     "VerifyAttestationRequest",
     "VerifyAttestationResponse",
+    "VerifyConfidentialGkeRequest",
+    "VerifyConfidentialGkeResponse",
+    "VerifyConfidentialSpaceRequest",
+    "VerifyConfidentialSpaceResponse",
+    "SignatureType",
     "SigningAlgorithm",
+    "TokenProfile",
     "TokenType",
 )

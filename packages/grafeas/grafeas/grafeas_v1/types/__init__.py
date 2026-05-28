@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .attestation import AttestationNote, AttestationOccurrence, Jwt
-from .build import BuildNote, BuildOccurrence
+from .attestation import (
+    AttestationNote,
+    AttestationOccurrence,
+    Jwt,
+)
+from .build import (
+    BuildNote,
+    BuildOccurrence,
+)
 from .common import (
     BaseImage,
     Digest,
@@ -33,10 +40,23 @@ from .compliance import (
     ComplianceVersion,
     NonCompliantFile,
 )
-from .cvss import CVSS, CVSSv3, CVSSVersion
-from .deployment import DeploymentNote, DeploymentOccurrence
-from .discovery import DiscoveryNote, DiscoveryOccurrence
-from .dsse_attestation import DSSEAttestationNote, DSSEAttestationOccurrence
+from .cvss import (
+    CVSS,
+    CVSSv3,
+    CVSSVersion,
+)
+from .deployment import (
+    DeploymentNote,
+    DeploymentOccurrence,
+)
+from .discovery import (
+    DiscoveryNote,
+    DiscoveryOccurrence,
+)
+from .dsse_attestation import (
+    DSSEAttestationNote,
+    DSSEAttestationOccurrence,
+)
 from .grafeas import (
     BatchCreateNotesRequest,
     BatchCreateNotesResponse,
@@ -60,7 +80,12 @@ from .grafeas import (
     UpdateNoteRequest,
     UpdateOccurrenceRequest,
 )
-from .image import Fingerprint, ImageNote, ImageOccurrence, Layer
+from .image import (
+    Fingerprint,
+    ImageNote,
+    ImageOccurrence,
+    Layer,
+)
 from .intoto_provenance import (
     BuilderConfig,
     Completeness,
@@ -68,7 +93,11 @@ from .intoto_provenance import (
     Metadata,
     Recipe,
 )
-from .intoto_statement import InTotoSlsaProvenanceV1, InTotoStatement, Subject
+from .intoto_statement import (
+    InTotoSlsaProvenanceV1,
+    InTotoStatement,
+    Subject,
+)
 from .package import (
     Architecture,
     Distribution,
@@ -92,6 +121,11 @@ from .provenance import (
     Source,
     SourceContext,
 )
+from .risk import (
+    CISAKnownExploitedVulnerabilities,
+    ExploitPredictionScoringSystem,
+    Risk,
+)
 from .sbom import (
     SbomReferenceIntotoPayload,
     SbomReferenceIntotoPredicate,
@@ -105,12 +139,28 @@ from .secret import (
     SecretOccurrence,
     SecretStatus,
 )
-from .severity import Severity
-from .slsa_provenance import SlsaProvenance
-from .slsa_provenance_zero_two import SlsaProvenanceZeroTwo
-from .upgrade import UpgradeDistribution, UpgradeNote, UpgradeOccurrence, WindowsUpdate
-from .vex import VulnerabilityAssessmentNote
-from .vulnerability import VulnerabilityNote, VulnerabilityOccurrence
+from .severity import (
+    Severity,
+)
+from .slsa_provenance import (
+    SlsaProvenance,
+)
+from .slsa_provenance_zero_two import (
+    SlsaProvenanceZeroTwo,
+)
+from .upgrade import (
+    UpgradeDistribution,
+    UpgradeNote,
+    UpgradeOccurrence,
+    WindowsUpdate,
+)
+from .vex import (
+    VulnerabilityAssessmentNote,
+)
+from .vulnerability import (
+    VulnerabilityNote,
+    VulnerabilityOccurrence,
+)
 
 __all__ = (
     "AttestationNote",
@@ -193,6 +243,9 @@ __all__ = (
     "RepoId",
     "Source",
     "SourceContext",
+    "CISAKnownExploitedVulnerabilities",
+    "ExploitPredictionScoringSystem",
+    "Risk",
     "SbomReferenceIntotoPayload",
     "SbomReferenceIntotoPredicate",
     "SBOMReferenceNote",

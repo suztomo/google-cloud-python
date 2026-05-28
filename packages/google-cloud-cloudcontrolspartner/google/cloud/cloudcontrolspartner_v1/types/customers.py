@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.cloudcontrolspartner_v1.types import (
@@ -248,6 +248,7 @@ class CustomerOnboardingStep(proto.Message):
             CUSTOMER_ENVIRONMENT (2):
                 Customer Environment
         """
+
         STEP_UNSPECIFIED = 0
         KAJ_ENROLLMENT = 1
         CUSTOMER_ENVIRONMENT = 2
@@ -303,7 +304,7 @@ class DeleteCustomerRequest(proto.Message):
     Attributes:
         name (str):
             Required. name of the resource to be deleted format:
-            name=organizations/\ */locations/*/customers/\*
+            name=organizations/*/locations/*/customers/\*
     """
 
     name: str = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_batch_get_services():
     client = service_usage_v1.ServiceUsageAsyncClient()
 
     # Initialize request argument(s)
-    request = service_usage_v1.BatchGetServicesRequest(
-    )
+    request = service_usage_v1.BatchGetServicesRequest()
 
     # Make the request
     response = await client.batch_get_services(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END serviceusage_v1_generated_ServiceUsage_BatchGetServices_async]

@@ -4,6 +4,66 @@
 
 [1]: https://pypi.org/project/google-cloud-securitycenter/#history
 
+## [1.44.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.43.0...google-cloud-securitycenter-v1.44.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.43.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.42.0...google-cloud-securitycenter-v1.43.0) (2026-03-23)
+
+
+### Features
+
+* Support Chokepoint and external exposure in findings Proto ([ee7dd7dc168ecf943440cef38efff348e8eff095](https://github.com/googleapis/google-cloud-python/commit/ee7dd7dc168ecf943440cef38efff348e8eff095))
+
+## [1.42.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.41.0...google-cloud-securitycenter-v1.42.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.41.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.40.0...google-cloud-securitycenter-v1.41.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.40.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.39.0...google-cloud-securitycenter-v1.40.0) (2025-09-22)
+
+
+### Features
+
+* [google-cloud-securitycenter] add GCE to DeploymentPlatform enum ([#14401](https://github.com/googleapis/google-cloud-python/issues/14401)) ([6292106](https://github.com/googleapis/google-cloud-python/commit/6292106feea2036efd340b1503921a0f0c708797))
+
+## [1.39.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.38.1...google-cloud-securitycenter-v1.39.0) (2025-07-02)
+
+
+### Features
+
+* Add AffectedResources proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+* Add AiModel proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+* Add ChokePoint proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+* Add IpRules proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+* Add Job proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+* Add Network proto ([62bb44c](https://github.com/googleapis/google-cloud-python/commit/62bb44c6ed45c1933fc08e299031c936de8e17f2))
+
 ## [1.38.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-securitycenter-v1.38.0...google-cloud-securitycenter-v1.38.1) (2025-03-15)
 
 

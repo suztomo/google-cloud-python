@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -95,6 +95,7 @@ class LoggingConfig(proto.Message):
             OFF (8):
                 Turn off log4j.
         """
+
         LEVEL_UNSPECIFIED = 0
         ALL = 1
         TRACE = 2
@@ -1021,6 +1022,7 @@ class JobStatus(proto.Message):
 
                 Applies to restartable jobs only.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         SETUP_DONE = 8
@@ -1058,6 +1060,7 @@ class JobStatus(proto.Message):
 
                 Applies to RUNNING state.
         """
+
         UNSPECIFIED = 0
         SUBMITTED = 1
         QUEUED = 2
@@ -1097,7 +1100,7 @@ class JobReference(proto.Message):
             project.
 
             The ID must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), or hyphens (-). The maximum length is 100
+            underscores (\_), or hyphens (-). The maximum length is 100
             characters.
 
             If not specified by the caller, the job ID will be provided
@@ -1163,6 +1166,7 @@ class YarnApplication(proto.Message):
             KILLED (8):
                 Status is KILLED.
         """
+
         STATE_UNSPECIFIED = 0
         NEW = 1
         NEW_SAVING = 2
@@ -1499,7 +1503,7 @@ class SubmitJobRequest(proto.Message):
             `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`__.
 
             The id must contain only letters (a-z, A-Z), numbers (0-9),
-            underscores (_), and hyphens (-). The maximum length is 40
+            underscores (\_), and hyphens (-). The maximum length is 40
             characters.
     """
 
@@ -1644,6 +1648,7 @@ class ListJobsRequest(proto.Message):
                 Only match jobs in terminal states:
                 CANCELLED, DONE, or ERROR.
         """
+
         ALL = 0
         ACTIVE = 1
         NON_ACTIVE = 2

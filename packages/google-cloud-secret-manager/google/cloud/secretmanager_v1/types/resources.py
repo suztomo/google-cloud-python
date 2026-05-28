@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -111,7 +111,7 @@ class Secret(proto.Message):
 
             A version alias is a string with a maximum length of 63
             characters and can contain uppercase and lowercase letters,
-            numerals, and the hyphen (``-``) and underscore ('_')
+            numerals, and the hyphen (``-``) and underscore ('\_')
             characters. An alias string must start with a letter and
             cannot be the string 'latest' or 'NEW'. No more than 50
             aliases can be assigned to a given secret.
@@ -129,7 +129,7 @@ class Secret(proto.Message):
             Annotation keys must be between 1 and 63 characters long,
             have a UTF-8 encoding of maximum 128 bytes, begin and end
             with an alphanumeric character ([a-z0-9A-Z]), and may have
-            dashes (-), underscores (_), dots (.), and alphanumerics in
+            dashes (-), underscores (\_), dots (.), and alphanumerics in
             between these symbols.
 
             The total size of annotation keys and values must be less
@@ -155,6 +155,18 @@ class Secret(proto.Message):
             added afterwards. They do not apply retroactively to
             existing
             [SecretVersions][google.cloud.secretmanager.v1.SecretVersion].
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Mapping of
+            Tag keys/values directly bound to this resource.
+            For example:
+
+              "123/environment": "production",
+              "123/costCenter": "marketing"
+
+            Tags are used to organize and group resources.
+
+            Tags can be used to control policy evaluation
+            for the resource.
     """
 
     name: str = proto.Field(
@@ -221,6 +233,11 @@ class Secret(proto.Message):
         proto.MESSAGE,
         number=15,
         message="CustomerManagedEncryption",
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=16,
     )
 
 
@@ -305,6 +322,7 @@ class SecretVersion(proto.Message):
                 is destroyed and the secret data is no longer stored. A
                 version may not leave this state once entered.
         """
+
         STATE_UNSPECIFIED = 0
         ENABLED = 1
         DISABLED = 2
@@ -452,12 +470,12 @@ class Replication(proto.Message):
                 message="CustomerManagedEncryption",
             )
 
-        replicas: MutableSequence[
-            "Replication.UserManaged.Replica"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="Replication.UserManaged.Replica",
+        replicas: MutableSequence["Replication.UserManaged.Replica"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="Replication.UserManaged.Replica",
+            )
         )
 
     automatic: Automatic = proto.Field(

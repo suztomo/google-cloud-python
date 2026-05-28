@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ async def sample_create_control():
     control = retail_v2beta.Control()
     control.facet_spec.facet_key.key = "key_value"
     control.display_name = "display_name_value"
-    control.solution_types = ['SOLUTION_TYPE_SEARCH']
+    control.solution_types = ["SOLUTION_TYPE_SEARCH"]
 
     request = retail_v2beta.CreateControlRequest(
         parent="parent_value",
@@ -55,5 +55,6 @@ async def sample_create_control():
 
     # Handle the response
     print(response)
+
 
 # [END retail_v2beta_generated_ControlService_CreateControl_async]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,15 +39,20 @@ async def sample_list_effective_security_health_analytics_custom_modules():
     client = securitycenter_v1.SecurityCenterAsyncClient()
 
     # Initialize request argument(s)
-    request = securitycenter_v1.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest(
-        parent="parent_value",
+    request = (
+        securitycenter_v1.ListEffectiveSecurityHealthAnalyticsCustomModulesRequest(
+            parent="parent_value",
+        )
     )
 
     # Make the request
-    page_result = client.list_effective_security_health_analytics_custom_modules(request=request)
+    page_result = client.list_effective_security_health_analytics_custom_modules(
+        request=request
+    )
 
     # Handle the response
     async for response in page_result:
         print(response)
+
 
 # [END securitycenter_v1_generated_SecurityCenter_ListEffectiveSecurityHealthAnalyticsCustomModules_async]

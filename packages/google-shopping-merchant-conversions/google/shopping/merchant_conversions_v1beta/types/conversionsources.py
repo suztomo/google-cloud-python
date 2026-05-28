@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -70,8 +70,8 @@ class ConversionSource(proto.Message):
             different conversion sources might be the same across
             different types. The following type prefixes are supported:
 
-            -  galk: For GoogleAnalyticsLink sources.
-            -  mcdn: For MerchantCenterDestination sources.
+            - galk: For GoogleAnalyticsLink sources.
+            - mcdn: For MerchantCenterDestination sources.
         state (google.shopping.merchant_conversions_v1beta.types.ConversionSource.State):
             Output only. Current state of this conversion
             source. Can't be edited through the API.
@@ -100,6 +100,7 @@ class ConversionSource(proto.Message):
                 Conversion source creation has started but
                 not fully finished yet.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         ARCHIVED = 2
@@ -117,6 +118,7 @@ class ConversionSource(proto.Message):
             YOUTUBE_AFFILIATES (2):
                 Controlled by the YT Affiliates program.
         """
+
         CONTROLLER_UNSPECIFIED = 0
         MERCHANT = 1
         YOUTUBE_AFFILIATES = 2
@@ -198,6 +200,7 @@ class AttributionSettings(proto.Message):
             CROSS_CHANNEL_TIME_DECAY (9):
                 Cross-channel Time Decay model.
         """
+
         ATTRIBUTION_MODEL_UNSPECIFIED = 0
         CROSS_CHANNEL_LAST_CLICK = 1
         ADS_PREFERRED_LAST_CLICK = 2

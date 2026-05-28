@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.enterpriseknowledgegraph_v1.types import job_state, operation_metadata
@@ -91,6 +91,7 @@ class InputConfig(proto.Message):
             PERSON (7):
                 Person entity.
         """
+
         ENTITY_TYPE_UNSPECIFIED = 0
         PEOPLE = 1
         ESTABLISHMENT = 2
@@ -100,12 +101,12 @@ class InputConfig(proto.Message):
         LOCAL_BUSINESS = 6
         PERSON = 7
 
-    bigquery_input_configs: MutableSequence[
-        "BigQueryInputConfig"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="BigQueryInputConfig",
+    bigquery_input_configs: MutableSequence["BigQueryInputConfig"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="BigQueryInputConfig",
+        )
     )
     entity_type: EntityType = proto.Field(
         proto.ENUM,
@@ -143,7 +144,7 @@ class OutputConfig(proto.Message):
 
     Attributes:
         bigquery_dataset (str):
-            Format is “projects/\ */datasets/*\ ”.
+            Format is “projects/*/datasets/*\ ”.
     """
 
     bigquery_dataset: str = proto.Field(
@@ -191,7 +192,6 @@ class ReconConfig(proto.Message):
                 - schema.org/addressLocality
                 - schema.org/addressRegion
                 - schema.org/addressCountry
-
                 Warning: processing will no longer be
                 regionalized!
         """
@@ -386,12 +386,12 @@ class ListEntityReconciliationJobsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    entity_reconciliation_jobs: MutableSequence[
-        "EntityReconciliationJob"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="EntityReconciliationJob",
+    entity_reconciliation_jobs: MutableSequence["EntityReconciliationJob"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="EntityReconciliationJob",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

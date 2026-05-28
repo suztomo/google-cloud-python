@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,8 +39,7 @@ def sample_debug_instance():
     client = appengine_admin_v1.InstancesClient()
 
     # Initialize request argument(s)
-    request = appengine_admin_v1.DebugInstanceRequest(
-    )
+    request = appengine_admin_v1.DebugInstanceRequest()
 
     # Make the request
     operation = client.debug_instance(request=request)
@@ -51,5 +50,6 @@ def sample_debug_instance():
 
     # Handle the response
     print(response)
+
 
 # [END appengine_v1_generated_Instances_DebugInstance_sync]

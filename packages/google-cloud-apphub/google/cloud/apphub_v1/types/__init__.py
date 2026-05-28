@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,10 +53,25 @@ from .apphub_service import (
     UpdateServiceRequest,
     UpdateWorkloadRequest,
 )
-from .application import Application, Scope
-from .attributes import Attributes, ContactInfo, Criticality, Environment
-from .service import DiscoveredService, Service, ServiceProperties, ServiceReference
-from .service_project_attachment import ServiceProjectAttachment
+from .application import (
+    Application,
+    Scope,
+)
+from .attributes import (
+    Attributes,
+    ContactInfo,
+    Criticality,
+    Environment,
+)
+from .service import (
+    DiscoveredService,
+    Service,
+    ServiceProperties,
+    ServiceReference,
+)
+from .service_project_attachment import (
+    ServiceProjectAttachment,
+)
 from .workload import (
     DiscoveredWorkload,
     Workload,

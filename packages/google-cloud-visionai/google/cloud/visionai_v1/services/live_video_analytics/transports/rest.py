@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -1094,6 +1096,56 @@ class LiveVideoAnalyticsRestInterceptor:
         """
         return response, metadata
 
+    def pre_get_location(
+        self,
+        request: locations_pb2.GetLocationRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        locations_pb2.GetLocationRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for get_location
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the LiveVideoAnalytics server.
+        """
+        return request, metadata
+
+    def post_get_location(
+        self, response: locations_pb2.Location
+    ) -> locations_pb2.Location:
+        """Post-rpc interceptor for get_location
+
+        Override in a subclass to manipulate the response
+        after it is returned by the LiveVideoAnalytics server but before
+        it is returned to user code.
+        """
+        return response
+
+    def pre_list_locations(
+        self,
+        request: locations_pb2.ListLocationsRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        locations_pb2.ListLocationsRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for list_locations
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the LiveVideoAnalytics server.
+        """
+        return request, metadata
+
+    def post_list_locations(
+        self, response: locations_pb2.ListLocationsResponse
+    ) -> locations_pb2.ListLocationsResponse:
+        """Post-rpc interceptor for list_locations
+
+        Override in a subclass to manipulate the response
+        after it is returned by the LiveVideoAnalytics server but before
+        it is returned to user code.
+        """
+        return response
+
     def pre_cancel_operation(
         self,
         request: operations_pb2.CancelOperationRequest,
@@ -1238,9 +1290,10 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1258,6 +1311,12 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[LiveVideoAnalyticsRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1421,9 +1480,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseBatchRunProcess._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseBatchRunProcess._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_run_process(
                 request, metadata
@@ -1449,7 +1506,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1575,9 +1632,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseCreateAnalysis._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseCreateAnalysis._get_http_options()
 
             request, metadata = self._interceptor.pre_create_analysis(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseCreateAnalysis._get_transcoded_request(
@@ -1601,7 +1656,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1727,9 +1782,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseCreateOperator._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseCreateOperator._get_http_options()
 
             request, metadata = self._interceptor.pre_create_operator(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseCreateOperator._get_transcoded_request(
@@ -1753,7 +1806,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1879,9 +1932,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseCreateProcess._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseCreateProcess._get_http_options()
 
             request, metadata = self._interceptor.pre_create_process(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseCreateProcess._get_transcoded_request(
@@ -1905,7 +1956,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2030,9 +2081,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseDeleteAnalysis._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteAnalysis._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_analysis(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteAnalysis._get_transcoded_request(
@@ -2052,7 +2101,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2176,9 +2225,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseDeleteOperator._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteOperator._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operator(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteOperator._get_transcoded_request(
@@ -2198,7 +2245,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2322,9 +2369,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseDeleteProcess._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteProcess._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_process(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteProcess._get_transcoded_request(
@@ -2344,7 +2389,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2467,9 +2512,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseGetAnalysis._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseGetAnalysis._get_http_options()
 
             request, metadata = self._interceptor.pre_get_analysis(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseGetAnalysis._get_transcoded_request(
@@ -2614,9 +2657,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseGetOperator._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseGetOperator._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operator(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseGetOperator._get_transcoded_request(
@@ -2908,9 +2949,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseListAnalyses._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListAnalyses._get_http_options()
 
             request, metadata = self._interceptor.pre_list_analyses(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseListAnalyses._get_transcoded_request(
@@ -3058,9 +3097,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseListOperators._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListOperators._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operators(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseListOperators._get_transcoded_request(
@@ -3208,9 +3245,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseListProcesses._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListProcesses._get_http_options()
 
             request, metadata = self._interceptor.pre_list_processes(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseListProcesses._get_transcoded_request(
@@ -3358,9 +3393,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseListPublicOperators._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListPublicOperators._get_http_options()
 
             request, metadata = self._interceptor.pre_list_public_operators(
                 request, metadata
@@ -3513,9 +3546,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseResolveOperatorInfo._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseResolveOperatorInfo._get_http_options()
 
             request, metadata = self._interceptor.pre_resolve_operator_info(
                 request, metadata
@@ -3673,9 +3704,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseUpdateAnalysis._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateAnalysis._get_http_options()
 
             request, metadata = self._interceptor.pre_update_analysis(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateAnalysis._get_transcoded_request(
@@ -3699,7 +3728,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3825,9 +3854,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseUpdateOperator._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateOperator._get_http_options()
 
             request, metadata = self._interceptor.pre_update_operator(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateOperator._get_transcoded_request(
@@ -3851,7 +3878,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3977,9 +4004,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
 
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseUpdateProcess._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateProcess._get_http_options()
 
             request, metadata = self._interceptor.pre_update_process(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseUpdateProcess._get_transcoded_request(
@@ -4003,7 +4028,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -4225,6 +4250,284 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
         return self._UpdateProcess(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
+    def get_location(self):
+        return self._GetLocation(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _GetLocation(
+        _BaseLiveVideoAnalyticsRestTransport._BaseGetLocation,
+        LiveVideoAnalyticsRestStub,
+    ):
+        def __hash__(self):
+            return hash("LiveVideoAnalyticsRestTransport.GetLocation")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: locations_pb2.GetLocationRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> locations_pb2.Location:
+            r"""Call the get location method over HTTP.
+
+            Args:
+                request (locations_pb2.GetLocationRequest):
+                    The request object for GetLocation method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                locations_pb2.Location: Response from GetLocation method.
+            """
+
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseGetLocation._get_http_options()
+
+            request, metadata = self._interceptor.pre_get_location(request, metadata)
+            transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseGetLocation._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseLiveVideoAnalyticsRestTransport._BaseGetLocation._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.visionai_v1.LiveVideoAnalyticsClient.GetLocation",
+                    extra={
+                        "serviceName": "google.cloud.visionai.v1.LiveVideoAnalytics",
+                        "rpcName": "GetLocation",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = LiveVideoAnalyticsRestTransport._GetLocation._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = locations_pb2.Location()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_get_location(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.visionai_v1.LiveVideoAnalyticsAsyncClient.GetLocation",
+                    extra={
+                        "serviceName": "google.cloud.visionai.v1.LiveVideoAnalytics",
+                        "rpcName": "GetLocation",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
+    def list_locations(self):
+        return self._ListLocations(self._session, self._host, self._interceptor)  # type: ignore
+
+    class _ListLocations(
+        _BaseLiveVideoAnalyticsRestTransport._BaseListLocations,
+        LiveVideoAnalyticsRestStub,
+    ):
+        def __hash__(self):
+            return hash("LiveVideoAnalyticsRestTransport.ListLocations")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+            )
+            return response
+
+        def __call__(
+            self,
+            request: locations_pb2.ListLocationsRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> locations_pb2.ListLocationsResponse:
+            r"""Call the list locations method over HTTP.
+
+            Args:
+                request (locations_pb2.ListLocationsRequest):
+                    The request object for ListLocations method.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                locations_pb2.ListLocationsResponse: Response from ListLocations method.
+            """
+
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListLocations._get_http_options()
+
+            request, metadata = self._interceptor.pre_list_locations(request, metadata)
+            transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseListLocations._get_transcoded_request(
+                http_options, request
+            )
+
+            # Jsonify the query params
+            query_params = _BaseLiveVideoAnalyticsRestTransport._BaseListLocations._get_query_params_json(
+                transcoded_request
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = json_format.MessageToJson(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.visionai_v1.LiveVideoAnalyticsClient.ListLocations",
+                    extra={
+                        "serviceName": "google.cloud.visionai.v1.LiveVideoAnalytics",
+                        "rpcName": "ListLocations",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = LiveVideoAnalyticsRestTransport._ListLocations._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            content = response.content.decode("utf-8")
+            resp = locations_pb2.ListLocationsResponse()
+            resp = json_format.Parse(content, resp)
+            resp = self._interceptor.post_list_locations(resp)
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = json_format.MessageToJson(resp)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.visionai_v1.LiveVideoAnalyticsAsyncClient.ListLocations",
+                    extra={
+                        "serviceName": "google.cloud.visionai.v1.LiveVideoAnalytics",
+                        "rpcName": "ListLocations",
+                        "httpResponse": http_response,
+                        "metadata": http_response["headers"],
+                    },
+                )
+            return resp
+
+    @property
     def cancel_operation(self):
         return self._CancelOperation(self._session, self._host, self._interceptor)  # type: ignore
 
@@ -4280,9 +4583,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -4400,9 +4701,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -4518,9 +4817,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseGetOperation._get_transcoded_request(
@@ -4659,9 +4956,7 @@ class LiveVideoAnalyticsRestTransport(_BaseLiveVideoAnalyticsRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseLiveVideoAnalyticsRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseLiveVideoAnalyticsRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseLiveVideoAnalyticsRestTransport._BaseListOperations._get_transcoded_request(

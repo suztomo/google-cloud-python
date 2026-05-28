@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1.types import common
@@ -51,7 +51,8 @@ class Condition(proto.Message):
             Optional. Query regex to match the whole search query.
             Cannot be set when
             [Condition.query_terms][google.cloud.discoveryengine.v1.Condition.query_terms]
-            is set. This is currently supporting promotion use case.
+            is set. Only supported for Basic Site Search promotion
+            serving controls.
     """
 
     class QueryTerm(proto.Message):
@@ -156,7 +157,6 @@ class Control(proto.Message):
         promote_action (google.cloud.discoveryengine_v1.types.Control.PromoteAction):
             Promote certain links based on predefined
             trigger queries.
-            This now only supports basic site search.
 
             This field is a member of `oneof`_ ``action``.
         name (str):
@@ -282,6 +282,7 @@ class Control(proto.Message):
                         ``[nD][T[nH][nM][nS]]``. For example, ``5D``, ``3DT12H30M``,
                         ``T24H``.
                 """
+
                 ATTRIBUTE_TYPE_UNSPECIFIED = 0
                 NUMERICAL = 1
                 FRESHNESS = 2
@@ -298,6 +299,7 @@ class Control(proto.Message):
                         Piecewise linear interpolation will be
                         applied.
                 """
+
                 INTERPOLATION_TYPE_UNSPECIFIED = 0
                 LINEAR = 1
 

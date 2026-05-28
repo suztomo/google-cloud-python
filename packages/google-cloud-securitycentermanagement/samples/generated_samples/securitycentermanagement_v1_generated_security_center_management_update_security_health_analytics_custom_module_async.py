@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,17 @@ async def sample_update_security_health_analytics_custom_module():
     client = securitycentermanagement_v1.SecurityCenterManagementAsyncClient()
 
     # Initialize request argument(s)
-    request = securitycentermanagement_v1.UpdateSecurityHealthAnalyticsCustomModuleRequest(
+    request = (
+        securitycentermanagement_v1.UpdateSecurityHealthAnalyticsCustomModuleRequest()
     )
 
     # Make the request
-    response = await client.update_security_health_analytics_custom_module(request=request)
+    response = await client.update_security_health_analytics_custom_module(
+        request=request
+    )
 
     # Handle the response
     print(response)
+
 
 # [END securitycentermanagement_v1_generated_SecurityCenterManagement_UpdateSecurityHealthAnalyticsCustomModule_async]

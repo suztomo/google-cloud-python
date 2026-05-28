@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.mapsplatformdatasets_v1.types import data_source
@@ -43,6 +43,7 @@ class Usage(proto.Enum):
             This dataset will be used for data driven
             styling.
     """
+
     USAGE_UNSPECIFIED = 0
     USAGE_DATA_DRIVEN_STYLING = 1
 
@@ -209,6 +210,7 @@ class Status(proto.Message):
                 the dataset being available for its specific
                 usage.
         """
+
         STATE_UNSPECIFIED = 0
         STATE_IMPORTING = 1
         STATE_IMPORT_SUCCEEDED = 2

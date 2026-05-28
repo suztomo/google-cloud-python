@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataplex_v1.types import security
@@ -397,11 +397,11 @@ class CreateDataTaxonomyRequest(proto.Message):
         data_taxonomy_id (str):
             Required. DataTaxonomy identifier.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the Project.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the Project.
         data_taxonomy (google.cloud.dataplex_v1.types.DataTaxonomy):
             Required. DataTaxonomy resource.
         validate_only (bool):
@@ -479,7 +479,7 @@ class ListDataTaxonomiesRequest(proto.Message):
         parent (str):
             Required. The resource name of the DataTaxonomy location, of
             the form: projects/{project_number}/locations/{location_id}
-            where ``location_id`` refers to a GCP region.
+            where ``location_id`` refers to a Google Cloud region.
         page_size (int):
             Optional. Maximum number of DataTaxonomies to
             return. The service may return fewer than this
@@ -588,11 +588,11 @@ class CreateDataAttributeRequest(proto.Message):
         data_attribute_id (str):
             Required. DataAttribute identifier.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the DataTaxonomy.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the DataTaxonomy.
         data_attribute (google.cloud.dataplex_v1.types.DataAttribute):
             Required. DataAttribute resource.
         validate_only (bool):
@@ -779,11 +779,11 @@ class CreateDataAttributeBindingRequest(proto.Message):
         data_attribute_binding_id (str):
             Required. DataAttributeBinding identifier.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the Location.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the Location.
         data_attribute_binding (google.cloud.dataplex_v1.types.DataAttributeBinding):
             Required. DataAttributeBinding resource.
         validate_only (bool):
@@ -928,12 +928,12 @@ class ListDataAttributeBindingsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    data_attribute_bindings: MutableSequence[
-        "DataAttributeBinding"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="DataAttributeBinding",
+    data_attribute_bindings: MutableSequence["DataAttributeBinding"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="DataAttributeBinding",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

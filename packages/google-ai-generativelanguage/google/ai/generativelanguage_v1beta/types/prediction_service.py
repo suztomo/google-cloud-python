@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import struct_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -30,7 +30,7 @@ __protobuf__ = proto.module(
         "PredictLongRunningMetadata",
         "Media",
         "Video",
-        "GenerateVideoResponse",
+        "PredictLongRunningGeneratedVideoResponse",
     },
 )
 
@@ -119,18 +119,18 @@ class PredictLongRunningResponse(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
-        generate_video_response (google.ai.generativelanguage_v1beta.types.GenerateVideoResponse):
+        generate_video_response (google.ai.generativelanguage_v1beta.types.PredictLongRunningGeneratedVideoResponse):
             The response of the video generation
             prediction.
 
             This field is a member of `oneof`_ ``response``.
     """
 
-    generate_video_response: "GenerateVideoResponse" = proto.Field(
+    generate_video_response: "PredictLongRunningGeneratedVideoResponse" = proto.Field(
         proto.MESSAGE,
         number=1,
         oneof="response",
-        message="GenerateVideoResponse",
+        message="PredictLongRunningGeneratedVideoResponse",
     )
 
 
@@ -192,7 +192,7 @@ class Video(proto.Message):
     )
 
 
-class GenerateVideoResponse(proto.Message):
+class PredictLongRunningGeneratedVideoResponse(proto.Message):
     r"""Veo response.
 
     Attributes:

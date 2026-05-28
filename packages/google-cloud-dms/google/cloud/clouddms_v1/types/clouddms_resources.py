@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -70,6 +70,7 @@ class NetworkArchitecture(proto.Enum):
             Instance is in Cloud SQL's new producer
             network architecture.
     """
+
     NETWORK_ARCHITECTURE_UNSPECIFIED = 0
     NETWORK_ARCHITECTURE_OLD_CSQL_PRODUCER = 1
     NETWORK_ARCHITECTURE_NEW_CSQL_PRODUCER = 2
@@ -89,6 +90,7 @@ class DatabaseEngine(proto.Enum):
         ORACLE (4):
             The source engine is Oracle.
     """
+
     DATABASE_ENGINE_UNSPECIFIED = 0
     MYSQL = 1
     POSTGRESQL = 2
@@ -110,6 +112,7 @@ class DatabaseProvider(proto.Enum):
         ALLOYDB (4):
             AlloyDB.
     """
+
     DATABASE_PROVIDER_UNSPECIFIED = 0
     CLOUDSQL = 1
     RDS = 2
@@ -154,6 +157,7 @@ class SslConfig(proto.Message):
                 Both server ('ca_certificate'), and client ('client_key',
                 'client_certificate') specified.
         """
+
         SSL_TYPE_UNSPECIFIED = 0
         SERVER_ONLY = 1
         SERVER_CLIENT = 2
@@ -388,9 +392,9 @@ class OracleConnectionProfile(proto.Message):
             SSL configuration for the connection to the source Oracle
             database.
 
-            -  Only ``SERVER_ONLY`` configuration is supported for
-               Oracle SSL.
-            -  SSL is supported for Oracle versions 12 and above.
+            - Only ``SERVER_ONLY`` configuration is supported for Oracle
+              SSL.
+            - SSL is supported for Oracle versions 12 and above.
         static_service_ip_connectivity (google.cloud.clouddms_v1.types.StaticServiceIpConnectivity):
             Static Service IP connectivity.
 
@@ -721,10 +725,10 @@ class CloudSqlSettings(proto.Message):
         availability_type (google.cloud.clouddms_v1.types.CloudSqlSettings.SqlAvailabilityType):
             Optional. Availability type. Potential values:
 
-            -  ``ZONAL``: The instance serves data from only one zone.
-               Outages in that zone affect data availability.
-            -  ``REGIONAL``: The instance can serve data from more than
-               one zone in a region (it is highly available).
+            - ``ZONAL``: The instance serves data from only one zone.
+              Outages in that zone affect data availability.
+            - ``REGIONAL``: The instance can serve data from more than
+              one zone in a region (it is highly available).
         edition (google.cloud.clouddms_v1.types.CloudSqlSettings.Edition):
             Optional. The edition of the given Cloud SQL
             instance.
@@ -741,6 +745,7 @@ class CloudSqlSettings(proto.Message):
             NEVER (2):
                 The instance should never spin up.
         """
+
         SQL_ACTIVATION_POLICY_UNSPECIFIED = 0
         ALWAYS = 1
         NEVER = 2
@@ -756,6 +761,7 @@ class CloudSqlSettings(proto.Message):
             PD_HDD (2):
                 HDD disk.
         """
+
         SQL_DATA_DISK_TYPE_UNSPECIFIED = 0
         PD_SSD = 1
         PD_HDD = 2
@@ -787,6 +793,7 @@ class CloudSqlSettings(proto.Message):
             POSTGRES_15 (18):
                 PostgreSQL 15.
         """
+
         SQL_DATABASE_VERSION_UNSPECIFIED = 0
         MYSQL_5_6 = 1
         MYSQL_5_7 = 2
@@ -810,6 +817,7 @@ class CloudSqlSettings(proto.Message):
             REGIONAL (2):
                 Regional availability instance.
         """
+
         SQL_AVAILABILITY_TYPE_UNSPECIFIED = 0
         ZONAL = 1
         REGIONAL = 2
@@ -826,6 +834,7 @@ class CloudSqlSettings(proto.Message):
             ENTERPRISE_PLUS (3):
                 The instance is an enterprise plus edition.
         """
+
         EDITION_UNSPECIFIED = 0
         ENTERPRISE = 2
         ENTERPRISE_PLUS = 3
@@ -1367,14 +1376,14 @@ class MigrationJob(proto.Message):
             key name used for the migration job. This field supports all
             migration jobs types except for:
 
-            -  Mysql to Mysql (use the cmek field in the cloudsql
-               connection profile instead).
-            -  PostrgeSQL to PostgreSQL (use the cmek field in the
-               cloudsql connection profile instead).
-            -  PostgreSQL to AlloyDB (use the kms_key_name field in the
-               alloydb connection profile instead). Each Cloud CMEK key
-               has the following format:
-               projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]
+            - Mysql to Mysql (use the cmek field in the cloudsql
+              connection profile instead).
+            - PostrgeSQL to PostgreSQL (use the cmek field in the
+              cloudsql connection profile instead).
+            - PostgreSQL to AlloyDB (use the kms_key_name field in the
+              alloydb connection profile instead). Each Cloud CMEK key
+              has the following format:
+              projects/[PROJECT]/locations/[REGION]/keyRings/[RING]/cryptoKeys/[KEY_NAME]
         performance_config (google.cloud.clouddms_v1.types.MigrationJob.PerformanceConfig):
             Optional. Data dump parallelism settings used
             by the migration. Currently applicable only for
@@ -1419,6 +1428,7 @@ class MigrationJob(proto.Message):
             RESUMING (15):
                 The migration job is resuming.
         """
+
         STATE_UNSPECIFIED = 0
         MAINTENANCE = 1
         DRAFT = 2
@@ -1456,6 +1466,7 @@ class MigrationJob(proto.Message):
                 Only RDS flow - the sources writes stopped,
                 waiting for dump to begin
         """
+
         PHASE_UNSPECIFIED = 0
         FULL_DUMP = 1
         CDC = 2
@@ -1474,6 +1485,7 @@ class MigrationJob(proto.Message):
             CONTINUOUS (2):
                 The migration job is a continuous migration.
         """
+
         TYPE_UNSPECIFIED = 0
         ONE_TIME = 1
         CONTINUOUS = 2
@@ -1533,6 +1545,7 @@ class MigrationJob(proto.Message):
                 MAX (3):
                     Maximum parallel level.
             """
+
             DUMP_PARALLEL_LEVEL_UNSPECIFIED = 0
             MIN = 1
             OPTIMAL = 2
@@ -1775,6 +1788,7 @@ class ConnectionProfile(proto.Message):
                 The last action on the connection profile
                 failed.
         """
+
         STATE_UNSPECIFIED = 0
         DRAFT = 1
         CREATING = 2
@@ -1951,6 +1965,7 @@ class MigrationJobVerificationError(proto.Message):
                 Insufficient privilege to enable the
                 parallelism configuration.
         """
+
         ERROR_CODE_UNSPECIFIED = 0
         CONNECTION_FAILURE = 1
         AUTHENTICATION_FAILURE = 2
@@ -2054,6 +2069,7 @@ class PrivateConnection(proto.Message):
             DELETED (6):
                 The private connection has been deleted.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         CREATED = 2

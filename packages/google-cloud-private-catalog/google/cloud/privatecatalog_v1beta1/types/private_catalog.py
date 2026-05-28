@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.longrunning.operations_pb2 as operations_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -51,13 +51,13 @@ class SearchCatalogsRequest(proto.Message):
             Required. The name of the resource context. It can be in
             following formats:
 
-            -  ``projects/{project}``
-            -  ``folders/{folder}``
-            -  ``organizations/{organization}``
+            - ``projects/{project}``
+            - ``folders/{folder}``
+            - ``organizations/{organization}``
         query (str):
             The query to filter the catalogs. The supported queries are:
 
-            -  Get a single catalog: ``name=catalogs/{catalog}``
+            - Get a single catalog: ``name=catalogs/{catalog}``
         page_size (int):
             The maximum number of entries that are
             requested.
@@ -127,11 +127,11 @@ class SearchProductsRequest(proto.Message):
 
             The supported queries are:
 
-            -  List products of all catalogs: empty
-            -  List products under a catalog:
-               ``parent=catalogs/{catalog}``
-            -  Get a product by name:
-               ``name=catalogs/{catalog}/products/{product}``
+            - List products of all catalogs: empty
+            - List products under a catalog:
+              ``parent=catalogs/{catalog}``
+            - Get a product by name:
+              ``name=catalogs/{catalog}/products/{product}``
         page_size (int):
             The maximum number of entries that are
             requested.
@@ -202,10 +202,10 @@ class SearchVersionsRequest(proto.Message):
 
             The supported queries are:
 
-            -  List versions under a product:
-               ``parent=catalogs/{catalog}/products/{product}``
-            -  Get a version by name:
-               ``name=catalogs/{catalog}/products/{product}/versions/{version}``
+            - List versions under a product:
+              ``parent=catalogs/{catalog}/products/{product}``
+            - Get a version by name:
+              ``name=catalogs/{catalog}/products/{product}/versions/{version}``
         page_size (int):
             The maximum number of entries that are
             requested.
@@ -321,9 +321,9 @@ class Product(proto.Message):
             Output only. The type of the product asset. It can be one of
             the following values:
 
-            -  ``google.deploymentmanager.Template``
-            -  ``google.cloudprivatecatalog.ListingOnly``
-            -  ``google.cloudprivatecatalog.Terraform``
+            - ``google.deploymentmanager.Template``
+            - ``google.cloudprivatecatalog.ListingOnly``
+            - ``google.cloudprivatecatalog.Terraform``
         display_metadata (google.protobuf.struct_pb2.Struct):
             Required. Output only. The display metadata to describe the
             product. The JSON schema of the metadata differs by
@@ -599,6 +599,7 @@ class AssetReference(proto.Message):
                 The validation is done and the asset
                 reference is invalid.
         """
+
         ASSET_VALIDATION_STATE_UNSPECIFIED = 0
         PENDING = 1
         VALID = 2

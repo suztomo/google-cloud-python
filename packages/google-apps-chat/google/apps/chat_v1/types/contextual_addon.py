@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@ class ContextualAddOnMarkup(proto.Message):
                     AVATAR (2):
                         Circular border.
                 """
+
                 IMAGE_STYLE_UNSPECIFIED = 0
                 IMAGE = 1
                 AVATAR = 2
@@ -164,19 +165,19 @@ class ContextualAddOnMarkup(proto.Message):
             number=1,
             message="ContextualAddOnMarkup.Card.CardHeader",
         )
-        sections: MutableSequence[
-            "ContextualAddOnMarkup.Card.Section"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="ContextualAddOnMarkup.Card.Section",
+        sections: MutableSequence["ContextualAddOnMarkup.Card.Section"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="ContextualAddOnMarkup.Card.Section",
+            )
         )
-        card_actions: MutableSequence[
-            "ContextualAddOnMarkup.Card.CardAction"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="ContextualAddOnMarkup.Card.CardAction",
+        card_actions: MutableSequence["ContextualAddOnMarkup.Card.CardAction"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="ContextualAddOnMarkup.Card.CardAction",
+            )
         )
         name: str = proto.Field(
             proto.STRING,

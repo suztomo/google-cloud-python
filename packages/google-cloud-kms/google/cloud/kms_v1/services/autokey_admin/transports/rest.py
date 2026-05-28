@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -415,13 +417,15 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
 
     Provides interfaces for managing `Cloud KMS
     Autokey <https://cloud.google.com/kms/help/autokey>`__ folder-level
-    configurations. A configuration is inherited by all descendent
-    projects. A configuration at one folder overrides any other
-    configurations in its ancestry. Setting a configuration on a folder
-    is a prerequisite for Cloud KMS Autokey, so that users working in a
-    descendant project can request provisioned
-    [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for Customer
-    Managed Encryption Key (CMEK) use, on-demand.
+    or project-level configurations. A configuration is inherited by all
+    descendent folders and projects. A configuration at a folder or
+    project overrides any other configurations in its ancestry. Setting
+    a configuration on a folder is a prerequisite for Cloud KMS Autokey,
+    so that users working in a descendant project can request
+    provisioned [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for
+    Customer Managed Encryption Key (CMEK) use, on-demand when using the
+    dedicated key project mode. This is not required when using the
+    delegated key management mode for same-project keys.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -456,9 +460,10 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -476,6 +481,12 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[AutokeyAdminRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -705,9 +716,7 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
 
             """
 
-            http_options = (
-                _BaseAutokeyAdminRestTransport._BaseShowEffectiveAutokeyConfig._get_http_options()
-            )
+            http_options = _BaseAutokeyAdminRestTransport._BaseShowEffectiveAutokeyConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_show_effective_autokey_config(
                 request, metadata
@@ -773,11 +782,10 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
 
             resp = self._interceptor.post_show_effective_autokey_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_show_effective_autokey_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_show_effective_autokey_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -864,9 +872,7 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
 
             """
 
-            http_options = (
-                _BaseAutokeyAdminRestTransport._BaseUpdateAutokeyConfig._get_http_options()
-            )
+            http_options = _BaseAutokeyAdminRestTransport._BaseUpdateAutokeyConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_autokey_config(
                 request, metadata
@@ -978,7 +984,9 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ShowEffectiveAutokeyConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ShowEffectiveAutokeyConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_autokey_config(
@@ -1624,9 +1632,7 @@ class AutokeyAdminRestTransport(_BaseAutokeyAdminRestTransport):
                 iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
             """
 
-            http_options = (
-                _BaseAutokeyAdminRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseAutokeyAdminRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata

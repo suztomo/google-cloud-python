@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,15 +17,15 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
-from google.api_core import exceptions as core_exceptions
-from google.api_core import gapic_v1
-from google.api_core import retry as retries
 import google.auth  # type: ignore
+import google.protobuf
+from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1
+from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.apihub_v1 import gapic_version as package_version
 from google.cloud.apihub_v1.types import plugin_service
@@ -68,9 +68,10 @@ class ApiHubPluginTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -81,9 +82,11 @@ class ApiHubPluginTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -99,11 +102,16 @@ class ApiHubPluginTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -126,6 +134,8 @@ class ApiHubPluginTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -156,6 +166,61 @@ class ApiHubPluginTransport(abc.ABC):
             self.disable_plugin: gapic_v1.method.wrap_method(
                 self.disable_plugin,
                 default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.create_plugin: gapic_v1.method.wrap_method(
+                self.create_plugin,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_plugins: gapic_v1.method.wrap_method(
+                self.list_plugins,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_plugin: gapic_v1.method.wrap_method(
+                self.delete_plugin,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.create_plugin_instance: gapic_v1.method.wrap_method(
+                self.create_plugin_instance,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.execute_plugin_instance_action: gapic_v1.method.wrap_method(
+                self.execute_plugin_instance_action,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.get_plugin_instance: gapic_v1.method.wrap_method(
+                self.get_plugin_instance,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_plugin_instances: gapic_v1.method.wrap_method(
+                self.list_plugin_instances,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.enable_plugin_instance_action: gapic_v1.method.wrap_method(
+                self.enable_plugin_instance_action,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.disable_plugin_instance_action: gapic_v1.method.wrap_method(
+                self.disable_plugin_instance_action,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.update_plugin_instance: gapic_v1.method.wrap_method(
+                self.update_plugin_instance,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.delete_plugin_instance: gapic_v1.method.wrap_method(
+                self.delete_plugin_instance,
+                default_timeout=None,
                 client_info=client_info,
             ),
             self.get_location: gapic_v1.method.wrap_method(
@@ -200,6 +265,11 @@ class ApiHubPluginTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def operations_client(self):
+        """Return the client designed to process long-running operations."""
+        raise NotImplementedError()
+
+    @property
     def get_plugin(
         self,
     ) -> Callable[
@@ -227,6 +297,111 @@ class ApiHubPluginTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def create_plugin(
+        self,
+    ) -> Callable[
+        [plugin_service.CreatePluginRequest],
+        Union[plugin_service.Plugin, Awaitable[plugin_service.Plugin]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_plugins(
+        self,
+    ) -> Callable[
+        [plugin_service.ListPluginsRequest],
+        Union[
+            plugin_service.ListPluginsResponse,
+            Awaitable[plugin_service.ListPluginsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_plugin(
+        self,
+    ) -> Callable[
+        [plugin_service.DeletePluginRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def create_plugin_instance(
+        self,
+    ) -> Callable[
+        [plugin_service.CreatePluginInstanceRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def execute_plugin_instance_action(
+        self,
+    ) -> Callable[
+        [plugin_service.ExecutePluginInstanceActionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_plugin_instance(
+        self,
+    ) -> Callable[
+        [plugin_service.GetPluginInstanceRequest],
+        Union[plugin_service.PluginInstance, Awaitable[plugin_service.PluginInstance]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_plugin_instances(
+        self,
+    ) -> Callable[
+        [plugin_service.ListPluginInstancesRequest],
+        Union[
+            plugin_service.ListPluginInstancesResponse,
+            Awaitable[plugin_service.ListPluginInstancesResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def enable_plugin_instance_action(
+        self,
+    ) -> Callable[
+        [plugin_service.EnablePluginInstanceActionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def disable_plugin_instance_action(
+        self,
+    ) -> Callable[
+        [plugin_service.DisablePluginInstanceActionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def update_plugin_instance(
+        self,
+    ) -> Callable[
+        [plugin_service.UpdatePluginInstanceRequest],
+        Union[plugin_service.PluginInstance, Awaitable[plugin_service.PluginInstance]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_plugin_instance(
+        self,
+    ) -> Callable[
+        [plugin_service.DeletePluginInstanceRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list_operations(
         self,
     ) -> Callable[
@@ -250,13 +425,19 @@ class ApiHubPluginTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property
     def delete_operation(
         self,
-    ) -> Callable[[operations_pb2.DeleteOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.DeleteOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

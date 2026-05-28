@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ from google.cloud.kms_v1.services.autokey_admin.async_client import (
 from google.cloud.kms_v1.services.autokey_admin.client import AutokeyAdminClient
 from google.cloud.kms_v1.services.ekm_service.async_client import EkmServiceAsyncClient
 from google.cloud.kms_v1.services.ekm_service.client import EkmServiceClient
+from google.cloud.kms_v1.services.hsm_management.async_client import (
+    HsmManagementAsyncClient,
+)
+from google.cloud.kms_v1.services.hsm_management.client import HsmManagementClient
 from google.cloud.kms_v1.services.key_management_service.async_client import (
     KeyManagementServiceAsyncClient,
 )
@@ -61,6 +65,28 @@ from google.cloud.kms_v1.types.ekm_service import (
     VerifyConnectivityRequest,
     VerifyConnectivityResponse,
 )
+from google.cloud.kms_v1.types.hsm_management import (
+    ApproveSingleTenantHsmInstanceProposalRequest,
+    ApproveSingleTenantHsmInstanceProposalResponse,
+    Challenge,
+    ChallengeReply,
+    CreateSingleTenantHsmInstanceMetadata,
+    CreateSingleTenantHsmInstanceProposalMetadata,
+    CreateSingleTenantHsmInstanceProposalRequest,
+    CreateSingleTenantHsmInstanceRequest,
+    DeleteSingleTenantHsmInstanceProposalRequest,
+    ExecuteSingleTenantHsmInstanceProposalMetadata,
+    ExecuteSingleTenantHsmInstanceProposalRequest,
+    ExecuteSingleTenantHsmInstanceProposalResponse,
+    GetSingleTenantHsmInstanceProposalRequest,
+    GetSingleTenantHsmInstanceRequest,
+    ListSingleTenantHsmInstanceProposalsRequest,
+    ListSingleTenantHsmInstanceProposalsResponse,
+    ListSingleTenantHsmInstancesRequest,
+    ListSingleTenantHsmInstancesResponse,
+    SingleTenantHsmInstance,
+    SingleTenantHsmInstanceProposal,
+)
 from google.cloud.kms_v1.types.resources import (
     AccessReason,
     ChecksummedData,
@@ -74,6 +100,7 @@ from google.cloud.kms_v1.types.resources import (
     KeyRing,
     ProtectionLevel,
     PublicKey,
+    RetiredResource,
 )
 from google.cloud.kms_v1.types.service import (
     AsymmetricDecryptRequest,
@@ -84,8 +111,14 @@ from google.cloud.kms_v1.types.service import (
     CreateCryptoKeyVersionRequest,
     CreateImportJobRequest,
     CreateKeyRingRequest,
+    DecapsulateRequest,
+    DecapsulateResponse,
     DecryptRequest,
     DecryptResponse,
+    DeleteCryptoKeyMetadata,
+    DeleteCryptoKeyRequest,
+    DeleteCryptoKeyVersionMetadata,
+    DeleteCryptoKeyVersionRequest,
     DestroyCryptoKeyVersionRequest,
     Digest,
     EncryptRequest,
@@ -97,6 +130,7 @@ from google.cloud.kms_v1.types.service import (
     GetImportJobRequest,
     GetKeyRingRequest,
     GetPublicKeyRequest,
+    GetRetiredResourceRequest,
     ImportCryptoKeyVersionRequest,
     ListCryptoKeysRequest,
     ListCryptoKeysResponse,
@@ -106,6 +140,8 @@ from google.cloud.kms_v1.types.service import (
     ListImportJobsResponse,
     ListKeyRingsRequest,
     ListKeyRingsResponse,
+    ListRetiredResourcesRequest,
+    ListRetiredResourcesResponse,
     LocationMetadata,
     MacSignRequest,
     MacSignResponse,
@@ -128,6 +164,8 @@ __all__ = (
     "AutokeyAdminAsyncClient",
     "EkmServiceClient",
     "EkmServiceAsyncClient",
+    "HsmManagementClient",
+    "HsmManagementAsyncClient",
     "KeyManagementServiceClient",
     "KeyManagementServiceAsyncClient",
     "CreateKeyHandleMetadata",
@@ -153,6 +191,26 @@ __all__ = (
     "UpdateEkmConnectionRequest",
     "VerifyConnectivityRequest",
     "VerifyConnectivityResponse",
+    "ApproveSingleTenantHsmInstanceProposalRequest",
+    "ApproveSingleTenantHsmInstanceProposalResponse",
+    "Challenge",
+    "ChallengeReply",
+    "CreateSingleTenantHsmInstanceMetadata",
+    "CreateSingleTenantHsmInstanceProposalMetadata",
+    "CreateSingleTenantHsmInstanceProposalRequest",
+    "CreateSingleTenantHsmInstanceRequest",
+    "DeleteSingleTenantHsmInstanceProposalRequest",
+    "ExecuteSingleTenantHsmInstanceProposalMetadata",
+    "ExecuteSingleTenantHsmInstanceProposalRequest",
+    "ExecuteSingleTenantHsmInstanceProposalResponse",
+    "GetSingleTenantHsmInstanceProposalRequest",
+    "GetSingleTenantHsmInstanceRequest",
+    "ListSingleTenantHsmInstanceProposalsRequest",
+    "ListSingleTenantHsmInstanceProposalsResponse",
+    "ListSingleTenantHsmInstancesRequest",
+    "ListSingleTenantHsmInstancesResponse",
+    "SingleTenantHsmInstance",
+    "SingleTenantHsmInstanceProposal",
     "ChecksummedData",
     "CryptoKey",
     "CryptoKeyVersion",
@@ -163,6 +221,7 @@ __all__ = (
     "KeyOperationAttestation",
     "KeyRing",
     "PublicKey",
+    "RetiredResource",
     "AccessReason",
     "ProtectionLevel",
     "AsymmetricDecryptRequest",
@@ -173,8 +232,14 @@ __all__ = (
     "CreateCryptoKeyVersionRequest",
     "CreateImportJobRequest",
     "CreateKeyRingRequest",
+    "DecapsulateRequest",
+    "DecapsulateResponse",
     "DecryptRequest",
     "DecryptResponse",
+    "DeleteCryptoKeyMetadata",
+    "DeleteCryptoKeyRequest",
+    "DeleteCryptoKeyVersionMetadata",
+    "DeleteCryptoKeyVersionRequest",
     "DestroyCryptoKeyVersionRequest",
     "Digest",
     "EncryptRequest",
@@ -186,6 +251,7 @@ __all__ = (
     "GetImportJobRequest",
     "GetKeyRingRequest",
     "GetPublicKeyRequest",
+    "GetRetiredResourceRequest",
     "ImportCryptoKeyVersionRequest",
     "ListCryptoKeysRequest",
     "ListCryptoKeysResponse",
@@ -195,6 +261,8 @@ __all__ = (
     "ListImportJobsResponse",
     "ListKeyRingsRequest",
     "ListKeyRingsResponse",
+    "ListRetiredResourcesRequest",
+    "ListRetiredResourcesResponse",
     "LocationMetadata",
     "MacSignRequest",
     "MacSignResponse",

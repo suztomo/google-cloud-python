@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -351,6 +351,7 @@ class TeradataDialect(proto.Message):
             BTEQ (2):
                 BTEQ mode (which includes SQL).
         """
+
         MODE_UNSPECIFIED = 0
         SQL = 1
         BTEQ = 2
@@ -499,6 +500,7 @@ class NameMappingKey(proto.Message):
             FUNCTION (7):
                 The object being mapped is a function.
         """
+
         TYPE_UNSPECIFIED = 0
         DATABASE = 1
         SCHEMA = 2

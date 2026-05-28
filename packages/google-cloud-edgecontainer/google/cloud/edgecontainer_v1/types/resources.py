@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -65,6 +65,7 @@ class KmsKeyState(proto.Enum):
             The key is unavailable for an unspecified
             reason. Dependent resources may be inaccessible.
     """
+
     KMS_KEY_STATE_UNSPECIFIED = 0
     KMS_KEY_STATE_KEY_AVAILABLE = 1
     KMS_KEY_STATE_KEY_UNAVAILABLE = 2
@@ -81,6 +82,7 @@ class ResourceState(proto.Enum):
         RESOURCE_STATE_LOCK_DOWN_PENDING (2):
             The resource is pending lock down.
     """
+
     RESOURCE_STATE_UNSPECIFIED = 0
     RESOURCE_STATE_LOCK_DOWN = 1
     RESOURCE_STATE_LOCK_DOWN_PENDING = 2
@@ -192,6 +194,7 @@ class Cluster(proto.Message):
                 The cluster is undergoing some work such as
                 version upgrades, etc.
         """
+
         STATUS_UNSPECIFIED = 0
         PROVISIONING = 1
         RUNNING = 2
@@ -211,6 +214,7 @@ class Cluster(proto.Message):
             REGULAR (2):
                 Regular release channel.
         """
+
         RELEASE_CHANNEL_UNSPECIFIED = 0
         NONE = 1
         REGULAR = 2
@@ -260,6 +264,7 @@ class Cluster(proto.Message):
                     control plane nodes and can only be deployed on
                     worker nodes.
             """
+
             SHARED_DEPLOYMENT_POLICY_UNSPECIFIED = 0
             ALLOWED = 1
             DISALLOWED = 2
@@ -472,7 +477,7 @@ class Cluster(proto.Message):
             operation (str):
                 Output only. The operation for running the maintenance
                 event. Specified in the format
-                `projects/*/locations/*/operations/*.` If the maintenance
+                projects/*/locations/*/operations/\*. If the maintenance
                 event is split into multiple operations (e.g. due to
                 maintenance windows), the latest one is recorded.
             type_ (google.cloud.edgecontainer_v1.types.Cluster.MaintenanceEvent.Type):
@@ -511,6 +516,7 @@ class Cluster(proto.Message):
                 GOOGLE_DRIVEN_UPGRADE (2):
                     Upgrade driven by Google.
             """
+
             TYPE_UNSPECIFIED = 0
             USER_INITIATED_UPGRADE = 1
             GOOGLE_DRIVEN_UPGRADE = 2
@@ -524,6 +530,7 @@ class Cluster(proto.Message):
                 IMMEDIATELY (1):
                     Immediately after receiving the request.
             """
+
             SCHEDULE_UNSPECIFIED = 0
             IMMEDIATELY = 1
 
@@ -541,6 +548,7 @@ class Cluster(proto.Message):
                 FAILED (3):
                     The maintenance event failed.
             """
+
             STATE_UNSPECIFIED = 0
             RECONCILING = 1
             SUCCEEDED = 2
@@ -642,6 +650,7 @@ class Cluster(proto.Message):
                     Google, but may have recently reconnected after
                     a disconnection. It is still syncing back.
             """
+
             STATE_UNSPECIFIED = 0
             DISCONNECTED = 1
             CONNECTED = 2
@@ -731,11 +740,11 @@ class Cluster(proto.Message):
         number=16,
         message=SystemAddonsConfig,
     )
-    external_load_balancer_ipv4_address_pools: MutableSequence[
-        str
-    ] = proto.RepeatedField(
-        proto.STRING,
-        number=17,
+    external_load_balancer_ipv4_address_pools: MutableSequence[str] = (
+        proto.RepeatedField(
+            proto.STRING,
+            number=17,
+        )
     )
     control_plane_encryption: ControlPlaneEncryption = proto.Field(
         proto.MESSAGE,
@@ -766,11 +775,11 @@ class Cluster(proto.Message):
         number=24,
         message=SurvivabilityConfig,
     )
-    external_load_balancer_ipv6_address_pools: MutableSequence[
-        str
-    ] = proto.RepeatedField(
-        proto.STRING,
-        number=25,
+    external_load_balancer_ipv6_address_pools: MutableSequence[str] = (
+        proto.RepeatedField(
+            proto.STRING,
+            number=25,
+        )
     )
     connection_state: ConnectionState = proto.Field(
         proto.MESSAGE,
@@ -1165,6 +1174,7 @@ class VpnConnection(proto.Message):
             GLOBAL (2):
                 Global mode.
         """
+
         BGP_ROUTING_MODE_UNSPECIFIED = 0
         REGIONAL = 1
         GLOBAL = 2
@@ -1219,6 +1229,7 @@ class VpnConnection(proto.Message):
                 STATE_ERROR (3):
                     Error occurred.
             """
+
             STATE_UNSPECIFIED = 0
             STATE_CONNECTED = 1
             STATE_CONNECTING = 2
@@ -1264,12 +1275,12 @@ class VpnConnection(proto.Message):
             number=3,
             message="VpnConnection.Details.CloudRouter",
         )
-        cloud_vpns: MutableSequence[
-            "VpnConnection.Details.CloudVpn"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="VpnConnection.Details.CloudVpn",
+        cloud_vpns: MutableSequence["VpnConnection.Details.CloudVpn"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="VpnConnection.Details.CloudVpn",
+            )
         )
 
     name: str = proto.Field(
@@ -1375,6 +1386,7 @@ class ZoneMetadata(proto.Message):
                 Expansion rack type, also known as standalone
                 racks, added by customers on demand.
         """
+
         RACK_TYPE_UNSPECIFIED = 0
         BASE = 1
         EXPANSION = 2
@@ -1466,12 +1478,12 @@ class MaintenancePolicy(proto.Message):
         number=1,
         message="MaintenanceWindow",
     )
-    maintenance_exclusions: MutableSequence[
-        "MaintenanceExclusionWindow"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="MaintenanceExclusionWindow",
+    maintenance_exclusions: MutableSequence["MaintenanceExclusionWindow"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="MaintenanceExclusionWindow",
+        )
     )
 
 

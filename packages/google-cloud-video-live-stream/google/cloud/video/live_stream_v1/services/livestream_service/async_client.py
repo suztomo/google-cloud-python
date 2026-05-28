@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.video.live_stream_v1 import gapic_version as package_version
 
@@ -44,14 +44,14 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.video.live_stream_v1.services.livestream_service import pagers
 from google.cloud.video.live_stream_v1.types import outputs, resources, service
@@ -148,7 +148,10 @@ class LivestreamServiceAsyncClient:
         Returns:
             LivestreamServiceAsyncClient: The constructed client.
         """
-        return LivestreamServiceClient.from_service_account_info.__func__(LivestreamServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            LivestreamServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(LivestreamServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -164,7 +167,10 @@ class LivestreamServiceAsyncClient:
         Returns:
             LivestreamServiceAsyncClient: The constructed client.
         """
-        return LivestreamServiceClient.from_service_account_file.__func__(LivestreamServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            LivestreamServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(LivestreamServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -214,7 +220,7 @@ class LivestreamServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -362,11 +368,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_channel(request=request)
+                operation = await client.create_channel(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -391,8 +397,12 @@ class LivestreamServiceAsyncClient:
                 should not be set.
             channel_id (:class:`str`):
                 Required. The ID of the channel resource to be created.
-                This value must be 1-63 characters, begin and end with
-                ``[a-z0-9]``, could contain dashes (-) in between.
+
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``channel_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -755,11 +765,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_channel(request=request)
+                operation = await client.delete_channel(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -889,11 +899,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_channel(request=request)
+                operation = await client.update_channel(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -914,16 +924,16 @@ class LivestreamServiceAsyncClient:
                 overwritten in the Channel resource by the update. You
                 can only update the following fields:
 
-                -  ```inputAttachments`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#inputattachment>`__
-                -  ```inputConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#inputconfig>`__
-                -  ```output`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#output>`__
-                -  ```elementaryStreams`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#elementarystream>`__
-                -  ```muxStreams`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#muxstream>`__
-                -  ```manifests`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#manifest>`__
-                -  ```spriteSheets`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#spritesheet>`__
-                -  ```logConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#logconfig>`__
-                -  ```timecodeConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#timecodeconfig>`__
-                -  ```encryptions`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#encryption>`__
+                - ```inputAttachments`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#inputattachment>`__
+                - ```inputConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#inputconfig>`__
+                - ```output`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#output>`__
+                - ```elementaryStreams`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#elementarystream>`__
+                - ```muxStreams`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#muxstream>`__
+                - ```manifests`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#manifest>`__
+                - ```spriteSheets`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#spritesheet>`__
+                - ```logConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#logconfig>`__
+                - ```timecodeConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#timecodeconfig>`__
+                - ```encryptions`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.channels#encryption>`__
 
                 The fields specified in the update_mask are relative to
                 the resource, not the full request. A field will be
@@ -1052,11 +1062,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.start_channel(request=request)
+                operation = await client.start_channel(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1182,11 +1192,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.stop_channel(request=request)
+                operation = await client.stop_channel(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1278,6 +1288,289 @@ class LivestreamServiceAsyncClient:
         # Done; return the response.
         return response
 
+    async def start_distribution(
+        self,
+        request: Optional[Union[service.StartDistributionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        distribution_keys: Optional[MutableSequence[str]] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Starts distribution which delivers outputs to the
+        destination indicated by the Distribution configuration.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud.video import live_stream_v1
+
+            async def sample_start_distribution():
+                # Create a client
+                client = live_stream_v1.LivestreamServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = live_stream_v1.StartDistributionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.start_distribution(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.video.live_stream_v1.types.StartDistributionRequest, dict]]):
+                The request object. Request message for
+                "LivestreamService.StartDistribution".
+            name (:class:`str`):
+                Required. The name of the channel resource, in the form
+                of:
+                ``projects/{project}/locations/{location}/channels/{channelId}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            distribution_keys (:class:`MutableSequence[str]`):
+                Optional. A list of keys to identify
+                the distribution configuration in the
+                channel resource. If left empty, all the
+                distributions in the channel
+                specification will be started.
+
+                This corresponds to the ``distribution_keys`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.video.live_stream_v1.types.ChannelOperationResponse`
+                Response message for Start/Stop Channel long-running
+                operations.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name, distribution_keys]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, service.StartDistributionRequest):
+            request = service.StartDistributionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+        if distribution_keys:
+            request.distribution_keys.extend(distribution_keys)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.start_distribution
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            service.ChannelOperationResponse,
+            metadata_type=service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def stop_distribution(
+        self,
+        request: Optional[Union[service.StopDistributionRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        distribution_keys: Optional[MutableSequence[str]] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""Stops the specified distribution.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud.video import live_stream_v1
+
+            async def sample_stop_distribution():
+                # Create a client
+                client = live_stream_v1.LivestreamServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = live_stream_v1.StopDistributionRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                operation = await client.stop_distribution(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.video.live_stream_v1.types.StopDistributionRequest, dict]]):
+                The request object. Request message for
+                "LivestreamService.StopDistribution".
+            name (:class:`str`):
+                Required. The name of the channel resource, in the form
+                of:
+                ``projects/{project}/locations/{location}/channels/{channelId}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            distribution_keys (:class:`MutableSequence[str]`):
+                Optional. A list of key to identify
+                the distribution configuration in the
+                channel resource. If left empty, all the
+                distributions in the channel
+                specification will be stopped.
+
+                This corresponds to the ``distribution_keys`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.cloud.video.live_stream_v1.types.ChannelOperationResponse`
+                Response message for Start/Stop Channel long-running
+                operations.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name, distribution_keys]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, service.StopDistributionRequest):
+            request = service.StopDistributionRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+        if distribution_keys:
+            request.distribution_keys.extend(distribution_keys)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.stop_distribution
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            service.ChannelOperationResponse,
+            metadata_type=service.OperationMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def create_input(
         self,
         request: Optional[Union[service.CreateInputRequest, dict]] = None,
@@ -1314,11 +1607,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_input(request=request)
+                operation = await client.create_input(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1343,8 +1636,12 @@ class LivestreamServiceAsyncClient:
                 should not be set.
             input_id (:class:`str`):
                 Required. The ID of the input resource to be created.
-                This value must be 1-63 characters, begin and end with
-                ``[a-z0-9]``, could contain dashes (-) in between.
+
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``input_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1697,11 +1994,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_input(request=request)
+                operation = await client.delete_input(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1831,11 +2128,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_input(request=request)
+                operation = await client.update_input(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1856,9 +2153,9 @@ class LivestreamServiceAsyncClient:
                 overwritten in the Input resource by the update. You can
                 only update the following fields:
 
-                -  ```tier`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#Tier>`__
-                -  ```preprocessingConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#PreprocessingConfig>`__
-                -  ```securityRules`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#SecurityRule>`__
+                - ```tier`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#Tier>`__
+                - ```preprocessingConfig`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#PreprocessingConfig>`__
+                - ```securityRules`` <https://cloud.google.com/livestream/docs/reference/rest/v1/projects.locations.inputs#SecurityRule>`__
 
                 The fields specified in the update_mask are relative to
                 the resource, not the full request. A field will be
@@ -1949,6 +2246,118 @@ class LivestreamServiceAsyncClient:
         # Done; return the response.
         return response
 
+    async def preview_input(
+        self,
+        request: Optional[Union[service.PreviewInputRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> service.PreviewInputResponse:
+        r"""Preview the streaming content of the specified input.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud.video import live_stream_v1
+
+            async def sample_preview_input():
+                # Create a client
+                client = live_stream_v1.LivestreamServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = live_stream_v1.PreviewInputRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.preview_input(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.video.live_stream_v1.types.PreviewInputRequest, dict]]):
+                The request object. Request message for
+                "LivestreamService.PreviewInput".
+            name (:class:`str`):
+                Required. The name of the input resource, in the form
+                of:
+                ``projects/{project}/locations/{location}/inputs/{inputId}``.
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.video.live_stream_v1.types.PreviewInputResponse:
+                Response message for
+                "LivestreamService.PreviewInput"
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, service.PreviewInputRequest):
+            request = service.PreviewInputRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.preview_input
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def create_event(
         self,
         request: Optional[Union[service.CreateEventRequest, dict]] = None,
@@ -2011,8 +2420,12 @@ class LivestreamServiceAsyncClient:
                 should not be set.
             event_id (:class:`str`):
                 Required. The ID of the event resource to be created.
-                This value must be 1-63 characters, begin and end with
-                ``[a-z0-9]``, could contain dashes (-) in between.
+
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``event_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2706,11 +3119,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_clip(request=request)
+                operation = await client.create_clip(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2733,13 +3146,13 @@ class LivestreamServiceAsyncClient:
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             clip_id (:class:`str`):
-                Required. Id of the requesting object
-                in the following form:
+                Required. The ID of the clip resource to be created.
 
-                1. 1 character minimum, 63 characters
-                    maximum
-                2. Only contains letters, digits,
-                    underscores, and hyphens
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``clip_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2856,11 +3269,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_clip(request=request)
+                operation = await client.delete_clip(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2997,11 +3410,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_dvr_session(request=request)
+                operation = await client.create_dvr_session(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3024,13 +3437,14 @@ class LivestreamServiceAsyncClient:
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             dvr_session_id (:class:`str`):
-                Required. Id of the requesting object
-                in the following form:
+                Required. The ID of the DVR session resource to be
+                created.
 
-                1. 1 character minimum, 63 characters
-                    maximum
-                2. Only contains letters, digits,
-                    underscores, and hyphens
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``dvr_session_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3385,11 +3799,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_dvr_session(request=request)
+                operation = await client.delete_dvr_session(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3523,11 +3937,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_dvr_session(request=request)
+                operation = await client.update_dvr_session(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3548,7 +3962,7 @@ class LivestreamServiceAsyncClient:
                 overwritten in the DvrSession resource by the update.
                 You can only update the following fields:
 
-                -  ``dvrWindows``
+                - ``dvrWindows``
 
                 The fields specified in the update_mask are relative to
                 the resource, not the full request. A field will be
@@ -3671,11 +4085,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_asset(request=request)
+                operation = await client.create_asset(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3700,8 +4114,12 @@ class LivestreamServiceAsyncClient:
                 should not be set.
             asset_id (:class:`str`):
                 Required. The ID of the asset resource to be created.
-                This value must be 1-63 characters, begin and end with
-                ``[a-z0-9]``, could contain dashes (-) in between.
+
+                This value must be 1-63 characters, begin and end with a
+                lower-case letter or a number, and consist of only
+                lower-case letters, numbers, and hyphens. In other
+                words, it must match the following regex:
+                ``^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$``.
 
                 This corresponds to the ``asset_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3816,11 +4234,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_asset(request=request)
+                operation = await client.delete_asset(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4302,11 +4720,11 @@ class LivestreamServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_pool(request=request)
+                operation = await client.update_pool(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4327,7 +4745,7 @@ class LivestreamServiceAsyncClient:
                 overwritten in the Pool resource by the update. You can
                 only update the following fields:
 
-                -  ``networkConfig``
+                - ``networkConfig``
 
                 The fields specified in the update_mask are relative to
                 the resource, not the full request. A field will be
@@ -4419,7 +4837,7 @@ class LivestreamServiceAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4445,8 +4863,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4455,7 +4877,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4463,7 +4885,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4474,7 +4896,7 @@ class LivestreamServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4500,8 +4922,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4510,7 +4936,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4518,7 +4944,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4529,7 +4955,7 @@ class LivestreamServiceAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4559,8 +4985,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4569,7 +4999,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4577,7 +5007,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4585,7 +5015,7 @@ class LivestreamServiceAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4614,8 +5044,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4624,7 +5058,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4632,7 +5066,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4640,7 +5074,7 @@ class LivestreamServiceAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4666,8 +5100,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4676,7 +5114,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4684,7 +5122,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -4695,7 +5133,7 @@ class LivestreamServiceAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -4721,8 +5159,12 @@ class LivestreamServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -4731,7 +5173,7 @@ class LivestreamServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -4739,7 +5181,7 @@ class LivestreamServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

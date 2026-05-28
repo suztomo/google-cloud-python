@@ -90,11 +90,6 @@
                 "create_channel_group"
               ]
             },
-            "CreateConnectedSiteTag": {
-              "methods": [
-                "create_connected_site_tag"
-              ]
-            },
             "CreateConversionEvent": {
               "methods": [
                 "create_conversion_event"
@@ -225,11 +220,6 @@
                 "delete_channel_group"
               ]
             },
-            "DeleteConnectedSiteTag": {
-              "methods": [
-                "delete_connected_site_tag"
-              ]
-            },
             "DeleteConversionEvent": {
               "methods": [
                 "delete_conversion_event"
@@ -313,16 +303,6 @@
             "DeleteSubpropertyEventFilter": {
               "methods": [
                 "delete_subproperty_event_filter"
-              ]
-            },
-            "FetchAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "fetch_automated_ga4_configuration_opt_out"
-              ]
-            },
-            "FetchConnectedGa4Property": {
-              "methods": [
-                "fetch_connected_ga4_property"
               ]
             },
             "GetAccessBinding": {
@@ -460,6 +440,11 @@
                 "get_reporting_data_annotation"
               ]
             },
+            "GetReportingIdentitySettings": {
+              "methods": [
+                "get_reporting_identity_settings"
+              ]
+            },
             "GetRollupPropertySourceLink": {
               "methods": [
                 "get_rollup_property_source_link"
@@ -478,6 +463,16 @@
             "GetSubpropertyEventFilter": {
               "methods": [
                 "get_subproperty_event_filter"
+              ]
+            },
+            "GetSubpropertySyncConfig": {
+              "methods": [
+                "get_subproperty_sync_config"
+              ]
+            },
+            "GetUserProvidedDataSettings": {
+              "methods": [
+                "get_user_provided_data_settings"
               ]
             },
             "ListAccessBindings": {
@@ -518,11 +513,6 @@
             "ListChannelGroups": {
               "methods": [
                 "list_channel_groups"
-              ]
-            },
-            "ListConnectedSiteTags": {
-              "methods": [
-                "list_connected_site_tags"
               ]
             },
             "ListConversionEvents": {
@@ -620,6 +610,11 @@
                 "list_subproperty_event_filters"
               ]
             },
+            "ListSubpropertySyncConfigs": {
+              "methods": [
+                "list_subproperty_sync_configs"
+              ]
+            },
             "ProvisionAccountTicket": {
               "methods": [
                 "provision_account_ticket"
@@ -643,11 +638,6 @@
             "SearchChangeHistoryEvents": {
               "methods": [
                 "search_change_history_events"
-              ]
-            },
-            "SetAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "set_automated_ga4_configuration_opt_out"
               ]
             },
             "SubmitUserDeletion": {
@@ -788,6 +778,11 @@
             "UpdateSubpropertyEventFilter": {
               "methods": [
                 "update_subproperty_event_filter"
+              ]
+            },
+            "UpdateSubpropertySyncConfig": {
+              "methods": [
+                "update_subproperty_sync_config"
               ]
             }
           }
@@ -875,11 +870,6 @@
                 "create_channel_group"
               ]
             },
-            "CreateConnectedSiteTag": {
-              "methods": [
-                "create_connected_site_tag"
-              ]
-            },
             "CreateConversionEvent": {
               "methods": [
                 "create_conversion_event"
@@ -1010,11 +1000,6 @@
                 "delete_channel_group"
               ]
             },
-            "DeleteConnectedSiteTag": {
-              "methods": [
-                "delete_connected_site_tag"
-              ]
-            },
             "DeleteConversionEvent": {
               "methods": [
                 "delete_conversion_event"
@@ -1098,16 +1083,6 @@
             "DeleteSubpropertyEventFilter": {
               "methods": [
                 "delete_subproperty_event_filter"
-              ]
-            },
-            "FetchAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "fetch_automated_ga4_configuration_opt_out"
-              ]
-            },
-            "FetchConnectedGa4Property": {
-              "methods": [
-                "fetch_connected_ga4_property"
               ]
             },
             "GetAccessBinding": {
@@ -1245,6 +1220,11 @@
                 "get_reporting_data_annotation"
               ]
             },
+            "GetReportingIdentitySettings": {
+              "methods": [
+                "get_reporting_identity_settings"
+              ]
+            },
             "GetRollupPropertySourceLink": {
               "methods": [
                 "get_rollup_property_source_link"
@@ -1263,6 +1243,16 @@
             "GetSubpropertyEventFilter": {
               "methods": [
                 "get_subproperty_event_filter"
+              ]
+            },
+            "GetSubpropertySyncConfig": {
+              "methods": [
+                "get_subproperty_sync_config"
+              ]
+            },
+            "GetUserProvidedDataSettings": {
+              "methods": [
+                "get_user_provided_data_settings"
               ]
             },
             "ListAccessBindings": {
@@ -1303,11 +1293,6 @@
             "ListChannelGroups": {
               "methods": [
                 "list_channel_groups"
-              ]
-            },
-            "ListConnectedSiteTags": {
-              "methods": [
-                "list_connected_site_tags"
               ]
             },
             "ListConversionEvents": {
@@ -1405,6 +1390,11 @@
                 "list_subproperty_event_filters"
               ]
             },
+            "ListSubpropertySyncConfigs": {
+              "methods": [
+                "list_subproperty_sync_configs"
+              ]
+            },
             "ProvisionAccountTicket": {
               "methods": [
                 "provision_account_ticket"
@@ -1428,11 +1418,6 @@
             "SearchChangeHistoryEvents": {
               "methods": [
                 "search_change_history_events"
-              ]
-            },
-            "SetAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "set_automated_ga4_configuration_opt_out"
               ]
             },
             "SubmitUserDeletion": {
@@ -1573,6 +1558,11 @@
             "UpdateSubpropertyEventFilter": {
               "methods": [
                 "update_subproperty_event_filter"
+              ]
+            },
+            "UpdateSubpropertySyncConfig": {
+              "methods": [
+                "update_subproperty_sync_config"
               ]
             }
           }
@@ -1660,11 +1650,6 @@
                 "create_channel_group"
               ]
             },
-            "CreateConnectedSiteTag": {
-              "methods": [
-                "create_connected_site_tag"
-              ]
-            },
             "CreateConversionEvent": {
               "methods": [
                 "create_conversion_event"
@@ -1795,11 +1780,6 @@
                 "delete_channel_group"
               ]
             },
-            "DeleteConnectedSiteTag": {
-              "methods": [
-                "delete_connected_site_tag"
-              ]
-            },
             "DeleteConversionEvent": {
               "methods": [
                 "delete_conversion_event"
@@ -1883,16 +1863,6 @@
             "DeleteSubpropertyEventFilter": {
               "methods": [
                 "delete_subproperty_event_filter"
-              ]
-            },
-            "FetchAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "fetch_automated_ga4_configuration_opt_out"
-              ]
-            },
-            "FetchConnectedGa4Property": {
-              "methods": [
-                "fetch_connected_ga4_property"
               ]
             },
             "GetAccessBinding": {
@@ -2030,6 +2000,11 @@
                 "get_reporting_data_annotation"
               ]
             },
+            "GetReportingIdentitySettings": {
+              "methods": [
+                "get_reporting_identity_settings"
+              ]
+            },
             "GetRollupPropertySourceLink": {
               "methods": [
                 "get_rollup_property_source_link"
@@ -2048,6 +2023,16 @@
             "GetSubpropertyEventFilter": {
               "methods": [
                 "get_subproperty_event_filter"
+              ]
+            },
+            "GetSubpropertySyncConfig": {
+              "methods": [
+                "get_subproperty_sync_config"
+              ]
+            },
+            "GetUserProvidedDataSettings": {
+              "methods": [
+                "get_user_provided_data_settings"
               ]
             },
             "ListAccessBindings": {
@@ -2088,11 +2073,6 @@
             "ListChannelGroups": {
               "methods": [
                 "list_channel_groups"
-              ]
-            },
-            "ListConnectedSiteTags": {
-              "methods": [
-                "list_connected_site_tags"
               ]
             },
             "ListConversionEvents": {
@@ -2190,6 +2170,11 @@
                 "list_subproperty_event_filters"
               ]
             },
+            "ListSubpropertySyncConfigs": {
+              "methods": [
+                "list_subproperty_sync_configs"
+              ]
+            },
             "ProvisionAccountTicket": {
               "methods": [
                 "provision_account_ticket"
@@ -2213,11 +2198,6 @@
             "SearchChangeHistoryEvents": {
               "methods": [
                 "search_change_history_events"
-              ]
-            },
-            "SetAutomatedGa4ConfigurationOptOut": {
-              "methods": [
-                "set_automated_ga4_configuration_opt_out"
               ]
             },
             "SubmitUserDeletion": {
@@ -2358,6 +2338,11 @@
             "UpdateSubpropertyEventFilter": {
               "methods": [
                 "update_subproperty_event_filter"
+              ]
+            },
+            "UpdateSubpropertySyncConfig": {
+              "methods": [
+                "update_subproperty_sync_config"
               ]
             }
           }

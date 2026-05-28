@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.securitycentermanagement_v1 import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.securitycentermanagement_v1.services.security_center_management import (
     pagers,
@@ -156,7 +156,10 @@ class SecurityCenterManagementAsyncClient:
         Returns:
             SecurityCenterManagementAsyncClient: The constructed client.
         """
-        return SecurityCenterManagementClient.from_service_account_info.__func__(SecurityCenterManagementAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            SecurityCenterManagementClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(SecurityCenterManagementAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -172,7 +175,12 @@ class SecurityCenterManagementAsyncClient:
         Returns:
             SecurityCenterManagementAsyncClient: The constructed client.
         """
-        return SecurityCenterManagementClient.from_service_account_file.__func__(SecurityCenterManagementAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            SecurityCenterManagementClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(
+            SecurityCenterManagementAsyncClient, filename, *args, **kwargs
+        )
 
     from_service_account_json = from_service_account_file
 
@@ -210,7 +218,9 @@ class SecurityCenterManagementAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return SecurityCenterManagementClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return SecurityCenterManagementClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> SecurityCenterManagementTransport:
@@ -222,7 +232,7 @@ class SecurityCenterManagementAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -390,9 +400,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of parent to list effective custom
                 modules, in one of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -530,9 +540,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. The full resource name of the custom module,
                 specified in one of the following formats:
 
-                -  ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-                -  ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
-                -  ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+                - ``organizations/organization/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+                - ``folders/folder/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
+                - ``projects/project/{location}/effectiveSecurityHealthAnalyticsCustomModules/{custom_module}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -670,9 +680,9 @@ class SecurityCenterManagementAsyncClient:
                 project in which to list custom modules, in one of the
                 following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -814,9 +824,9 @@ class SecurityCenterManagementAsyncClient:
                 project in which to list custom modules, in one of the
                 following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1091,9 +1101,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of the parent organization, folder, or
                 project of the module, in one of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1246,8 +1256,8 @@ class SecurityCenterManagementAsyncClient:
                 Required. The fields to update. The following values are
                 valid:
 
-                -  ``custom_config``
-                -  ``enablement_state``
+                - ``custom_config``
+                - ``enablement_state``
 
                 If you omit this field or set it to the wildcard value
                 ``*``, then all eligible fields are updated.
@@ -1392,9 +1402,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. The resource name of the SHA custom module, in
                 one of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-                -  ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
-                -  ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+                - ``organizations/{organization}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+                - ``folders/{folder}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
+                - ``projects/{project}/locations/{location}/securityHealthAnalyticsCustomModules/{custom_module}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1665,9 +1675,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of parent to list effective custom
                 modules, in one of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1818,9 +1828,9 @@ class SecurityCenterManagementAsyncClient:
                 Detection custom module, in one of the following
                 formats:
 
-                -  ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-                -  ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
-                -  ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+                - ``organizations/{organization}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+                - ``folders/{folder}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
+                - ``projects/{project}/locations/{location}/effectiveEventThreatDetectionCustomModules/{custom_module}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1955,9 +1965,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of parent to list custom modules, in one
                 of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2099,9 +2109,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of parent to list custom modules, in one
                 of the following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2239,9 +2249,9 @@ class SecurityCenterManagementAsyncClient:
                 Detection custom module, in one of the following
                 formats:
 
-                -  ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-                -  ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-                -  ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2377,9 +2387,9 @@ class SecurityCenterManagementAsyncClient:
                 Required. Name of parent for the module, in one of the
                 following formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2670,9 +2680,9 @@ class SecurityCenterManagementAsyncClient:
                 Detection custom module, in one of the following
                 formats:
 
-                -  ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-                -  ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
-                -  ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``organizations/{organization}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``folders/{folder}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
+                - ``projects/{project}/locations/{location}/eventThreatDetectionCustomModules/{custom_module}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2883,17 +2893,17 @@ class SecurityCenterManagementAsyncClient:
                 Required. The Security Command Center service to
                 retrieve, in one of the following formats:
 
-                -  organizations/{organization}/locations/{location}/securityCenterServices/{service}
-                -  folders/{folder}/locations/{location}/securityCenterServices/{service}
-                -  projects/{project}/locations/{location}/securityCenterServices/{service}
+                - organizations/{organization}/locations/{location}/securityCenterServices/{service}
+                - folders/{folder}/locations/{location}/securityCenterServices/{service}
+                - projects/{project}/locations/{location}/securityCenterServices/{service}
 
                 The following values are valid for ``{service}``:
 
-                -  ``container-threat-detection``
-                -  ``event-threat-detection``
-                -  ``security-health-analytics``
-                -  ``vm-threat-detection``
-                -  ``web-security-scanner``
+                - ``container-threat-detection``
+                - ``event-threat-detection``
+                - ``security-health-analytics``
+                - ``vm-threat-detection``
+                - ``web-security-scanner``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3023,9 +3033,9 @@ class SecurityCenterManagementAsyncClient:
                 Command Center services, in one of the following
                 formats:
 
-                -  ``organizations/{organization}/locations/{location}``
-                -  ``folders/{folder}/locations/{location}``
-                -  ``projects/{project}/locations/{location}``
+                - ``organizations/{organization}/locations/{location}``
+                - ``folders/{folder}/locations/{location}``
+                - ``projects/{project}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3166,8 +3176,8 @@ class SecurityCenterManagementAsyncClient:
                 Required. The fields to update. Accepts the following
                 values:
 
-                -  ``intended_enablement_state``
-                -  ``modules``
+                - ``intended_enablement_state``
+                - ``modules``
 
                 If omitted, then all eligible fields are updated.
 
@@ -3260,7 +3270,7 @@ class SecurityCenterManagementAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3286,8 +3296,12 @@ class SecurityCenterManagementAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3296,7 +3310,7 @@ class SecurityCenterManagementAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3304,7 +3318,7 @@ class SecurityCenterManagementAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -3315,7 +3329,7 @@ class SecurityCenterManagementAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3341,8 +3355,12 @@ class SecurityCenterManagementAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3351,7 +3369,7 @@ class SecurityCenterManagementAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3359,7 +3377,7 @@ class SecurityCenterManagementAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

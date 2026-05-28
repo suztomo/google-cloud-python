@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,11 +24,23 @@ from google.cloud.networkconnectivity_v1.services.cross_network_automation_servi
 from google.cloud.networkconnectivity_v1.services.cross_network_automation_service.client import (
     CrossNetworkAutomationServiceClient,
 )
+from google.cloud.networkconnectivity_v1.services.data_transfer_service.async_client import (
+    DataTransferServiceAsyncClient,
+)
+from google.cloud.networkconnectivity_v1.services.data_transfer_service.client import (
+    DataTransferServiceClient,
+)
 from google.cloud.networkconnectivity_v1.services.hub_service.async_client import (
     HubServiceAsyncClient,
 )
 from google.cloud.networkconnectivity_v1.services.hub_service.client import (
     HubServiceClient,
+)
+from google.cloud.networkconnectivity_v1.services.internal_range_service.async_client import (
+    InternalRangeServiceAsyncClient,
+)
+from google.cloud.networkconnectivity_v1.services.internal_range_service.client import (
+    InternalRangeServiceClient,
 )
 from google.cloud.networkconnectivity_v1.services.policy_based_routing_service.async_client import (
     PolicyBasedRoutingServiceAsyncClient,
@@ -67,6 +79,28 @@ from google.cloud.networkconnectivity_v1.types.cross_network_automation import (
     UpdateServiceClassRequest,
     UpdateServiceConnectionMapRequest,
     UpdateServiceConnectionPolicyRequest,
+)
+from google.cloud.networkconnectivity_v1.types.data_transfer import (
+    CreateDestinationRequest,
+    CreateMulticloudDataTransferConfigRequest,
+    DeleteDestinationRequest,
+    DeleteMulticloudDataTransferConfigRequest,
+    Destination,
+    GetDestinationRequest,
+    GetMulticloudDataTransferConfigRequest,
+    GetMulticloudDataTransferSupportedServiceRequest,
+    ListDestinationsRequest,
+    ListDestinationsResponse,
+    ListMulticloudDataTransferConfigsRequest,
+    ListMulticloudDataTransferConfigsResponse,
+    ListMulticloudDataTransferSupportedServicesRequest,
+    ListMulticloudDataTransferSupportedServicesResponse,
+    MulticloudDataTransferConfig,
+    MulticloudDataTransferSupportedService,
+    ServiceConfig,
+    StateTimeline,
+    UpdateDestinationRequest,
+    UpdateMulticloudDataTransferConfigRequest,
 )
 from google.cloud.networkconnectivity_v1.types.hub import (
     AcceptHubSpokeRequest,
@@ -131,6 +165,15 @@ from google.cloud.networkconnectivity_v1.types.hub import (
     UpdateHubRequest,
     UpdateSpokeRequest,
 )
+from google.cloud.networkconnectivity_v1.types.internal_range import (
+    CreateInternalRangeRequest,
+    DeleteInternalRangeRequest,
+    GetInternalRangeRequest,
+    InternalRange,
+    ListInternalRangesRequest,
+    ListInternalRangesResponse,
+    UpdateInternalRangeRequest,
+)
 from google.cloud.networkconnectivity_v1.types.policy_based_routing import (
     CreatePolicyBasedRouteRequest,
     DeletePolicyBasedRouteRequest,
@@ -143,8 +186,12 @@ from google.cloud.networkconnectivity_v1.types.policy_based_routing import (
 __all__ = (
     "CrossNetworkAutomationServiceClient",
     "CrossNetworkAutomationServiceAsyncClient",
+    "DataTransferServiceClient",
+    "DataTransferServiceAsyncClient",
     "HubServiceClient",
     "HubServiceAsyncClient",
+    "InternalRangeServiceClient",
+    "InternalRangeServiceAsyncClient",
     "PolicyBasedRoutingServiceClient",
     "PolicyBasedRoutingServiceAsyncClient",
     "OperationMetadata",
@@ -177,6 +224,26 @@ __all__ = (
     "ConnectionErrorType",
     "Infrastructure",
     "IPVersion",
+    "CreateDestinationRequest",
+    "CreateMulticloudDataTransferConfigRequest",
+    "DeleteDestinationRequest",
+    "DeleteMulticloudDataTransferConfigRequest",
+    "Destination",
+    "GetDestinationRequest",
+    "GetMulticloudDataTransferConfigRequest",
+    "GetMulticloudDataTransferSupportedServiceRequest",
+    "ListDestinationsRequest",
+    "ListDestinationsResponse",
+    "ListMulticloudDataTransferConfigsRequest",
+    "ListMulticloudDataTransferConfigsResponse",
+    "ListMulticloudDataTransferSupportedServicesRequest",
+    "ListMulticloudDataTransferSupportedServicesResponse",
+    "MulticloudDataTransferConfig",
+    "MulticloudDataTransferSupportedService",
+    "ServiceConfig",
+    "StateTimeline",
+    "UpdateDestinationRequest",
+    "UpdateMulticloudDataTransferConfigRequest",
     "AcceptHubSpokeRequest",
     "AcceptHubSpokeResponse",
     "AcceptSpokeUpdateRequest",
@@ -238,6 +305,13 @@ __all__ = (
     "RouteType",
     "SpokeType",
     "State",
+    "CreateInternalRangeRequest",
+    "DeleteInternalRangeRequest",
+    "GetInternalRangeRequest",
+    "InternalRange",
+    "ListInternalRangesRequest",
+    "ListInternalRangesResponse",
+    "UpdateInternalRangeRequest",
     "CreatePolicyBasedRouteRequest",
     "DeletePolicyBasedRouteRequest",
     "GetPolicyBasedRouteRequest",

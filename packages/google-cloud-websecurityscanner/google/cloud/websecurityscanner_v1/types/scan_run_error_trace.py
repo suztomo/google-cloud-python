@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,6 +82,7 @@ class ScanRunErrorTrace(proto.Message):
                 field indicates the most common HTTP error code encountered
                 during the scan.
         """
+
         CODE_UNSPECIFIED = 0
         INTERNAL_ERROR = 1
         SCAN_CONFIG_ISSUE = 2

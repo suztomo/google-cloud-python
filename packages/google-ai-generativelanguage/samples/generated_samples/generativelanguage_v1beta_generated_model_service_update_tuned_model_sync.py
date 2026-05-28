@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ def sample_update_tuned_model():
     client = generativelanguage_v1beta.ModelServiceClient()
 
     # Initialize request argument(s)
-    request = generativelanguage_v1beta.UpdateTunedModelRequest(
-    )
+    request = generativelanguage_v1beta.UpdateTunedModelRequest()
 
     # Make the request
     response = client.update_tuned_model(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END generativelanguage_v1beta_generated_ModelService_UpdateTunedModel_sync]

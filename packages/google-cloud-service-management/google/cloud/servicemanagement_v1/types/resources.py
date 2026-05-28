@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import config_change_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.config_change_pb2 as config_change_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -100,6 +100,7 @@ class OperationMetadata(proto.Message):
                 The operation or step has completed with
                 cancellation.
         """
+
         STATUS_UNSPECIFIED = 0
         DONE = 1
         NOT_STARTED = 2
@@ -169,6 +170,7 @@ class Diagnostic(proto.Message):
             ERROR (1):
                 Only errors
         """
+
         WARNING = 0
         ERROR = 1
 
@@ -256,6 +258,7 @@ class ConfigFile(proto.Message):
                 only be included if at least one file of type
                 FILE_DESCRIPTOR_SET_PROTO is included.
         """
+
         FILE_TYPE_UNSPECIFIED = 0
         SERVICE_CONFIG_YAML = 1
         OPEN_API_JSON = 2
@@ -309,12 +312,12 @@ class ChangeReport(proto.Message):
             visibility.rules[selector='LibraryService.CreateBook'].restriction
     """
 
-    config_changes: MutableSequence[
-        config_change_pb2.ConfigChange
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=config_change_pb2.ConfigChange,
+    config_changes: MutableSequence[config_change_pb2.ConfigChange] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=config_change_pb2.ConfigChange,
+        )
     )
 
 
@@ -335,7 +338,7 @@ class Rollout(proto.Message):
         rollout_id (str):
             Optional. Unique identifier of this Rollout. Must be no
             longer than 63 characters and only lower case letters,
-            digits, '.', '_' and '-' are allowed.
+            digits, '.', '\_' and '-' are allowed.
 
             If not specified by client, the server will generate one.
             The generated id will have the form of , where "date" is the
@@ -391,6 +394,7 @@ class Rollout(proto.Message):
                 The Rollout has failed and rolled back to the
                 previous successful Rollout.
         """
+
         ROLLOUT_STATUS_UNSPECIFIED = 0
         IN_PROGRESS = 1
         SUCCESS = 2

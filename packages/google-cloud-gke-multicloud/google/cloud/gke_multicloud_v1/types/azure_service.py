@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_multicloud_v1.types import azure_resources
@@ -125,23 +125,23 @@ class UpdateAzureClusterRequest(proto.Message):
             paths field can only include these fields from
             [AzureCluster][google.cloud.gkemulticloud.v1.AzureCluster]:
 
-            -  ``description``.
-            -  ``azureClient``.
-            -  ``control_plane.version``.
-            -  ``control_plane.vm_size``.
-            -  ``annotations``.
-            -  ``authorization.admin_users``.
-            -  ``authorization.admin_groups``.
-            -  ``control_plane.root_volume.size_gib``.
-            -  ``azure_services_authentication``.
-            -  ``azure_services_authentication.tenant_id``.
-            -  ``azure_services_authentication.application_id``.
-            -  ``control_plane.proxy_config``.
-            -  ``control_plane.proxy_config.resource_group_id``.
-            -  ``control_plane.proxy_config.secret_id``.
-            -  ``control_plane.ssh_config.authorized_key``.
-            -  ``logging_config.component_config.enable_components``
-            -  ``monitoring_config.managed_prometheus_config.enabled``.
+            - ``description``.
+            - ``azureClient``.
+            - ``control_plane.version``.
+            - ``control_plane.vm_size``.
+            - ``annotations``.
+            - ``authorization.admin_users``.
+            - ``authorization.admin_groups``.
+            - ``control_plane.root_volume.size_gib``.
+            - ``azure_services_authentication``.
+            - ``azure_services_authentication.tenant_id``.
+            - ``azure_services_authentication.application_id``.
+            - ``control_plane.proxy_config``.
+            - ``control_plane.proxy_config.resource_group_id``.
+            - ``control_plane.proxy_config.secret_id``.
+            - ``control_plane.ssh_config.authorized_key``.
+            - ``logging_config.component_config.enable_components``
+            - ``monitoring_config.managed_prometheus_config.enabled``.
     """
 
     azure_cluster: azure_resources.AzureCluster = proto.Field(
@@ -396,12 +396,12 @@ class UpdateAzureNodePoolRequest(proto.Message):
 
             \*. ``annotations``.
 
-            -  ``version``.
-            -  ``autoscaling.min_node_count``.
-            -  ``autoscaling.max_node_count``.
-            -  ``config.ssh_config.authorized_key``.
-            -  ``management.auto_repair``.
-            -  ``management``.
+            - ``version``.
+            - ``autoscaling.min_node_count``.
+            - ``autoscaling.max_node_count``.
+            - ``config.ssh_config.authorized_key``.
+            - ``management.auto_repair``.
+            - ``management``.
     """
 
     azure_node_pool: azure_resources.AzureNodePool = proto.Field(
@@ -506,12 +506,12 @@ class ListAzureNodePoolsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    azure_node_pools: MutableSequence[
-        azure_resources.AzureNodePool
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=azure_resources.AzureNodePool,
+    azure_node_pools: MutableSequence[azure_resources.AzureNodePool] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=azure_resources.AzureNodePool,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

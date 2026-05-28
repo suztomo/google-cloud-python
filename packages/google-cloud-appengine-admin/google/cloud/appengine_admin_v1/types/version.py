@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.appengine_admin_v1.types import app_yaml, deploy
@@ -77,6 +77,7 @@ class InboundServiceType(proto.Enum):
         INBOUND_SERVICE_WARMUP (9):
             Enables warmup requests.
     """
+
     INBOUND_SERVICE_UNSPECIFIED = 0
     INBOUND_SERVICE_MAIL = 1
     INBOUND_SERVICE_MAIL_BOUNCE = 2
@@ -103,6 +104,7 @@ class ServingStatus(proto.Enum):
             settings are ignored until the state of the version changes
             to ``SERVING``.
     """
+
     SERVING_STATUS_UNSPECIFIED = 0
     SERVING = 1
     STOPPED = 2
@@ -162,9 +164,9 @@ class Version(proto.Message):
             Instance class that is used to run this version. Valid
             values are:
 
-            -  AutomaticScaling: ``F1``, ``F2``, ``F4``, ``F4_1G``
-            -  ManualScaling or BasicScaling: ``B1``, ``B2``, ``B4``,
-               ``B8``, ``B4_1G``
+            - AutomaticScaling: ``F1``, ``F2``, ``F4``, ``F4_1G``
+            - ManualScaling or BasicScaling: ``B1``, ``B2``, ``B4``,
+              ``B8``, ``B4_1G``
 
             Defaults to ``F1`` for AutomaticScaling and ``B1`` for
             ManualScaling or BasicScaling.
@@ -556,6 +558,7 @@ class EndpointsApiService(proto.Message):
                 Endpoints service configuration ID will be
                 updated with each rollout.
         """
+
         UNSPECIFIED_ROLLOUT_STRATEGY = 0
         FIXED = 1
         MANAGED = 2
@@ -911,18 +914,18 @@ class Network(proto.Message):
             If a subnetwork name is specified, a network name will also
             be required unless it is for the default network.
 
-            -  If the network that the instance is being created in is a
-               Legacy network, then the IP address is allocated from the
-               IPv4Range.
-            -  If the network that the instance is being created in is
-               an auto Subnet Mode Network, then only network name
-               should be specified (not the subnetwork_name) and the IP
-               address is created from the IPCidrRange of the subnetwork
-               that exists in that zone for that network.
-            -  If the network that the instance is being created in is a
-               custom Subnet Mode Network, then the subnetwork_name must
-               be specified and the IP address is created from the
-               IPCidrRange of the subnetwork.
+            - If the network that the instance is being created in is a
+              Legacy network, then the IP address is allocated from the
+              IPv4Range.
+            - If the network that the instance is being created in is an
+              auto Subnet Mode Network, then only network name should be
+              specified (not the subnetwork_name) and the IP address is
+              created from the IPCidrRange of the subnetwork that exists
+              in that zone for that network.
+            - If the network that the instance is being created in is a
+              custom Subnet Mode Network, then the subnetwork_name must
+              be specified and the IP address is created from the
+              IPCidrRange of the subnetwork.
 
             If specified, the subnetwork must exist in the same region
             as the App Engine flexible environment application.
@@ -1051,6 +1054,7 @@ class VpcAccessConnector(proto.Message):
                 Use the VPC Access Connector for private IP
                 space from RFC1918.
         """
+
         EGRESS_SETTING_UNSPECIFIED = 0
         ALL_TRAFFIC = 1
         PRIVATE_IP_RANGES = 2

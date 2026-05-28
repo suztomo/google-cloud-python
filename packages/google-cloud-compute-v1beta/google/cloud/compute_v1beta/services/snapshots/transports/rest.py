@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -141,6 +141,14 @@ class SnapshotsRestInterceptor:
                 return request, metadata
 
             def post_test_iam_permissions(self, response):
+                logging.log(f"Received response: {response}")
+                return response
+
+            def pre_update_kms_key(self, request, metadata):
+                logging.log(f"Received request: {request}")
+                return request, metadata
+
+            def post_update_kms_key(self, response):
                 logging.log(f"Received response: {response}")
                 return response
 
@@ -563,6 +571,52 @@ class SnapshotsRestInterceptor:
         """
         return response, metadata
 
+    def pre_update_kms_key(
+        self,
+        request: compute.UpdateKmsKeySnapshotRequest,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[
+        compute.UpdateKmsKeySnapshotRequest, Sequence[Tuple[str, Union[str, bytes]]]
+    ]:
+        """Pre-rpc interceptor for update_kms_key
+
+        Override in a subclass to manipulate the request or metadata
+        before they are sent to the Snapshots server.
+        """
+        return request, metadata
+
+    def post_update_kms_key(self, response: compute.Operation) -> compute.Operation:
+        """Post-rpc interceptor for update_kms_key
+
+        DEPRECATED. Please use the `post_update_kms_key_with_metadata`
+        interceptor instead.
+
+        Override in a subclass to read or manipulate the response
+        after it is returned by the Snapshots server but before
+        it is returned to user code. This `post_update_kms_key` interceptor runs
+        before the `post_update_kms_key_with_metadata` interceptor.
+        """
+        return response
+
+    def post_update_kms_key_with_metadata(
+        self,
+        response: compute.Operation,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]],
+    ) -> Tuple[compute.Operation, Sequence[Tuple[str, Union[str, bytes]]]]:
+        """Post-rpc interceptor for update_kms_key
+
+        Override in a subclass to read or manipulate the response or metadata after it
+        is returned by the Snapshots server but before it is returned to user code.
+
+        We recommend only using this `post_update_kms_key_with_metadata`
+        interceptor in new development instead of the `post_update_kms_key` interceptor.
+        When both interceptors are used, this `post_update_kms_key_with_metadata` interceptor runs after the
+        `post_update_kms_key` interceptor. The (possibly modified) response returned by
+        `post_update_kms_key` will be passed to
+        `post_update_kms_key_with_metadata`.
+        """
+        return response, metadata
+
 
 @dataclasses.dataclass
 class SnapshotsRestStub:
@@ -613,9 +667,10 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
                  are specified, the client will attempt to ascertain the
                  credentials from the environment.
 
-             credentials_file (Optional[str]): A file with credentials that can
+             credentials_file (Optional[str]): Deprecated. A file with credentials that can
                  be loaded with :func:`google.auth.load_credentials_from_file`.
-                 This argument is ignored if ``channel`` is provided.
+                 This argument is ignored if ``channel`` is provided. This argument will be
+                 removed in the next major version of this library.
              scopes (Optional(Sequence[str])): A list of scopes. This argument is
                  ignored if ``channel`` is provided.
              client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -633,6 +688,12 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
              url_scheme: the protocol scheme for the API endpoint.  Normally
                  "https", but for testing or local servers,
                  "http" can be specified.
+             interceptor (Optional[SnapshotsRestInterceptor]): Interceptor used
+                 to manipulate requests, request metadata, and responses.
+             api_audience (Optional[str]): The intended audience for the API calls
+                 to the service that will be set when using certain 3rd party
+                 authentication flows. Audience is typically a resource identifier.
+                 If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -855,21 +916,32 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1018,10 +1090,11 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
             Returns:
                 ~.compute.Snapshot:
                     Represents a Persistent Disk Snapshot
-                resource. You can use snapshots to back
-                up data on a regular interval. For more
-                information, read Creating persistent
-                disk snapshots. LINT.IfChange
+                resource.
+                You can use snapshots to back up data on
+                a regular interval. For more
+                information, read  Creating
+                persistent disk snapshots.
 
             """
 
@@ -1167,26 +1240,77 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
             Returns:
                 ~.compute.Policy:
                     An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                ``Policy`` is a collection of ``bindings``. A
+                specifies access controls for Google Cloud resources.
+
+                A ``Policy`` is a collection of ``bindings``. A
                 ``binding`` binds one or more ``members``, or
                 principals, to a single ``role``. Principals can be user
                 accounts, service accounts, Google groups, and domains
                 (such as G Suite). A ``role`` is a named list of
                 permissions; each ``role`` can be an IAM predefined role
-                or a user-created custom role. For some types of Google
-                Cloud resources, a ``binding`` can also specify a
-                ``condition``, which is a logical expression that allows
-                access to a resource only if the expression evaluates to
-                ``true``. A condition can add constraints based on
-                attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the `IAM
+                or a user-created custom role.
+
+                For some types of Google Cloud resources, a ``binding``
+                can also specify a ``condition``, which is a logical
+                expression that allows access to a resource only if the
+                expression evaluates to ``true``. A condition can add
+                constraints based on attributes of the request, the
+                resource, or both. To learn which resources support
+                conditions in their IAM policies, see the `IAM
                 documentation <https://cloud.google.com/iam/help/conditions/resource-policies>`__.
+
                 **JSON example:**
-                ``{ "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }``
+
+                ::
+
+                       {
+                         "bindings": [
+                           {
+                             "role": "roles/resourcemanager.organizationAdmin",
+                             "members": [
+                               "user:mike@example.com",
+                               "group:admins@example.com",
+                               "domain:google.com",
+                               "serviceAccount:my-project-id@appspot.gserviceaccount.com"
+                             ]
+                           },
+                           {
+                             "role": "roles/resourcemanager.organizationViewer",
+                             "members": [
+                               "user:eve@example.com"
+                             ],
+                             "condition": {
+                               "title": "expirable access",
+                               "description": "Does not grant access after Sep 2020",
+                               "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",
+                             }
+                           }
+                         ],
+                         "etag": "BwWWja0YfJA=",
+                         "version": 3
+                       }
+
                 **YAML example:**
-                ``bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3``
+
+                ::
+
+                       bindings:
+                       - members:
+                         - user:mike@example.com
+                         - group:admins@example.com
+                         - domain:google.com
+                         - serviceAccount:my-project-id@appspot.gserviceaccount.com
+                         role: roles/resourcemanager.organizationAdmin
+                       - members:
+                         - user:eve@example.com
+                         role: roles/resourcemanager.organizationViewer
+                         condition:
+                           title: expirable access
+                           description: Does not grant access after Sep 2020
+                           expression: request.time < timestamp('2020-10-01T00:00:00.000Z')
+                       etag: BwWWja0YfJA=
+                       version: 3
+
                 For a description of IAM and its features, see the `IAM
                 documentation <https://cloud.google.com/iam/docs/>`__.
 
@@ -1338,21 +1462,32 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -1653,26 +1788,77 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
             Returns:
                 ~.compute.Policy:
                     An Identity and Access Management (IAM) policy, which
-                specifies access controls for Google Cloud resources. A
-                ``Policy`` is a collection of ``bindings``. A
+                specifies access controls for Google Cloud resources.
+
+                A ``Policy`` is a collection of ``bindings``. A
                 ``binding`` binds one or more ``members``, or
                 principals, to a single ``role``. Principals can be user
                 accounts, service accounts, Google groups, and domains
                 (such as G Suite). A ``role`` is a named list of
                 permissions; each ``role`` can be an IAM predefined role
-                or a user-created custom role. For some types of Google
-                Cloud resources, a ``binding`` can also specify a
-                ``condition``, which is a logical expression that allows
-                access to a resource only if the expression evaluates to
-                ``true``. A condition can add constraints based on
-                attributes of the request, the resource, or both. To
-                learn which resources support conditions in their IAM
-                policies, see the `IAM
+                or a user-created custom role.
+
+                For some types of Google Cloud resources, a ``binding``
+                can also specify a ``condition``, which is a logical
+                expression that allows access to a resource only if the
+                expression evaluates to ``true``. A condition can add
+                constraints based on attributes of the request, the
+                resource, or both. To learn which resources support
+                conditions in their IAM policies, see the `IAM
                 documentation <https://cloud.google.com/iam/help/conditions/resource-policies>`__.
+
                 **JSON example:**
-                ``{ "bindings": [ { "role": "roles/resourcemanager.organizationAdmin", "members": [ "user:mike@example.com", "group:admins@example.com", "domain:google.com", "serviceAccount:my-project-id@appspot.gserviceaccount.com" ] }, { "role": "roles/resourcemanager.organizationViewer", "members": [ "user:eve@example.com" ], "condition": { "title": "expirable access", "description": "Does not grant access after Sep 2020", "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')", } } ], "etag": "BwWWja0YfJA=", "version": 3 }``
+
+                ::
+
+                       {
+                         "bindings": [
+                           {
+                             "role": "roles/resourcemanager.organizationAdmin",
+                             "members": [
+                               "user:mike@example.com",
+                               "group:admins@example.com",
+                               "domain:google.com",
+                               "serviceAccount:my-project-id@appspot.gserviceaccount.com"
+                             ]
+                           },
+                           {
+                             "role": "roles/resourcemanager.organizationViewer",
+                             "members": [
+                               "user:eve@example.com"
+                             ],
+                             "condition": {
+                               "title": "expirable access",
+                               "description": "Does not grant access after Sep 2020",
+                               "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",
+                             }
+                           }
+                         ],
+                         "etag": "BwWWja0YfJA=",
+                         "version": 3
+                       }
+
                 **YAML example:**
-                ``bindings: - members: - user:mike@example.com - group:admins@example.com - domain:google.com - serviceAccount:my-project-id@appspot.gserviceaccount.com role: roles/resourcemanager.organizationAdmin - members: - user:eve@example.com role: roles/resourcemanager.organizationViewer condition: title: expirable access description: Does not grant access after Sep 2020 expression: request.time < timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3``
+
+                ::
+
+                       bindings:
+                       - members:
+                         - user:mike@example.com
+                         - group:admins@example.com
+                         - domain:google.com
+                         - serviceAccount:my-project-id@appspot.gserviceaccount.com
+                         role: roles/resourcemanager.organizationAdmin
+                       - members:
+                         - user:eve@example.com
+                         role: roles/resourcemanager.organizationViewer
+                         condition:
+                           title: expirable access
+                           description: Does not grant access after Sep 2020
+                           expression: request.time < timestamp('2020-10-01T00:00:00.000Z')
+                       etag: BwWWja0YfJA=
+                       version: 3
+
                 For a description of IAM and its features, see the `IAM
                 documentation <https://cloud.google.com/iam/docs/>`__.
 
@@ -1829,21 +2015,32 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
 
             Returns:
                 ~.compute.Operation:
-                    Represents an Operation resource. Google Compute Engine
-                has three Operation resources: \*
-                `Global </compute/docs/reference/rest/beta/globalOperations>`__
-                \*
-                `Regional </compute/docs/reference/rest/beta/regionOperations>`__
-                \*
-                `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
                 You can use an operation resource to manage asynchronous
-                API requests. For more information, read Handling API
-                responses. Operations can be global, regional or zonal.
-                - For global operations, use the ``globalOperations``
-                resource. - For regional operations, use the
-                ``regionOperations`` resource. - For zonal operations,
-                use the ``zoneOperations`` resource. For more
-                information, read Global, Regional, and Zonal Resources.
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
                 Note that completed Operation resources have a limited
                 retention period.
 
@@ -2102,6 +2299,190 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
                 )
             return resp
 
+    class _UpdateKmsKey(
+        _BaseSnapshotsRestTransport._BaseUpdateKmsKey, SnapshotsRestStub
+    ):
+        def __hash__(self):
+            return hash("SnapshotsRestTransport.UpdateKmsKey")
+
+        @staticmethod
+        def _get_response(
+            host,
+            metadata,
+            query_params,
+            session,
+            timeout,
+            transcoded_request,
+            body=None,
+        ):
+            uri = transcoded_request["uri"]
+            method = transcoded_request["method"]
+            headers = dict(metadata)
+            headers["Content-Type"] = "application/json"
+            response = getattr(session, method)(
+                "{host}{uri}".format(host=host, uri=uri),
+                timeout=timeout,
+                headers=headers,
+                params=rest_helpers.flatten_query_params(query_params, strict=True),
+                data=body,
+            )
+            return response
+
+        def __call__(
+            self,
+            request: compute.UpdateKmsKeySnapshotRequest,
+            *,
+            retry: OptionalRetry = gapic_v1.method.DEFAULT,
+            timeout: Optional[float] = None,
+            metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+        ) -> compute.Operation:
+            r"""Call the update kms key method over HTTP.
+
+            Args:
+                request (~.compute.UpdateKmsKeySnapshotRequest):
+                    The request object. A request message for
+                Snapshots.UpdateKmsKey. See the method
+                description for details.
+                retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                    should be retried.
+                timeout (float): The timeout for this request.
+                metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                    sent along with the request as metadata. Normally, each value must be of type `str`,
+                    but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                    be of type `bytes`.
+
+            Returns:
+                ~.compute.Operation:
+                    Represents an Operation resource.
+
+                Google Compute Engine has three Operation resources:
+
+                - `Global </compute/docs/reference/rest/beta/globalOperations>`__
+                - `Regional </compute/docs/reference/rest/beta/regionOperations>`__
+                - `Zonal </compute/docs/reference/rest/beta/zoneOperations>`__
+
+                You can use an operation resource to manage asynchronous
+                API requests. For more information, readHandling API
+                responses.
+
+                Operations can be global, regional or zonal.
+
+                ::
+
+                   - For global operations, use the `globalOperations`
+                   resource.
+                   - For regional operations, use the
+                   `regionOperations` resource.
+                   - For zonal operations, use
+                   the `zoneOperations` resource.
+
+                For more information, read Global, Regional, and Zonal
+                Resources.
+
+                Note that completed Operation resources have a limited
+                retention period.
+
+            """
+
+            http_options = (
+                _BaseSnapshotsRestTransport._BaseUpdateKmsKey._get_http_options()
+            )
+
+            request, metadata = self._interceptor.pre_update_kms_key(request, metadata)
+            transcoded_request = (
+                _BaseSnapshotsRestTransport._BaseUpdateKmsKey._get_transcoded_request(
+                    http_options, request
+                )
+            )
+
+            body = _BaseSnapshotsRestTransport._BaseUpdateKmsKey._get_request_body_json(
+                transcoded_request
+            )
+
+            # Jsonify the query params
+            query_params = (
+                _BaseSnapshotsRestTransport._BaseUpdateKmsKey._get_query_params_json(
+                    transcoded_request
+                )
+            )
+
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                request_url = "{host}{uri}".format(
+                    host=self._host, uri=transcoded_request["uri"]
+                )
+                method = transcoded_request["method"]
+                try:
+                    request_payload = type(request).to_json(request)
+                except:
+                    request_payload = None
+                http_request = {
+                    "payload": request_payload,
+                    "requestMethod": method,
+                    "requestUrl": request_url,
+                    "headers": dict(metadata),
+                }
+                _LOGGER.debug(
+                    f"Sending request for google.cloud.compute_v1beta.SnapshotsClient.UpdateKmsKey",
+                    extra={
+                        "serviceName": "google.cloud.compute.v1beta.Snapshots",
+                        "rpcName": "UpdateKmsKey",
+                        "httpRequest": http_request,
+                        "metadata": http_request["headers"],
+                    },
+                )
+
+            # Send the request
+            response = SnapshotsRestTransport._UpdateKmsKey._get_response(
+                self._host,
+                metadata,
+                query_params,
+                self._session,
+                timeout,
+                transcoded_request,
+                body,
+            )
+
+            # In case of error, raise the appropriate core_exceptions.GoogleAPICallError exception
+            # subclass.
+            if response.status_code >= 400:
+                raise core_exceptions.from_http_response(response)
+
+            # Return the response
+            resp = compute.Operation()
+            pb_resp = compute.Operation.pb(resp)
+
+            json_format.Parse(response.content, pb_resp, ignore_unknown_fields=True)
+
+            resp = self._interceptor.post_update_kms_key(resp)
+            response_metadata = [(k, str(v)) for k, v in response.headers.items()]
+            resp, _ = self._interceptor.post_update_kms_key_with_metadata(
+                resp, response_metadata
+            )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                try:
+                    response_payload = compute.Operation.to_json(response)
+                except:
+                    response_payload = None
+                http_response = {
+                    "payload": response_payload,
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.cloud.compute_v1beta.SnapshotsClient.update_kms_key",
+                    extra={
+                        "serviceName": "google.cloud.compute.v1beta.Snapshots",
+                        "rpcName": "UpdateKmsKey",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
+            return resp
+
     @property
     def aggregated_list(
         self,
@@ -2169,6 +2550,14 @@ class SnapshotsRestTransport(_BaseSnapshotsRestTransport):
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
         return self._TestIamPermissions(self._session, self._host, self._interceptor)  # type: ignore
+
+    @property
+    def update_kms_key(
+        self,
+    ) -> Callable[[compute.UpdateKmsKeySnapshotRequest], compute.Operation]:
+        # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
+        # In C++ this would require a dynamic_cast
+        return self._UpdateKmsKey(self._session, self._host, self._interceptor)  # type: ignore
 
     @property
     def kind(self) -> str:

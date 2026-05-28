@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,23 +17,25 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.network_management_v1.types import vpc_flow_logs, vpc_flow_logs_config
 
@@ -64,7 +66,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -99,7 +101,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -154,8 +156,9 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -206,9 +209,10 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -240,6 +244,10 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -373,12 +381,12 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_vpc_flow_logs_configs" not in self._stubs:
-            self._stubs[
-                "list_vpc_flow_logs_configs"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.networkmanagement.v1.VpcFlowLogsService/ListVpcFlowLogsConfigs",
-                request_serializer=vpc_flow_logs.ListVpcFlowLogsConfigsRequest.serialize,
-                response_deserializer=vpc_flow_logs.ListVpcFlowLogsConfigsResponse.deserialize,
+            self._stubs["list_vpc_flow_logs_configs"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/ListVpcFlowLogsConfigs",
+                    request_serializer=vpc_flow_logs.ListVpcFlowLogsConfigsRequest.serialize,
+                    response_deserializer=vpc_flow_logs.ListVpcFlowLogsConfigsResponse.deserialize,
+                )
             )
         return self._stubs["list_vpc_flow_logs_configs"]
 
@@ -424,17 +432,17 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         exact same settings already exists (even if the ID is
         different), the creation fails. Notes:
 
-        1. Creating a configuration with state=DISABLED will fail
-        2. The following fields are not considered as ``settings`` for
-           the purpose of the check mentioned above, therefore -
-           creating another configuration with the same fields but
-           different values for the following fields will fail as well:
+        1. Creating a configuration with ``state=DISABLED`` will fail
+        2. The following fields are not considered as settings for the
+           purpose of the check mentioned above, therefore - creating
+           another configuration with the same fields but different
+           values for the following fields will fail as well:
 
-           -  name
-           -  create_time
-           -  update_time
-           -  labels
-           -  description
+           - name
+           - create_time
+           - update_time
+           - labels
+           - description
 
         Returns:
             Callable[[~.CreateVpcFlowLogsConfigRequest],
@@ -447,12 +455,12 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_vpc_flow_logs_config" not in self._stubs:
-            self._stubs[
-                "create_vpc_flow_logs_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.networkmanagement.v1.VpcFlowLogsService/CreateVpcFlowLogsConfig",
-                request_serializer=vpc_flow_logs.CreateVpcFlowLogsConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_vpc_flow_logs_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/CreateVpcFlowLogsConfig",
+                    request_serializer=vpc_flow_logs.CreateVpcFlowLogsConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_vpc_flow_logs_config"]
 
@@ -469,17 +477,17 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         with the exact same settings already exists (even if the ID is
         different), the creation fails. Notes:
 
-        1. Updating a configuration with state=DISABLED will fail.
-        2. The following fields are not considered as ``settings`` for
-           the purpose of the check mentioned above, therefore -
-           updating another configuration with the same fields but
-           different values for the following fields will fail as well:
+        1. Updating a configuration with ``state=DISABLED`` will fail.
+        2. The following fields are not considered as settings for the
+           purpose of the check mentioned above, therefore - updating
+           another configuration with the same fields but different
+           values for the following fields will fail as well:
 
-           -  name
-           -  create_time
-           -  update_time
-           -  labels
-           -  description
+           - name
+           - create_time
+           - update_time
+           - labels
+           - description
 
         Returns:
             Callable[[~.UpdateVpcFlowLogsConfigRequest],
@@ -492,12 +500,12 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_vpc_flow_logs_config" not in self._stubs:
-            self._stubs[
-                "update_vpc_flow_logs_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.networkmanagement.v1.VpcFlowLogsService/UpdateVpcFlowLogsConfig",
-                request_serializer=vpc_flow_logs.UpdateVpcFlowLogsConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_vpc_flow_logs_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/UpdateVpcFlowLogsConfig",
+                    request_serializer=vpc_flow_logs.UpdateVpcFlowLogsConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_vpc_flow_logs_config"]
 
@@ -523,14 +531,82 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_vpc_flow_logs_config" not in self._stubs:
-            self._stubs[
-                "delete_vpc_flow_logs_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.networkmanagement.v1.VpcFlowLogsService/DeleteVpcFlowLogsConfig",
-                request_serializer=vpc_flow_logs.DeleteVpcFlowLogsConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["delete_vpc_flow_logs_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/DeleteVpcFlowLogsConfig",
+                    request_serializer=vpc_flow_logs.DeleteVpcFlowLogsConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["delete_vpc_flow_logs_config"]
+
+    @property
+    def query_org_vpc_flow_logs_configs(
+        self,
+    ) -> Callable[
+        [vpc_flow_logs.QueryOrgVpcFlowLogsConfigsRequest],
+        Awaitable[vpc_flow_logs.QueryOrgVpcFlowLogsConfigsResponse],
+    ]:
+        r"""Return a callable for the query org vpc flow logs
+        configs method over gRPC.
+
+        QueryOrgVpcFlowLogsConfigs returns a list of all
+        organization-level VPC Flow Logs configurations
+        applicable to the specified project.
+
+        Returns:
+            Callable[[~.QueryOrgVpcFlowLogsConfigsRequest],
+                    Awaitable[~.QueryOrgVpcFlowLogsConfigsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "query_org_vpc_flow_logs_configs" not in self._stubs:
+            self._stubs["query_org_vpc_flow_logs_configs"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/QueryOrgVpcFlowLogsConfigs",
+                    request_serializer=vpc_flow_logs.QueryOrgVpcFlowLogsConfigsRequest.serialize,
+                    response_deserializer=vpc_flow_logs.QueryOrgVpcFlowLogsConfigsResponse.deserialize,
+                )
+            )
+        return self._stubs["query_org_vpc_flow_logs_configs"]
+
+    @property
+    def show_effective_flow_logs_configs(
+        self,
+    ) -> Callable[
+        [vpc_flow_logs.ShowEffectiveFlowLogsConfigsRequest],
+        Awaitable[vpc_flow_logs.ShowEffectiveFlowLogsConfigsResponse],
+    ]:
+        r"""Return a callable for the show effective flow logs
+        configs method over gRPC.
+
+        ShowEffectiveFlowLogsConfigs returns a list of all
+        VPC Flow Logs configurations applicable to a specified
+        resource.
+
+        Returns:
+            Callable[[~.ShowEffectiveFlowLogsConfigsRequest],
+                    Awaitable[~.ShowEffectiveFlowLogsConfigsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "show_effective_flow_logs_configs" not in self._stubs:
+            self._stubs["show_effective_flow_logs_configs"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.networkmanagement.v1.VpcFlowLogsService/ShowEffectiveFlowLogsConfigs",
+                    request_serializer=vpc_flow_logs.ShowEffectiveFlowLogsConfigsRequest.serialize,
+                    response_deserializer=vpc_flow_logs.ShowEffectiveFlowLogsConfigsResponse.deserialize,
+                )
+            )
+        return self._stubs["show_effective_flow_logs_configs"]
 
     def _prep_wrapped_messages(self, client_info):
         """Precompute the wrapped methods, overriding the base class method to use async wrappers."""
@@ -557,6 +633,16 @@ class VpcFlowLogsServiceGrpcAsyncIOTransport(VpcFlowLogsServiceTransport):
             ),
             self.delete_vpc_flow_logs_config: self._wrap_method(
                 self.delete_vpc_flow_logs_config,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.query_org_vpc_flow_logs_configs: self._wrap_method(
+                self.query_org_vpc_flow_logs_configs,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.show_effective_flow_logs_configs: self._wrap_method(
+                self.show_effective_flow_logs_configs,
                 default_timeout=None,
                 client_info=client_info,
             ),

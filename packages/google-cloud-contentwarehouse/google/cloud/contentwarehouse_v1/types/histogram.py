@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,6 +109,7 @@ class HistogramQueryPropertyNameFilter(proto.Message):
             HISTOGRAM_YAXIS_PROPERTY (1):
                 Count the properties per property name.
         """
+
         HISTOGRAM_YAXIS_DOCUMENT = 0
         HISTOGRAM_YAXIS_PROPERTY = 1
 
@@ -142,7 +143,7 @@ class HistogramQueryResult(proto.Message):
 
             The key format is:
 
-            -  (for string histogram) string values stored in the field.
+            - (for string histogram) string values stored in the field.
     """
 
     histogram_query: str = proto.Field(

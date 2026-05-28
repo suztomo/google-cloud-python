@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,19 +17,19 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.kms_inventory_v1.types import key_tracking_service
 
@@ -60,7 +60,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -95,7 +95,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -148,8 +148,9 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -200,9 +201,10 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -234,6 +236,10 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -340,9 +346,15 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
 
         Returns aggregate information about the resources protected by
         the given Cloud KMS [CryptoKey][google.cloud.kms.v1.CryptoKey].
-        Only resources within the same Cloud organization as the key
-        will be returned. The project that holds the key must be part of
-        an organization in order for this call to succeed.
+        By default, summary of resources within the same Cloud
+        organization as the key will be returned, which requires the KMS
+        organization service account to be configured(refer
+        https://docs.cloud.google.com/kms/docs/view-key-usage#required-roles).
+        If the KMS organization service account is not configured or
+        key's project is not part of an organization, set
+        [fallback_scope][google.cloud.kms.inventory.v1.GetProtectedResourcesSummaryRequest.fallback_scope]
+        to ``FALLBACK_SCOPE_PROJECT`` to retrieve a summary of protected
+        resources within the key's project.
 
         Returns:
             Callable[[~.GetProtectedResourcesSummaryRequest],
@@ -355,12 +367,12 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_protected_resources_summary" not in self._stubs:
-            self._stubs[
-                "get_protected_resources_summary"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.inventory.v1.KeyTrackingService/GetProtectedResourcesSummary",
-                request_serializer=key_tracking_service.GetProtectedResourcesSummaryRequest.serialize,
-                response_deserializer=key_tracking_service.ProtectedResourcesSummary.deserialize,
+            self._stubs["get_protected_resources_summary"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.inventory.v1.KeyTrackingService/GetProtectedResourcesSummary",
+                    request_serializer=key_tracking_service.GetProtectedResourcesSummaryRequest.serialize,
+                    response_deserializer=key_tracking_service.ProtectedResourcesSummary.deserialize,
+                )
             )
         return self._stubs["get_protected_resources_summary"]
 
@@ -375,7 +387,7 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
 
         Returns metadata about the resources protected by the given
         Cloud KMS [CryptoKey][google.cloud.kms.v1.CryptoKey] in the
-        given Cloud organization.
+        given Cloud organization/project.
 
         Returns:
             Callable[[~.SearchProtectedResourcesRequest],
@@ -388,12 +400,12 @@ class KeyTrackingServiceGrpcAsyncIOTransport(KeyTrackingServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "search_protected_resources" not in self._stubs:
-            self._stubs[
-                "search_protected_resources"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.inventory.v1.KeyTrackingService/SearchProtectedResources",
-                request_serializer=key_tracking_service.SearchProtectedResourcesRequest.serialize,
-                response_deserializer=key_tracking_service.SearchProtectedResourcesResponse.deserialize,
+            self._stubs["search_protected_resources"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.inventory.v1.KeyTrackingService/SearchProtectedResources",
+                    request_serializer=key_tracking_service.SearchProtectedResourcesRequest.serialize,
+                    response_deserializer=key_tracking_service.SearchProtectedResourcesResponse.deserialize,
+                )
             )
         return self._stubs["search_protected_resources"]
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ async def sample_write_file():
     request = dataform_v1.WriteFileRequest(
         workspace="workspace_value",
         path="path_value",
-        contents=b'contents_blob',
+        contents=b"contents_blob",
     )
 
     # Make the request
@@ -50,5 +50,6 @@ async def sample_write_file():
 
     # Handle the response
     print(response)
+
 
 # [END dataform_v1_generated_Dataform_WriteFile_async]

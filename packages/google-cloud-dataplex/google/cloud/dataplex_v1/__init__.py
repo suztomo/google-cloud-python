@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import google.api_core as api_core
+
 from google.cloud.dataplex_v1 import gapic_version as package_version
 
 __version__ = package_version.__version__
 
+from importlib import metadata
 
+from .services.business_glossary_service import (
+    BusinessGlossaryServiceAsyncClient,
+    BusinessGlossaryServiceClient,
+)
 from .services.catalog_service import CatalogServiceAsyncClient, CatalogServiceClient
 from .services.cmek_service import CmekServiceAsyncClient, CmekServiceClient
 from .services.content_service import ContentServiceAsyncClient, ContentServiceClient
+from .services.data_product_service import (
+    DataProductServiceAsyncClient,
+    DataProductServiceClient,
+)
 from .services.data_scan_service import (
     DataScanServiceAsyncClient,
     DataScanServiceClient,
@@ -32,6 +45,29 @@ from .services.data_taxonomy_service import (
 from .services.dataplex_service import DataplexServiceAsyncClient, DataplexServiceClient
 from .services.metadata_service import MetadataServiceAsyncClient, MetadataServiceClient
 from .types.analyze import Content, Environment, Session
+from .types.business_glossary import (
+    CreateGlossaryCategoryRequest,
+    CreateGlossaryRequest,
+    CreateGlossaryTermRequest,
+    DeleteGlossaryCategoryRequest,
+    DeleteGlossaryRequest,
+    DeleteGlossaryTermRequest,
+    GetGlossaryCategoryRequest,
+    GetGlossaryRequest,
+    GetGlossaryTermRequest,
+    Glossary,
+    GlossaryCategory,
+    GlossaryTerm,
+    ListGlossariesRequest,
+    ListGlossariesResponse,
+    ListGlossaryCategoriesRequest,
+    ListGlossaryCategoriesResponse,
+    ListGlossaryTermsRequest,
+    ListGlossaryTermsResponse,
+    UpdateGlossaryCategoryRequest,
+    UpdateGlossaryRequest,
+    UpdateGlossaryTermRequest,
+)
 from .types.catalog import (
     Aspect,
     AspectSource,
@@ -39,22 +75,29 @@ from .types.catalog import (
     CancelMetadataJobRequest,
     CreateAspectTypeRequest,
     CreateEntryGroupRequest,
+    CreateEntryLinkRequest,
     CreateEntryRequest,
     CreateEntryTypeRequest,
+    CreateMetadataFeedRequest,
     CreateMetadataJobRequest,
     DeleteAspectTypeRequest,
     DeleteEntryGroupRequest,
+    DeleteEntryLinkRequest,
     DeleteEntryRequest,
     DeleteEntryTypeRequest,
+    DeleteMetadataFeedRequest,
     Entry,
     EntryGroup,
+    EntryLink,
     EntrySource,
     EntryType,
     EntryView,
     GetAspectTypeRequest,
     GetEntryGroupRequest,
+    GetEntryLinkRequest,
     GetEntryRequest,
     GetEntryTypeRequest,
+    GetMetadataFeedRequest,
     GetMetadataJobRequest,
     ImportItem,
     ListAspectTypesRequest,
@@ -65,9 +108,16 @@ from .types.catalog import (
     ListEntryGroupsResponse,
     ListEntryTypesRequest,
     ListEntryTypesResponse,
+    ListMetadataFeedsRequest,
+    ListMetadataFeedsResponse,
     ListMetadataJobsRequest,
     ListMetadataJobsResponse,
+    LookupContextRequest,
+    LookupContextResponse,
+    LookupEntryLinksRequest,
+    LookupEntryLinksResponse,
     LookupEntryRequest,
+    MetadataFeed,
     MetadataJob,
     SearchEntriesRequest,
     SearchEntriesResponse,
@@ -75,8 +125,10 @@ from .types.catalog import (
     TransferStatus,
     UpdateAspectTypeRequest,
     UpdateEntryGroupRequest,
+    UpdateEntryLinkRequest,
     UpdateEntryRequest,
     UpdateEntryTypeRequest,
+    UpdateMetadataFeedRequest,
 )
 from .types.cmek import (
     CreateEncryptionConfigRequest,
@@ -87,15 +139,24 @@ from .types.cmek import (
     ListEncryptionConfigsResponse,
     UpdateEncryptionConfigRequest,
 )
-from .types.content import (
-    CreateContentRequest,
-    DeleteContentRequest,
-    GetContentRequest,
-    ListContentRequest,
-    ListContentResponse,
-    UpdateContentRequest,
-)
 from .types.data_discovery import DataDiscoveryResult, DataDiscoverySpec
+from .types.data_documentation import DataDocumentationResult, DataDocumentationSpec
+from .types.data_products import (
+    CreateDataAssetRequest,
+    CreateDataProductRequest,
+    DataAsset,
+    DataProduct,
+    DeleteDataAssetRequest,
+    DeleteDataProductRequest,
+    GetDataAssetRequest,
+    GetDataProductRequest,
+    ListDataAssetsRequest,
+    ListDataAssetsResponse,
+    ListDataProductsRequest,
+    ListDataProductsResponse,
+    UpdateDataAssetRequest,
+    UpdateDataProductRequest,
+)
 from .types.data_profile import DataProfileResult, DataProfileSpec
 from .types.data_quality import (
     DataQualityColumnResult,
@@ -147,6 +208,7 @@ from .types.datascans import (
     RunDataScanResponse,
     UpdateDataScanRequest,
 )
+from .types.datascans_common import DataScanCatalogPublishingStatus
 from .types.logs import (
     BusinessGlossaryEvent,
     DataQualityScanRuleResult,
@@ -182,17 +244,14 @@ from .types.security import DataAccessSpec, ResourceAccessSpec
 from .types.service import (
     CancelJobRequest,
     CreateAssetRequest,
-    CreateEnvironmentRequest,
     CreateLakeRequest,
     CreateTaskRequest,
     CreateZoneRequest,
     DeleteAssetRequest,
-    DeleteEnvironmentRequest,
     DeleteLakeRequest,
     DeleteTaskRequest,
     DeleteZoneRequest,
     GetAssetRequest,
-    GetEnvironmentRequest,
     GetJobRequest,
     GetLakeRequest,
     GetTaskRequest,
@@ -201,15 +260,11 @@ from .types.service import (
     ListAssetActionsRequest,
     ListAssetsRequest,
     ListAssetsResponse,
-    ListEnvironmentsRequest,
-    ListEnvironmentsResponse,
     ListJobsRequest,
     ListJobsResponse,
     ListLakeActionsRequest,
     ListLakesRequest,
     ListLakesResponse,
-    ListSessionsRequest,
-    ListSessionsResponse,
     ListTasksRequest,
     ListTasksResponse,
     ListZoneActionsRequest,
@@ -219,17 +274,101 @@ from .types.service import (
     RunTaskRequest,
     RunTaskResponse,
     UpdateAssetRequest,
-    UpdateEnvironmentRequest,
     UpdateLakeRequest,
     UpdateTaskRequest,
     UpdateZoneRequest,
 )
 from .types.tasks import Job, Task
 
+if hasattr(api_core, "check_python_version") and hasattr(
+    api_core, "check_dependency_versions"
+):  # pragma: NO COVER
+    api_core.check_python_version("google.cloud.dataplex_v1")  # type: ignore
+    api_core.check_dependency_versions("google.cloud.dataplex_v1")  # type: ignore
+else:  # pragma: NO COVER
+    # An older version of api_core is installed which does not define the
+    # functions above. We do equivalent checks manually.
+    try:
+        import warnings
+
+        _py_version_str = sys.version.split()[0]
+        _package_label = "google.cloud.dataplex_v1"
+        if sys.version_info < (3, 10):
+            warnings.warn(
+                "You are using a non-supported Python version "
+                + f"({_py_version_str}).  Google will not post any further "
+                + f"updates to {_package_label} supporting this Python version. "
+                + "Please upgrade to the latest Python version, or at "
+                + f"least to Python 3.10, and then update {_package_label}.",
+                FutureWarning,
+            )
+
+        def parse_version_to_tuple(version_string: str):
+            """Safely converts a semantic version string to a comparable tuple of integers.
+            Example: "4.25.8" -> (4, 25, 8)
+            Ignores non-numeric parts and handles common version formats.
+            Args:
+                version_string: Version string in the format "x.y.z" or "x.y.z<suffix>"
+            Returns:
+                Tuple of integers for the parsed version string.
+            """
+            parts = []
+            for part in version_string.split("."):
+                try:
+                    parts.append(int(part))
+                except ValueError:
+                    # If it's a non-numeric part (e.g., '1.0.0b1' -> 'b1'), stop here.
+                    # This is a simplification compared to 'packaging.parse_version', but sufficient
+                    # for comparing strictly numeric semantic versions.
+                    break
+            return tuple(parts)
+
+        def _get_version(dependency_name):
+            try:
+                version_string: str = metadata.version(dependency_name)
+                parsed_version = parse_version_to_tuple(version_string)
+                return (parsed_version, version_string)
+            except Exception:
+                # Catch exceptions from metadata.version() (e.g., PackageNotFoundError)
+                # or errors during parse_version_to_tuple
+                return (None, "--")
+
+        _dependency_package = "google.protobuf"
+        _next_supported_version = "4.25.8"
+        _next_supported_version_tuple = (4, 25, 8)
+        _recommendation = " (we recommend 6.x)"
+        (_version_used, _version_used_string) = _get_version(_dependency_package)
+        if _version_used and _version_used < _next_supported_version_tuple:
+            warnings.warn(
+                f"Package {_package_label} depends on "
+                + f"{_dependency_package}, currently installed at version "
+                + f"{_version_used_string}. Future updates to "
+                + f"{_package_label} will require {_dependency_package} at "
+                + f"version {_next_supported_version} or higher{_recommendation}."
+                + " Please ensure "
+                + "that either (a) your Python environment doesn't pin the "
+                + f"version of {_dependency_package}, so that updates to "
+                + f"{_package_label} can require the higher version, or "
+                + "(b) you manually update your Python environment to use at "
+                + f"least version {_next_supported_version} of "
+                + f"{_dependency_package}.",
+                FutureWarning,
+            )
+    except Exception:
+        warnings.warn(
+            "Could not determine the version of Python "
+            + "currently being used. To continue receiving "
+            + "updates for {_package_label}, ensure you are "
+            + "using a supported version of Python; see "
+            + "https://devguide.python.org/versions/"
+        )
+
 __all__ = (
+    "BusinessGlossaryServiceAsyncClient",
     "CatalogServiceAsyncClient",
     "CmekServiceAsyncClient",
     "ContentServiceAsyncClient",
+    "DataProductServiceAsyncClient",
     "DataScanServiceAsyncClient",
     "DataTaxonomyServiceAsyncClient",
     "DataplexServiceAsyncClient",
@@ -241,6 +380,7 @@ __all__ = (
     "Asset",
     "AssetStatus",
     "BusinessGlossaryEvent",
+    "BusinessGlossaryServiceClient",
     "CancelJobRequest",
     "CancelMetadataJobRequest",
     "CatalogServiceClient",
@@ -249,27 +389,37 @@ __all__ = (
     "ContentServiceClient",
     "CreateAspectTypeRequest",
     "CreateAssetRequest",
-    "CreateContentRequest",
+    "CreateDataAssetRequest",
     "CreateDataAttributeBindingRequest",
     "CreateDataAttributeRequest",
+    "CreateDataProductRequest",
     "CreateDataScanRequest",
     "CreateDataTaxonomyRequest",
     "CreateEncryptionConfigRequest",
     "CreateEntityRequest",
     "CreateEntryGroupRequest",
+    "CreateEntryLinkRequest",
     "CreateEntryRequest",
     "CreateEntryTypeRequest",
-    "CreateEnvironmentRequest",
+    "CreateGlossaryCategoryRequest",
+    "CreateGlossaryRequest",
+    "CreateGlossaryTermRequest",
     "CreateLakeRequest",
+    "CreateMetadataFeedRequest",
     "CreateMetadataJobRequest",
     "CreatePartitionRequest",
     "CreateTaskRequest",
     "CreateZoneRequest",
     "DataAccessSpec",
+    "DataAsset",
     "DataAttribute",
     "DataAttributeBinding",
     "DataDiscoveryResult",
     "DataDiscoverySpec",
+    "DataDocumentationResult",
+    "DataDocumentationSpec",
+    "DataProduct",
+    "DataProductServiceClient",
     "DataProfileResult",
     "DataProfileSpec",
     "DataQualityColumnResult",
@@ -281,6 +431,7 @@ __all__ = (
     "DataQualityScanRuleResult",
     "DataQualitySpec",
     "DataScan",
+    "DataScanCatalogPublishingStatus",
     "DataScanEvent",
     "DataScanJob",
     "DataScanServiceClient",
@@ -291,18 +442,23 @@ __all__ = (
     "DataplexServiceClient",
     "DeleteAspectTypeRequest",
     "DeleteAssetRequest",
-    "DeleteContentRequest",
+    "DeleteDataAssetRequest",
     "DeleteDataAttributeBindingRequest",
     "DeleteDataAttributeRequest",
+    "DeleteDataProductRequest",
     "DeleteDataScanRequest",
     "DeleteDataTaxonomyRequest",
     "DeleteEncryptionConfigRequest",
     "DeleteEntityRequest",
     "DeleteEntryGroupRequest",
+    "DeleteEntryLinkRequest",
     "DeleteEntryRequest",
     "DeleteEntryTypeRequest",
-    "DeleteEnvironmentRequest",
+    "DeleteGlossaryCategoryRequest",
+    "DeleteGlossaryRequest",
+    "DeleteGlossaryTermRequest",
     "DeleteLakeRequest",
+    "DeleteMetadataFeedRequest",
     "DeletePartitionRequest",
     "DeleteTaskRequest",
     "DeleteZoneRequest",
@@ -311,6 +467,7 @@ __all__ = (
     "Entity",
     "Entry",
     "EntryGroup",
+    "EntryLink",
     "EntryLinkEvent",
     "EntrySource",
     "EntryType",
@@ -320,24 +477,32 @@ __all__ = (
     "GenerateDataQualityRulesResponse",
     "GetAspectTypeRequest",
     "GetAssetRequest",
-    "GetContentRequest",
+    "GetDataAssetRequest",
     "GetDataAttributeBindingRequest",
     "GetDataAttributeRequest",
+    "GetDataProductRequest",
     "GetDataScanJobRequest",
     "GetDataScanRequest",
     "GetDataTaxonomyRequest",
     "GetEncryptionConfigRequest",
     "GetEntityRequest",
     "GetEntryGroupRequest",
+    "GetEntryLinkRequest",
     "GetEntryRequest",
     "GetEntryTypeRequest",
-    "GetEnvironmentRequest",
+    "GetGlossaryCategoryRequest",
+    "GetGlossaryRequest",
+    "GetGlossaryTermRequest",
     "GetJobRequest",
     "GetLakeRequest",
+    "GetMetadataFeedRequest",
     "GetMetadataJobRequest",
     "GetPartitionRequest",
     "GetTaskRequest",
     "GetZoneRequest",
+    "Glossary",
+    "GlossaryCategory",
+    "GlossaryTerm",
     "GovernanceEvent",
     "ImportItem",
     "Job",
@@ -349,12 +514,14 @@ __all__ = (
     "ListAssetActionsRequest",
     "ListAssetsRequest",
     "ListAssetsResponse",
-    "ListContentRequest",
-    "ListContentResponse",
+    "ListDataAssetsRequest",
+    "ListDataAssetsResponse",
     "ListDataAttributeBindingsRequest",
     "ListDataAttributeBindingsResponse",
     "ListDataAttributesRequest",
     "ListDataAttributesResponse",
+    "ListDataProductsRequest",
+    "ListDataProductsResponse",
     "ListDataScanJobsRequest",
     "ListDataScanJobsResponse",
     "ListDataScansRequest",
@@ -371,25 +538,34 @@ __all__ = (
     "ListEntryGroupsResponse",
     "ListEntryTypesRequest",
     "ListEntryTypesResponse",
-    "ListEnvironmentsRequest",
-    "ListEnvironmentsResponse",
+    "ListGlossariesRequest",
+    "ListGlossariesResponse",
+    "ListGlossaryCategoriesRequest",
+    "ListGlossaryCategoriesResponse",
+    "ListGlossaryTermsRequest",
+    "ListGlossaryTermsResponse",
     "ListJobsRequest",
     "ListJobsResponse",
     "ListLakeActionsRequest",
     "ListLakesRequest",
     "ListLakesResponse",
+    "ListMetadataFeedsRequest",
+    "ListMetadataFeedsResponse",
     "ListMetadataJobsRequest",
     "ListMetadataJobsResponse",
     "ListPartitionsRequest",
     "ListPartitionsResponse",
-    "ListSessionsRequest",
-    "ListSessionsResponse",
     "ListTasksRequest",
     "ListTasksResponse",
     "ListZoneActionsRequest",
     "ListZonesRequest",
     "ListZonesResponse",
+    "LookupContextRequest",
+    "LookupContextResponse",
+    "LookupEntryLinksRequest",
+    "LookupEntryLinksResponse",
     "LookupEntryRequest",
+    "MetadataFeed",
     "MetadataJob",
     "MetadataServiceClient",
     "OperationMetadata",
@@ -415,18 +591,23 @@ __all__ = (
     "Trigger",
     "UpdateAspectTypeRequest",
     "UpdateAssetRequest",
-    "UpdateContentRequest",
+    "UpdateDataAssetRequest",
     "UpdateDataAttributeBindingRequest",
     "UpdateDataAttributeRequest",
+    "UpdateDataProductRequest",
     "UpdateDataScanRequest",
     "UpdateDataTaxonomyRequest",
     "UpdateEncryptionConfigRequest",
     "UpdateEntityRequest",
     "UpdateEntryGroupRequest",
+    "UpdateEntryLinkRequest",
     "UpdateEntryRequest",
     "UpdateEntryTypeRequest",
-    "UpdateEnvironmentRequest",
+    "UpdateGlossaryCategoryRequest",
+    "UpdateGlossaryRequest",
+    "UpdateGlossaryTermRequest",
     "UpdateLakeRequest",
+    "UpdateMetadataFeedRequest",
     "UpdateTaskRequest",
     "UpdateZoneRequest",
     "Zone",

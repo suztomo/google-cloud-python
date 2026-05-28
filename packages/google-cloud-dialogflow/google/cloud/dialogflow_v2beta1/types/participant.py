@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflow_v2beta1.types import audio_config as gcd_audio_config
@@ -29,6 +29,7 @@ from google.cloud.dialogflow_v2beta1.types import generator, session
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.v2beta1",
     manifest={
+        "DatastoreResponseReason",
         "Participant",
         "Message",
         "CreateParticipantRequest",
@@ -73,9 +74,57 @@ __protobuf__ = proto.module(
         "ResponseMessage",
         "SuggestKnowledgeAssistRequest",
         "SuggestKnowledgeAssistResponse",
+        "IngestedContextReferenceDebugInfo",
+        "ServiceLatency",
+        "KnowledgeAssistDebugInfo",
         "KnowledgeAssistAnswer",
+        "BidiStreamingAnalyzeContentRequest",
+        "BidiStreamingAnalyzeContentResponse",
     },
 )
+
+
+class DatastoreResponseReason(proto.Enum):
+    r"""Response reason from datastore which indicates data serving
+    status or answer quality degradation.
+
+    Values:
+        DATASTORE_RESPONSE_REASON_UNSPECIFIED (0):
+            Default value.
+        NONE (1):
+            No specific response reason from datastore.
+        SEARCH_OUT_OF_QUOTA (2):
+            Search is blocked due to out of quota.
+        SEARCH_EMPTY_RESULTS (3):
+            Search returns empty results.
+        ANSWER_GENERATION_GEN_AI_DISABLED (4):
+            Generative AI is disabled.
+        ANSWER_GENERATION_OUT_OF_QUOTA (5):
+            Answer generation is blocked due to out of
+            quota.
+        ANSWER_GENERATION_ERROR (6):
+            Answer generation encounters an error.
+        ANSWER_GENERATION_NOT_ENOUGH_INFO (7):
+            Answer generation does not have enough
+            information to generate answer.
+        ANSWER_GENERATION_RAI_FAILED (8):
+            Answer generation is blocked by RAI
+            (Responsible AI) failure.
+        ANSWER_GENERATION_NOT_GROUNDED (9):
+            Answer generation is not grounded on reliable
+            sources.
+    """
+
+    DATASTORE_RESPONSE_REASON_UNSPECIFIED = 0
+    NONE = 1
+    SEARCH_OUT_OF_QUOTA = 2
+    SEARCH_EMPTY_RESULTS = 3
+    ANSWER_GENERATION_GEN_AI_DISABLED = 4
+    ANSWER_GENERATION_OUT_OF_QUOTA = 5
+    ANSWER_GENERATION_ERROR = 6
+    ANSWER_GENERATION_NOT_ENOUGH_INFO = 7
+    ANSWER_GENERATION_RAI_FAILED = 8
+    ANSWER_GENERATION_NOT_GROUNDED = 9
 
 
 class Participant(proto.Message):
@@ -122,11 +171,11 @@ class Participant(proto.Message):
 
             Note:
 
-            -  Please never pass raw user ids to Dialogflow. Always
-               obfuscate your user id first.
-            -  Dialogflow only accepts a UTF-8 encoded string, e.g., a
-               hex digest of a hash function like SHA-512.
-            -  The length of the user id must be <= 256 characters.
+            - Please never pass raw user ids to Dialogflow. Always
+              obfuscate your user id first.
+            - Dialogflow only accepts a UTF-8 encoded string, e.g., a
+              hex digest of a hash function like SHA-512.
+            - The length of the user id must be <= 256 characters.
         documents_metadata_filters (MutableMapping[str, str]):
             Optional. Key-value filters on the metadata of documents
             returned by article suggestion. If specified, article
@@ -148,6 +197,18 @@ class Participant(proto.Message):
                  key: "user"
                  value: "agent"
                }
+        agent_desktop_source (google.cloud.dialogflow_v2beta1.types.Participant.AgentDesktopSource):
+            Optional. For tracking the utilization of prebuilt Agent
+            Assist integration modules. This field is only inscope for
+            Integration type that include UI Modules, Backend Modules,
+            and Agent Desktop connector, it is out of scope for CCaaS
+            and Direct Integration. For each human agent, prebuilt UI
+            Modules needs to trigger the UpdateParticipant API to update
+            this field. Both
+            [CreateParticipantRequest][google.cloud.dialogflow.v2beta1.CreateParticipantRequest.participant]
+            and
+            [UpdateParticipantRequest][google.cloud.dialogflow.v2beta1.UpdateParticipantRequest.participant]
+            will be supported.
     """
 
     class Role(proto.Enum):
@@ -166,10 +227,39 @@ class Participant(proto.Message):
                 Participant is an end user that has called or
                 chatted with Dialogflow services.
         """
+
         ROLE_UNSPECIFIED = 0
         HUMAN_AGENT = 1
         AUTOMATED_AGENT = 2
         END_USER = 3
+
+    class AgentDesktopSource(proto.Enum):
+        r"""Enumeration of the Agent Desktop Source when using prebuilt
+        Agent Assist integration modules.
+
+        Values:
+            AGENT_DESKTOP_SOURCE_UNSPECIFIED (0):
+                Agent Desktop Source is not specified.
+            LIVE_PERSON (1):
+                Agent Desktop Source is Live Person.
+            GENESYS_CLOUD (2):
+                Agent Desktop Source is Genesys Cloud.
+            TWILIO (3):
+                Agent Desktop Source is Twilio.
+            SALESFORCE (4):
+                Agent Desktop Source is Salesforce.
+            OTHER (8):
+                UI Modules are in use but the desktop is
+                either not currently released or setting this
+                field to the applicable desktop.
+        """
+
+        AGENT_DESKTOP_SOURCE_UNSPECIFIED = 0
+        LIVE_PERSON = 1
+        GENESYS_CLOUD = 2
+        TWILIO = 3
+        SALESFORCE = 4
+        OTHER = 8
 
     name: str = proto.Field(
         proto.STRING,
@@ -188,6 +278,11 @@ class Participant(proto.Message):
         proto.STRING,
         proto.STRING,
         number=8,
+    )
+    agent_desktop_source: AgentDesktopSource = proto.Field(
+        proto.ENUM,
+        number=10,
+        enum=AgentDesktopSource,
     )
 
 
@@ -526,6 +621,7 @@ class AutomatedAgentReply(proto.Message):
             FINAL (2):
                 Final reply.
         """
+
         AUTOMATED_AGENT_REPLY_TYPE_UNSPECIFIED = 0
         PARTIAL = 1
         FINAL = 2
@@ -585,50 +681,59 @@ class AutomatedAgentReply(proto.Message):
 
 
 class SuggestionInput(proto.Message):
-    r"""Represents the selection of a suggestion.
+    r"""Represents the action to take for a tool call that requires
+    confirmation.
 
     Attributes:
         answer_record (str):
-            Required. The ID of a suggestion selected by the human
-            agent. The suggestion(s) were generated in a previous call
-            to request Dialogflow assist. The format is:
+            Required. Format:
             ``projects/<Project ID>/locations/<Location ID>/answerRecords/<Answer Record ID>``
-            where is an alphanumeric string.
+            The answer record associated with the tool call.
         text_override (google.cloud.dialogflow_v2beta1.types.TextInput):
             Optional. If the customer edited the
             suggestion before using it, include the revised
             text here.
         parameters (google.protobuf.struct_pb2.Struct):
-            In Dialogflow assist for v3, the user can submit a form by
-            sending a
-            [SuggestionInput][google.cloud.dialogflow.v2beta1.SuggestionInput].
-            The form is uniquely determined by the
-            [answer_record][google.cloud.dialogflow.v2beta1.SuggestionInput.answer_record]
-            field, which identifies a v3
-            [QueryResult][google.cloud.dialogflow.v3alpha1.QueryResult]
-            containing the current
-            [page][google.cloud.dialogflow.v3alpha1.Page]. The form
-            parameters are specified via the
-            [parameters][google.cloud.dialogflow.v2beta1.SuggestionInput.parameters]
-            field.
-
-            Depending on your protocol or client library language, this
-            is a map, associative array, symbol table, dictionary, or
-            JSON object composed of a collection of (MapKey, MapValue)
-            pairs:
-
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            Parameters to be used for the tool call.  If
+            not provided, the tool will be called without
+            any parameters.
+        action (google.cloud.dialogflow_v2beta1.types.SuggestionInput.Action):
+            Optional. The type of action to take with the
+            tool.
         intent_input (google.cloud.dialogflow_v2beta1.types.IntentInput):
             The intent to be triggered on V3 agent.
+        send_time (google.protobuf.timestamp_pb2.Timestamp):
+            Optional. Time when the current suggest input
+            is sent. For tool calls, this timestamp (along
+            with the answer record) will be included in the
+            corresponding tool call result so that it can be
+            identified.
     """
+
+    class Action(proto.Enum):
+        r"""Indicate what type of action to take with the tool call.
+
+        Values:
+            ACTION_UNSPECIFIED (0):
+                Action not specified.
+            CANCEL (1):
+                Indicates the user chooses to not make the
+                tool call. It is only applicable to tool calls
+                that are waiting for user confirmation.
+            REVISE (2):
+                Makes the tool call with provided parameters.
+                This action is intended for tool calls that only
+                read but not write data.
+            CONFIRM (3):
+                Makes the tool call with provided parameters.
+                This action is intended for tool calls that may
+                write data.
+        """
+
+        ACTION_UNSPECIFIED = 0
+        CANCEL = 1
+        REVISE = 2
+        CONFIRM = 3
 
     answer_record: str = proto.Field(
         proto.STRING,
@@ -644,10 +749,20 @@ class SuggestionInput(proto.Message):
         number=4,
         message=struct_pb2.Struct,
     )
+    action: Action = proto.Field(
+        proto.ENUM,
+        number=5,
+        enum=Action,
+    )
     intent_input: "IntentInput" = proto.Field(
         proto.MESSAGE,
         number=6,
         message="IntentInput",
+    )
+    send_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message=timestamp_pb2.Timestamp,
     )
 
 
@@ -715,6 +830,7 @@ class SuggestionFeature(proto.Message):
                 Run knowledge assist with automatic query
                 generation.
         """
+
         TYPE_UNSPECIFIED = 0
         ARTICLE_SUGGESTION = 1
         FAQ = 2
@@ -844,14 +960,14 @@ class AnalyzeContentRequest(proto.Message):
             For BatchCreateMessages API only: Given two messages under
             the same participant:
 
-            -  If send time are different regardless of whether the
-               content of the messages are exactly the same, the
-               conversation will regard them as two distinct messages
-               sent by the participant.
-            -  If send time is the same regardless of whether the
-               content of the messages are exactly the same, the
-               conversation will regard them as same message, and ignore
-               the message received later.
+            - If send time are different regardless of whether the
+              content of the messages are exactly the same, the
+              conversation will regard them as two distinct messages
+              sent by the participant.
+            - If send time is the same regardless of whether the content
+              of the messages are exactly the same, the conversation
+              will regard them as same message, and ignore the message
+              received later.
 
             If the value is not provided, a new request will always be
             regarded as a new message without any de-duplication.
@@ -959,10 +1075,10 @@ class AnalyzeContentResponse(proto.Message):
             Optional. The audio data bytes encoded as specified in the
             request. This field is set if:
 
-            -  ``reply_audio_config`` was specified in the request, or
-            -  The automated agent responded with audio to play to the
-               user. In such case, ``reply_audio.config`` contains
-               settings used to synthesize the speech.
+            - ``reply_audio_config`` was specified in the request, or
+            - The automated agent responded with audio to play to the
+              user. In such case, ``reply_audio.config`` contains
+              settings used to synthesize the speech.
 
             In some scenarios, multiple output audio fields may be
             present in the response structure. In these cases, only the
@@ -1023,19 +1139,19 @@ class AnalyzeContentResponse(proto.Message):
         number=5,
         message="Message",
     )
-    human_agent_suggestion_results: MutableSequence[
-        "SuggestionResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message="SuggestionResult",
+    human_agent_suggestion_results: MutableSequence["SuggestionResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message="SuggestionResult",
+        )
     )
-    end_user_suggestion_results: MutableSequence[
-        "SuggestionResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message="SuggestionResult",
+    end_user_suggestion_results: MutableSequence["SuggestionResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message="SuggestionResult",
+        )
     )
     dtmf_parameters: "DtmfParameters" = proto.Field(
         proto.MESSAGE,
@@ -1091,9 +1207,9 @@ class StreamingAnalyzeContentRequest(proto.Message):
 
        However, note that:
 
-       -  Dialogflow will bill you for the audio so far.
-       -  Dialogflow discards all Speech recognition results in favor of
-          the text input.
+       - Dialogflow will bill you for the audio so far.
+       - Dialogflow discards all Speech recognition results in favor of
+         the text input.
 
     3. If
        [StreamingAnalyzeContentRequest.config][google.cloud.dialogflow.v2beta1.StreamingAnalyzeContentRequest.config]
@@ -1159,12 +1275,15 @@ class StreamingAnalyzeContentRequest(proto.Message):
         input_intent (str):
             The intent to be triggered on V3 agent. Format:
             ``projects/<Project ID>/locations/<Location ID>/locations/ <Location ID>/agents/<Agent ID>/intents/<Intent ID>``.
+            This can only be used to trigger the Welcome intent id if
+            you are using text_config.
 
             This field is a member of `oneof`_ ``input``.
         input_event (str):
             The input event name.
             This can only be sent once and would cancel the
-            ongoing speech recognition if any.
+            ongoing speech recognition if any. To trigger
+            the Welcome intent use the event "WELCOME".
 
             This field is a member of `oneof`_ ``input``.
         query_params (google.cloud.dialogflow_v2beta1.types.QueryParameters):
@@ -1201,14 +1320,14 @@ class StreamingAnalyzeContentRequest(proto.Message):
 
             Restrictions:
 
-            -  Timeout: 3 mins.
-            -  Audio Encoding: only supports
-               [AudioEncoding.AUDIO_ENCODING_LINEAR_16][google.cloud.dialogflow.v2beta1.AudioEncoding.AUDIO_ENCODING_LINEAR_16]
-               and
-               [AudioEncoding.AUDIO_ENCODING_MULAW][google.cloud.dialogflow.v2beta1.AudioEncoding.AUDIO_ENCODING_MULAW]
-            -  Lifecycle: conversation should be in ``Assist Stage``, go
-               to [Conversation.CreateConversation][] for more
-               information.
+            - Timeout: 3 mins.
+            - Audio Encoding: only supports
+              [AudioEncoding.AUDIO_ENCODING_LINEAR_16][google.cloud.dialogflow.v2beta1.AudioEncoding.AUDIO_ENCODING_LINEAR_16]
+              and
+              [AudioEncoding.AUDIO_ENCODING_MULAW][google.cloud.dialogflow.v2beta1.AudioEncoding.AUDIO_ENCODING_MULAW]
+            - Lifecycle: conversation should be in ``Assist Stage``, go
+              to [Conversation.CreateConversation][] for more
+              information.
 
             InvalidArgument Error will be returned if the one of
             restriction checks failed.
@@ -1221,6 +1340,11 @@ class StreamingAnalyzeContentRequest(proto.Message):
             only one final response even if some ``Fulfillment``\ s in
             Dialogflow CX agent have been configured to return partial
             responses.
+        output_multiple_utterances (bool):
+            Optional. If multiple utterances are detected
+            in the audio stream, process them individually
+            instead of stitching them together to form a
+            single utterance.
         enable_debugging_info (bool):
             if true, ``StreamingAnalyzeContentResponse.debugging_info``
             will get populated.
@@ -1300,6 +1424,10 @@ class StreamingAnalyzeContentRequest(proto.Message):
         proto.BOOL,
         number=12,
     )
+    output_multiple_utterances: bool = proto.Field(
+        proto.BOOL,
+        number=18,
+    )
     enable_debugging_info: bool = proto.Field(
         proto.BOOL,
         number=19,
@@ -1344,12 +1472,12 @@ class StreamingAnalyzeContentResponse(proto.Message):
             Optional. The audio data bytes encoded as specified in the
             request. This field is set if:
 
-            -  The ``reply_audio_config`` field is specified in the
-               request.
-            -  The automated agent, which this output comes from,
-               responded with audio. In such case, the
-               ``reply_audio.config`` field contains settings used to
-               synthesize the speech.
+            - The ``reply_audio_config`` field is specified in the
+              request.
+            - The automated agent, which this output comes from,
+              responded with audio. In such case, the
+              ``reply_audio.config`` field contains settings used to
+              synthesize the speech.
 
             In some scenarios, multiple output audio fields may be
             present in the response structure. In these cases, only the
@@ -1411,19 +1539,19 @@ class StreamingAnalyzeContentResponse(proto.Message):
         number=6,
         message="Message",
     )
-    human_agent_suggestion_results: MutableSequence[
-        "SuggestionResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message="SuggestionResult",
+    human_agent_suggestion_results: MutableSequence["SuggestionResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message="SuggestionResult",
+        )
     )
-    end_user_suggestion_results: MutableSequence[
-        "SuggestionResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=8,
-        message="SuggestionResult",
+    end_user_suggestion_results: MutableSequence["SuggestionResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=8,
+            message="SuggestionResult",
+        )
     )
     dtmf_parameters: "DtmfParameters" = proto.Field(
         proto.MESSAGE,
@@ -2128,12 +2256,12 @@ class GenerateSuggestionsResponse(proto.Message):
             number=3,
         )
 
-    generator_suggestion_answers: MutableSequence[
-        GeneratorSuggestionAnswer
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=GeneratorSuggestionAnswer,
+    generator_suggestion_answers: MutableSequence[GeneratorSuggestionAnswer] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=GeneratorSuggestionAnswer,
+        )
     )
     latest_message: str = proto.Field(
         proto.STRING,
@@ -2165,12 +2293,12 @@ class SuggestDialogflowAssistsResponse(proto.Message):
             the conversation.
     """
 
-    dialogflow_assist_answers: MutableSequence[
-        "DialogflowAssistAnswer"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="DialogflowAssistAnswer",
+    dialogflow_assist_answers: MutableSequence["DialogflowAssistAnswer"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="DialogflowAssistAnswer",
+        )
     )
     latest_message: str = proto.Field(
         proto.STRING,
@@ -2548,11 +2676,10 @@ class ResponseMessage(proto.Message):
 
         You may set this, for example:
 
-        -  In the entry fulfillment of a Dialogflow CX Page if entering the
-           page indicates something went extremely wrong in the
-           conversation.
-        -  In a webhook response when you determine that the customer issue
-           can only be handled by a human.
+        - In the entry fulfillment of a Dialogflow CX Page if entering the
+          page indicates something went extremely wrong in the conversation.
+        - In a webhook response when you determine that the customer issue
+          can only be handled by a human.
 
         Attributes:
             metadata (google.protobuf.struct_pb2.Struct):
@@ -2626,12 +2753,12 @@ class ResponseMessage(proto.Message):
                 number=3,
             )
 
-        segments: MutableSequence[
-            "ResponseMessage.MixedAudio.Segment"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="ResponseMessage.MixedAudio.Segment",
+        segments: MutableSequence["ResponseMessage.MixedAudio.Segment"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="ResponseMessage.MixedAudio.Segment",
+            )
         )
 
     class TelephonyTransferCall(proto.Message):
@@ -2787,6 +2914,406 @@ class SuggestKnowledgeAssistResponse(proto.Message):
     )
 
 
+class IngestedContextReferenceDebugInfo(proto.Message):
+    r"""Debug information related to ingested context reference.
+
+    Attributes:
+        project_not_allowlisted (bool):
+            Indicates if the project is allowlisted to
+            use ingested context reference.
+        context_reference_retrieved (bool):
+            The status of context_reference retrieval from database.
+        ingested_parameters_debug_info (MutableSequence[google.cloud.dialogflow_v2beta1.types.IngestedContextReferenceDebugInfo.IngestedParameterDebugInfo]):
+            Parameters ingested from the context
+            reference.
+    """
+
+    class IngestedParameterDebugInfo(proto.Message):
+        r"""Debug information related to ingested parameters from context
+        reference.
+
+        Attributes:
+            parameter (str):
+                The name of the parameter in the context
+                reference.
+            ingestion_status (google.cloud.dialogflow_v2beta1.types.IngestedContextReferenceDebugInfo.IngestedParameterDebugInfo.IngestionStatus):
+                The ingestion status for this specific
+                parameter.
+        """
+
+        class IngestionStatus(proto.Enum):
+            r"""Enum representing the various states of parameter ingestion.
+
+            Values:
+                INGESTION_STATUS_UNSPECIFIED (0):
+                    Default value, indicates that the ingestion
+                    status is not specified.
+                INGESTION_STATUS_SUCCEEDED (1):
+                    Indicates that the parameter was successfully
+                    ingested.
+                INGESTION_STATUS_CONTEXT_NOT_AVAILABLE (2):
+                    Indicates that the parameter was not
+                    available for ingestion.
+                INGESTION_STATUS_PARSE_FAILED (3):
+                    Indicates that there was a failure parsing
+                    the parameter content.
+                INGESTION_STATUS_INVALID_ENTRY (4):
+                    Indicates that the context reference had an
+                    unexpected number of content entries as Context
+                    reference should only have one entry.
+                INGESTION_STATUS_INVALID_FORMAT (5):
+                    Indicates that the context reference content
+                    was not in the expected format (e.g., JSON).
+                INGESTION_STATUS_LANGUAGE_MISMATCH (6):
+                    Indicates that the context reference language
+                    does not match the conversation language.
+            """
+
+            INGESTION_STATUS_UNSPECIFIED = 0
+            INGESTION_STATUS_SUCCEEDED = 1
+            INGESTION_STATUS_CONTEXT_NOT_AVAILABLE = 2
+            INGESTION_STATUS_PARSE_FAILED = 3
+            INGESTION_STATUS_INVALID_ENTRY = 4
+            INGESTION_STATUS_INVALID_FORMAT = 5
+            INGESTION_STATUS_LANGUAGE_MISMATCH = 6
+
+        parameter: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        ingestion_status: "IngestedContextReferenceDebugInfo.IngestedParameterDebugInfo.IngestionStatus" = proto.Field(
+            proto.ENUM,
+            number=2,
+            enum="IngestedContextReferenceDebugInfo.IngestedParameterDebugInfo.IngestionStatus",
+        )
+
+    project_not_allowlisted: bool = proto.Field(
+        proto.BOOL,
+        number=1,
+    )
+    context_reference_retrieved: bool = proto.Field(
+        proto.BOOL,
+        number=2,
+    )
+    ingested_parameters_debug_info: MutableSequence[IngestedParameterDebugInfo] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=IngestedParameterDebugInfo,
+        )
+    )
+
+
+class ServiceLatency(proto.Message):
+    r"""Message to represent the latency of the service.
+
+    Attributes:
+        internal_service_latencies (MutableSequence[google.cloud.dialogflow_v2beta1.types.ServiceLatency.InternalServiceLatency]):
+            A list of internal service latencies.
+    """
+
+    class InternalServiceLatency(proto.Message):
+        r"""Message to represent the latency of an internal service.
+
+        Attributes:
+            step (str):
+                The name of the internal service.
+            latency_ms (float):
+                The latency of the internal service in
+                milliseconds.
+            start_time (google.protobuf.timestamp_pb2.Timestamp):
+                The start time of the internal service.
+            complete_time (google.protobuf.timestamp_pb2.Timestamp):
+                The completion time of the internal service.
+        """
+
+        step: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        latency_ms: float = proto.Field(
+            proto.FLOAT,
+            number=2,
+        )
+        start_time: timestamp_pb2.Timestamp = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message=timestamp_pb2.Timestamp,
+        )
+        complete_time: timestamp_pb2.Timestamp = proto.Field(
+            proto.MESSAGE,
+            number=4,
+            message=timestamp_pb2.Timestamp,
+        )
+
+    internal_service_latencies: MutableSequence[InternalServiceLatency] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=InternalServiceLatency,
+        )
+    )
+
+
+class KnowledgeAssistDebugInfo(proto.Message):
+    r"""Debug information related to Knowledge Assist feature.
+
+    Attributes:
+        query_generation_failure_reason (google.cloud.dialogflow_v2beta1.types.KnowledgeAssistDebugInfo.QueryGenerationFailureReason):
+            Reason for query generation.
+        query_categorization_failure_reason (google.cloud.dialogflow_v2beta1.types.KnowledgeAssistDebugInfo.QueryCategorizationFailureReason):
+            Reason for query categorization.
+        datastore_response_reason (google.cloud.dialogflow_v2beta1.types.DatastoreResponseReason):
+            Response reason from datastore which
+            indicates data serving status or answer quality
+            degradation.
+        knowledge_assist_behavior (google.cloud.dialogflow_v2beta1.types.KnowledgeAssistDebugInfo.KnowledgeAssistBehavior):
+            Configured behaviors for Knowedge Assist.
+        ingested_context_reference_debug_info (google.cloud.dialogflow_v2beta1.types.IngestedContextReferenceDebugInfo):
+            Information about parameters ingested for
+            search knowledge.
+        service_latency (google.cloud.dialogflow_v2beta1.types.ServiceLatency):
+            The latency of the service.
+    """
+
+    class QueryGenerationFailureReason(proto.Enum):
+        r"""Reason for query generation failure.
+
+        Values:
+            QUERY_GENERATION_FAILURE_REASON_UNSPECIFIED (0):
+                Default value.
+            QUERY_GENERATION_OUT_OF_QUOTA (1):
+                Query generation is blocked due to out of
+                quota.
+            QUERY_GENERATION_FAILED (2):
+                Call to Knowedge Assist query generation
+                model fails.
+            QUERY_GENERATION_NO_QUERY_GENERATED (3):
+                Query generation model decides that there is
+                no new topic change or there has been similar
+                queries generated in the previous turns.
+            QUERY_GENERATION_RAI_FAILED (4):
+                Knowedge Assist generated query is blocked by
+                RAI (Responsible AI).
+            NOT_IN_ALLOWLIST (5):
+                Query generation is blocked by Knowledge
+                Assist conversation profile level / agent id
+                level filtering.
+            QUERY_GENERATION_QUERY_REDACTED (6):
+                The generated query is blocked due to
+                redaction.
+            QUERY_GENERATION_LLM_RESPONSE_PARSE_FAILED (10):
+                Query generation failed due to LLM response
+                parse failure.
+            QUERY_GENERATION_EMPTY_CONVERSATION (11):
+                The conversation has no messages.
+            QUERY_GENERATION_EMPTY_LAST_MESSAGE (12):
+                The last message in the conversation is
+                empty.
+            QUERY_GENERATION_TRIGGERING_EVENT_CONDITION_NOT_MET (13):
+                The trigger event condition is not met. This occurs in the
+                following scenarios:
+
+                1. The trigger_event is CUSTOMER_MESSAGE or UNSPECIFIED, but
+                   the last message is not from the customer.
+                2. The trigger_event is AGENT_MESSAGE, but the last message
+                   is not from the agent.
+        """
+
+        QUERY_GENERATION_FAILURE_REASON_UNSPECIFIED = 0
+        QUERY_GENERATION_OUT_OF_QUOTA = 1
+        QUERY_GENERATION_FAILED = 2
+        QUERY_GENERATION_NO_QUERY_GENERATED = 3
+        QUERY_GENERATION_RAI_FAILED = 4
+        NOT_IN_ALLOWLIST = 5
+        QUERY_GENERATION_QUERY_REDACTED = 6
+        QUERY_GENERATION_LLM_RESPONSE_PARSE_FAILED = 10
+        QUERY_GENERATION_EMPTY_CONVERSATION = 11
+        QUERY_GENERATION_EMPTY_LAST_MESSAGE = 12
+        QUERY_GENERATION_TRIGGERING_EVENT_CONDITION_NOT_MET = 13
+
+    class QueryCategorizationFailureReason(proto.Enum):
+        r"""Reason for query categorization failure.
+
+        Values:
+            QUERY_CATEGORIZATION_FAILURE_REASON_UNSPECIFIED (0):
+                Default value.
+            QUERY_CATEGORIZATION_INVALID_CONFIG (1):
+                Vertex AI Search config supplied for query
+                categorization is invalid.
+            QUERY_CATEGORIZATION_RESULT_NOT_FOUND (2):
+                Vertex AI Search result does not contain a
+                query categorization result.
+            QUERY_CATEGORIZATION_FAILED (3):
+                Vertex AI Search call fails.
+        """
+
+        QUERY_CATEGORIZATION_FAILURE_REASON_UNSPECIFIED = 0
+        QUERY_CATEGORIZATION_INVALID_CONFIG = 1
+        QUERY_CATEGORIZATION_RESULT_NOT_FOUND = 2
+        QUERY_CATEGORIZATION_FAILED = 3
+
+    class KnowledgeAssistBehavior(proto.Message):
+        r"""Configured behaviors for Knowedge Assist.
+
+        Attributes:
+            answer_generation_rewriter_on (bool):
+                Whether data store agent rewriter was turned
+                off for the request.
+            end_user_metadata_included (bool):
+                Whether end_user_metadata is included in the data store
+                agent call.
+            return_query_only (bool):
+                Whether customers configured to return query
+                only in the conversation profile.
+            use_pubsub_delivery (bool):
+                Whether customers configured to use pubsub to
+                deliver.
+            disable_sync_delivery (bool):
+                Whether customers configured to disable the
+                synchronous delivery of Knowedge Assist
+                response.
+            previous_queries_included (bool):
+                Whether previously suggested queries are
+                included in the query generation process.
+            use_translated_message (bool):
+                Translated message is included in query
+                generation process.
+            use_custom_safety_filter_level (bool):
+                Safety filter is adjusted by user.
+            conversation_transcript_has_mixed_languages (bool):
+                Conversation transcript has mixed languages.
+            query_generation_agent_language_mismatch (bool):
+                Whether the agent language from the
+                translation generator mismatches the end-user
+                language.
+            query_generation_end_user_language_mismatch (bool):
+                Whether the end-user language from the
+                translation generator mismatches the end-user
+                language.
+            third_party_connector_allowed (bool):
+                This field indicates whether third party
+                connectors are enabled for the project.
+            multiple_queries_generated (bool):
+                Indicates that the query generation model
+                generated multiple queries.
+            query_contained_search_context (bool):
+                Indicates that the generated query contains
+                search context.
+            invalid_items_query_suggestion_skipped (bool):
+                Indicates that invalid items were skipped
+                when parsing the LLM response.
+            primary_query_redacted_and_replaced (bool):
+                True if the primary suggested query was
+                redacted and replaced by an additional query.
+            appended_search_context_count (int):
+                The number of search contexts appended to the
+                query.
+        """
+
+        answer_generation_rewriter_on: bool = proto.Field(
+            proto.BOOL,
+            number=1,
+        )
+        end_user_metadata_included: bool = proto.Field(
+            proto.BOOL,
+            number=2,
+        )
+        return_query_only: bool = proto.Field(
+            proto.BOOL,
+            number=4,
+        )
+        use_pubsub_delivery: bool = proto.Field(
+            proto.BOOL,
+            number=5,
+        )
+        disable_sync_delivery: bool = proto.Field(
+            proto.BOOL,
+            number=6,
+        )
+        previous_queries_included: bool = proto.Field(
+            proto.BOOL,
+            number=7,
+        )
+        use_translated_message: bool = proto.Field(
+            proto.BOOL,
+            number=8,
+        )
+        use_custom_safety_filter_level: bool = proto.Field(
+            proto.BOOL,
+            number=9,
+        )
+        conversation_transcript_has_mixed_languages: bool = proto.Field(
+            proto.BOOL,
+            number=10,
+        )
+        query_generation_agent_language_mismatch: bool = proto.Field(
+            proto.BOOL,
+            number=11,
+        )
+        query_generation_end_user_language_mismatch: bool = proto.Field(
+            proto.BOOL,
+            number=12,
+        )
+        third_party_connector_allowed: bool = proto.Field(
+            proto.BOOL,
+            number=13,
+        )
+        multiple_queries_generated: bool = proto.Field(
+            proto.BOOL,
+            number=14,
+        )
+        query_contained_search_context: bool = proto.Field(
+            proto.BOOL,
+            number=15,
+        )
+        invalid_items_query_suggestion_skipped: bool = proto.Field(
+            proto.BOOL,
+            number=16,
+        )
+        primary_query_redacted_and_replaced: bool = proto.Field(
+            proto.BOOL,
+            number=17,
+        )
+        appended_search_context_count: int = proto.Field(
+            proto.INT32,
+            number=18,
+        )
+
+    query_generation_failure_reason: QueryGenerationFailureReason = proto.Field(
+        proto.ENUM,
+        number=1,
+        enum=QueryGenerationFailureReason,
+    )
+    query_categorization_failure_reason: QueryCategorizationFailureReason = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=QueryCategorizationFailureReason,
+    )
+    datastore_response_reason: "DatastoreResponseReason" = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum="DatastoreResponseReason",
+    )
+    knowledge_assist_behavior: KnowledgeAssistBehavior = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        message=KnowledgeAssistBehavior,
+    )
+    ingested_context_reference_debug_info: "IngestedContextReferenceDebugInfo" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=5,
+            message="IngestedContextReferenceDebugInfo",
+        )
+    )
+    service_latency: "ServiceLatency" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        message="ServiceLatency",
+    )
+
+
 class KnowledgeAssistAnswer(proto.Message):
     r"""Represents a Knowledge Assist answer.
 
@@ -2802,6 +3329,9 @@ class KnowledgeAssistAnswer(proto.Message):
         answer_record (str):
             The name of the answer record. Format:
             ``projects/<Project ID>/locations/<location ID>/answer Records/<Answer Record ID>``.
+        knowledge_assist_debug_info (google.cloud.dialogflow_v2beta1.types.KnowledgeAssistDebugInfo):
+            Debug information related to Knowledge Assist
+            feature.
     """
 
     class SuggestedQuery(proto.Message):
@@ -2936,6 +3466,305 @@ class KnowledgeAssistAnswer(proto.Message):
     answer_record: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+    knowledge_assist_debug_info: "KnowledgeAssistDebugInfo" = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message="KnowledgeAssistDebugInfo",
+    )
+
+
+class BidiStreamingAnalyzeContentRequest(proto.Message):
+    r"""The request message for
+    [Participants.BidiStreamingAnalyzeContent][google.cloud.dialogflow.v2beta1.Participants.BidiStreamingAnalyzeContent].
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        config (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentRequest.Config):
+            The config message for this conversation.
+
+            This field is a member of `oneof`_ ``request``.
+        input (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentRequest.Input):
+            Text, audio or other multi-modality inputs.
+            This is the second and following messages sent
+            by the client.
+
+            This field is a member of `oneof`_ ``request``.
+    """
+
+    class Config(proto.Message):
+        r"""The config of the session.
+
+        .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+        Attributes:
+            participant (str):
+                Required. The name of the participant to fetch response for.
+                Format:
+                ``projects/<Project ID>/locations/<Location ID>/conversations/<Conversation ID>/participants/<Participant ID>``.
+            voice_session_config (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentRequest.Config.VoiceSessionConfig):
+                Configure a voice-based session.
+
+                This field is a member of `oneof`_ ``config``.
+            initial_virtual_agent_parameters (google.protobuf.struct_pb2.Struct):
+                Parameters to be passed to the virtual agent
+                at the beginning.
+            initial_virtual_agent_query_params (google.cloud.dialogflow_v2beta1.types.QueryParameters):
+                Initial parameters for the virtual-agent.
+        """
+
+        class VoiceSessionConfig(proto.Message):
+            r"""The config about how to process the audio for a voice-based
+            session.
+
+            Attributes:
+                input_audio_encoding (google.cloud.dialogflow_v2beta1.types.AudioEncoding):
+                    Required. The encoding of input audio.
+                input_audio_sample_rate_hertz (int):
+                    Required. The sample rate of input audio.
+                output_audio_encoding (google.cloud.dialogflow_v2beta1.types.OutputAudioEncoding):
+                    Required. The encoding of output audio.
+                output_audio_sample_rate_hertz (int):
+                    Required. The sample rate of output audio.
+                enable_cx_proactive_processing (bool):
+                    Optional. Whether to enable CX proactive
+                    processing.
+                enable_streaming_synthesize (bool):
+                    Optional. If true, Dialogflow will stream the
+                    audio bytes from Cloud TTS for speech synthesis
+                    using the StreamingSynthesize api.
+            """
+
+            input_audio_encoding: gcd_audio_config.AudioEncoding = proto.Field(
+                proto.ENUM,
+                number=1,
+                enum=gcd_audio_config.AudioEncoding,
+            )
+            input_audio_sample_rate_hertz: int = proto.Field(
+                proto.INT32,
+                number=2,
+            )
+            output_audio_encoding: gcd_audio_config.OutputAudioEncoding = proto.Field(
+                proto.ENUM,
+                number=3,
+                enum=gcd_audio_config.OutputAudioEncoding,
+            )
+            output_audio_sample_rate_hertz: int = proto.Field(
+                proto.INT32,
+                number=4,
+            )
+            enable_cx_proactive_processing: bool = proto.Field(
+                proto.BOOL,
+                number=5,
+            )
+            enable_streaming_synthesize: bool = proto.Field(
+                proto.BOOL,
+                number=23,
+            )
+
+        participant: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        voice_session_config: "BidiStreamingAnalyzeContentRequest.Config.VoiceSessionConfig" = proto.Field(
+            proto.MESSAGE,
+            number=2,
+            oneof="config",
+            message="BidiStreamingAnalyzeContentRequest.Config.VoiceSessionConfig",
+        )
+        initial_virtual_agent_parameters: struct_pb2.Struct = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message=struct_pb2.Struct,
+        )
+        initial_virtual_agent_query_params: session.QueryParameters = proto.Field(
+            proto.MESSAGE,
+            number=4,
+            message=session.QueryParameters,
+        )
+
+    class TurnInput(proto.Message):
+        r"""Input that forms data for a single turn.
+
+        This message has `oneof`_ fields (mutually exclusive fields).
+        For each oneof, at most one member field can be set at the same time.
+        Setting any member of the oneof automatically clears all other
+        members.
+
+        .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+        Attributes:
+            text (str):
+                The UTF-8 encoded natural language text to be
+                processed.
+
+                This field is a member of `oneof`_ ``main_content``.
+            intent (str):
+                The intent to be triggered on V3 agent. Format:
+                ``projects/<Project ID>/locations/<Location ID>/locations/ <Location ID>/agents/<Agent ID>/intents/<Intent ID>``.
+                This can only be used to trigger the Welcome intent id if
+                the modality is text.
+
+                This field is a member of `oneof`_ ``main_content``.
+            event (str):
+                The input event name.
+                This can only be sent once and would cancel the
+                ongoing speech recognition if any. To trigger
+                the Welcome intent use the event "WELCOME".
+
+                This field is a member of `oneof`_ ``main_content``.
+            virtual_agent_parameters (google.protobuf.struct_pb2.Struct):
+                Optional. Parameters to be passed to the
+                virtual agent.
+        """
+
+        text: str = proto.Field(
+            proto.STRING,
+            number=1,
+            oneof="main_content",
+        )
+        intent: str = proto.Field(
+            proto.STRING,
+            number=2,
+            oneof="main_content",
+        )
+        event: str = proto.Field(
+            proto.STRING,
+            number=3,
+            oneof="main_content",
+        )
+        virtual_agent_parameters: struct_pb2.Struct = proto.Field(
+            proto.MESSAGE,
+            number=4,
+            message=struct_pb2.Struct,
+        )
+
+    class Input(proto.Message):
+        r"""Input for the conversation.
+
+        This message has `oneof`_ fields (mutually exclusive fields).
+        For each oneof, at most one member field can be set at the same time.
+        Setting any member of the oneof automatically clears all other
+        members.
+
+        .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+        Attributes:
+            audio (bytes):
+                The content of audio stream to be recognized.
+
+                This field is a member of `oneof`_ ``input``.
+            dtmf (google.cloud.dialogflow_v2beta1.types.TelephonyDtmfEvents):
+                The DTMF digits used to invoke intent and
+                fill in parameter value.
+                This input is ignored if the previous response
+                indicated that DTMF input is not accepted.
+
+                This field is a member of `oneof`_ ``input``.
+            turn (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentRequest.TurnInput):
+                Turn input.
+
+                This field is a member of `oneof`_ ``input``.
+        """
+
+        audio: bytes = proto.Field(
+            proto.BYTES,
+            number=1,
+            oneof="input",
+        )
+        dtmf: gcd_audio_config.TelephonyDtmfEvents = proto.Field(
+            proto.MESSAGE,
+            number=2,
+            oneof="input",
+            message=gcd_audio_config.TelephonyDtmfEvents,
+        )
+        turn: "BidiStreamingAnalyzeContentRequest.TurnInput" = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            oneof="input",
+            message="BidiStreamingAnalyzeContentRequest.TurnInput",
+        )
+
+    config: Config = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="request",
+        message=Config,
+    )
+    input: Input = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="request",
+        message=Input,
+    )
+
+
+class BidiStreamingAnalyzeContentResponse(proto.Message):
+    r"""The response message for
+    [Participants.BidiStreamingAnalyzeContent][google.cloud.dialogflow.v2beta1.Participants.BidiStreamingAnalyzeContent].
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        recognition_result (google.cloud.dialogflow_v2beta1.types.StreamingRecognitionResult):
+            The result of speech recognition.
+
+            This field is a member of `oneof`_ ``response``.
+        barge_in_signal (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentResponse.BargeInSignal):
+            Indicate the user barge-in has been detected,
+            and client should stop playing back the audio.
+
+            This field is a member of `oneof`_ ``response``.
+        analyze_content_response (google.cloud.dialogflow_v2beta1.types.AnalyzeContentResponse):
+            The agent response from analyze content.
+
+            This field is a member of `oneof`_ ``response``.
+        turn_complete (google.cloud.dialogflow_v2beta1.types.BidiStreamingAnalyzeContentResponse.TurnComplete):
+            Indicate that the turn is complete.
+
+            This field is a member of `oneof`_ ``response``.
+    """
+
+    class BargeInSignal(proto.Message):
+        r"""Indicate the user barge-in has been detected."""
+
+    class TurnComplete(proto.Message):
+        r"""Indicate that the turn is complete."""
+
+    recognition_result: session.StreamingRecognitionResult = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="response",
+        message=session.StreamingRecognitionResult,
+    )
+    barge_in_signal: BargeInSignal = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="response",
+        message=BargeInSignal,
+    )
+    analyze_content_response: "AnalyzeContentResponse" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        oneof="response",
+        message="AnalyzeContentResponse",
+    )
+    turn_complete: TurnComplete = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        oneof="response",
+        message=TurnComplete,
     )
 
 

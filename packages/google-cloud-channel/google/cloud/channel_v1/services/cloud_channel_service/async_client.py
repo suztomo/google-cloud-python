@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.channel_v1 import gapic_version as package_version
 
@@ -44,12 +44,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import postal_address_pb2  # type: ignore
 
 from google.cloud.channel_v1.services.cloud_channel_service import pagers
 from google.cloud.channel_v1.types import (
@@ -92,17 +92,17 @@ class CloudChannelServiceAsyncClient:
 
     CloudChannelService exposes the following resources:
 
-    -  [Customer][google.cloud.channel.v1.Customer]s: An entity-usually
-       an enterprise-managed by a reseller or distributor.
+    - [Customer][google.cloud.channel.v1.Customer]s: An entity-usually
+      an enterprise-managed by a reseller or distributor.
 
-    -  [Entitlement][google.cloud.channel.v1.Entitlement]s: An entity
-       that provides a customer with the means to use a service.
-       Entitlements are created or updated as a result of a successful
-       fulfillment.
+    - [Entitlement][google.cloud.channel.v1.Entitlement]s: An entity
+      that provides a customer with the means to use a service.
+      Entitlements are created or updated as a result of a successful
+      fulfillment.
 
-    -  [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]s:
-       An entity that identifies links between distributors and their
-       indirect resellers in a channel.
+    - [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]s:
+      An entity that identifies links between distributors and their
+      indirect resellers in a channel.
     """
 
     _client: CloudChannelServiceClient
@@ -114,6 +114,8 @@ class CloudChannelServiceAsyncClient:
     _DEFAULT_ENDPOINT_TEMPLATE = CloudChannelServiceClient._DEFAULT_ENDPOINT_TEMPLATE
     _DEFAULT_UNIVERSE = CloudChannelServiceClient._DEFAULT_UNIVERSE
 
+    account_path = staticmethod(CloudChannelServiceClient.account_path)
+    parse_account_path = staticmethod(CloudChannelServiceClient.parse_account_path)
     billing_account_path = staticmethod(CloudChannelServiceClient.billing_account_path)
     parse_billing_account_path = staticmethod(
         CloudChannelServiceClient.parse_billing_account_path
@@ -188,7 +190,10 @@ class CloudChannelServiceAsyncClient:
         Returns:
             CloudChannelServiceAsyncClient: The constructed client.
         """
-        return CloudChannelServiceClient.from_service_account_info.__func__(CloudChannelServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            CloudChannelServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(CloudChannelServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -204,7 +209,10 @@ class CloudChannelServiceAsyncClient:
         Returns:
             CloudChannelServiceAsyncClient: The constructed client.
         """
-        return CloudChannelServiceClient.from_service_account_file.__func__(CloudChannelServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            CloudChannelServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(CloudChannelServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -242,7 +250,9 @@ class CloudChannelServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return CloudChannelServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return CloudChannelServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> CloudChannelServiceTransport:
@@ -254,7 +264,7 @@ class CloudChannelServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -378,10 +388,10 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: List of
         [Customer][google.cloud.channel.v1.Customer]s, or an empty list
@@ -492,12 +502,12 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The customer resource doesn't exist. Usually the
-           result of an invalid name parameter.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The customer resource doesn't exist. Usually the
+          result of an invalid name parameter.
 
         Return value: The [Customer][google.cloud.channel.v1.Customer]
         resource.
@@ -619,11 +629,11 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  INVALID_VALUE: Invalid domain value in the request.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - INVALID_VALUE: Invalid domain value in the request.
 
         Return value: A list of
         [CloudIdentityCustomerAccount][google.cloud.channel.v1.CloudIdentityCustomerAccount]
@@ -724,17 +734,17 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The reseller account making the request is different from
-              the reseller account in the API request.
-           -  You are not authorized to create a customer. See
-              https://support.google.com/channelservices/answer/9759265
+          - The reseller account making the request is different from
+            the reseller account in the API request.
+          - You are not authorized to create a customer. See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT:
+        - INVALID_ARGUMENT:
 
-           -  Required request parameters are missing or invalid.
-           -  Domain field value doesn't match the primary email domain.
+          - Required request parameters are missing or invalid.
+          - Domain field value doesn't match the primary email domain.
 
         Return value: The newly created
         [Customer][google.cloud.channel.v1.Customer] resource.
@@ -833,12 +843,12 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: No [Customer][google.cloud.channel.v1.Customer]
-           resource found for the name in the request.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: No [Customer][google.cloud.channel.v1.Customer]
+          resource found for the name in the request.
 
         Return value: The updated
         [Customer][google.cloud.channel.v1.Customer] resource.
@@ -939,13 +949,13 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The account making the request does not
-           own this customer.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  FAILED_PRECONDITION: The customer has existing entitlements.
-        -  NOT_FOUND: No [Customer][google.cloud.channel.v1.Customer]
-           resource found for the name in the request.
+        - PERMISSION_DENIED: The account making the request does not own
+          this customer.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - FAILED_PRECONDITION: The customer has existing entitlements.
+        - NOT_FOUND: No [Customer][google.cloud.channel.v1.Customer]
+          resource found for the name in the request.
 
         .. code-block:: python
 
@@ -1051,18 +1061,18 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The reseller account making the request is different from
-              the reseller account in the API request.
-           -  You are not authorized to import the customer. See
-              https://support.google.com/channelservices/answer/9759265
+          - The reseller account making the request is different from
+            the reseller account in the API request.
+          - You are not authorized to import the customer. See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  NOT_FOUND: Cloud Identity doesn't exist or was deleted.
-        -  INVALID_ARGUMENT: Required parameters are missing, or the
-           auth_token is expired or invalid.
-        -  ALREADY_EXISTS: A customer already exists and has conflicting
-           critical fields. Requires an overwrite.
+        - NOT_FOUND: Cloud Identity doesn't exist or was deleted.
+        - INVALID_ARGUMENT: Required parameters are missing, or the
+          auth_token is expired or invalid.
+        - ALREADY_EXISTS: A customer already exists and has conflicting
+          critical fields. Requires an overwrite.
 
         Return value: The [Customer][google.cloud.channel.v1.Customer].
 
@@ -1157,21 +1167,21 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller.
-           -  You are not authorized to provision cloud identity id. See
-              https://support.google.com/channelservices/answer/9759265
+          - The customer doesn't belong to the reseller.
+          - You are not authorized to provision cloud identity id. See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The customer was not found.
-        -  ALREADY_EXISTS: The customer's primary email already exists.
-           Retry after changing the customer's primary contact email.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The customer was not found.
+        - ALREADY_EXISTS: The customer's primary email already exists.
+          Retry after changing the customer's primary contact email.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -1201,11 +1211,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.provision_cloud_identity(request=request)
+                operation = await client.provision_cloud_identity(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1284,10 +1294,10 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: A list of the customer's
         [Entitlement][google.cloud.channel.v1.Entitlement]s.
@@ -1401,16 +1411,16 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller and has no
-              auth token.
-           -  The supplied auth token is invalid.
-           -  The reseller account making the request is different from
-              the reseller account in the query.
+          - The customer doesn't belong to the reseller and has no auth
+            token.
+          - The supplied auth token is invalid.
+          - The reseller account making the request is different from
+            the reseller account in the query.
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: A list of the customer's
         [TransferableSku][google.cloud.channel.v1.TransferableSku].
@@ -1526,20 +1536,20 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller and has no
-              auth token.
-           -  The customer provided incorrect reseller information when
-              generating auth token.
-           -  The reseller account making the request is different from
-              the reseller account in the query.
-           -  The reseller is not authorized to transact on this
-              Product. See
-              https://support.google.com/channelservices/answer/9759265
+          - The customer doesn't belong to the reseller and has no auth
+            token.
+          - The customer provided incorrect reseller information when
+            generating auth token.
+          - The reseller account making the request is different from
+            the reseller account in the query.
+          - The reseller is not authorized to transact on this Product.
+            See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: List of
         [TransferableOffer][google.cloud.channel.v1.TransferableOffer]
@@ -1651,11 +1661,11 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The customer entitlement was not found.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The customer entitlement was not found.
 
         Return value: The requested
         [Entitlement][google.cloud.channel.v1.Entitlement] resource.
@@ -1748,45 +1758,45 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller.
-           -  The reseller is not authorized to transact on this
-              Product. See
-              https://support.google.com/channelservices/answer/9759265
+          - The customer doesn't belong to the reseller.
+          - The reseller is not authorized to transact on this Product.
+            See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT:
+        - INVALID_ARGUMENT:
 
-           -  Required request parameters are missing or invalid.
-           -  There is already a customer entitlement for a SKU from the
-              same product family.
+          - Required request parameters are missing or invalid.
+          - There is already a customer entitlement for a SKU from the
+            same product family.
 
-        -  INVALID_VALUE: Make sure the OfferId is valid. If it is,
-           contact Google Channel support for further troubleshooting.
-        -  NOT_FOUND: The customer or offer resource was not found.
-        -  ALREADY_EXISTS:
+        - INVALID_VALUE: Make sure the OfferId is valid. If it is,
+          contact Google Channel support for further troubleshooting.
+        - NOT_FOUND: The customer or offer resource was not found.
+        - ALREADY_EXISTS:
 
-           -  The SKU was already purchased for the customer.
-           -  The customer's primary email already exists. Retry after
-              changing the customer's primary contact email.
+          - The SKU was already purchased for the customer.
+          - The customer's primary email already exists. Retry after
+            changing the customer's primary contact email.
 
-        -  CONDITION_NOT_MET or FAILED_PRECONDITION:
+        - CONDITION_NOT_MET or FAILED_PRECONDITION:
 
-           -  The domain required for purchasing a SKU has not been
-              verified.
-           -  A pre-requisite SKU required to purchase an Add-On SKU is
-              missing. For example, Google Workspace Business Starter is
-              required to purchase Vault or Drive.
-           -  (Developer accounts only) Reseller and resold domain must
-              meet the following naming requirements:
+          - The domain required for purchasing a SKU has not been
+            verified.
+          - A pre-requisite SKU required to purchase an Add-On SKU is
+            missing. For example, Google Workspace Business Starter is
+            required to purchase Vault or Drive.
+          - (Developer accounts only) Reseller and resold domain must
+            meet the following naming requirements:
 
-              -  Domain names must start with goog-test.
-              -  Domain names must include the reseller domain.
+            - Domain names must start with goog-test.
+            - Domain names must include the reseller domain.
 
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -1820,11 +1830,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_entitlement(request=request)
+                operation = await client.create_entitlement(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1906,17 +1916,17 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid. For example, the number of seats being changed is
-           greater than the allowed number of max seats, or decreasing
-           seats for a commitment based plan.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid. For example, the number of seats being changed is
+          greater than the allowed number of max seats, or decreasing
+          seats for a commitment based plan.
+        - NOT_FOUND: Entitlement resource not found.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -1946,11 +1956,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.change_parameters(request=request)
+                operation = await client.change_parameters(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1958,7 +1968,7 @@ class CloudChannelServiceAsyncClient:
         Args:
             request (Optional[Union[google.cloud.channel_v1.types.ChangeParametersRequest, dict]]):
                 The request object. Request message for
-                [CloudChannelService.ChangeParametersRequest][].
+                [CloudChannelService.ChangeParameters][google.cloud.channel.v1.CloudChannelService.ChangeParameters].
             retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
                 should be retried.
             timeout (float): The timeout for this request.
@@ -2033,18 +2043,18 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  NOT_COMMITMENT_PLAN: Renewal Settings are only applicable for
-           a commitment plan. Can't enable or disable renewals for
-           non-commitment plans.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement resource not found.
+        - NOT_COMMITMENT_PLAN: Renewal Settings are only applicable for
+          a commitment plan. Can't enable or disable renewals for
+          non-commitment plans.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2074,11 +2084,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.change_renewal_settings(request=request)
+                operation = await client.change_renewal_settings(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2160,15 +2170,15 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Offer or Entitlement resource not found.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Offer or Entitlement resource not found.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2199,11 +2209,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.change_offer(request=request)
+                operation = await client.change_offer(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2286,17 +2296,17 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  FAILED_PRECONDITION/NOT_IN_TRIAL: This method only works for
-           entitlement on trial plans.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement resource not found.
+        - FAILED_PRECONDITION/NOT_IN_TRIAL: This method only works for
+          entitlement on trial plans.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2326,11 +2336,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.start_paid_service(request=request)
+                operation = await client.start_paid_service(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2411,16 +2421,16 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  NOT_ACTIVE: Entitlement is not active.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement resource not found.
+        - NOT_ACTIVE: Entitlement is not active.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2450,11 +2460,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.suspend_entitlement(request=request)
+                operation = await client.suspend_entitlement(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2535,20 +2545,20 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  FAILED_PRECONDITION: There are Google Cloud projects linked
-           to the Google Cloud entitlement's Cloud Billing subaccount.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  DELETION_TYPE_NOT_ALLOWED: Cancel is only allowed for Google
-           Workspace add-ons, or entitlements for Google Cloud's
-           development platform.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - FAILED_PRECONDITION: There are Google Cloud projects linked to
+          the Google Cloud entitlement's Cloud Billing subaccount.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement resource not found.
+        - DELETION_TYPE_NOT_ALLOWED: Cancel is only allowed for Google
+          Workspace add-ons, or entitlements for Google Cloud's
+          development platform.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2579,11 +2589,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.cancel_entitlement(request=request)
+                operation = await client.cancel_entitlement(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2673,20 +2683,20 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement resource not found.
-        -  SUSPENSION_NOT_RESELLER_INITIATED: Can only activate
-           reseller-initiated suspensions and entitlements that have
-           accepted the TOS.
-        -  NOT_SUSPENDED: Can only activate suspended entitlements not
-           in an ACTIVE state.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement resource not found.
+        - SUSPENSION_NOT_RESELLER_INITIATED: Can only activate
+          reseller-initiated suspensions and entitlements that have
+          accepted the TOS.
+        - NOT_SUSPENDED: Can only activate suspended entitlements not in
+          an ACTIVE state.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2716,11 +2726,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.activate_entitlement(request=request)
+                operation = await client.activate_entitlement(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2799,36 +2809,36 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller.
-           -  The reseller is not authorized to transact on this
-              Product. See
-              https://support.google.com/channelservices/answer/9759265
+          - The customer doesn't belong to the reseller.
+          - The reseller is not authorized to transact on this Product.
+            See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The customer or offer resource was not found.
-        -  ALREADY_EXISTS: The SKU was already transferred for the
-           customer.
-        -  CONDITION_NOT_MET or FAILED_PRECONDITION:
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The customer or offer resource was not found.
+        - ALREADY_EXISTS: The SKU was already transferred for the
+          customer.
+        - CONDITION_NOT_MET or FAILED_PRECONDITION:
 
-           -  The SKU requires domain verification to transfer, but the
-              domain is not verified.
-           -  An Add-On SKU (example, Vault or Drive) is missing the
-              pre-requisite SKU (example, G Suite Basic).
-           -  (Developer accounts only) Reseller and resold domain must
-              meet the following naming requirements:
+          - The SKU requires domain verification to transfer, but the
+            domain is not verified.
+          - An Add-On SKU (example, Vault or Drive) is missing the
+            pre-requisite SKU (example, G Suite Basic).
+          - (Developer accounts only) Reseller and resold domain must
+            meet the following naming requirements:
 
-              -  Domain names must start with goog-test.
-              -  Domain names must include the reseller domain.
+            - Domain names must start with goog-test.
+            - Domain names must include the reseller domain.
 
-           -  Specify all transferring entitlements.
+          - Specify all transferring entitlements.
 
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -2862,11 +2872,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.transfer_entitlements(request=request)
+                operation = await client.transfer_entitlements(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2948,29 +2958,29 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The customer or offer resource was not found.
-        -  ALREADY_EXISTS: The SKU was already transferred for the
-           customer.
-        -  CONDITION_NOT_MET or FAILED_PRECONDITION:
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The customer or offer resource was not found.
+        - ALREADY_EXISTS: The SKU was already transferred for the
+          customer.
+        - CONDITION_NOT_MET or FAILED_PRECONDITION:
 
-           -  The SKU requires domain verification to transfer, but the
-              domain is not verified.
-           -  An Add-On SKU (example, Vault or Drive) is missing the
-              pre-requisite SKU (example, G Suite Basic).
-           -  (Developer accounts only) Reseller and resold domain must
-              meet the following naming requirements:
+          - The SKU requires domain verification to transfer, but the
+            domain is not verified.
+          - An Add-On SKU (example, Vault or Drive) is missing the
+            pre-requisite SKU (example, G Suite Basic).
+          - (Developer accounts only) Reseller and resold domain must
+            meet the following naming requirements:
 
-              -  Domain names must start with goog-test.
-              -  Domain names must include the reseller domain.
+            - Domain names must start with goog-test.
+            - Domain names must include the reseller domain.
 
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The ID of a long-running operation.
 
@@ -3005,11 +3015,11 @@ class CloudChannelServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.transfer_entitlements_to_google(request=request)
+                operation = await client.transfer_entitlements_to_google(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3097,10 +3107,10 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: The list of the distributor account's
         [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]
@@ -3211,12 +3221,12 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: ChannelPartnerLink resource not found because of
-           an invalid channel partner link name.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: ChannelPartnerLink resource not found because of an
+          invalid channel partner link name.
 
         Return value: The
         [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]
@@ -3316,18 +3326,18 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  ALREADY_EXISTS: The ChannelPartnerLink sent in the request
-           already exists.
-        -  NOT_FOUND: No Cloud Identity customer exists for provided
-           domain.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - ALREADY_EXISTS: The ChannelPartnerLink sent in the request
+          already exists.
+        - NOT_FOUND: No Cloud Identity customer exists for provided
+          domain.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The new
         [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]
@@ -3429,21 +3439,21 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request is
-           different from the reseller account in the API request.
-        -  INVALID_ARGUMENT:
+        - PERMISSION_DENIED: The reseller account making the request is
+          different from the reseller account in the API request.
+        - INVALID_ARGUMENT:
 
-           -  Required request parameters are missing or invalid.
-           -  Link state cannot change from invited to active or
-              suspended.
-           -  Cannot send reseller_cloud_identity_id, invite_url, or
-              name in update mask.
+          - Required request parameters are missing or invalid.
+          - Link state cannot change from invited to active or
+            suspended.
+          - Cannot send reseller_cloud_identity_id, invite_url, or name
+            in update mask.
 
-        -  NOT_FOUND: ChannelPartnerLink resource not found.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - NOT_FOUND: ChannelPartnerLink resource not found.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The updated
         [ChannelPartnerLink][google.cloud.channel.v1.ChannelPartnerLink]
@@ -3547,13 +3557,13 @@ class CloudChannelServiceAsyncClient:
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  NOT_FOUND: The
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           was not found.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - NOT_FOUND: The
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          was not found.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the
         [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
@@ -3676,24 +3686,24 @@ class CloudChannelServiceAsyncClient:
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  NOT_FOUND: The
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - NOT_FOUND: The
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the
         [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
         resources. The data for each resource is displayed in the
         ascending order of:
 
-        -  Customer ID
-        -  [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement]
-        -  [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month]
-        -  [CustomerRepricingConfig.update_time][google.cloud.channel.v1.CustomerRepricingConfig.update_time]
+        - Customer ID
+        - [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement]
+        - [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month]
+        - [CustomerRepricingConfig.update_time][google.cloud.channel.v1.CustomerRepricingConfig.update_time]
 
         If unsuccessful, returns an error.
 
@@ -3841,35 +3851,35 @@ class CloudChannelServiceAsyncClient:
         The following restrictions are for creating configs in the
         current month.
 
-        -  This functionality is reserved for recovering from an
-           erroneous config, and should not be used for regular business
-           cases.
-        -  The new config will not modify exports used with other
-           configs. Changes to the config may be immediate, but may take
-           up to 24 hours.
-        -  There is a limit of ten configs for any
-           [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement],
-           for any
-           [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month].
-        -  The contained
-           [CustomerRepricingConfig.repricing_config][google.cloud.channel.v1.CustomerRepricingConfig.repricing_config]
-           value must be different from the value used in the current
-           config for a
-           [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement].
+        - This functionality is reserved for recovering from an
+          erroneous config, and should not be used for regular business
+          cases.
+        - The new config will not modify exports used with other
+          configs. Changes to the config may be immediate, but may take
+          up to 24 hours.
+        - There is a limit of ten configs for any
+          [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement],
+          for any
+          [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month].
+        - The contained
+          [CustomerRepricingConfig.repricing_config][google.cloud.channel.v1.CustomerRepricingConfig.repricing_config]
+          value must be different from the value used in the current
+          config for a
+          [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement].
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  INVALID_ARGUMENT: Missing or invalid required parameters in
-           the request. Also displays if the updated config is for the
-           current month or past months.
-        -  NOT_FOUND: The
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - INVALID_ARGUMENT: Missing or invalid required parameters in
+          the request. Also displays if the updated config is for the
+          current month or past months.
+        - NOT_FOUND: The
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the updated
         [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
@@ -4014,21 +4024,21 @@ class CloudChannelServiceAsyncClient:
 
         When updating a config in the future:
 
-        -  This config must already exist.
+        - This config must already exist.
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  INVALID_ARGUMENT: Missing or invalid required parameters in
-           the request. Also displays if the updated config is for the
-           current month or past months.
-        -  NOT_FOUND: The
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - INVALID_ARGUMENT: Missing or invalid required parameters in
+          the request. Also displays if the updated config is for the
+          current month or past months.
+        - NOT_FOUND: The
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the updated
         [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
@@ -4163,16 +4173,16 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The account making the request does not
-           own this customer.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  FAILED_PRECONDITION: The
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           is active or in the past.
-        -  NOT_FOUND: No
-           [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
-           found for the name in the request.
+        - PERMISSION_DENIED: The account making the request does not own
+          this customer.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - FAILED_PRECONDITION: The
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          is active or in the past.
+        - NOT_FOUND: No
+          [CustomerRepricingConfig][google.cloud.channel.v1.CustomerRepricingConfig]
+          found for the name in the request.
 
         .. code-block:: python
 
@@ -4279,13 +4289,13 @@ class CloudChannelServiceAsyncClient:
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  NOT_FOUND: The
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           was not found.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - NOT_FOUND: The
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          was not found.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the
         [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
@@ -4410,23 +4420,23 @@ class CloudChannelServiceAsyncClient:
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  NOT_FOUND: The
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - NOT_FOUND: The
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the
         [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
         resources. The data for each resource is displayed in the
         ascending order of:
 
-        -  Channel Partner ID
-        -  [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month]
-        -  [ChannelPartnerRepricingConfig.update_time][google.cloud.channel.v1.ChannelPartnerRepricingConfig.update_time]
+        - Channel Partner ID
+        - [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month]
+        - [ChannelPartnerRepricingConfig.update_time][google.cloud.channel.v1.ChannelPartnerRepricingConfig.update_time]
 
         If unsuccessful, returns an error.
 
@@ -4577,34 +4587,34 @@ class CloudChannelServiceAsyncClient:
         The following restrictions are for creating configs in the
         current month.
 
-        -  This functionality is reserved for recovering from an
-           erroneous config, and should not be used for regular business
-           cases.
-        -  The new config will not modify exports used with other
-           configs. Changes to the config may be immediate, but may take
-           up to 24 hours.
-        -  There is a limit of ten configs for any ChannelPartner or
-           [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement],
-           for any
-           [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month].
-        -  The contained
-           [ChannelPartnerRepricingConfig.repricing_config][google.cloud.channel.v1.ChannelPartnerRepricingConfig.repricing_config]
-           value must be different from the value used in the current
-           config for a ChannelPartner.
+        - This functionality is reserved for recovering from an
+          erroneous config, and should not be used for regular business
+          cases.
+        - The new config will not modify exports used with other
+          configs. Changes to the config may be immediate, but may take
+          up to 24 hours.
+        - There is a limit of ten configs for any ChannelPartner or
+          [RepricingConfig.EntitlementGranularity.entitlement][google.cloud.channel.v1.RepricingConfig.EntitlementGranularity.entitlement],
+          for any
+          [RepricingConfig.effective_invoice_month][google.cloud.channel.v1.RepricingConfig.effective_invoice_month].
+        - The contained
+          [ChannelPartnerRepricingConfig.repricing_config][google.cloud.channel.v1.ChannelPartnerRepricingConfig.repricing_config]
+          value must be different from the value used in the current
+          config for a ChannelPartner.
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  INVALID_ARGUMENT: Missing or invalid required parameters in
-           the request. Also displays if the updated config is for the
-           current month or past months.
-        -  NOT_FOUND: The
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - INVALID_ARGUMENT: Missing or invalid required parameters in
+          the request. Also displays if the updated config is for the
+          current month or past months.
+        - NOT_FOUND: The
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the updated
         [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
@@ -4755,21 +4765,21 @@ class CloudChannelServiceAsyncClient:
 
         When updating a config in the future:
 
-        -  This config must already exist.
+        - This config must already exist.
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different.
-        -  INVALID_ARGUMENT: Missing or invalid required parameters in
-           the request. Also displays if the updated config is for the
-           current month or past months.
-        -  NOT_FOUND: The
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           specified does not exist or is not associated with the given
-           account.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different.
+        - INVALID_ARGUMENT: Missing or invalid required parameters in
+          the request. Also displays if the updated config is for the
+          current month or past months.
+        - NOT_FOUND: The
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          specified does not exist or is not associated with the given
+          account.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the updated
         [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
@@ -4907,16 +4917,16 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The account making the request does not
-           own this customer.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  FAILED_PRECONDITION: The
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           is active or in the past.
-        -  NOT_FOUND: No
-           [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
-           found for the name in the request.
+        - PERMISSION_DENIED: The account making the request does not own
+          this customer.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - FAILED_PRECONDITION: The
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          is active or in the past.
+        - NOT_FOUND: No
+          [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]
+          found for the name in the request.
 
         .. code-block:: python
 
@@ -5022,11 +5032,11 @@ class CloudChannelServiceAsyncClient:
 
         Possible Error Codes:
 
-        -  PERMISSION_DENIED: If the account making the request and the
-           account being queried are different, or the account doesn't
-           exist.
-        -  INTERNAL: Any non-user error related to technical issues in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: If the account making the request and the
+          account being queried are different, or the account doesn't
+          exist.
+        - INTERNAL: Any non-user error related to technical issues in
+          the backend. In this case, contact Cloud Channel support.
 
         Return Value: If successful, the
         [SkuGroup][google.cloud.channel.v1.SkuGroup] resources. The data
@@ -5176,8 +5186,8 @@ class CloudChannelServiceAsyncClient:
         The data for each resource is displayed in the ascending order
         of:
 
-        -  [BillableSku.service_display_name][google.cloud.channel.v1.BillableSku.service_display_name]
-        -  [BillableSku.sku_display_name][google.cloud.channel.v1.BillableSku.sku_display_name]
+        - [BillableSku.service_display_name][google.cloud.channel.v1.BillableSku.service_display_name]
+        - [BillableSku.sku_display_name][google.cloud.channel.v1.BillableSku.sku_display_name]
 
         If unsuccessful, returns an error.
 
@@ -5309,11 +5319,11 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The entitlement doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: Entitlement or offer was not found.
+        - PERMISSION_DENIED: The entitlement doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: Entitlement or offer was not found.
 
         Return value: The [Offer][google.cloud.channel.v1.Offer]
         resource.
@@ -5410,8 +5420,8 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         .. code-block:: python
 
@@ -5509,8 +5519,8 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         .. code-block:: python
 
@@ -5615,8 +5625,8 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         .. code-block:: python
 
@@ -5718,15 +5728,15 @@ class CloudChannelServiceAsyncClient:
     ) -> pagers.ListPurchasableSkusAsyncPager:
         r"""Lists the following:
 
-        -  SKUs that you can purchase for a customer
-        -  SKUs that you can upgrade or downgrade for an entitlement.
+        - SKUs that you can purchase for a customer
+        - SKUs that you can upgrade or downgrade for an entitlement.
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         .. code-block:: python
 
@@ -5833,20 +5843,20 @@ class CloudChannelServiceAsyncClient:
     ) -> pagers.ListPurchasableOffersAsyncPager:
         r"""Lists the following:
 
-        -  Offers that you can purchase for a customer.
-        -  Offers that you can change for an entitlement.
+        - Offers that you can purchase for a customer.
+        - Offers that you can change for an entitlement.
 
         Possible error codes:
 
-        -  PERMISSION_DENIED:
+        - PERMISSION_DENIED:
 
-           -  The customer doesn't belong to the reseller
-           -  The reseller is not authorized to transact on this
-              Product. See
-              https://support.google.com/channelservices/answer/9759265
+          - The customer doesn't belong to the reseller
+          - The reseller is not authorized to transact on this Product.
+            See
+            https://support.google.com/channelservices/answer/9759265
 
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         .. code-block:: python
 
@@ -5958,10 +5968,10 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The customer doesn't belong to the
-           reseller.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
+        - PERMISSION_DENIED: The customer doesn't belong to the
+          reseller.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
 
         Return value: Based on the provided list of SKUs, returns a list
         of SKU groups that must be purchased using the same billing
@@ -6054,21 +6064,21 @@ class CloudChannelServiceAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> service.RegisterSubscriberResponse:
         r"""Registers a service account with subscriber privileges on the
-        Cloud Pub/Sub topic for this Channel Services account. After you
-        create a subscriber, you get the events through
+        Pub/Sub topic for this Channel Services account or integrator.
+        After you create a subscriber, you get the events through
         [SubscriberEvent][google.cloud.channel.v1.SubscriberEvent]
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request
-           and the provided reseller account are different, or the
-           impersonated user is not a super admin.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request and
+          the provided reseller account are different, or the
+          impersonated user is not a super admin.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The topic name with the registered service email
         address.
@@ -6090,7 +6100,6 @@ class CloudChannelServiceAsyncClient:
 
                 # Initialize request argument(s)
                 request = channel_v1.RegisterSubscriberRequest(
-                    account="account_value",
                     service_account="service_account_value",
                 )
 
@@ -6159,23 +6168,23 @@ class CloudChannelServiceAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> service.UnregisterSubscriberResponse:
         r"""Unregisters a service account with subscriber privileges on the
-        Cloud Pub/Sub topic created for this Channel Services account.
-        If there are no service accounts left with subscriber
-        privileges, this deletes the topic. You can call ListSubscribers
-        to check for these accounts.
+        Pub/Sub topic created for this Channel Services account or
+        integrator. If there are no service accounts left with
+        subscriber privileges, this deletes the topic. You can call
+        ListSubscribers to check for these accounts.
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request
-           and the provided reseller account are different, or the
-           impersonated user is not a super admin.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The topic resource doesn't exist.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request and
+          the provided reseller account are different, or the
+          impersonated user is not a super admin.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The topic resource doesn't exist.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: The topic name that unregistered the service email
         address. Returns a success response if the service email address
@@ -6198,7 +6207,6 @@ class CloudChannelServiceAsyncClient:
 
                 # Initialize request argument(s)
                 request = channel_v1.UnregisterSubscriberRequest(
-                    account="account_value",
                     service_account="service_account_value",
                 )
 
@@ -6266,21 +6274,21 @@ class CloudChannelServiceAsyncClient:
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.ListSubscribersAsyncPager:
-        r"""Lists service accounts with subscriber privileges on the Cloud
-        Pub/Sub topic created for this Channel Services account.
+        r"""Lists service accounts with subscriber privileges on the Pub/Sub
+        topic created for this Channel Services account or integrator.
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request
-           and the provided reseller account are different, or the
-           impersonated user is not a super admin.
-        -  INVALID_ARGUMENT: Required request parameters are missing or
-           invalid.
-        -  NOT_FOUND: The topic resource doesn't exist.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. Contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request and
+          the provided reseller account are different, or the
+          impersonated user is not a super admin.
+        - INVALID_ARGUMENT: Required request parameters are missing or
+          invalid.
+        - NOT_FOUND: The topic resource doesn't exist.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. Contact Cloud Channel support.
 
         Return value: A list of service email addresses.
 
@@ -6301,7 +6309,6 @@ class CloudChannelServiceAsyncClient:
 
                 # Initialize request argument(s)
                 request = channel_v1.ListSubscribersRequest(
-                    account="account_value",
                 )
 
                 # Make the request
@@ -6387,16 +6394,16 @@ class CloudChannelServiceAsyncClient:
 
         Possible error codes:
 
-        -  PERMISSION_DENIED: The reseller account making the request
-           and the provided reseller account are different.
-        -  INVALID_ARGUMENT: Missing or invalid required fields in the
-           request.
-        -  NOT_FOUND: The parent resource doesn't exist. Usually the
-           result of an invalid name parameter.
-        -  INTERNAL: Any non-user error related to a technical issue in
-           the backend. In this case, contact CloudChannel support.
-        -  UNKNOWN: Any non-user error related to a technical issue in
-           the backend. In this case, contact Cloud Channel support.
+        - PERMISSION_DENIED: The reseller account making the request and
+          the provided reseller account are different.
+        - INVALID_ARGUMENT: Missing or invalid required fields in the
+          request.
+        - NOT_FOUND: The parent resource doesn't exist. Usually the
+          result of an invalid name parameter.
+        - INTERNAL: Any non-user error related to a technical issue in
+          the backend. In this case, contact CloudChannel support.
+        - UNKNOWN: Any non-user error related to a technical issue in
+          the backend. In this case, contact Cloud Channel support.
 
         Return value: List of
         [EntitlementChange][google.cloud.channel.v1.EntitlementChange]s.
@@ -6437,8 +6444,8 @@ class CloudChannelServiceAsyncClient:
                 to list entitlement changes. The ``-`` wildcard may be
                 used to match entitlements across a customer. Formats:
 
-                -  accounts/{account_id}/customers/{customer_id}/entitlements/{entitlement_id}
-                -  accounts/{account_id}/customers/{customer_id}/entitlements/-
+                - accounts/{account_id}/customers/{customer_id}/entitlements/{entitlement_id}
+                - accounts/{account_id}/customers/{customer_id}/entitlements/-
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6522,7 +6529,7 @@ class CloudChannelServiceAsyncClient:
 
     async def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6548,8 +6555,12 @@ class CloudChannelServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6558,7 +6569,7 @@ class CloudChannelServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6566,7 +6577,7 @@ class CloudChannelServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6577,7 +6588,7 @@ class CloudChannelServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6603,8 +6614,12 @@ class CloudChannelServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6613,7 +6628,7 @@ class CloudChannelServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6621,7 +6636,7 @@ class CloudChannelServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6632,7 +6647,7 @@ class CloudChannelServiceAsyncClient:
 
     async def delete_operation(
         self,
-        request: Optional[operations_pb2.DeleteOperationRequest] = None,
+        request: Optional[Union[operations_pb2.DeleteOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6662,8 +6677,12 @@ class CloudChannelServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.DeleteOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.DeleteOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.DeleteOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6672,7 +6691,7 @@ class CloudChannelServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6680,7 +6699,7 @@ class CloudChannelServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -6688,7 +6707,7 @@ class CloudChannelServiceAsyncClient:
 
     async def cancel_operation(
         self,
-        request: Optional[operations_pb2.CancelOperationRequest] = None,
+        request: Optional[Union[operations_pb2.CancelOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -6717,8 +6736,12 @@ class CloudChannelServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.CancelOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.CancelOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.CancelOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -6727,7 +6750,7 @@ class CloudChannelServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -6735,7 +6758,7 @@ class CloudChannelServiceAsyncClient:
 
         # Send the request.
         await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

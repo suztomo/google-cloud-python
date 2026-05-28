@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,19 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.geo.type.types import viewport as ggt_viewport
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
-from google.type import localized_text_pb2  # type: ignore
-from google.type import postal_address_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
+import google.type.localized_text_pb2 as localized_text_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 import proto  # type: ignore
+from google.geo.type.types import viewport as ggt_viewport
 
 from google.maps.places_v1.types import address_descriptor as gmp_address_descriptor
-from google.maps.places_v1.types import content_block, ev_charging
+from google.maps.places_v1.types import content_block, ev_charging, photo, review
 from google.maps.places_v1.types import fuel_options as gmp_fuel_options
-from google.maps.places_v1.types import photo
 from google.maps.places_v1.types import price_range as gmp_price_range
-from google.maps.places_v1.types import review
 
 __protobuf__ = proto.module(
     package="google.maps.places.v1",
@@ -59,6 +57,7 @@ class PriceLevel(proto.Enum):
         PRICE_LEVEL_VERY_EXPENSIVE (5):
             Place provides very expensive services.
     """
+
     PRICE_LEVEL_UNSPECIFIED = 0
     PRICE_LEVEL_FREE = 1
     PRICE_LEVEL_INEXPENSIVE = 2
@@ -89,19 +88,30 @@ class Place(proto.Message):
             and Table B at
             https://developers.google.com/maps/documentation/places/web-service/place-types
         primary_type (str):
-            The primary type of the given result. This
-            type must one of the Places API supported types.
-            For example, "restaurant", "cafe", "airport",
-            etc.  A place can only have a single primary
-            type.  For the complete list of possible values,
-            see Table A and Table B at
-            https://developers.google.com/maps/documentation/places/web-service/place-types
+            The primary type of the given result. This type must be one
+            of the Places API supported types. For example,
+            "restaurant", "cafe", "airport", etc. A place can only have
+            a single primary type. For the complete list of possible
+            values, see Table A and Table B at
+            https://developers.google.com/maps/documentation/places/web-service/place-types.
+            The primary type may be missing if the place's primary type
+            is not a supported type. When a primary type is present, it
+            is always one of the types in the ``types`` field.
         primary_type_display_name (google.type.localized_text_pb2.LocalizedText):
             The display name of the primary type,
             localized to the request language if applicable.
             For the complete list of possible values, see
             Table A and Table B at
-            https://developers.google.com/maps/documentation/places/web-service/place-types
+            https://developers.google.com/maps/documentation/places/web-service/place-types.
+            The primary type may be missing if the place's
+            primary type is not a supported type.
+        google_maps_type_label (google.type.localized_text_pb2.LocalizedText):
+            The type label of the place on Google Maps, localized to the
+            request language if applicable, for example, "Restaurant",
+            "Cafe", "Airport", etc. The type label may be different from
+            the primary type display name and may not be a supported
+            type in `Places API Place Types
+            table <https://developers.google.com/maps/documentation/places/web-service/place-types>`__.
         national_phone_number (str):
             A human-readable phone number for the place,
             in national format.
@@ -120,22 +130,22 @@ class Place(proto.Message):
             Repeated components for each locality level. Note the
             following facts about the address_components[] array:
 
-            -  The array of address components may contain more
-               components than the formatted_address.
-            -  The array does not necessarily include all the political
-               entities that contain an address, apart from those
-               included in the formatted_address. To retrieve all the
-               political entities that contain a specific address, you
-               should use reverse geocoding, passing the
-               latitude/longitude of the address as a parameter to the
-               request.
-            -  The format of the response is not guaranteed to remain
-               the same between requests. In particular, the number of
-               address_components varies based on the address requested
-               and can change over time for the same address. A
-               component can change position in the array. The type of
-               the component can change. A particular component may be
-               missing in a later response.
+            - The array of address components may contain more
+              components than the formatted_address.
+            - The array does not necessarily include all the political
+              entities that contain an address, apart from those
+              included in the formatted_address. To retrieve all the
+              political entities that contain a specific address, you
+              should use reverse geocoding, passing the
+              latitude/longitude of the address as a parameter to the
+              request.
+            - The format of the response is not guaranteed to remain the
+              same between requests. In particular, the number of
+              address_components varies based on the address requested
+              and can change over time for the same address. A component
+              can change position in the array. The type of the
+              component can change. A particular component may be
+              missing in a later response.
         plus_code (google.maps.places_v1.types.Place.PlusCode):
             Plus code of the place location lat/long.
         location (google.type.latlng_pb2.LatLng):
@@ -194,6 +204,9 @@ class Place(proto.Message):
             http://microformats.org/wiki/adr.
         business_status (google.maps.places_v1.types.Place.BusinessStatus):
             The business status for the place.
+        opening_date (google.type.date_pb2.Date):
+            The date this place will open in the future. This field is
+            only populated if the business status is FUTURE_OPENING.
         price_level (google.maps.places_v1.types.PriceLevel):
             Price level of the place.
         attributions (MutableSequence[google.maps.places_v1.types.Place.Attribution]):
@@ -380,6 +393,9 @@ class Place(proto.Message):
             areas. See address descriptor regional coverage
             in
             https://developers.google.com/maps/documentation/geocoding/address-descriptors/coverage.
+        google_maps_links (google.maps.places_v1.types.Place.GoogleMapsLinks):
+            Links to trigger different Google Maps
+            actions.
         price_range (google.maps.places_v1.types.PriceRange):
             The price range associated with a Place.
         review_summary (google.maps.places_v1.types.Place.ReviewSummary):
@@ -391,6 +407,23 @@ class Place(proto.Message):
         neighborhood_summary (google.maps.places_v1.types.Place.NeighborhoodSummary):
             A summary of points of interest near the
             place.
+        consumer_alert (google.maps.places_v1.types.Place.ConsumerAlert):
+            The consumer alert message for the place when
+            we detect suspicious review activity on a
+            business or a business violates our policies.
+        moved_place (str):
+            If this Place is permanently closed and has moved to a new
+            Place, this field contains the new Place's resource name, in
+            ``places/{place_id}`` format. If this Place moved multiple
+            times, this field will represent the first moved place. This
+            field will not be populated if this Place has not moved.
+        moved_place_id (str):
+            If this Place is permanently closed and has
+            moved to a new Place, this field contains the
+            new Place's place ID. If this Place moved
+            multiple times, this field will represent the
+            first moved Place. This field will not be
+            populated if this Place has not moved.
     """
 
     class BusinessStatus(proto.Enum):
@@ -406,11 +439,15 @@ class Place(proto.Message):
                 The establishment is temporarily closed.
             CLOSED_PERMANENTLY (3):
                 The establishment is permanently closed.
+            FUTURE_OPENING (4):
+                The establishment will open in the future.
         """
+
         BUSINESS_STATUS_UNSPECIFIED = 0
         OPERATIONAL = 1
         CLOSED_TEMPORARILY = 2
         CLOSED_PERMANENTLY = 3
+        FUTURE_OPENING = 4
 
     class AddressComponent(proto.Message):
         r"""The structured components that form the formatted address, if
@@ -494,19 +531,34 @@ class Place(proto.Message):
 
                 This field is a member of `oneof`_ ``_open_now``.
             periods (MutableSequence[google.maps.places_v1.types.Place.OpeningHours.Period]):
-                The periods that this place is open during
-                the week. The periods are in chronological
-                order, starting with Sunday in the place-local
-                timezone. An empty (but not absent) value
-                indicates a place that is never open, e.g.
-                because it is closed temporarily for
-                renovations.
+                The periods that this place is open during the week. The
+                periods are in chronological order, in the place-local
+                timezone. An empty (but not absent) value indicates a place
+                that is never open, e.g. because it is closed temporarily
+                for renovations.
+
+                The starting day of ``periods`` is NOT fixed and should not
+                be assumed to be Sunday. The API determines the start day
+                based on a variety of factors. For example, for a 24/7
+                business, the first period may begin on the day of the
+                request. For other businesses, it might be the first day of
+                the week that they are open.
+
+                NOTE: The ordering of the ``periods`` array is independent
+                of the ordering of the ``weekday_descriptions`` array. Do
+                not assume they will begin on the same day.
             weekday_descriptions (MutableSequence[str]):
-                Localized strings describing the opening
-                hours of this place, one string for each day of
-                the week.  Will be empty if the hours are
-                unknown or could not be converted to localized
-                text. Example: "Sun: 18:00–06:00".
+                Localized strings describing the opening hours of this
+                place, one string for each day of the week.
+
+                NOTE: The order of the days and the start of the week is
+                determined by the locale (language and region). The ordering
+                of the ``periods`` array is independent of the ordering of
+                the ``weekday_descriptions`` array. Do not assume they will
+                begin on the same day.
+
+                Will be empty if the hours are unknown or could not be
+                converted to localized text. Example: "Sun: 18:00–06:00".
             secondary_hours_type (google.maps.places_v1.types.Place.OpeningHours.SecondaryHoursType):
                 A type string used to identify the type of
                 secondary hours.
@@ -566,6 +618,7 @@ class Place(proto.Message):
                 ONLINE_SERVICE_HOURS (13):
                     The online service hours.
             """
+
             SECONDARY_HOURS_TYPE_UNSPECIFIED = 0
             DRIVE_THROUGH = 1
             HAPPY_HOUR = 2
@@ -693,12 +746,12 @@ class Place(proto.Message):
             number=4,
             enum="Place.OpeningHours.SecondaryHoursType",
         )
-        special_days: MutableSequence[
-            "Place.OpeningHours.SpecialDay"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="Place.OpeningHours.SpecialDay",
+        special_days: MutableSequence["Place.OpeningHours.SpecialDay"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="Place.OpeningHours.SpecialDay",
+            )
         )
         next_open_time: timestamp_pb2.Timestamp = proto.Field(
             proto.MESSAGE,
@@ -975,6 +1028,48 @@ class Place(proto.Message):
             number=2,
         )
 
+    class GoogleMapsLinks(proto.Message):
+        r"""Links to trigger different Google Maps actions.
+
+        Attributes:
+            directions_uri (str):
+                A link to show the directions to the place. The link only
+                populates the destination location and uses the default
+                travel mode ``DRIVE``.
+            place_uri (str):
+                A link to show this place.
+            write_a_review_uri (str):
+                A link to write a review for this place on
+                Google Maps.
+            reviews_uri (str):
+                A link to show reviews of this place on
+                Google Maps.
+            photos_uri (str):
+                A link to show photos of this place on Google
+                Maps.
+        """
+
+        directions_uri: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        place_uri: str = proto.Field(
+            proto.STRING,
+            number=2,
+        )
+        write_a_review_uri: str = proto.Field(
+            proto.STRING,
+            number=3,
+        )
+        reviews_uri: str = proto.Field(
+            proto.STRING,
+            number=4,
+        )
+        photos_uri: str = proto.Field(
+            proto.STRING,
+            number=5,
+        )
+
     class ReviewSummary(proto.Message):
         r"""AI-generated summary of the place using user reviews.
 
@@ -989,6 +1084,9 @@ class Place(proto.Message):
                 Gemini" (and its localized variants). This will
                 be in the language specified in the request if
                 available.
+            reviews_uri (str):
+                A link to show reviews of this place on
+                Google Maps.
         """
 
         text: localized_text_pb2.LocalizedText = proto.Field(
@@ -1004,6 +1102,10 @@ class Place(proto.Message):
             proto.MESSAGE,
             number=3,
             message=localized_text_pb2.LocalizedText,
+        )
+        reviews_uri: str = proto.Field(
+            proto.STRING,
+            number=4,
         )
 
     class EvChargeAmenitySummary(proto.Message):
@@ -1021,7 +1123,7 @@ class Place(proto.Message):
             restaurant (google.maps.places_v1.types.ContentBlock):
                 A summary of the nearby restaurants.
             store (google.maps.places_v1.types.ContentBlock):
-                A summary of the nearby gas stations.
+                A summary of the nearby stores.
             flag_content_uri (str):
                 A link where users can flag a problem with
                 the summary.
@@ -1100,6 +1202,84 @@ class Place(proto.Message):
             message=localized_text_pb2.LocalizedText,
         )
 
+    class ConsumerAlert(proto.Message):
+        r"""The consumer alert message for the place when we detect
+        suspicious review activity on a business or a business violates
+        our policies.
+
+        Attributes:
+            overview (str):
+                The overview of the consumer alert message.
+            details (google.maps.places_v1.types.Place.ConsumerAlert.Details):
+                The details of the consumer alert message.
+            language_code (str):
+                The language code of the consumer alert
+                message. This is a BCP 47 language code.
+        """
+
+        class Details(proto.Message):
+            r"""The details of the consumer alert message.
+
+            Attributes:
+                title (str):
+                    The title to show together with the
+                    description.
+                description (str):
+                    The description of the consumer alert
+                    message.
+                about_link (google.maps.places_v1.types.Place.ConsumerAlert.Details.Link):
+                    The link to show together with the
+                    description to provide more information.
+            """
+
+            class Link(proto.Message):
+                r"""The link to show together with the description to provide
+                more information.
+
+                Attributes:
+                    title (str):
+                        The title to show for the link.
+                    uri (str):
+                        The uri of the link.
+                """
+
+                title: str = proto.Field(
+                    proto.STRING,
+                    number=1,
+                )
+                uri: str = proto.Field(
+                    proto.STRING,
+                    number=2,
+                )
+
+            title: str = proto.Field(
+                proto.STRING,
+                number=1,
+            )
+            description: str = proto.Field(
+                proto.STRING,
+                number=2,
+            )
+            about_link: "Place.ConsumerAlert.Details.Link" = proto.Field(
+                proto.MESSAGE,
+                number=3,
+                message="Place.ConsumerAlert.Details.Link",
+            )
+
+        overview: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        details: "Place.ConsumerAlert.Details" = proto.Field(
+            proto.MESSAGE,
+            number=2,
+            message="Place.ConsumerAlert.Details",
+        )
+        language_code: str = proto.Field(
+            proto.STRING,
+            number=3,
+        )
+
     name: str = proto.Field(
         proto.STRING,
         number=1,
@@ -1124,6 +1304,11 @@ class Place(proto.Message):
     primary_type_display_name: localized_text_pb2.LocalizedText = proto.Field(
         proto.MESSAGE,
         number=32,
+        message=localized_text_pb2.LocalizedText,
+    )
+    google_maps_type_label: localized_text_pb2.LocalizedText = proto.Field(
+        proto.MESSAGE,
+        number=96,
         message=localized_text_pb2.LocalizedText,
     )
     national_phone_number: str = proto.Field(
@@ -1213,6 +1398,11 @@ class Place(proto.Message):
         number=25,
         enum=BusinessStatus,
     )
+    opening_date: date_pb2.Date = proto.Field(
+        proto.MESSAGE,
+        number=95,
+        message=date_pb2.Date,
+    )
     price_level: "PriceLevel" = proto.Field(
         proto.ENUM,
         number=26,
@@ -1301,19 +1491,19 @@ class Place(proto.Message):
         number=46,
         message=OpeningHours,
     )
-    current_secondary_opening_hours: MutableSequence[
-        OpeningHours
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=47,
-        message=OpeningHours,
+    current_secondary_opening_hours: MutableSequence[OpeningHours] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=47,
+            message=OpeningHours,
+        )
     )
-    regular_secondary_opening_hours: MutableSequence[
-        OpeningHours
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=49,
-        message=OpeningHours,
+    regular_secondary_opening_hours: MutableSequence[OpeningHours] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=49,
+            message=OpeningHours,
+        )
     )
     editorial_summary: localized_text_pb2.LocalizedText = proto.Field(
         proto.MESSAGE,
@@ -1426,6 +1616,11 @@ class Place(proto.Message):
         number=84,
         message=gmp_address_descriptor.AddressDescriptor,
     )
+    google_maps_links: GoogleMapsLinks = proto.Field(
+        proto.MESSAGE,
+        number=85,
+        message=GoogleMapsLinks,
+    )
     price_range: gmp_price_range.PriceRange = proto.Field(
         proto.MESSAGE,
         number=86,
@@ -1445,6 +1640,19 @@ class Place(proto.Message):
         proto.MESSAGE,
         number=91,
         message=NeighborhoodSummary,
+    )
+    consumer_alert: ConsumerAlert = proto.Field(
+        proto.MESSAGE,
+        number=92,
+        message=ConsumerAlert,
+    )
+    moved_place: str = proto.Field(
+        proto.STRING,
+        number=93,
+    )
+    moved_place_id: str = proto.Field(
+        proto.STRING,
+        number=94,
     )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -63,6 +64,9 @@ class NotificationConfig(proto.Message):
             notifications.
 
             This field is a member of `oneof`_ ``notify_config``.
+        update_time (google.protobuf.timestamp_pb2.Timestamp):
+            Output only. The timestamp of when the
+            notification config was last updated.
     """
 
     class StreamingConfig(proto.Message):
@@ -85,15 +89,15 @@ class NotificationConfig(proto.Message):
 
                 The supported operators are:
 
-                -  ``=`` for all value types.
-                -  ``>``, ``<``, ``>=``, ``<=`` for integer values.
-                -  ``:``, meaning substring matching, for strings.
+                - ``=`` for all value types.
+                - ``>``, ``<``, ``>=``, ``<=`` for integer values.
+                - ``:``, meaning substring matching, for strings.
 
                 The supported value types are:
 
-                -  string literals in quotes.
-                -  integer literals without quotes.
-                -  boolean literals ``true`` and ``false`` without quotes.
+                - string literals in quotes.
+                - integer literals without quotes.
+                - boolean literals ``true`` and ``false`` without quotes.
         """
 
         filter: str = proto.Field(
@@ -122,6 +126,11 @@ class NotificationConfig(proto.Message):
         number=5,
         oneof="notify_config",
         message=StreamingConfig,
+    )
+    update_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=7,
+        message=timestamp_pb2.Timestamp,
     )
 
 

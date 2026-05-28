@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.monitoring_v3 import gapic_version as package_version
 
@@ -44,14 +44,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
 
 from google.cloud.monitoring_v3.services.snooze_service import pagers
-from google.cloud.monitoring_v3.types import common
-from google.cloud.monitoring_v3.types import snooze
+from google.cloud.monitoring_v3.types import common, snooze, snooze_service
 from google.cloud.monitoring_v3.types import snooze as gm_snooze
-from google.cloud.monitoring_v3.types import snooze_service
 
 from .client import SnoozeServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, SnoozeServiceTransport
@@ -125,7 +123,10 @@ class SnoozeServiceAsyncClient:
         Returns:
             SnoozeServiceAsyncClient: The constructed client.
         """
-        return SnoozeServiceClient.from_service_account_info.__func__(SnoozeServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            SnoozeServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(SnoozeServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -141,7 +142,10 @@ class SnoozeServiceAsyncClient:
         Returns:
             SnoozeServiceAsyncClient: The constructed client.
         """
-        return SnoozeServiceClient.from_service_account_file.__func__(SnoozeServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            SnoozeServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(SnoozeServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -191,7 +195,7 @@ class SnoozeServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -503,7 +507,7 @@ class SnoozeServiceAsyncClient:
         Returns:
             google.cloud.monitoring_v3.services.snooze_service.pagers.ListSnoozesAsyncPager:
                 The results of a successful ListSnoozes call, containing the matching
-                   Snoozes.
+                   \`Snooze`s.
 
                 Iterating over this object will yield results and
                 resolve additional pages automatically.
@@ -740,14 +744,14 @@ class SnoozeServiceAsyncClient:
                 What fields can be updated depends on the start time and
                 end time of the ``Snooze``.
 
-                -  end time is in the past: These ``Snooze``\ s are
-                   considered read-only and cannot be updated.
-                -  start time is in the past and end time is in the
-                   future: ``display_name`` and ``interval.end_time``
-                   can be updated.
-                -  start time is in the future: ``display_name``,
-                   ``interval.start_time`` and ``interval.end_time`` can
-                   be updated.
+                - end time is in the past: These ``Snooze``\ s are
+                  considered read-only and cannot be updated.
+                - start time is in the past and end time is in the
+                  future: ``display_name`` and ``interval.end_time`` can
+                  be updated.
+                - start time is in the future: ``display_name``,
+                  ``interval.start_time`` and ``interval.end_time`` can
+                  be updated.
             snooze (:class:`google.cloud.monitoring_v3.types.Snooze`):
                 Required. The ``Snooze`` to update. Must have the name
                 field present.
@@ -760,23 +764,23 @@ class SnoozeServiceAsyncClient:
 
                 For each field listed in ``update_mask``:
 
-                -  If the ``Snooze`` object supplied in the
-                   ``UpdateSnoozeRequest`` has a value for that field,
-                   the value of the field in the existing ``Snooze``
-                   will be set to the value of the field in the supplied
-                   ``Snooze``.
-                -  If the field does not have a value in the supplied
-                   ``Snooze``, the field in the existing ``Snooze`` is
-                   set to its default value.
+                - If the ``Snooze`` object supplied in the
+                  ``UpdateSnoozeRequest`` has a value for that field,
+                  the value of the field in the existing ``Snooze`` will
+                  be set to the value of the field in the supplied
+                  ``Snooze``.
+                - If the field does not have a value in the supplied
+                  ``Snooze``, the field in the existing ``Snooze`` is
+                  set to its default value.
 
                 Fields not listed retain their existing value.
 
                 The following are the field names that are accepted in
                 ``update_mask``:
 
-                -  ``display_name``
-                -  ``interval.start_time``
-                -  ``interval.end_time``
+                - ``display_name``
+                - ``interval.start_time``
+                - ``interval.end_time``
 
                 That said, the start time and end time of the ``Snooze``
                 determines which fields can legally be updated. Before

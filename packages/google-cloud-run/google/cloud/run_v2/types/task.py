@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import condition, k8s_min, vendor_settings
@@ -122,6 +122,8 @@ class ListTasksResponse(proto.Message):
 
 class Task(proto.Message):
     r"""Task represents a single run of a container to completion.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         name (str):
@@ -252,6 +254,11 @@ class Task(proto.Message):
             Output only. Reserved for future use.
         node_selector (google.cloud.run_v2.types.NodeSelector):
             Output only. The node selector for the task.
+        gpu_zonal_redundancy_disabled (bool):
+            Optional. Output only. True if GPU zonal
+            redundancy is disabled on this task.
+
+            This field is a member of `oneof`_ ``_gpu_zonal_redundancy_disabled``.
         etag (str):
             Output only. A system-generated fingerprint
             for this version of the resource. May be used to
@@ -399,6 +406,11 @@ class Task(proto.Message):
         number=36,
         message=vendor_settings.NodeSelector,
     )
+    gpu_zonal_redundancy_disabled: bool = proto.Field(
+        proto.BOOL,
+        number=37,
+        optional=True,
+    )
     etag: str = proto.Field(
         proto.STRING,
         number=99,
@@ -414,11 +426,18 @@ class TaskAttemptResult(proto.Message):
             If the status code is OK, then the attempt
             succeeded.
         exit_code (int):
-            Output only. The exit code of this attempt.
-            This may be unset if the container was unable to
-            exit cleanly with a code due to some other
-            failure.
-            See status field for possible failure details.
+            Output only. The exit code of this attempt. This may be
+            unset if the container was unable to exit cleanly with a
+            code due to some other failure. See status field for
+            possible failure details.
+
+            At most one of exit_code or term_signal will be set.
+        term_signal (int):
+            Output only. Termination signal of the container. This is
+            set to non-zero if the container is terminated by the
+            system.
+
+            At most one of exit_code or term_signal will be set.
     """
 
     status: status_pb2.Status = proto.Field(
@@ -429,6 +448,10 @@ class TaskAttemptResult(proto.Message):
     exit_code: int = proto.Field(
         proto.INT32,
         number=2,
+    )
+    term_signal: int = proto.Field(
+        proto.INT32,
+        number=3,
     )
 
 

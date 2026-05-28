@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import datetime_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.datetime_pb2 as datetime_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -117,6 +117,7 @@ class FacetBucketType(proto.Enum):
         FACET_BUCKET_TYPE_CUSTOM_RANGE (4):
             Custom Range type.
     """
+
     FACET_BUCKET_TYPE_UNSPECIFIED = 0
     FACET_BUCKET_TYPE_VALUE = 1
     FACET_BUCKET_TYPE_DATETIME = 2
@@ -132,7 +133,7 @@ class CreateAssetRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The parent resource where this asset will be
-            created. Format: projects/\ */locations/*/corpora/\*
+            created. Format: projects/*/locations/*/corpora/\*
         asset (google.cloud.visionai_v1alpha1.types.Asset):
             Required. The asset to create.
         asset_id (str):
@@ -501,7 +502,7 @@ class CreateDataSchemaRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The parent resource where this data schema will be
-            created. Format: projects/\ */locations/*/corpora/\*
+            created. Format: projects/*/locations/*/corpora/\*
         data_schema (google.cloud.visionai_v1alpha1.types.DataSchema):
             Required. The data schema to create.
     """
@@ -577,21 +578,21 @@ class DataSchemaDetails(proto.Message):
             INTEGER (1):
                 Integer type. Allowed search strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
-                   IntRangeArray.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
+                  IntRangeArray.
             FLOAT (2):
                 Float type. Allowed search strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
-                   FloatRangeArray.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
+                  FloatRangeArray.
             STRING (3):
                 String type. Allowed search strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH,
-                -  DataSchema.SearchStrategy.SMART_SEARCH.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH,
+                - DataSchema.SearchStrategy.SMART_SEARCH.
             DATETIME (5):
                 Supported formats: %Y-%m-%dT%H:%M:%E\ *S%E*\ z
                 (absl::RFC3339_full) %Y-%m-%dT%H:%M:%E\ *S
@@ -599,41 +600,42 @@ class DataSchemaDetails(proto.Message):
                 %Y-%m-%dT%H %Y-%m-%d%E*\ z %Y-%m-%d %Y-%m %Y Allowed search
                 strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
-                   DateTimeRangeArray.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
+                  DateTimeRangeArray.
             GEO_COORDINATE (7):
                 Geo coordinate type. Allowed search strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
-                   GeoLocationArray.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH. Supports query by
+                  GeoLocationArray.
             PROTO_ANY (8):
                 Type to pass any proto as available in annotations.proto.
                 Only use internally. Available proto types and its
                 corresponding search behavior:
 
-                -  ImageObjectDetectionPredictionResult, allows SMART_SEARCH
-                   on display_names and NO_SEARCH.
-                -  ClassificationPredictionResult, allows SMART_SEARCH on
-                   display_names and NO_SEARCH.
-                -  ImageSegmentationPredictionResult, allows NO_SEARCH.
-                -  VideoActionRecognitionPredictionResult, allows
-                   SMART_SEARCH on display_name and NO_SEARCH.
-                -  VideoObjectTrackingPredictionResult, allows SMART_SEARCH
-                   on display_name and NO_SEARCH.
-                -  VideoClassificationPredictionResult, allows SMART_SEARCH
-                   on display_name and NO_SEARCH.
-                -  OccupancyCountingPredictionResult, allows EXACT_SEARCH on
-                   stats.full_frame_count.count and NO_SEARCH.
-                -  ObjectDetectionPredictionResult, allows SMART_SEARCH on
-                   identified_boxes.entity.label_string and NO_SEARCH.
+                - ImageObjectDetectionPredictionResult, allows SMART_SEARCH
+                  on display_names and NO_SEARCH.
+                - ClassificationPredictionResult, allows SMART_SEARCH on
+                  display_names and NO_SEARCH.
+                - ImageSegmentationPredictionResult, allows NO_SEARCH.
+                - VideoActionRecognitionPredictionResult, allows
+                  SMART_SEARCH on display_name and NO_SEARCH.
+                - VideoObjectTrackingPredictionResult, allows SMART_SEARCH
+                  on display_name and NO_SEARCH.
+                - VideoClassificationPredictionResult, allows SMART_SEARCH
+                  on display_name and NO_SEARCH.
+                - OccupancyCountingPredictionResult, allows EXACT_SEARCH on
+                  stats.full_frame_count.count and NO_SEARCH.
+                - ObjectDetectionPredictionResult, allows SMART_SEARCH on
+                  identified_boxes.entity.label_string and NO_SEARCH.
             BOOLEAN (9):
                 Boolean type. Allowed search strategies:
 
-                -  DataSchema.SearchStrategy.NO_SEARCH,
-                -  DataSchema.SearchStrategy.EXACT_SEARCH.
+                - DataSchema.SearchStrategy.NO_SEARCH,
+                - DataSchema.SearchStrategy.EXACT_SEARCH.
         """
+
         DATA_TYPE_UNSPECIFIED = 0
         INTEGER = 1
         FLOAT = 2
@@ -656,6 +658,7 @@ class DataSchemaDetails(proto.Message):
                 Partition-level granularity (annotations must
                 contain partition info).
         """
+
         GRANULARITY_UNSPECIFIED = 0
         GRANULARITY_ASSET_LEVEL = 1
         GRANULARITY_PARTITION_LEVEL = 2
@@ -701,6 +704,7 @@ class DataSchemaDetails(proto.Message):
                     When searching with ``key``, Warehouse will perform broad
                     search based on semantic of the annotation value.
             """
+
             NO_SEARCH = 0
             EXACT_SEARCH = 1
             SMART_SEARCH = 2
@@ -861,7 +865,7 @@ class CreateAnnotationRequest(proto.Message):
     Attributes:
         parent (str):
             Required. The parent resource where this annotation will be
-            created. Format: projects/\ */locations/*/corpora/*/assets/*
+            created. Format: projects/*/locations/*/corpora/*/assets/*
         annotation (google.cloud.visionai_v1alpha1.types.Annotation):
             Required. The annotation to create.
         annotation_id (str):
@@ -1201,15 +1205,15 @@ class CreateSearchConfigRequest(proto.Message):
         parent (str):
             Required. The parent resource where this search
             configuration will be created. Format:
-            projects/\ */locations/*/corpora/\*
+            projects/*/locations/*/corpora/\*
         search_config (google.cloud.visionai_v1alpha1.types.SearchConfig):
             Required. The search config to create.
         search_config_id (str):
             Required. ID to use for the new search config. Will become
             the final component of the SearchConfig's resource name.
             This value should be up to 63 characters, and valid
-            characters are /[a-z][0-9]-_/. The first character must be a
-            letter, the last could be a letter or a number.
+            characters are /[a-z][0-9]-\_/. The first character must be
+            a letter, the last could be a letter or a number.
     """
 
     parent: str = proto.Field(
@@ -1481,9 +1485,9 @@ class FacetProperty(proto.Message):
         10, 100, and 1000, we will generate the following facets: [-inf, 0),
         [0, 10), [10, 100), [100, 1000), [1000, inf). Notably:
 
-        -  endpoints must be listed in ascending order. Otherwise, the
-           SearchConfig API will reject the facet config.
-        -  < 1 endpoints is an invalid spec.
+        - endpoints must be listed in ascending order. Otherwise, the
+          SearchConfig API will reject the facet config.
+        - < 1 endpoints is an invalid spec.
 
         Attributes:
             endpoints (MutableSequence[google.cloud.visionai_v1alpha1.types.FacetValue]):
@@ -1519,6 +1523,7 @@ class FacetProperty(proto.Message):
                 DAY (3):
                     Granularity is day.
             """
+
             GRANULARITY_UNSPECIFIED = 0
             YEAR = 1
             MONTH = 2
@@ -1724,8 +1729,8 @@ class FacetGroup(proto.Message):
             based on partition level annotations. It supports the
             following facet values:
 
-            -  INTEGER
-            -  STRING (DataSchema.SearchStrategy.EXACT_SEARCH only)
+            - INTEGER
+            - STRING (DataSchema.SearchStrategy.EXACT_SEARCH only)
     """
 
     facet_id: str = proto.Field(
@@ -1808,6 +1813,7 @@ class IngestAssetRequest(proto.Message):
                     CONTAINER_FORMAT_MP4 (1):
                         Mp4 container format.
                 """
+
                 CONTAINER_FORMAT_UNSPECIFIED = 0
                 CONTAINER_FORMAT_MP4 = 1
 
@@ -1959,12 +1965,12 @@ class GenerateHlsUriRequest(proto.Message):
         proto.STRING,
         number=1,
     )
-    temporal_partitions: MutableSequence[
-        "Partition.TemporalPartition"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="Partition.TemporalPartition",
+    temporal_partitions: MutableSequence["Partition.TemporalPartition"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="Partition.TemporalPartition",
+        )
     )
 
 
@@ -1984,12 +1990,12 @@ class GenerateHlsUriResponse(proto.Message):
         proto.STRING,
         number=1,
     )
-    temporal_partitions: MutableSequence[
-        "Partition.TemporalPartition"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="Partition.TemporalPartition",
+    temporal_partitions: MutableSequence["Partition.TemporalPartition"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="Partition.TemporalPartition",
+        )
     )
 
 
@@ -2145,12 +2151,12 @@ class SearchResultItem(proto.Message):
         number=3,
         message="Annotation",
     )
-    annotation_matching_results: MutableSequence[
-        "AnnotationMatchingResult"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="AnnotationMatchingResult",
+    annotation_matching_results: MutableSequence["AnnotationMatchingResult"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="AnnotationMatchingResult",
+        )
     )
 
 
@@ -2424,10 +2430,10 @@ class Criteria(proto.Message):
             This option is only applicable for partition level
             annotations and supports the following data types:
 
-            -  INTEGER
-            -  FLOAT
-            -  STRING (DataSchema.SearchStrategy.EXACT_SEARCH only)
-            -  BOOLEAN
+            - INTEGER
+            - FLOAT
+            - STRING (DataSchema.SearchStrategy.EXACT_SEARCH only)
+            - BOOLEAN
     """
 
     text_array: "StringArray" = proto.Field(

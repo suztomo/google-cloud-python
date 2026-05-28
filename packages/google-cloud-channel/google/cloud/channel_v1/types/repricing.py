@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import decimal_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.decimal_pb2 as decimal_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -55,6 +55,7 @@ class RebillingBasis(proto.Enum):
             the customer would see if they viewed the bill
             in the Google Cloud Console.
     """
+
     REBILLING_BASIS_UNSPECIFIED = 0
     COST_AT_LIST = 1
     DIRECT_CUSTOMER_COST = 2
@@ -144,8 +145,8 @@ class RepricingConfig(proto.Message):
 
     Attributes:
         entitlement_granularity (google.cloud.channel_v1.types.RepricingConfig.EntitlementGranularity):
-            Applies the repricing configuration at the entitlement
-            level.
+            Required. Applies the repricing configuration at the
+            entitlement level.
 
             Note: If a
             [ChannelPartnerRepricingConfig][google.cloud.channel.v1.ChannelPartnerRepricingConfig]

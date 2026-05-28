@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .billing_accounts import BillingAccount
+from .billing_accounts import (
+    BillingAccount,
+)
 from .channel_partner_links import (
     ChannelPartnerLink,
     ChannelPartnerLinkState,
     ChannelPartnerLinkView,
 )
-from .common import AdminUser, CloudIdentityInfo, EduData, Value
-from .customers import ContactInfo, Customer
-from .entitlement_changes import EntitlementChange
+from .common import (
+    AdminUser,
+    CloudIdentityInfo,
+    EduData,
+    Value,
+)
+from .customers import (
+    ContactInfo,
+    Customer,
+)
+from .entitlement_changes import (
+    EntitlementChange,
+)
 from .entitlements import (
     AssociationInfo,
     CommitmentSettings,
@@ -36,6 +48,8 @@ from .entitlements import (
 from .offers import (
     Constraints,
     CustomerConstraints,
+    DiscountComponent,
+    DiscountType,
     Offer,
     ParameterDefinition,
     PaymentPlan,
@@ -50,8 +64,16 @@ from .offers import (
     PromotionalOrderType,
     ResourceType,
 )
-from .operations import OperationMetadata
-from .products import MarketingInfo, Media, MediaType, Product, Sku
+from .operations import (
+    OperationMetadata,
+)
+from .products import (
+    MarketingInfo,
+    Media,
+    MediaType,
+    Product,
+    Sku,
+)
 from .reports_service import (
     Column,
     DateRange,
@@ -159,7 +181,11 @@ from .service import (
     UpdateCustomerRepricingConfigRequest,
     UpdateCustomerRequest,
 )
-from .subscriber_event import CustomerEvent, EntitlementEvent, SubscriberEvent
+from .subscriber_event import (
+    CustomerEvent,
+    EntitlementEvent,
+    SubscriberEvent,
+)
 
 __all__ = (
     "BillingAccount",
@@ -184,6 +210,7 @@ __all__ = (
     "TrialSettings",
     "Constraints",
     "CustomerConstraints",
+    "DiscountComponent",
     "Offer",
     "ParameterDefinition",
     "Period",
@@ -192,6 +219,7 @@ __all__ = (
     "PriceByResource",
     "PricePhase",
     "PriceTier",
+    "DiscountType",
     "PaymentPlan",
     "PaymentType",
     "PeriodType",

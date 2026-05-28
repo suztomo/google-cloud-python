@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -96,8 +96,8 @@ class OutputConfig(proto.Message):
                 Required. Describes the table type. The following values are
                 supported:
 
-                -  ``table``: A BigQuery native table.
-                -  ``view``: A virtual table defined by a SQL query.
+                - ``table``: A BigQuery native table.
+                - ``view``: A virtual table defined by a SQL query.
         """
 
         dataset_id: str = proto.Field(
@@ -198,15 +198,15 @@ class ExportProductsRequest(proto.Message):
 
             Some examples of valid filters expressions:
 
-            -  Example 1:
-               ``lastModifiedTime > "2012-04-23T18:25:43.511Z" lastModifiedTime < "2012-04-23T18:30:43.511Z"``
-            -  Example 2:
-               ``lastModifiedTime > "2012-04-23T18:25:43.511Z" productType = "variant"``
-            -  Example 3:
-               ``tag=("Red" OR "Blue") tag="New-Arrival" tag=(NOT "promotional") productType = "primary" lastModifiedTime < "2018-04-23T18:30:43.511Z"``
-            -  Example 4:
-               ``lastModifiedTime > "2012-04-23T18:25:43.511Z"``
-            -  Example 5: ``availability = (IN_STOCK OR BACKORDER)``
+            - Example 1:
+              ``lastModifiedTime > "2012-04-23T18:25:43.511Z" lastModifiedTime < "2012-04-23T18:30:43.511Z"``
+            - Example 2:
+              ``lastModifiedTime > "2012-04-23T18:25:43.511Z" productType = "variant"``
+            - Example 3:
+              ``tag=("Red" OR "Blue") tag="New-Arrival" tag=(NOT "promotional") productType = "primary" lastModifiedTime < "2018-04-23T18:30:43.511Z"``
+            - Example 4:
+              ``lastModifiedTime > "2012-04-23T18:25:43.511Z"``
+            - Example 5: ``availability = (IN_STOCK OR BACKORDER)``
     """
 
     parent: str = proto.Field(
@@ -262,15 +262,15 @@ class ExportUserEventsRequest(proto.Message):
 
             Some examples of valid filters expressions:
 
-            -  Example 1:
-               ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
-            -  Example 2:
-               ``eventTime > "2012-04-23T18:25:43.511Z" eventType = detail-page-view``
-            -  Example 3:
-               ``eventsMissingCatalogItems eventType = (NOT search) eventTime < "2018-04-23T18:30:43.511Z"``
-            -  Example 4: ``eventTime > "2012-04-23T18:25:43.511Z"``
-            -  Example 5: ``eventType = (detail-page-view OR search)``
-            -  Example 6: ``eventsMissingCatalogItems``
+            - Example 1:
+              ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
+            - Example 2:
+              ``eventTime > "2012-04-23T18:25:43.511Z" eventType = detail-page-view``
+            - Example 3:
+              ``eventsMissingCatalogItems eventType = (NOT search) eventTime < "2018-04-23T18:30:43.511Z"``
+            - Example 4: ``eventTime > "2012-04-23T18:25:43.511Z"``
+            - Example 5: ``eventType = (detail-page-view OR search)``
+            - Example 6: ``eventsMissingCatalogItems``
     """
 
     parent: str = proto.Field(
@@ -314,9 +314,9 @@ class ExportAnalyticsMetricsRequest(proto.Message):
 
             Some examples of valid filters expressions:
 
-            -  Example 1:
-               ``timestamp > "2012-04-23T18:25:43.511Z" timestamp < "2012-04-23T18:30:43.511Z"``
-            -  Example 2: ``timestamp > "2012-04-23T18:25:43.511Z"``
+            - Example 1:
+              ``timestamp > "2012-04-23T18:25:43.511Z" timestamp < "2012-04-23T18:30:43.511Z"``
+            - Example 2: ``timestamp > "2012-04-23T18:25:43.511Z"``
     """
 
     catalog: str = proto.Field(

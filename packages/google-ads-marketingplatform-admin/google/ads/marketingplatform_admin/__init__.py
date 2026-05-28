@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,17 +25,24 @@ from google.ads.marketingplatform_admin_v1alpha.services.marketingplatform_admin
     MarketingplatformAdminServiceClient,
 )
 from google.ads.marketingplatform_admin_v1alpha.types.marketingplatform_admin import (
-    AnalyticsServiceLevel,
     CreateAnalyticsAccountLinkRequest,
     DeleteAnalyticsAccountLinkRequest,
+    FindSalesPartnerManagedClientsRequest,
+    FindSalesPartnerManagedClientsResponse,
     GetOrganizationRequest,
     ListAnalyticsAccountLinksRequest,
     ListAnalyticsAccountLinksResponse,
+    ListOrganizationsRequest,
+    ListOrganizationsResponse,
+    ReportPropertyUsageRequest,
+    ReportPropertyUsageResponse,
     SetPropertyServiceLevelRequest,
     SetPropertyServiceLevelResponse,
 )
 from google.ads.marketingplatform_admin_v1alpha.types.resources import (
     AnalyticsAccountLink,
+    AnalyticsPropertyType,
+    AnalyticsServiceLevel,
     LinkVerificationState,
     Organization,
 )
@@ -45,13 +52,20 @@ __all__ = (
     "MarketingplatformAdminServiceAsyncClient",
     "CreateAnalyticsAccountLinkRequest",
     "DeleteAnalyticsAccountLinkRequest",
+    "FindSalesPartnerManagedClientsRequest",
+    "FindSalesPartnerManagedClientsResponse",
     "GetOrganizationRequest",
     "ListAnalyticsAccountLinksRequest",
     "ListAnalyticsAccountLinksResponse",
+    "ListOrganizationsRequest",
+    "ListOrganizationsResponse",
+    "ReportPropertyUsageRequest",
+    "ReportPropertyUsageResponse",
     "SetPropertyServiceLevelRequest",
     "SetPropertyServiceLevelResponse",
-    "AnalyticsServiceLevel",
     "AnalyticsAccountLink",
     "Organization",
+    "AnalyticsPropertyType",
+    "AnalyticsServiceLevel",
     "LinkVerificationState",
 )

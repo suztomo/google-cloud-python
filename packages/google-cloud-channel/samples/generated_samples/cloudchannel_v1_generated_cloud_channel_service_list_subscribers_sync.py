@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,9 +39,7 @@ def sample_list_subscribers():
     client = channel_v1.CloudChannelServiceClient()
 
     # Initialize request argument(s)
-    request = channel_v1.ListSubscribersRequest(
-        account="account_value",
-    )
+    request = channel_v1.ListSubscribersRequest()
 
     # Make the request
     page_result = client.list_subscribers(request=request)
@@ -49,5 +47,6 @@ def sample_list_subscribers():
     # Handle the response
     for response in page_result:
         print(response)
+
 
 # [END cloudchannel_v1_generated_CloudChannelService_ListSubscribers_sync]

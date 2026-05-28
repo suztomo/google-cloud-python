@@ -118,6 +118,115 @@
         }
       }
     },
+    "Instances": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "InstancesClient",
+          "rpcs": {
+            "CreateInstance": {
+              "methods": [
+                "create_instance"
+              ]
+            },
+            "DeleteInstance": {
+              "methods": [
+                "delete_instance"
+              ]
+            },
+            "GetInstance": {
+              "methods": [
+                "get_instance"
+              ]
+            },
+            "ListInstances": {
+              "methods": [
+                "list_instances"
+              ]
+            },
+            "StartInstance": {
+              "methods": [
+                "start_instance"
+              ]
+            },
+            "StopInstance": {
+              "methods": [
+                "stop_instance"
+              ]
+            }
+          }
+        },
+        "grpc-async": {
+          "libraryClient": "InstancesAsyncClient",
+          "rpcs": {
+            "CreateInstance": {
+              "methods": [
+                "create_instance"
+              ]
+            },
+            "DeleteInstance": {
+              "methods": [
+                "delete_instance"
+              ]
+            },
+            "GetInstance": {
+              "methods": [
+                "get_instance"
+              ]
+            },
+            "ListInstances": {
+              "methods": [
+                "list_instances"
+              ]
+            },
+            "StartInstance": {
+              "methods": [
+                "start_instance"
+              ]
+            },
+            "StopInstance": {
+              "methods": [
+                "stop_instance"
+              ]
+            }
+          }
+        },
+        "rest": {
+          "libraryClient": "InstancesClient",
+          "rpcs": {
+            "CreateInstance": {
+              "methods": [
+                "create_instance"
+              ]
+            },
+            "DeleteInstance": {
+              "methods": [
+                "delete_instance"
+              ]
+            },
+            "GetInstance": {
+              "methods": [
+                "get_instance"
+              ]
+            },
+            "ListInstances": {
+              "methods": [
+                "list_instances"
+              ]
+            },
+            "StartInstance": {
+              "methods": [
+                "start_instance"
+              ]
+            },
+            "StopInstance": {
+              "methods": [
+                "stop_instance"
+              ]
+            }
+          }
+        }
+      }
+    },
     "Jobs": {
       "clients": {
         "grpc": {
@@ -518,6 +627,145 @@
             "ListTasks": {
               "methods": [
                 "list_tasks"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "WorkerPools": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "WorkerPoolsClient",
+          "rpcs": {
+            "CreateWorkerPool": {
+              "methods": [
+                "create_worker_pool"
+              ]
+            },
+            "DeleteWorkerPool": {
+              "methods": [
+                "delete_worker_pool"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "GetWorkerPool": {
+              "methods": [
+                "get_worker_pool"
+              ]
+            },
+            "ListWorkerPools": {
+              "methods": [
+                "list_worker_pools"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            },
+            "UpdateWorkerPool": {
+              "methods": [
+                "update_worker_pool"
+              ]
+            }
+          }
+        },
+        "grpc-async": {
+          "libraryClient": "WorkerPoolsAsyncClient",
+          "rpcs": {
+            "CreateWorkerPool": {
+              "methods": [
+                "create_worker_pool"
+              ]
+            },
+            "DeleteWorkerPool": {
+              "methods": [
+                "delete_worker_pool"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "GetWorkerPool": {
+              "methods": [
+                "get_worker_pool"
+              ]
+            },
+            "ListWorkerPools": {
+              "methods": [
+                "list_worker_pools"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            },
+            "UpdateWorkerPool": {
+              "methods": [
+                "update_worker_pool"
+              ]
+            }
+          }
+        },
+        "rest": {
+          "libraryClient": "WorkerPoolsClient",
+          "rpcs": {
+            "CreateWorkerPool": {
+              "methods": [
+                "create_worker_pool"
+              ]
+            },
+            "DeleteWorkerPool": {
+              "methods": [
+                "delete_worker_pool"
+              ]
+            },
+            "GetIamPolicy": {
+              "methods": [
+                "get_iam_policy"
+              ]
+            },
+            "GetWorkerPool": {
+              "methods": [
+                "get_worker_pool"
+              ]
+            },
+            "ListWorkerPools": {
+              "methods": [
+                "list_worker_pools"
+              ]
+            },
+            "SetIamPolicy": {
+              "methods": [
+                "set_iam_policy"
+              ]
+            },
+            "TestIamPermissions": {
+              "methods": [
+                "test_iam_permissions"
+              ]
+            },
+            "UpdateWorkerPool": {
+              "methods": [
+                "update_worker_pool"
               ]
             }
           }

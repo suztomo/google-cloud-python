@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -76,6 +76,7 @@ class FileUpload(proto.Message):
                 The data source was processed successfully,
                 though some items might have had errors.
         """
+
         PROCESSING_STATE_UNSPECIFIED = 0
         FAILED = 1
         IN_PROGRESS = 2
@@ -119,6 +120,7 @@ class FileUpload(proto.Message):
                 ERROR (2):
                     The issue is an error.
             """
+
             SEVERITY_UNSPECIFIED = 0
             WARNING = 1
             ERROR = 2

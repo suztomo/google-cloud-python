@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 # It may require modifications to work in your environment.
 
 # To install the latest published package dependency, execute the following:
-#   python3 -m pip install google-cloud-orchestration-airflow-service
+#   python3 -m pip install google-cloud-orchestration-airflow
 
 
 # [START composer_v1beta1_generated_ImageVersions_ListImageVersions_sync]
@@ -39,8 +39,7 @@ def sample_list_image_versions():
     client = service_v1beta1.ImageVersionsClient()
 
     # Initialize request argument(s)
-    request = service_v1beta1.ListImageVersionsRequest(
-    )
+    request = service_v1beta1.ListImageVersionsRequest()
 
     # Make the request
     page_result = client.list_image_versions(request=request)
@@ -48,5 +47,6 @@ def sample_list_image_versions():
     # Handle the response
     for response in page_result:
         print(response)
+
 
 # [END composer_v1beta1_generated_ImageVersions_ListImageVersions_sync]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -201,6 +201,7 @@ class PropertyDefinition(proto.Message):
             LOWEST (6):
                 Lowest importance (negative).
         """
+
         RETRIEVAL_IMPORTANCE_UNSPECIFIED = 0
         HIGHEST = 1
         HIGHER = 2

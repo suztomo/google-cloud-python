@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -198,12 +198,12 @@ class MembershipEndpoint(proto.Message):
             applied for a correctly registered cluster, in the steady
             state. These resources:
 
-            -  Ensure that the cluster is exclusively registered to one
-               and only one Hub Membership.
-            -  Propagate Workload Pool Information available in the
-               Membership Authority field.
-            -  Ensure proper initial configuration of default Hub
-               Features.
+            - Ensure that the cluster is exclusively registered to one
+              and only one Hub Membership.
+            - Propagate Workload Pool Information available in the
+              Membership Authority field.
+            - Ensure proper initial configuration of default Hub
+              Features.
         google_managed (bool):
             Output only. Whether the lifecycle of this
             membership is managed by a google cluster
@@ -315,10 +315,15 @@ class ResourceOptions(proto.Message):
             This option should be set for clusters with Kubernetes
             apiserver versions <1.16.
         k8s_version (str):
-            Optional. Major version of the Kubernetes cluster. This is
-            only used to determine which version to use for the
+            Optional. Major and minor version of the Kubernetes cluster.
+            This is only used to determine which version to use for the
             CustomResourceDefinition resources,
             ``apiextensions/v1beta1`` or\ ``apiextensions/v1``.
+        k8s_git_version (str):
+            Optional. Git version of the Kubernetes
+            cluster. This is only used to gate the Connect
+            Agent migration to svc.id.goog on GDC-SO
+            1.33.100 patch and above.
     """
 
     connect_version: str = proto.Field(
@@ -332,6 +337,10 @@ class ResourceOptions(proto.Message):
     k8s_version: str = proto.Field(
         proto.STRING,
         number=3,
+    )
+    k8s_git_version: str = proto.Field(
+        proto.STRING,
+        number=4,
     )
 
 
@@ -526,6 +535,7 @@ class MembershipState(proto.Message):
                 The Membership is being updated by the Hub
                 Service.
         """
+
         CODE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2

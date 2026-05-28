@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -118,6 +118,7 @@ class Recommendation(proto.Message):
                 Recommendation has P1 priority (highest
                 priority).
         """
+
         PRIORITY_UNSPECIFIED = 0
         P4 = 1
         P3 = 2
@@ -244,13 +245,13 @@ class Operation(proto.Message):
     r"""Contains an operation for a resource loosely based on the JSON-PATCH
     format with support for:
 
-    -  Custom filters for describing partial array patch.
-    -  Extended path values for describing nested arrays.
-    -  Custom fields for describing the resource for which the operation
-       is being described.
-    -  Allows extension to custom operations not natively supported by
-       RFC6902. See https://tools.ietf.org/html/rfc6902 for details on
-       the original RFC.
+    - Custom filters for describing partial array patch.
+    - Extended path values for describing nested arrays.
+    - Custom fields for describing the resource for which the operation
+      is being described.
+    - Allows extension to custom operations not natively supported by
+      RFC6902. See https://tools.ietf.org/html/rfc6902 for details on
+      the original RFC.
 
     This message has `oneof`_ fields (mutually exclusive fields).
     For each oneof, at most one member field can be set at the same time.
@@ -309,7 +310,7 @@ class Operation(proto.Message):
             intended to be an exact match per filter. To perform
             advanced matching, use path_value_matchers.
 
-            -  Example:
+            - Example:
 
             ::
 
@@ -318,7 +319,7 @@ class Operation(proto.Message):
                  "/versions/*/targetSize/percent": 20
                }
 
-            -  Example:
+            - Example:
 
             ::
 
@@ -327,7 +328,7 @@ class Operation(proto.Message):
                  "/bindings/*/condition" : null
                }
 
-            -  Example:
+            - Example:
 
             ::
 
@@ -528,6 +529,7 @@ class ReliabilityProjection(proto.Message):
                 Potential access denial. The service is still
                 up but some or all clients can't access it.
         """
+
         RISK_TYPE_UNSPECIFIED = 0
         SERVICE_DISRUPTION = 1
         DATA_LOSS = 2
@@ -603,6 +605,7 @@ class Impact(proto.Message):
                 Indicates a potential increase or decrease in
                 reliability.
         """
+
         CATEGORY_UNSPECIFIED = 0
         COST = 1
         SECURITY = 2
@@ -695,6 +698,7 @@ class RecommendationStateInfo(proto.Message):
                 DISMISSED recommendations can be marked as
                 ACTIVE.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CLAIMED = 6

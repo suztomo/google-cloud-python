@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.eventarc_v1.types import network_config as gce_network_config
@@ -102,6 +102,13 @@ class Trigger(proto.Message):
             Output only. Whether or not this Trigger
             satisfies the requirements of physical zone
             separation
+        retry_policy (google.cloud.eventarc_v1.types.Trigger.RetryPolicy):
+            Optional. The retry policy to use in the
+            Trigger.
+            If unset, event delivery will be retried for up
+            to 24 hours by default:
+
+            https://cloud.google.com/eventarc/docs/retry-events
         etag (str):
             Output only. This checksum is computed by the
             server based on the value of other fields, and
@@ -109,6 +116,23 @@ class Trigger(proto.Message):
             that the client has an up-to-date value before
             proceeding.
     """
+
+    class RetryPolicy(proto.Message):
+        r"""The retry policy configuration for the Trigger.
+
+        Can only be set with Cloud Run destinations.
+
+        Attributes:
+            max_attempts (int):
+                Optional. The maximum number of delivery
+                attempts for any message. The only valid value
+                is 1.
+        """
+
+        max_attempts: int = proto.Field(
+            proto.INT32,
+            number=1,
+        )
 
     name: str = proto.Field(
         proto.STRING,
@@ -169,6 +193,11 @@ class Trigger(proto.Message):
     satisfies_pzs: bool = proto.Field(
         proto.BOOL,
         number=19,
+    )
+    retry_policy: RetryPolicy = proto.Field(
+        proto.MESSAGE,
+        number=20,
+        message=RetryPolicy,
     )
     etag: str = proto.Field(
         proto.STRING,
@@ -468,7 +497,7 @@ class HttpEndpoint(proto.Message):
 
     Attributes:
         uri (str):
-            Required. The URI of the HTTP enpdoint.
+            Required. The URI of the HTTP endpoint.
 
             The value must be a RFC2396 URI string. Examples:
             ``http://10.10.10.8:80/route``,

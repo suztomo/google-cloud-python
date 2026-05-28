@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.channel_v1.types import common, offers, products
@@ -91,26 +91,32 @@ class Entitlement(proto.Message):
             For Google Workspace, the following Parameters may be
             accepted as input:
 
-            -  max_units: The maximum assignable units for a flexible
-               offer
+            - max_units: The maximum assignable units for a flexible
+              offer
 
             OR
 
-            -  num_units: The total commitment for commitment-based
-               offers
+            - num_units: The total commitment for commitment-based
+              offers
 
             The response may additionally include the following
             output-only Parameters:
 
-            -  assigned_units: The number of licenses assigned to users.
+            - assigned_units: The number of licenses assigned to users.
 
             For Google Cloud billing subaccounts, the following
             Parameter may be accepted as input:
 
-            -  display_name: The display name of the billing subaccount.
+            - display_name: The display name of the billing subaccount.
         billing_account (str):
             Optional. The billing account resource name
             that is used to pay for this entitlement.
+        price_reference_id (str):
+            Optional. Price reference ID for the offer.
+            Only for offers that require additional price
+            information. Used to guarantee that the pricing
+            is consistent between quoting the offer and
+            placing the order.
     """
 
     class ProvisioningState(proto.Enum):
@@ -124,6 +130,7 @@ class Entitlement(proto.Message):
             SUSPENDED (5):
                 The entitlement is currently suspended.
         """
+
         PROVISIONING_STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SUSPENDED = 5
@@ -150,6 +157,7 @@ class Entitlement(proto.Message):
                 Other reasons (internal reasons, abuse,
                 etc.).
         """
+
         SUSPENSION_REASON_UNSPECIFIED = 0
         RESELLER_INITIATED = 1
         TRIAL_ENDED = 2
@@ -217,6 +225,10 @@ class Entitlement(proto.Message):
     billing_account: str = proto.Field(
         proto.STRING,
         number=28,
+    )
+    price_reference_id: str = proto.Field(
+        proto.STRING,
+        number=29,
     )
 
 
@@ -373,8 +385,8 @@ class TrialSettings(proto.Message):
         trial (bool):
             Determines if the entitlement is in a trial or not:
 
-            -  ``true`` - The entitlement is in trial.
-            -  ``false`` - The entitlement is not in trial.
+            - ``true`` - The entitlement is in trial.
+            - ``false`` - The entitlement is not in trial.
         end_time (google.protobuf.timestamp_pb2.Timestamp):
             Date when the trial ends. The value is in milliseconds using
             the UNIX Epoch format. See an example `Epoch
@@ -457,6 +469,7 @@ class TransferEligibility(proto.Message):
                 this Product. See
                 https://support.google.com/channelservices/answer/9759265
         """
+
         REASON_UNSPECIFIED = 0
         PENDING_TOS_ACCEPTANCE = 1
         SKU_NOT_ELIGIBLE = 2

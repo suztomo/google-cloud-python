@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import latlng_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -126,6 +126,7 @@ class Insight(proto.Enum):
                  ]
                }
     """
+
     INSIGHT_UNSPECIFIED = 0
     INSIGHT_COUNT = 1
     INSIGHT_PLACES = 2
@@ -146,6 +147,7 @@ class OperatingStatus(proto.Enum):
             The place is temporarily closed and expected
             to reopen in the future.
     """
+
     OPERATING_STATUS_UNSPECIFIED = 0
     OPERATING_STATUS_OPERATIONAL = 1
     OPERATING_STATUS_PERMANENTLY_CLOSED = 3
@@ -169,6 +171,7 @@ class PriceLevel(proto.Enum):
         PRICE_LEVEL_VERY_EXPENSIVE (5):
             Place provides very expensive services.
     """
+
     PRICE_LEVEL_UNSPECIFIED = 0
     PRICE_LEVEL_FREE = 1
     PRICE_LEVEL_INEXPENSIVE = 2

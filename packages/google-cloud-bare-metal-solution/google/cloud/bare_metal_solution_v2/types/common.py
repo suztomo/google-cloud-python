@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ class VolumePerformanceTier(proto.Enum):
         VOLUME_PERFORMANCE_TIER_HT (3):
             High throughput aggregates.
     """
+
     VOLUME_PERFORMANCE_TIER_UNSPECIFIED = 0
     VOLUME_PERFORMANCE_TIER_SHARED = 1
     VOLUME_PERFORMANCE_TIER_ASSIGNED = 2
@@ -58,6 +59,7 @@ class WorkloadProfile(proto.Enum):
         WORKLOAD_PROFILE_HANA (2):
             The workload profile is hana.
     """
+
     WORKLOAD_PROFILE_UNSPECIFIED = 0
     WORKLOAD_PROFILE_GENERIC = 1
     WORKLOAD_PROFILE_HANA = 2

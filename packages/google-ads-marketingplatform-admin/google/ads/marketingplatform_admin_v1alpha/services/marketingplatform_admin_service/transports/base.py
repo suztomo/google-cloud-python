@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 
 from google.ads.marketingplatform_admin_v1alpha import gapic_version as package_version
 from google.ads.marketingplatform_admin_v1alpha.types import (
@@ -73,9 +73,10 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -86,9 +87,11 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -104,11 +107,16 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -132,6 +140,8 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
             host += ":443"
         self._host = host
 
+        self._wrapped_methods: Dict[Callable, Callable] = {}
+
     @property
     def host(self):
         return self._host
@@ -141,6 +151,16 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
         self._wrapped_methods = {
             self.get_organization: gapic_v1.method.wrap_method(
                 self.get_organization,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_organizations: gapic_v1.method.wrap_method(
+                self.list_organizations,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.find_sales_partner_managed_clients: gapic_v1.method.wrap_method(
+                self.find_sales_partner_managed_clients,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -164,6 +184,11 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.report_property_usage: gapic_v1.method.wrap_method(
+                self.report_property_usage,
+                default_timeout=None,
+                client_info=client_info,
+            ),
         }
 
     def close(self):
@@ -181,6 +206,30 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
     ) -> Callable[
         [marketingplatform_admin.GetOrganizationRequest],
         Union[resources.Organization, Awaitable[resources.Organization]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_organizations(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.ListOrganizationsRequest],
+        Union[
+            marketingplatform_admin.ListOrganizationsResponse,
+            Awaitable[marketingplatform_admin.ListOrganizationsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def find_sales_partner_managed_clients(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.FindSalesPartnerManagedClientsRequest],
+        Union[
+            marketingplatform_admin.FindSalesPartnerManagedClientsResponse,
+            Awaitable[marketingplatform_admin.FindSalesPartnerManagedClientsResponse],
+        ],
     ]:
         raise NotImplementedError()
 
@@ -224,6 +273,18 @@ class MarketingplatformAdminServiceTransport(abc.ABC):
         Union[
             marketingplatform_admin.SetPropertyServiceLevelResponse,
             Awaitable[marketingplatform_admin.SetPropertyServiceLevelResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def report_property_usage(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.ReportPropertyUsageRequest],
+        Union[
+            marketingplatform_admin.ReportPropertyUsageResponse,
+            Awaitable[marketingplatform_admin.ReportPropertyUsageResponse],
         ],
     ]:
         raise NotImplementedError()

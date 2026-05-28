@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ from typing import MutableMapping, MutableSequence
 import proto  # type: ignore
 
 from google.cloud.automl_v1beta1.types import classification as gca_classification
-from google.cloud.automl_v1beta1.types import text_extraction as gca_text_extraction
-from google.cloud.automl_v1beta1.types import text_sentiment as gca_text_sentiment
 from google.cloud.automl_v1beta1.types import detection
 from google.cloud.automl_v1beta1.types import tables as gca_tables
+from google.cloud.automl_v1beta1.types import text_extraction as gca_text_extraction
+from google.cloud.automl_v1beta1.types import text_sentiment as gca_text_sentiment
 from google.cloud.automl_v1beta1.types import translation as gca_translation
 
 __protobuf__ = proto.module(

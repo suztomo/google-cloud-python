@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,17 +41,18 @@ async def sample_batch_run_test_cases():
     # Initialize request argument(s)
     request = dialogflowcx_v3beta1.BatchRunTestCasesRequest(
         parent="parent_value",
-        test_cases=['test_cases_value1', 'test_cases_value2'],
+        test_cases=["test_cases_value1", "test_cases_value2"],
     )
 
     # Make the request
-    operation = client.batch_run_test_cases(request=request)
+    operation = await client.batch_run_test_cases(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END dialogflow_v3beta1_generated_TestCases_BatchRunTestCases_async]

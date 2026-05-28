@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -65,6 +65,9 @@ class EncryptionConfig(proto.Message):
         failure_details (google.cloud.dataplex_v1.types.EncryptionConfig.FailureDetails):
             Output only. Details of the failure if
             anything related to Cmek db fails.
+        enable_metastore_encryption (bool):
+            Optional. Represent the state of CMEK opt-in
+            for metastore.
     """
 
     class EncryptionState(proto.Enum):
@@ -88,6 +91,7 @@ class EncryptionConfig(proto.Message):
                 fails due to reasons like permission issues,
                 invalid key etc.
         """
+
         ENCRYPTION_STATE_UNSPECIFIED = 0
         ENCRYPTING = 1
         COMPLETED = 2
@@ -117,6 +121,7 @@ class EncryptionConfig(proto.Message):
                 REQUIRE_USER_ACTION (2):
                     User action is required to resolve the error.
             """
+
             UNKNOWN = 0
             INTERNAL_ERROR = 1
             REQUIRE_USER_ACTION = 2
@@ -162,6 +167,10 @@ class EncryptionConfig(proto.Message):
         proto.MESSAGE,
         number=7,
         message=FailureDetails,
+    )
+    enable_metastore_encryption: bool = proto.Field(
+        proto.BOOL,
+        number=8,
     )
 
 
@@ -283,17 +292,16 @@ class ListEncryptionConfigsRequest(proto.Message):
             bare literals: (These values will be matched anywhere it may
             appear in the object's field values)
 
-            -  filter=some_value Using fields: (These values will be
-               matched only in the specified field)
-            -  filter=some_field=some_value Supported fields:
-            -  name, key, create_time, update_time, encryption_state
-               Example:
-            -  filter=name=organizations/123/locations/us-central1/encryptionConfigs/test-config
-               conjunctions: (AND, OR, NOT)
-            -  filter=name=organizations/123/locations/us-central1/encryptionConfigs/test-config
-               AND mode=CMEK logical operators: (>, <, >=, <=, !=, =,
-               :),
-            -  filter=create_time>2024-05-01T00:00:00.000Z
+            - filter=some_value Using fields: (These values will be
+              matched only in the specified field)
+            - filter=some_field=some_value Supported fields:
+            - name, key, create_time, update_time, encryption_state
+              Example:
+            - filter=name=organizations/123/locations/us-central1/encryptionConfigs/test-config
+              conjunctions: (AND, OR, NOT)
+            - filter=name=organizations/123/locations/us-central1/encryptionConfigs/test-config
+              AND mode=CMEK logical operators: (>, <, >=, <=, !=, =, :),
+            - filter=create_time>2024-05-01T00:00:00.000Z
         order_by (str):
             Optional. Order by fields for the result.
     """

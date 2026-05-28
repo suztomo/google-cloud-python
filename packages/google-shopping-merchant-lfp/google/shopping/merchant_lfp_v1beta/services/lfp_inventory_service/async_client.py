@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.shopping.merchant_lfp_v1beta import gapic_version as package_version
 
@@ -44,7 +44,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.shopping.type.types import types
 
 from google.shopping.merchant_lfp_v1beta.types import lfpinventory
@@ -120,7 +120,10 @@ class LfpInventoryServiceAsyncClient:
         Returns:
             LfpInventoryServiceAsyncClient: The constructed client.
         """
-        return LfpInventoryServiceClient.from_service_account_info.__func__(LfpInventoryServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            LfpInventoryServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(LfpInventoryServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -136,7 +139,10 @@ class LfpInventoryServiceAsyncClient:
         Returns:
             LfpInventoryServiceAsyncClient: The constructed client.
         """
-        return LfpInventoryServiceClient.from_service_account_file.__func__(LfpInventoryServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            LfpInventoryServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(LfpInventoryServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -174,7 +180,9 @@ class LfpInventoryServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return LfpInventoryServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return LfpInventoryServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> LfpInventoryServiceTransport:
@@ -186,7 +194,7 @@ class LfpInventoryServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

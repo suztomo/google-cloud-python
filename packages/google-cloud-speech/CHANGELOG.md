@@ -4,6 +4,82 @@
 
 [1]: https://pypi.org/project/google-cloud-speech/#history
 
+## [2.39.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.38.0...google-cloud-speech-v2.39.0) (2026-05-06)
+
+## [2.38.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.37.0...google-cloud-speech-v2.38.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [2.37.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.36.1...google-cloud-speech-v2.37.0) (2026-02-26)
+
+
+### Features
+
+* adds endpointing sensitivity to streaming recognition features ([e40bfd4df5e3ddfcc9d9b187f39cfadf58aafe0c](https://github.com/googleapis/google-cloud-python/commit/e40bfd4df5e3ddfcc9d9b187f39cfadf58aafe0c))
+
+## [2.36.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.36.0...google-cloud-speech-v2.36.1) (2026-02-05)
+
+
+### Bug Fixes
+
+* fix mypy errors (#15494) ([1f4c2862d77afa893f7a968af57e7adf54d49d0e](https://github.com/googleapis/google-cloud-python/commit/1f4c2862d77afa893f7a968af57e7adf54d49d0e))
+
+## [2.36.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.35.0...google-cloud-speech-v2.36.0) (2026-01-09)
+
+
+### Documentation
+
+* Clarify that min_speaker_count and max_speaker_count in SpeakerDiarizationConfig are not currently used ([b3cb4de3ce50c3ec55af2b132d756252a32641f3](https://github.com/googleapis/google-cloud-python/commit/b3cb4de3ce50c3ec55af2b132d756252a32641f3))
+* Update guidance on how to enable speaker diarization; to enable, set the diarization_config field to an empty SpeakerDiarizationConfig message ([b3cb4de3ce50c3ec55af2b132d756252a32641f3](https://github.com/googleapis/google-cloud-python/commit/b3cb4de3ce50c3ec55af2b132d756252a32641f3))
+
+
+### Features
+
+* add custom prompt config in the request and return prompt in the response ([b3cb4de3ce50c3ec55af2b132d756252a32641f3](https://github.com/googleapis/google-cloud-python/commit/b3cb4de3ce50c3ec55af2b132d756252a32641f3))
+* update min_speaker_count and max_speaker_count to be optional ([b3cb4de3ce50c3ec55af2b132d756252a32641f3](https://github.com/googleapis/google-cloud-python/commit/b3cb4de3ce50c3ec55af2b132d756252a32641f3))
+
+## [2.35.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.34.0...google-cloud-speech-v2.35.0) (2025-12-17)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+* check Python and dependency versions in generated GAPICs ([d2b35b25342bfa389b472f9ce49922e630019fe6](https://github.com/googleapis/google-cloud-python/commit/d2b35b25342bfa389b472f9ce49922e630019fe6))
+
+## [2.34.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.33.0...google-cloud-speech-v2.34.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [2.33.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.32.0...google-cloud-speech-v2.33.0) (2025-06-11)
+
+
+### Features
+
+* add denoiser related configuration ([c522070](https://github.com/googleapis/google-cloud-python/commit/c522070c02d2120de8772ddcd7de6e40ef64c548))
+
+
+### Documentation
+
+* updated description of sample_rate_hertz ([c522070](https://github.com/googleapis/google-cloud-python/commit/c522070c02d2120de8772ddcd7de6e40ef64c548))
+
 ## [2.32.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-speech-v2.31.1...google-cloud-speech-v2.32.0) (2025-04-12)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.recaptchaenterprise_v1.types import recaptchaenterprise
 
@@ -55,7 +55,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -90,7 +90,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -151,9 +151,10 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -184,6 +185,10 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -286,9 +291,10 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -459,12 +465,12 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "retrieve_legacy_secret_key" not in self._stubs:
-            self._stubs[
-                "retrieve_legacy_secret_key"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/RetrieveLegacySecretKey",
-                request_serializer=recaptchaenterprise.RetrieveLegacySecretKeyRequest.serialize,
-                response_deserializer=recaptchaenterprise.RetrieveLegacySecretKeyResponse.deserialize,
+            self._stubs["retrieve_legacy_secret_key"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/RetrieveLegacySecretKey",
+                    request_serializer=recaptchaenterprise.RetrieveLegacySecretKeyRequest.serialize,
+                    response_deserializer=recaptchaenterprise.RetrieveLegacySecretKeyResponse.deserialize,
+                )
             )
         return self._stubs["retrieve_legacy_secret_key"]
 
@@ -589,9 +595,9 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
 
         Adds an IP override to a key. The following restrictions hold:
 
-        -  The maximum number of IP overrides per key is 100.
-        -  For any conflict (such as IP already exists or IP part of an
-           existing IP range), an error is returned.
+        - The maximum number of IP overrides per key is 1000.
+        - For any conflict (such as IP already exists or IP part of an
+          existing IP range), an error is returned.
 
         Returns:
             Callable[[~.AddIpOverrideRequest],
@@ -623,11 +629,11 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
         Removes an IP override from a key. The following restrictions
         hold:
 
-        -  If the IP isn't found in an existing IP override, a
-           ``NOT_FOUND`` error is returned.
-        -  If the IP is found in an existing IP override, but the
-           override type does not match, a ``NOT_FOUND`` error is
-           returned.
+        - If the IP isn't found in an existing IP override, a
+          ``NOT_FOUND`` error is returned.
+        - If the IP is found in an existing IP override, but the
+          override type does not match, a ``NOT_FOUND`` error is
+          returned.
 
         Returns:
             Callable[[~.RemoveIpOverrideRequest],
@@ -899,12 +905,12 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_related_account_groups" not in self._stubs:
-            self._stubs[
-                "list_related_account_groups"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/ListRelatedAccountGroups",
-                request_serializer=recaptchaenterprise.ListRelatedAccountGroupsRequest.serialize,
-                response_deserializer=recaptchaenterprise.ListRelatedAccountGroupsResponse.deserialize,
+            self._stubs["list_related_account_groups"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/ListRelatedAccountGroups",
+                    request_serializer=recaptchaenterprise.ListRelatedAccountGroupsRequest.serialize,
+                    response_deserializer=recaptchaenterprise.ListRelatedAccountGroupsResponse.deserialize,
+                )
             )
         return self._stubs["list_related_account_groups"]
 
@@ -931,12 +937,12 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_related_account_group_memberships" not in self._stubs:
-            self._stubs[
-                "list_related_account_group_memberships"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/ListRelatedAccountGroupMemberships",
-                request_serializer=recaptchaenterprise.ListRelatedAccountGroupMembershipsRequest.serialize,
-                response_deserializer=recaptchaenterprise.ListRelatedAccountGroupMembershipsResponse.deserialize,
+            self._stubs["list_related_account_group_memberships"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/ListRelatedAccountGroupMemberships",
+                    request_serializer=recaptchaenterprise.ListRelatedAccountGroupMembershipsRequest.serialize,
+                    response_deserializer=recaptchaenterprise.ListRelatedAccountGroupMembershipsResponse.deserialize,
+                )
             )
         return self._stubs["list_related_account_group_memberships"]
 
@@ -963,12 +969,12 @@ class RecaptchaEnterpriseServiceGrpcTransport(RecaptchaEnterpriseServiceTranspor
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "search_related_account_group_memberships" not in self._stubs:
-            self._stubs[
-                "search_related_account_group_memberships"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/SearchRelatedAccountGroupMemberships",
-                request_serializer=recaptchaenterprise.SearchRelatedAccountGroupMembershipsRequest.serialize,
-                response_deserializer=recaptchaenterprise.SearchRelatedAccountGroupMembershipsResponse.deserialize,
+            self._stubs["search_related_account_group_memberships"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseService/SearchRelatedAccountGroupMemberships",
+                    request_serializer=recaptchaenterprise.SearchRelatedAccountGroupMembershipsRequest.serialize,
+                    response_deserializer=recaptchaenterprise.SearchRelatedAccountGroupMembershipsResponse.deserialize,
+                )
             )
         return self._stubs["search_related_account_group_memberships"]
 

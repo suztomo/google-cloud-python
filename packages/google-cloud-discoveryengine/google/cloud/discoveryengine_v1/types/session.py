@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1.types import answer as gcd_answer
+from google.cloud.discoveryengine_v1.types import assist_answer
 
 __protobuf__ = proto.module(
     package="google.cloud.discoveryengine.v1",
@@ -50,6 +51,9 @@ class Session(proto.Message):
             A unique identifier for tracking users.
         turns (MutableSequence[google.cloud.discoveryengine_v1.types.Session.Turn]):
             Turns.
+        labels (MutableSequence[str]):
+            Optional. The labels for the session.
+            Can be set as filter in ListSessionsRequest.
         start_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The time the session started.
         end_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -69,6 +73,7 @@ class Session(proto.Message):
             IN_PROGRESS (1):
                 The session is currently open.
         """
+
         STATE_UNSPECIFIED = 0
         IN_PROGRESS = 1
 
@@ -78,10 +83,12 @@ class Session(proto.Message):
 
         Attributes:
             query (google.cloud.discoveryengine_v1.types.Query):
-                The user query.
+                Optional. The user query. May not be set if
+                this turn is merely regenerating an answer to a
+                different turn
             answer (str):
-                The resource name of the answer to the user
-                query.
+                Optional. The resource name of the answer to
+                the user query.
                 Only set if the answer generation (/answer API
                 call) happened in this turn.
             detailed_answer (google.cloud.discoveryengine_v1.types.Answer):
@@ -91,6 +98,19 @@ class Session(proto.Message):
                 [GetSessionRequest.include_answer_details][google.cloud.discoveryengine.v1.GetSessionRequest.include_answer_details]
                 is set to true, this field will be populated when getting
                 answer query session.
+            detailed_assist_answer (google.cloud.discoveryengine_v1.types.AssistAnswer):
+                Output only. In
+                [ConversationalSearchService.GetSession][google.cloud.discoveryengine.v1.ConversationalSearchService.GetSession]
+                API, if
+                [GetSessionRequest.include_answer_details][google.cloud.discoveryengine.v1.GetSessionRequest.include_answer_details]
+                is set to true, this field will be populated when getting
+                assistant session.
+            query_config (MutableMapping[str, str]):
+                Optional. Represents metadata related to the
+                query config, for example LLM model and version
+                used, model parameters (temperature, grounding
+                parameters, etc.). The prefix "google." is
+                reserved for Google-developed functionality.
         """
 
         query: "Query" = proto.Field(
@@ -106,6 +126,16 @@ class Session(proto.Message):
             proto.MESSAGE,
             number=7,
             message=gcd_answer.Answer,
+        )
+        detailed_assist_answer: assist_answer.AssistAnswer = proto.Field(
+            proto.MESSAGE,
+            number=8,
+            message=assist_answer.AssistAnswer,
+        )
+        query_config: MutableMapping[str, str] = proto.MapField(
+            proto.STRING,
+            proto.STRING,
+            number=16,
         )
 
     name: str = proto.Field(
@@ -129,6 +159,10 @@ class Session(proto.Message):
         proto.MESSAGE,
         number=4,
         message=Turn,
+    )
+    labels: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=9,
     )
     start_time: timestamp_pb2.Timestamp = proto.Field(
         proto.MESSAGE,
@@ -157,7 +191,7 @@ class Query(proto.Message):
 
             This field is a member of `oneof`_ ``content``.
         query_id (str):
-            Unique Id for the query.
+            Output only. Unique Id for the query.
     """
 
     text: str = proto.Field(

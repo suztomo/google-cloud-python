@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ def sample_adaptive_mt_translate():
     request = translate_v3.AdaptiveMtTranslateRequest(
         parent="parent_value",
         dataset="dataset_value",
-        content=['content_value1', 'content_value2'],
+        content=["content_value1", "content_value2"],
     )
 
     # Make the request
@@ -50,5 +50,6 @@ def sample_adaptive_mt_translate():
 
     # Handle the response
     print(response)
+
 
 # [END translate_v3_generated_TranslationService_AdaptiveMtTranslate_sync]

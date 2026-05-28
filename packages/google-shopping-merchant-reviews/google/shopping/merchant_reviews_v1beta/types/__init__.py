@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@ from .merchantreviews import (
     ListMerchantReviewsResponse,
     MerchantReview,
 )
-from .merchantreviews_common import MerchantReviewAttributes, MerchantReviewStatus
+from .merchantreviews_common import (
+    MerchantReviewAttributes,
+    MerchantReviewStatus,
+)
 from .productreviews import (
     DeleteProductReviewRequest,
     GetProductReviewRequest,
@@ -30,7 +33,10 @@ from .productreviews import (
     ListProductReviewsResponse,
     ProductReview,
 )
-from .productreviews_common import ProductReviewAttributes, ProductReviewStatus
+from .productreviews_common import (
+    ProductReviewAttributes,
+    ProductReviewStatus,
+)
 
 __all__ = (
     "DeleteMerchantReviewRequest",

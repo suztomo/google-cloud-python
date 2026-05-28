@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.gke_multicloud_v1.types import attached_resources
@@ -262,18 +262,18 @@ class UpdateAttachedClusterRequest(proto.Message):
             paths field can only include these fields from
             [AttachedCluster][google.cloud.gkemulticloud.v1.AttachedCluster]:
 
-            -  ``annotations``.
-            -  ``authorization.admin_groups``.
-            -  ``authorization.admin_users``.
-            -  ``binary_authorization.evaluation_mode``.
-            -  ``description``.
-            -  ``logging_config.component_config.enable_components``.
-            -  ``monitoring_config.managed_prometheus_config.enabled``.
-            -  ``platform_version``.
-            -  ``proxy_config.kubernetes_secret.name``.
-            -  ``proxy_config.kubernetes_secret.namespace``.
-            -  ``security_posture_config.vulnerability_mode``
-            -  ``monitoring_config.cloud_monitoring_config.enabled``
+            - ``annotations``.
+            - ``authorization.admin_groups``.
+            - ``authorization.admin_users``.
+            - ``binary_authorization.evaluation_mode``.
+            - ``description``.
+            - ``logging_config.component_config.enable_components``.
+            - ``monitoring_config.managed_prometheus_config.enabled``.
+            - ``platform_version``.
+            - ``proxy_config.kubernetes_secret.name``.
+            - ``proxy_config.kubernetes_secret.namespace``.
+            - ``security_posture_config.vulnerability_mode``
+            - ``monitoring_config.cloud_monitoring_config.enabled``
     """
 
     attached_cluster: attached_resources.AttachedCluster = proto.Field(
@@ -380,12 +380,12 @@ class ListAttachedClustersResponse(proto.Message):
     def raw_page(self):
         return self
 
-    attached_clusters: MutableSequence[
-        attached_resources.AttachedCluster
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=attached_resources.AttachedCluster,
+    attached_clusters: MutableSequence[attached_resources.AttachedCluster] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=attached_resources.AttachedCluster,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

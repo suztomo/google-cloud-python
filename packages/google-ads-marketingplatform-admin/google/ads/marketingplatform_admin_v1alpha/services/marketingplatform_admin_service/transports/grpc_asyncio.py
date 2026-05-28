@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,20 +17,20 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.ads.marketingplatform_admin_v1alpha.types import (
     marketingplatform_admin,
@@ -64,7 +64,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -99,7 +99,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -154,8 +154,9 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -206,9 +207,10 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -240,6 +242,10 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -364,6 +370,71 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
         return self._stubs["get_organization"]
 
     @property
+    def list_organizations(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.ListOrganizationsRequest],
+        Awaitable[marketingplatform_admin.ListOrganizationsResponse],
+    ]:
+        r"""Return a callable for the list organizations method over gRPC.
+
+        Returns a list of organizations that the user has
+        access to.
+
+        Returns:
+            Callable[[~.ListOrganizationsRequest],
+                    Awaitable[~.ListOrganizationsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "list_organizations" not in self._stubs:
+            self._stubs["list_organizations"] = self._logged_channel.unary_unary(
+                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/ListOrganizations",
+                request_serializer=marketingplatform_admin.ListOrganizationsRequest.serialize,
+                response_deserializer=marketingplatform_admin.ListOrganizationsResponse.deserialize,
+            )
+        return self._stubs["list_organizations"]
+
+    @property
+    def find_sales_partner_managed_clients(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.FindSalesPartnerManagedClientsRequest],
+        Awaitable[marketingplatform_admin.FindSalesPartnerManagedClientsResponse],
+    ]:
+        r"""Return a callable for the find sales partner managed
+        clients method over gRPC.
+
+        Returns a list of clients managed by the sales
+        partner organization.
+        User needs to be an OrgAdmin/BillingAdmin on the sales
+        partner organization in order to view the end clients.
+
+        Returns:
+            Callable[[~.FindSalesPartnerManagedClientsRequest],
+                    Awaitable[~.FindSalesPartnerManagedClientsResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "find_sales_partner_managed_clients" not in self._stubs:
+            self._stubs["find_sales_partner_managed_clients"] = (
+                self._logged_channel.unary_unary(
+                    "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/FindSalesPartnerManagedClients",
+                    request_serializer=marketingplatform_admin.FindSalesPartnerManagedClientsRequest.serialize,
+                    response_deserializer=marketingplatform_admin.FindSalesPartnerManagedClientsResponse.deserialize,
+                )
+            )
+        return self._stubs["find_sales_partner_managed_clients"]
+
+    @property
     def list_analytics_account_links(
         self,
     ) -> Callable[
@@ -386,12 +457,12 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_analytics_account_links" not in self._stubs:
-            self._stubs[
-                "list_analytics_account_links"
-            ] = self._logged_channel.unary_unary(
-                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/ListAnalyticsAccountLinks",
-                request_serializer=marketingplatform_admin.ListAnalyticsAccountLinksRequest.serialize,
-                response_deserializer=marketingplatform_admin.ListAnalyticsAccountLinksResponse.deserialize,
+            self._stubs["list_analytics_account_links"] = (
+                self._logged_channel.unary_unary(
+                    "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/ListAnalyticsAccountLinks",
+                    request_serializer=marketingplatform_admin.ListAnalyticsAccountLinksRequest.serialize,
+                    response_deserializer=marketingplatform_admin.ListAnalyticsAccountLinksResponse.deserialize,
+                )
             )
         return self._stubs["list_analytics_account_links"]
 
@@ -424,12 +495,12 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_analytics_account_link" not in self._stubs:
-            self._stubs[
-                "create_analytics_account_link"
-            ] = self._logged_channel.unary_unary(
-                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/CreateAnalyticsAccountLink",
-                request_serializer=marketingplatform_admin.CreateAnalyticsAccountLinkRequest.serialize,
-                response_deserializer=resources.AnalyticsAccountLink.deserialize,
+            self._stubs["create_analytics_account_link"] = (
+                self._logged_channel.unary_unary(
+                    "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/CreateAnalyticsAccountLink",
+                    request_serializer=marketingplatform_admin.CreateAnalyticsAccountLinkRequest.serialize,
+                    response_deserializer=resources.AnalyticsAccountLink.deserialize,
+                )
             )
         return self._stubs["create_analytics_account_link"]
 
@@ -460,12 +531,12 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_analytics_account_link" not in self._stubs:
-            self._stubs[
-                "delete_analytics_account_link"
-            ] = self._logged_channel.unary_unary(
-                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/DeleteAnalyticsAccountLink",
-                request_serializer=marketingplatform_admin.DeleteAnalyticsAccountLinkRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_analytics_account_link"] = (
+                self._logged_channel.unary_unary(
+                    "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/DeleteAnalyticsAccountLink",
+                    request_serializer=marketingplatform_admin.DeleteAnalyticsAccountLinkRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_analytics_account_link"]
 
@@ -491,20 +562,70 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "set_property_service_level" not in self._stubs:
-            self._stubs[
-                "set_property_service_level"
-            ] = self._logged_channel.unary_unary(
-                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/SetPropertyServiceLevel",
-                request_serializer=marketingplatform_admin.SetPropertyServiceLevelRequest.serialize,
-                response_deserializer=marketingplatform_admin.SetPropertyServiceLevelResponse.deserialize,
+            self._stubs["set_property_service_level"] = (
+                self._logged_channel.unary_unary(
+                    "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/SetPropertyServiceLevel",
+                    request_serializer=marketingplatform_admin.SetPropertyServiceLevelRequest.serialize,
+                    response_deserializer=marketingplatform_admin.SetPropertyServiceLevelResponse.deserialize,
+                )
             )
         return self._stubs["set_property_service_level"]
+
+    @property
+    def report_property_usage(
+        self,
+    ) -> Callable[
+        [marketingplatform_admin.ReportPropertyUsageRequest],
+        Awaitable[marketingplatform_admin.ReportPropertyUsageResponse],
+    ]:
+        r"""Return a callable for the report property usage method over gRPC.
+
+        Get the usage and billing data for properties within
+        the organization for the specified month.
+
+        Per direct client org, user needs to be
+        OrgAdmin/BillingAdmin on the organization in order to
+        view the billing and usage data.
+
+        Per sales partner client org, user needs to be
+        OrgAdmin/BillingAdmin on the sales partner org in order
+        to view the billing and usage data, or
+        OrgAdmin/BillingAdmin on the sales partner client org in
+        order to view the usage data only.
+
+        Returns:
+            Callable[[~.ReportPropertyUsageRequest],
+                    Awaitable[~.ReportPropertyUsageResponse]]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "report_property_usage" not in self._stubs:
+            self._stubs["report_property_usage"] = self._logged_channel.unary_unary(
+                "/google.marketingplatform.admin.v1alpha.MarketingplatformAdminService/ReportPropertyUsage",
+                request_serializer=marketingplatform_admin.ReportPropertyUsageRequest.serialize,
+                response_deserializer=marketingplatform_admin.ReportPropertyUsageResponse.deserialize,
+            )
+        return self._stubs["report_property_usage"]
 
     def _prep_wrapped_messages(self, client_info):
         """Precompute the wrapped methods, overriding the base class method to use async wrappers."""
         self._wrapped_methods = {
             self.get_organization: self._wrap_method(
                 self.get_organization,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.list_organizations: self._wrap_method(
+                self.list_organizations,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.find_sales_partner_managed_clients: self._wrap_method(
+                self.find_sales_partner_managed_clients,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -525,6 +646,11 @@ class MarketingplatformAdminServiceGrpcAsyncIOTransport(
             ),
             self.set_property_service_level: self._wrap_method(
                 self.set_property_service_level,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.report_property_usage: self._wrap_method(
+                self.report_property_usage,
                 default_timeout=None,
                 client_info=client_info,
             ),

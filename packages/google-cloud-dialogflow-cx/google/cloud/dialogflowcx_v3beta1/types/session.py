@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,34 +17,34 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
+from google.cloud.dialogflowcx_v3beta1.types import (
+    advanced_settings as gcdc_advanced_settings,
+)
 from google.cloud.dialogflowcx_v3beta1.types import (
     audio_config,
     data_store_connection,
     example,
     flow,
     generative_settings,
-)
-from google.cloud.dialogflowcx_v3beta1.types import (
     page,
     response_message,
     session_entity_type,
     tool_call,
-)
-from google.cloud.dialogflowcx_v3beta1.types import (
-    advanced_settings as gcdc_advanced_settings,
+    trace,
 )
 from google.cloud.dialogflowcx_v3beta1.types import intent as gcdc_intent
 
 __protobuf__ = proto.module(
     package="google.cloud.dialogflow.cx.v3beta1",
     manifest={
+        "DetectIntentResponseView",
         "AnswerFeedback",
         "SubmitAnswerFeedbackRequest",
         "DetectIntentRequest",
@@ -74,6 +74,38 @@ __protobuf__ = proto.module(
         "SentimentAnalysisResult",
     },
 )
+
+
+class DetectIntentResponseView(proto.Enum):
+    r"""The response view specifies which fields in the
+    [QueryResult][google.cloud.dialogflow.cx.v3beta1.QueryResult] to
+    return.
+
+    Values:
+        DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED (0):
+            Not specified. ``DETECT_INTENT_RESPONSE_VIEW_DEFAULT`` will
+            be used.
+        DETECT_INTENT_RESPONSE_VIEW_FULL (1):
+            Full response view includes all fields.
+        DETECT_INTENT_RESPONSE_VIEW_BASIC (2):
+            Basic response view omits the following fields:
+            -----------------------------------------------
+
+            [QueryResult.diagnostic_info][google.cloud.dialogflow.cx.v3beta1.QueryResult.diagnostic_info]
+            ---------------------------------------------------------------------------------------------
+
+            [QueryResult.generative_info][google.cloud.dialogflow.cx.v3beta1.QueryResult.generative_info]
+        DETECT_INTENT_RESPONSE_VIEW_DEFAULT (3):
+            Default response view omits the following fields:
+            -------------------------------------------------
+
+            [QueryResult.trace_blocks][google.cloud.dialogflow.cx.v3beta1.QueryResult.trace_blocks]
+    """
+
+    DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED = 0
+    DETECT_INTENT_RESPONSE_VIEW_FULL = 1
+    DETECT_INTENT_RESPONSE_VIEW_BASIC = 2
+    DETECT_INTENT_RESPONSE_VIEW_DEFAULT = 3
 
 
 class AnswerFeedback(proto.Message):
@@ -107,6 +139,7 @@ class AnswerFeedback(proto.Message):
             THUMBS_DOWN (2):
                 Thumbs down feedback from user.
         """
+
         RATING_UNSPECIFIED = 0
         THUMBS_UP = 1
         THUMBS_DOWN = 2
@@ -218,6 +251,11 @@ class DetectIntentRequest(proto.Message):
         output_audio_config (google.cloud.dialogflowcx_v3beta1.types.OutputAudioConfig):
             Instructs the speech synthesizer how to
             generate the output audio.
+        response_view (google.cloud.dialogflowcx_v3beta1.types.DetectIntentResponseView):
+            Optional. Specifies which fields in the
+            [QueryResult][google.cloud.dialogflow.cx.v3beta1.QueryResult]
+            to return. If not set, the default is
+            DETECT_INTENT_RESPONSE_VIEW_FULL.
     """
 
     session: str = proto.Field(
@@ -238,6 +276,11 @@ class DetectIntentRequest(proto.Message):
         proto.MESSAGE,
         number=4,
         message=audio_config.OutputAudioConfig,
+    )
+    response_view: "DetectIntentResponseView" = proto.Field(
+        proto.ENUM,
+        number=9,
+        enum="DetectIntentResponseView",
     )
 
 
@@ -291,6 +334,7 @@ class DetectIntentResponse(proto.Message):
             FINAL (2):
                 Final response.
         """
+
         RESPONSE_TYPE_UNSPECIFIED = 0
         PARTIAL = 1
         FINAL = 2
@@ -353,10 +397,10 @@ class StreamingDetectIntentRequest(proto.Message):
 
        However, note that:
 
-       -  Dialogflow will bill you for the audio duration so far.
-       -  Dialogflow discards all Speech recognition results in favor of
-          the input text.
-       -  Dialogflow will use the language code from the first message.
+       - Dialogflow will bill you for the audio duration so far.
+       - Dialogflow discards all Speech recognition results in favor of
+         the input text.
+       - Dialogflow will use the language code from the first message.
 
     After you sent all input, you must half-close or abort the request
     stream.
@@ -395,6 +439,11 @@ class StreamingDetectIntentRequest(proto.Message):
         enable_debugging_info (bool):
             If true, ``StreamingDetectIntentResponse.debugging_info``
             will get populated.
+        response_view (google.cloud.dialogflowcx_v3beta1.types.DetectIntentResponseView):
+            Optional. Specifies which fields in the
+            [QueryResult][google.cloud.dialogflow.cx.v3beta1.QueryResult]
+            to return. If not set, the default is
+            DETECT_INTENT_RESPONSE_VIEW_FULL.
     """
 
     session: str = proto.Field(
@@ -423,6 +472,11 @@ class StreamingDetectIntentRequest(proto.Message):
     enable_debugging_info: bool = proto.Field(
         proto.BOOL,
         number=8,
+    )
+    response_view: "DetectIntentResponseView" = proto.Field(
+        proto.ENUM,
+        number=16,
+        enum="DetectIntentResponseView",
     )
 
 
@@ -505,19 +559,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=5,
     )
-    speech_partial_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message=duration_pb2.Duration,
+    speech_partial_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message=duration_pb2.Duration,
+        )
     )
-    speech_final_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=duration_pb2.Duration,
+    speech_final_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=duration_pb2.Duration,
+        )
     )
     partial_responses: int = proto.Field(
         proto.INT32,
@@ -535,19 +589,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=11,
     )
-    dtmf_partial_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=12,
-        message=duration_pb2.Duration,
+    dtmf_partial_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=12,
+            message=duration_pb2.Duration,
+        )
     )
-    dtmf_final_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=13,
-        message=duration_pb2.Duration,
+    dtmf_final_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=13,
+            message=duration_pb2.Duration,
+        )
     )
     single_utterance_end_time_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -587,18 +641,18 @@ class StreamingDetectIntentResponse(proto.Message):
 
     Multiple response messages can be returned in order:
 
-    -  If the ``StreamingDetectIntentRequest.query_input.audio`` field
-       was set, the first M messages contain ``recognition_result``.
-       Each ``recognition_result`` represents a more complete transcript
-       of what the user said. The last ``recognition_result`` has
-       ``is_final`` set to ``true``.
+    - If the ``StreamingDetectIntentRequest.query_input.audio`` field
+      was set, the first M messages contain ``recognition_result``. Each
+      ``recognition_result`` represents a more complete transcript of
+      what the user said. The last ``recognition_result`` has
+      ``is_final`` set to ``true``.
 
-    -  If the ``StreamingDetectIntentRequest.enable_partial_response``
-       field was true, the ``detect_intent_response`` field is populated
-       for each of the following N responses, where 0 <= N <= 5. These
-       responses set the
-       [DetectIntentResponse.response_type][google.cloud.dialogflow.cx.v3beta1.DetectIntentResponse.response_type]
-       field to ``PARTIAL``.
+    - If the ``StreamingDetectIntentRequest.enable_partial_response``
+      field was true, the ``detect_intent_response`` field is populated
+      for each of the following N responses, where 0 <= N <= 5. These
+      responses set the
+      [DetectIntentResponse.response_type][google.cloud.dialogflow.cx.v3beta1.DetectIntentResponse.response_type]
+      field to ``PARTIAL``.
 
     For the last response message, the ``detect_intent_response`` is
     fully populated, and
@@ -715,12 +769,12 @@ class StreamingRecognitionResult(proto.Message):
             will not change its guess about this interim recognition
             result:
 
-            -  If the value is unspecified or 0.0, Dialogflow didn't
-               compute the stability. In particular, Dialogflow will
-               only provide stability for ``TRANSCRIPT`` results with
-               ``is_final = false``.
-            -  Otherwise, the value is in (0.0, 1.0] where 0.0 means
-               completely unstable and 1.0 means completely stable.
+            - If the value is unspecified or 0.0, Dialogflow didn't
+              compute the stability. In particular, Dialogflow will only
+              provide stability for ``TRANSCRIPT`` results with
+              ``is_final = false``.
+            - Otherwise, the value is in (0.0, 1.0] where 0.0 means
+              completely unstable and 1.0 means completely stable.
         speech_word_info (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.SpeechWordInfo]):
             Word-specific information for the words recognized by Speech
             in
@@ -756,6 +810,7 @@ class StreamingRecognitionResult(proto.Message):
                 [``single_utterance``][google.cloud.dialogflow.cx.v3beta1.InputAudioConfig.single_utterance]
                 was set to ``true``, and is not used otherwise.
         """
+
         MESSAGE_TYPE_UNSPECIFIED = 0
         TRANSCRIPT = 1
         END_OF_SINGLE_UTTERANCE = 2
@@ -781,12 +836,12 @@ class StreamingRecognitionResult(proto.Message):
         proto.FLOAT,
         number=6,
     )
-    speech_word_info: MutableSequence[
-        audio_config.SpeechWordInfo
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=audio_config.SpeechWordInfo,
+    speech_word_info: MutableSequence[audio_config.SpeechWordInfo] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=audio_config.SpeechWordInfo,
+        )
     )
     speech_end_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -845,15 +900,24 @@ class QueryParameters(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
+        parameter_scope (str):
+            Scope for the parameters. If not specified, parameters will
+            be treated as session parameters. Parameters with custom
+            scope will not be put into [session
+            parameters][google.cloud.dialogflow.cx.v3beta1.SessionInfo.parameters].
+
+            You can reference the parameters with custom scope in the
+            agent with the following format:
+            $parameter-scope.params.parameter-id.
         current_page (str):
             The unique identifier of the
             [page][google.cloud.dialogflow.cx.v3beta1.Page] to override
@@ -970,12 +1034,12 @@ class QueryParameters(proto.Message):
         number=2,
         message=latlng_pb2.LatLng,
     )
-    session_entity_types: MutableSequence[
-        session_entity_type.SessionEntityType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=session_entity_type.SessionEntityType,
+    session_entity_types: MutableSequence[session_entity_type.SessionEntityType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=session_entity_type.SessionEntityType,
+        )
     )
     payload: struct_pb2.Struct = proto.Field(
         proto.MESSAGE,
@@ -986,6 +1050,10 @@ class QueryParameters(proto.Message):
         proto.MESSAGE,
         number=5,
         message=struct_pb2.Struct,
+    )
+    parameter_scope: str = proto.Field(
+        proto.STRING,
+        number=12,
     )
     current_page: str = proto.Field(
         proto.STRING,
@@ -1102,11 +1170,11 @@ class BoostSpec(proto.Message):
                 The syntax and supported fields are the same as a filter
                 expression. Examples:
 
-                -  To boost documents with document ID "doc_1" or "doc_2",
-                   and color "Red" or "Blue":
+                - To boost documents with document ID "doc_1" or "doc_2",
+                  and color "Red" or "Blue":
 
-                   -  (id: ANY("doc_1", "doc_2")) AND (color:
-                      ANY("Red","Blue"))
+                  - (id: ANY("doc_1", "doc_2")) AND (color:
+                    ANY("Red","Blue"))
             boost (float):
                 Optional. Strength of the condition boost, which should be
                 in [-1, 1]. Negative boost means demotion. Default is 0.0.
@@ -1180,6 +1248,7 @@ class BoostSpec(proto.Message):
                         ``[nD][T[nH][nM][nS]]``. E.g. ``5D``, ``3DT12H30M``,
                         ``T24H``.
                 """
+
                 ATTRIBUTE_TYPE_UNSPECIFIED = 0
                 NUMERICAL = 1
                 FRESHNESS = 2
@@ -1196,6 +1265,7 @@ class BoostSpec(proto.Message):
                         Piecewise linear interpolation will be
                         applied.
                 """
+
                 INTERPOLATION_TYPE_UNSPECIFIED = 0
                 LINEAR = 1
 
@@ -1507,15 +1577,15 @@ class QueryResult(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
         response_messages (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.ResponseMessage]):
             The list of rich messages returned to the
             client. Responses vary from simple text messages
@@ -1581,18 +1651,18 @@ class QueryResult(proto.Message):
             which may aid with debugging. The following describes these
             intent results:
 
-            -  The list is empty if no intent was matched to end-user
-               input.
-            -  Only intents that are referenced in the currently active
-               flow are included.
-            -  The matched intent is included.
-            -  Other intents that could have matched end-user input, but
-               did not match because they are referenced by intent
-               routes that are out of
-               `scope <https://cloud.google.com/dialogflow/cx/docs/concept/handler#scope>`__,
-               are included.
-            -  Other intents referenced by intent routes in scope that
-               matched end-user input, but had a lower confidence score.
+            - The list is empty if no intent was matched to end-user
+              input.
+            - Only intents that are referenced in the currently active
+              flow are included.
+            - The matched intent is included.
+            - Other intents that could have matched end-user input, but
+              did not match because they are referenced by intent routes
+              that are out of
+              `scope <https://cloud.google.com/dialogflow/cx/docs/concept/handler#scope>`__,
+              are included.
+            - Other intents referenced by intent routes in scope that
+              matched end-user input, but had a lower confidence score.
         generative_info (google.cloud.dialogflowcx_v3beta1.types.GenerativeInfo):
             The information of a query if handled by
             generative agent resources.
@@ -1619,6 +1689,13 @@ class QueryResult(proto.Message):
             Optional. Data store connection feature
             output signals. Filled only when data stores are
             involved in serving the query.
+        trace_blocks (MutableSequence[google.cloud.dialogflowcx_v3beta1.types.TraceBlock]):
+            Optional. Contains the sequence of trace
+            blocks from the current conversation turn. Trace
+            blocks are ordered chronologically and contain
+            detailed traces of runtime behavior such as tool
+            calls, LLM calls, flow and playbook invocations,
+            agent utterances and user utterances.
     """
 
     text: str = proto.Field(
@@ -1656,12 +1733,12 @@ class QueryResult(proto.Message):
         number=3,
         message=struct_pb2.Struct,
     )
-    response_messages: MutableSequence[
-        response_message.ResponseMessage
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=response_message.ResponseMessage,
+    response_messages: MutableSequence[response_message.ResponseMessage] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=response_message.ResponseMessage,
+        )
     )
     webhook_ids: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
@@ -1744,6 +1821,11 @@ class QueryResult(proto.Message):
             number=35,
             message=data_store_connection.DataStoreConnectionSignals,
         )
+    )
+    trace_blocks: MutableSequence[trace.TraceBlock] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=37,
+        message=trace.TraceBlock,
     )
 
 
@@ -1869,15 +1951,15 @@ class Match(proto.Message):
             JSON object composed of a collection of (MapKey, MapValue)
             pairs:
 
-            -  MapKey type: string
-            -  MapKey value: parameter name
-            -  MapValue type: If parameter's entity type is a composite
-               entity then use map, otherwise, depending on the
-               parameter value type, it could be one of string, number,
-               boolean, null, list or map.
-            -  MapValue value: If parameter's entity type is a composite
-               entity then use map from composite entity property names
-               to property values, otherwise, use parameter value.
+            - MapKey type: string
+            - MapKey value: parameter name
+            - MapValue type: If parameter's entity type is a composite
+              entity then use map, otherwise, depending on the parameter
+              value type, it could be one of string, number, boolean,
+              null, list or map.
+            - MapValue value: If parameter's entity type is a composite
+              entity then use map from composite entity property names
+              to property values, otherwise, use parameter value.
         resolved_input (str):
             Final text input which was matched during
             MatchIntent. This value can be different from
@@ -1923,6 +2005,7 @@ class Match(proto.Message):
                 The query was handled by a
                 [``Playbook``][google.cloud.dialogflow.cx.v3beta1.Playbook].
         """
+
         MATCH_TYPE_UNSPECIFIED = 0
         INTENT = 1
         DIRECT_INTENT = 2

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.channel_v1.types import common
@@ -47,6 +47,7 @@ class ChannelPartnerLinkView(proto.Enum):
         FULL (2):
             Includes all fields.
     """
+
     UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -71,6 +72,7 @@ class ChannelPartnerLinkState(proto.Enum):
             Status when the reseller is suspended by
             Google or distributor.
     """
+
     CHANNEL_PARTNER_LINK_STATE_UNSPECIFIED = 0
     INVITED = 1
     ACTIVE = 2

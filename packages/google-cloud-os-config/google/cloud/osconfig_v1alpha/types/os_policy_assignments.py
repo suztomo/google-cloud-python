@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.osconfig_v1alpha.types import os_policy, osconfig_common
@@ -80,8 +80,8 @@ class OSPolicyAssignment(proto.Message):
             2) OSPolicyAssignment is updated and the update contains
                changes to one of the following fields:
 
-               -  instance_filter
-               -  os_policies
+               - instance_filter
+               - os_policies
 
             3) OSPolicyAssignment is deleted.
         revision_id (str):
@@ -113,8 +113,8 @@ class OSPolicyAssignment(proto.Message):
             for the revision. This value is ``true`` when the
             ``rollout_state`` is one of:
 
-            -  IN_PROGRESS
-            -  CANCELLING
+            - IN_PROGRESS
+            - CANCELLING
         uid (str):
             Output only. Server generated unique id for
             the OS policy assignment resource.
@@ -135,6 +135,7 @@ class OSPolicyAssignment(proto.Message):
             SUCCEEDED (4):
                 The rollout has completed successfully.
         """
+
         ROLLOUT_STATE_UNSPECIFIED = 0
         IN_PROGRESS = 1
         CANCELLING = 2
@@ -144,14 +145,14 @@ class OSPolicyAssignment(proto.Message):
     class LabelSet(proto.Message):
         r"""Message representing label set.
 
-        -  A label is a key value pair set for a VM.
-        -  A LabelSet is a set of labels.
-        -  Labels within a LabelSet are ANDed. In other words, a LabelSet is
-           applicable for a VM only if it matches all the labels in the
-           LabelSet.
-        -  Example: A LabelSet with 2 labels: ``env=prod`` and
-           ``type=webserver`` will only be applicable for those VMs with
-           both labels present.
+        - A label is a key value pair set for a VM.
+        - A LabelSet is a set of labels.
+        - Labels within a LabelSet are ANDed. In other words, a LabelSet is
+          applicable for a VM only if it matches all the labels in the
+          LabelSet.
+        - Example: A LabelSet with 2 labels: ``env=prod`` and
+          ``type=webserver`` will only be applicable for those VMs with both
+          labels present.
 
         Attributes:
             labels (MutableMapping[str, str]):
@@ -207,7 +208,7 @@ class OSPolicyAssignment(proto.Message):
                 os_version (str):
                     The OS version
 
-                    Prefix matches are supported if asterisk(*) is provided as
+                    Prefix matches are supported if asterisk(\*) is provided as
                     the last character. For example, to match all versions with
                     a major version of ``7``, specify the following value for
                     this field ``7.*``
@@ -232,26 +233,26 @@ class OSPolicyAssignment(proto.Message):
             proto.STRING,
             number=2,
         )
-        inclusion_labels: MutableSequence[
-            "OSPolicyAssignment.LabelSet"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="OSPolicyAssignment.LabelSet",
+        inclusion_labels: MutableSequence["OSPolicyAssignment.LabelSet"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="OSPolicyAssignment.LabelSet",
+            )
         )
-        exclusion_labels: MutableSequence[
-            "OSPolicyAssignment.LabelSet"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="OSPolicyAssignment.LabelSet",
+        exclusion_labels: MutableSequence["OSPolicyAssignment.LabelSet"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="OSPolicyAssignment.LabelSet",
+            )
         )
-        inventories: MutableSequence[
-            "OSPolicyAssignment.InstanceFilter.Inventory"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="OSPolicyAssignment.InstanceFilter.Inventory",
+        inventories: MutableSequence["OSPolicyAssignment.InstanceFilter.Inventory"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="OSPolicyAssignment.InstanceFilter.Inventory",
+            )
         )
 
     class Rollout(proto.Message):
@@ -373,6 +374,7 @@ class OSPolicyAssignmentOperationMetadata(proto.Message):
             DELETE (3):
                 Delete OS policy assignment API method
         """
+
         API_METHOD_UNSPECIFIED = 0
         CREATE = 1
         UPDATE = 2
@@ -393,6 +395,7 @@ class OSPolicyAssignmentOperationMetadata(proto.Message):
             SUCCEEDED (4):
                 The rollout has completed successfully.
         """
+
         ROLLOUT_STATE_UNSPECIFIED = 0
         IN_PROGRESS = 1
         CANCELLING = 2
@@ -439,12 +442,11 @@ class CreateOSPolicyAssignmentRequest(proto.Message):
             Required. The logical name of the OS policy assignment in
             the project with the following restrictions:
 
-            -  Must contain only lowercase letters, numbers, and
-               hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the project.
+            - Must contain only lowercase letters, numbers, and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the project.
     """
 
     parent: str = proto.Field(

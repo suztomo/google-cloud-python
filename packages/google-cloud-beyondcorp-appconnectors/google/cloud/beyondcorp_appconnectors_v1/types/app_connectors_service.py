@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.beyondcorp_appconnectors_v1.types import (
@@ -152,10 +152,10 @@ class CreateAppConnectorRequest(proto.Message):
         app_connector_id (str):
             Optional. User-settable AppConnector resource ID.
 
-            -  Must start with a letter.
-            -  Must contain between 4-63 characters from
-               ``/[a-z][0-9]-/``.
-            -  Must end with a number or a letter.
+            - Must start with a letter.
+            - Must contain between 4-63 characters from
+              ``/[a-z][0-9]-/``.
+            - Must end with a number or a letter.
         app_connector (google.cloud.beyondcorp_appconnectors_v1.types.AppConnector):
             Required. A BeyondCorp AppConnector resource.
         request_id (str):
@@ -217,8 +217,8 @@ class UpdateAppConnectorRequest(proto.Message):
             paths field may only include these fields from
             [BeyondCorp.AppConnector]:
 
-            -  ``labels``
-            -  ``display_name``
+            - ``labels``
+            - ``display_name``
         app_connector (google.cloud.beyondcorp_appconnectors_v1.types.AppConnector):
             Required. AppConnector message with updated fields. Only
             supported fields specified in update_mask are updated.
@@ -427,6 +427,7 @@ class AppConnector(proto.Message):
                 the future. This happens when CCFE sends
                 ProjectState = OFF.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         CREATED = 2

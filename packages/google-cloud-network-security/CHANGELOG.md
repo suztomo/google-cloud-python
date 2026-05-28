@@ -1,5 +1,87 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-network-security/#history
+
+## [0.13.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.12.0...google-cloud-network-security-v0.13.0) (2026-04-02)
+
+
+### Documentation
+
+* Update and cleanup docs ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+
+### Features
+
+* Publish proto definitions for Intercept, Mirroring and SecurityProfileGroup ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Publish proto definitions for AuthzPolicy, TlsInspectionPolicy, GatewaySecurityPolicy, GatewaySecurityPolicyRule, and UrlList ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+* Publish proto definitions for SSG ([c36aa6169035fdb14bf84b0e56e4f81291600b5a](https://github.com/googleapis/google-cloud-python/commit/c36aa6169035fdb14bf84b0e56e4f81291600b5a))
+
+## [0.12.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.11.0...google-cloud-network-security-v0.12.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.11.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.10.0...google-cloud-network-security-v0.11.0) (2026-01-08)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.10.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.21...google-cloud-network-security-v0.10.0) (2025-12-04)
+
+
+### Features
+
+* publish networksecurity v1beta1 api ([2da5c2afe0241e6dcb33aa9a0e5032012bf63df4](https://github.com/googleapis/google-cloud-python/commit/2da5c2afe0241e6dcb33aa9a0e5032012bf63df4))
+* publish networksecurity v1alpha1 api ([d4e6a4ab7b428e821a59b053c689343b5f5511f9](https://github.com/googleapis/google-cloud-python/commit/d4e6a4ab7b428e821a59b053c689343b5f5511f9))
+
+## [0.9.21](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.20...google-cloud-network-security-v0.9.21) (2025-10-14)
+
+
+### Features
+
+* [google-cloud-network-security] Update `networksecurity/v1beta1` Python GAPIC to support REST transport ([#14702](https://github.com/googleapis/google-cloud-python/issues/14702)) ([accb1e5](https://github.com/googleapis/google-cloud-python/commit/accb1e57103f15c4111b62ab6102db43c54cbec3))
+
+## [0.9.20](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.19...google-cloud-network-security-v0.9.20) (2025-10-14)
+
+
+### Features
+
+* Add support for Python 3.14 ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument ([4763aa7](https://github.com/googleapis/google-cloud-python/commit/4763aa7938438d66677f73c0775babf2ccdfe3af))
+
+## [0.9.19](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.18...google-cloud-network-security-v0.9.19) (2025-09-04)
+
+
+### Features
+
+* [google-cloud-network-security] add address groups API ([#14332](https://github.com/googleapis/google-cloud-python/issues/14332)) ([9ff9ff6](https://github.com/googleapis/google-cloud-python/commit/9ff9ff62d9fb692d6cb3eccc2d4e74c1dd8624ca))
+
+## [0.9.18](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.17...google-cloud-network-security-v0.9.18) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([868b006](https://github.com/googleapis/google-cloud-python/commit/868b0069baf1a4bf6705986e0b6885419b35cdcc))
+
 ## [0.9.17](https://github.com/googleapis/google-cloud-python/compare/google-cloud-network-security-v0.9.16...google-cloud-network-security-v0.9.17) (2025-03-15)
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -261,16 +261,17 @@ class VerifyKmsConfigResponse(proto.Message):
 
 
 class KmsConfig(proto.Message):
-    r"""KmsConfig is the customer managed encryption key(CMEK)
+    r"""KmsConfig is the customer-managed encryption key(CMEK)
     configuration.
 
     Attributes:
         name (str):
-            Identifier. Name of the KmsConfig.
+            Identifier. Name of the KmsConfig. Format:
+            ``projects/{project}/locations/{location}/kmsConfigs/{kms_config}``
         crypto_key_name (str):
-            Required. Customer managed crypto key resource full name.
+            Required. Customer-managed crypto key resource full name.
             Format:
-            projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{key}.
+            ``projects/{project}/locations/{location}/keyRings/{key_ring}/cryptoKeys/{crypto_key}``
         state (google.cloud.netapp_v1.types.KmsConfig.State):
             Output only. State of the KmsConfig.
         state_details (str):
@@ -323,6 +324,7 @@ class KmsConfig(proto.Message):
                 The existing volumes are migrating from SMEK to
                 CMEK.
         """
+
         STATE_UNSPECIFIED = 0
         READY = 1
         CREATING = 2

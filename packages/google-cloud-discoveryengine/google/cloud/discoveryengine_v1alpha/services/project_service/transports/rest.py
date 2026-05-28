@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,23 +16,22 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.discoveryengine_v1alpha.types import project
+from google.cloud.discoveryengine_v1alpha.types import project, project_service
 from google.cloud.discoveryengine_v1alpha.types import project as gcd_project
-from google.cloud.discoveryengine_v1alpha.types import project_service
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseProjectServiceRestTransport
@@ -369,9 +368,10 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -389,6 +389,12 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ProjectServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -793,9 +799,7 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProjectServiceRestTransport._BaseProvisionProject._get_http_options()
-            )
+            http_options = _BaseProjectServiceRestTransport._BaseProvisionProject._get_http_options()
 
             request, metadata = self._interceptor.pre_provision_project(
                 request, metadata
@@ -821,7 +825,7 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -947,9 +951,7 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProjectServiceRestTransport._BaseReportConsentChange._get_http_options()
-            )
+            http_options = _BaseProjectServiceRestTransport._BaseReportConsentChange._get_http_options()
 
             request, metadata = self._interceptor.pre_report_consent_change(
                 request, metadata
@@ -1123,9 +1125,7 @@ class ProjectServiceRestTransport(_BaseProjectServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseProjectServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseProjectServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata

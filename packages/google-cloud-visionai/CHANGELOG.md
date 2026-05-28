@@ -1,5 +1,63 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-visionai/#history
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.4.0...google-cloud-visionai-v0.5.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.3.0...google-cloud-visionai-v0.4.0) (2026-02-12)
+
+
+### Documentation
+
+* A comment for field `relevance` in message `.google.cloud.visionai.v1.SearchResultItem` is changed ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+* A comment for field `page_size` in message `.google.cloud.visionai.v1.SearchIndexEndpointRequest` is changed ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+
+### Bug Fixes
+
+* An existing default host `visionai.googleapis.com` is changed to `warehouse-visionai.googleapis.com` in service `Warehouse` ([5371e8e931dfba1d504ac2ffbd48a7f4abdcc158](https://github.com/googleapis/google-cloud-python/commit/5371e8e931dfba1d504ac2ffbd48a7f4abdcc158))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.2.0...google-cloud-visionai-v0.3.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.2.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.1.10...google-cloud-visionai-v0.2.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.1.10](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.1.9...google-cloud-visionai-v0.1.10) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([0131a33](https://github.com/googleapis/google-cloud-python/commit/0131a33582f84d9be5ecb1c0ef8b56aa3d9e9cf0))
+
 ## [0.1.9](https://github.com/googleapis/google-cloud-python/compare/google-cloud-visionai-v0.1.8...google-cloud-visionai-v0.1.9) (2025-03-15)
 
 

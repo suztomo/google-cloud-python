@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,31 +17,33 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
+from google.cloud.recommender_v1.types import (
+    insight,
+    insight_type_config,
+    recommendation,
+    recommender_config,
+    recommender_service,
+)
 from google.cloud.recommender_v1.types import (
     insight_type_config as gcr_insight_type_config,
 )
 from google.cloud.recommender_v1.types import (
     recommender_config as gcr_recommender_config,
 )
-from google.cloud.recommender_v1.types import insight
-from google.cloud.recommender_v1.types import insight_type_config
-from google.cloud.recommender_v1.types import recommendation
-from google.cloud.recommender_v1.types import recommender_config
-from google.cloud.recommender_v1.types import recommender_service
 
 from .base import DEFAULT_CLIENT_INFO, RecommenderTransport
 from .grpc import RecommenderGrpcTransport
@@ -70,7 +72,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -105,7 +107,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -161,8 +163,9 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -213,9 +216,10 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -247,6 +251,10 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -351,7 +359,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         r"""Return a callable for the list insights method over gRPC.
 
         Lists insights for the specified Cloud Resource. Requires the
-        recommender.*.list IAM permission for the specified insight
+        recommender.\*.list IAM permission for the specified insight
         type.
 
         Returns:
@@ -378,7 +386,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
     ) -> Callable[[recommender_service.GetInsightRequest], Awaitable[insight.Insight]]:
         r"""Return a callable for the get insight method over gRPC.
 
-        Gets the requested insight. Requires the recommender.*.get IAM
+        Gets the requested insight. Requires the recommender.\*.get IAM
         permission for the specified insight type.
 
         Returns:
@@ -413,7 +421,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         being updated.
 
         MarkInsightAccepted can be applied to insights in ACTIVE state.
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified insight.
 
         Returns:
@@ -444,7 +452,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         r"""Return a callable for the list recommendations method over gRPC.
 
         Lists recommendations for the specified Cloud Resource. Requires
-        the recommender.*.list IAM permission for the specified
+        the recommender.\*.list IAM permission for the specified
         recommender.
 
         Returns:
@@ -475,7 +483,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         r"""Return a callable for the get recommendation method over gRPC.
 
         Gets the requested recommendation. Requires the
-        recommender.*.get IAM permission for the specified recommender.
+        recommender.\*.get IAM permission for the specified recommender.
 
         Returns:
             Callable[[~.GetRecommendationRequest],
@@ -511,7 +519,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         MarkRecommendationDismissed can be applied to recommendations in
         ACTIVE state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         Returns:
@@ -525,12 +533,12 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "mark_recommendation_dismissed" not in self._stubs:
-            self._stubs[
-                "mark_recommendation_dismissed"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recommender.v1.Recommender/MarkRecommendationDismissed",
-                request_serializer=recommender_service.MarkRecommendationDismissedRequest.serialize,
-                response_deserializer=recommendation.Recommendation.deserialize,
+            self._stubs["mark_recommendation_dismissed"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recommender.v1.Recommender/MarkRecommendationDismissed",
+                    request_serializer=recommender_service.MarkRecommendationDismissedRequest.serialize,
+                    response_deserializer=recommendation.Recommendation.deserialize,
+                )
             )
         return self._stubs["mark_recommendation_dismissed"]
 
@@ -552,7 +560,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         MarkRecommendationClaimed can be applied to recommendations in
         CLAIMED, SUCCEEDED, FAILED, or ACTIVE state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         Returns:
@@ -566,12 +574,12 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "mark_recommendation_claimed" not in self._stubs:
-            self._stubs[
-                "mark_recommendation_claimed"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recommender.v1.Recommender/MarkRecommendationClaimed",
-                request_serializer=recommender_service.MarkRecommendationClaimedRequest.serialize,
-                response_deserializer=recommendation.Recommendation.deserialize,
+            self._stubs["mark_recommendation_claimed"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recommender.v1.Recommender/MarkRecommendationClaimed",
+                    request_serializer=recommender_service.MarkRecommendationClaimedRequest.serialize,
+                    response_deserializer=recommendation.Recommendation.deserialize,
+                )
             )
         return self._stubs["mark_recommendation_claimed"]
 
@@ -593,7 +601,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         MarkRecommendationSucceeded can be applied to recommendations in
         ACTIVE, CLAIMED, SUCCEEDED, or FAILED state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         Returns:
@@ -607,12 +615,12 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "mark_recommendation_succeeded" not in self._stubs:
-            self._stubs[
-                "mark_recommendation_succeeded"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recommender.v1.Recommender/MarkRecommendationSucceeded",
-                request_serializer=recommender_service.MarkRecommendationSucceededRequest.serialize,
-                response_deserializer=recommendation.Recommendation.deserialize,
+            self._stubs["mark_recommendation_succeeded"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recommender.v1.Recommender/MarkRecommendationSucceeded",
+                    request_serializer=recommender_service.MarkRecommendationSucceededRequest.serialize,
+                    response_deserializer=recommendation.Recommendation.deserialize,
+                )
             )
         return self._stubs["mark_recommendation_succeeded"]
 
@@ -634,7 +642,7 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         MarkRecommendationFailed can be applied to recommendations in
         ACTIVE, CLAIMED, SUCCEEDED, or FAILED state.
 
-        Requires the recommender.*.update IAM permission for the
+        Requires the recommender.\*.update IAM permission for the
         specified recommender.
 
         Returns:
@@ -648,12 +656,12 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "mark_recommendation_failed" not in self._stubs:
-            self._stubs[
-                "mark_recommendation_failed"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recommender.v1.Recommender/MarkRecommendationFailed",
-                request_serializer=recommender_service.MarkRecommendationFailedRequest.serialize,
-                response_deserializer=recommendation.Recommendation.deserialize,
+            self._stubs["mark_recommendation_failed"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recommender.v1.Recommender/MarkRecommendationFailed",
+                    request_serializer=recommender_service.MarkRecommendationFailedRequest.serialize,
+                    response_deserializer=recommendation.Recommendation.deserialize,
+                )
             )
         return self._stubs["mark_recommendation_failed"]
 
@@ -770,12 +778,12 @@ class RecommenderGrpcAsyncIOTransport(RecommenderTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_insight_type_config" not in self._stubs:
-            self._stubs[
-                "update_insight_type_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.recommender.v1.Recommender/UpdateInsightTypeConfig",
-                request_serializer=recommender_service.UpdateInsightTypeConfigRequest.serialize,
-                response_deserializer=gcr_insight_type_config.InsightTypeConfig.deserialize,
+            self._stubs["update_insight_type_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.recommender.v1.Recommender/UpdateInsightTypeConfig",
+                    request_serializer=recommender_service.UpdateInsightTypeConfigRequest.serialize,
+                    response_deserializer=gcr_insight_type_config.InsightTypeConfig.deserialize,
+                )
             )
         return self._stubs["update_insight_type_config"]
 

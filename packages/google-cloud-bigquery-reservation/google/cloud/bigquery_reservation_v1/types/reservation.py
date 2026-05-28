@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,19 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
     package="google.cloud.bigquery.reservation.v1",
     manifest={
         "Edition",
+        "FailoverMode",
         "Reservation",
+        "SchedulingPolicy",
+        "ReservationGroup",
         "CapacityCommitment",
         "CreateReservationRequest",
         "ListReservationsRequest",
@@ -35,6 +38,11 @@ __protobuf__ = proto.module(
         "DeleteReservationRequest",
         "UpdateReservationRequest",
         "FailoverReservationRequest",
+        "CreateReservationGroupRequest",
+        "GetReservationGroupRequest",
+        "ListReservationGroupsRequest",
+        "ListReservationGroupsResponse",
+        "DeleteReservationGroupRequest",
         "CreateCapacityCommitmentRequest",
         "ListCapacityCommitmentsRequest",
         "ListCapacityCommitmentsResponse",
@@ -80,27 +88,57 @@ class Edition(proto.Enum):
         ENTERPRISE_PLUS (3):
             Enterprise Plus edition.
     """
+
     EDITION_UNSPECIFIED = 0
     STANDARD = 1
     ENTERPRISE = 2
     ENTERPRISE_PLUS = 3
 
 
+class FailoverMode(proto.Enum):
+    r"""The failover mode when a user initiates a failover on a
+    reservation determines how writes that are pending replication
+    are handled after the failover is initiated.
+
+    Values:
+        FAILOVER_MODE_UNSPECIFIED (0):
+            Invalid value.
+        SOFT (1):
+            When customers initiate a soft failover,
+            BigQuery will wait until all committed writes
+            are replicated to the secondary. This mode
+            requires both regions to be available for the
+            failover to succeed and prevents data loss.
+        HARD (2):
+            When customers initiate a hard failover,
+            BigQuery will not wait until all committed
+            writes are replicated to the secondary. There
+            can be data loss for hard failover.
+    """
+
+    FAILOVER_MODE_UNSPECIFIED = 0
+    SOFT = 1
+    HARD = 2
+
+
 class Reservation(proto.Message):
     r"""A reservation is a mechanism used to guarantee slots to
     users.
 
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         name (str):
-            The resource name of the reservation, e.g.,
+            Identifier. The resource name of the reservation, e.g.,
             ``projects/*/locations/*/reservations/team1-prod``. The
             reservation_id must only contain lower case alphanumeric
             characters or dashes. It must start with a letter and must
             not end with a dash. Its maximum length is 64 characters.
         slot_capacity (int):
-            Baseline slots available to this reservation. A slot is a
-            unit of computational power in BigQuery, and serves as the
-            unit of parallelism.
+            Optional. Baseline slots available to this reservation. A
+            slot is a unit of computational power in BigQuery, and
+            serves as the unit of parallelism.
 
             Queries using this reservation might use more slots during
             runtime if ignore_idle_slots is set to false, or autoscaling
@@ -116,26 +154,25 @@ class Reservation(proto.Message):
             baseline slots exceed your committed slots. Otherwise, you
             can decrease your baseline slots every few minutes.
         ignore_idle_slots (bool):
-            If false, any query or pipeline job using this reservation
-            will use idle slots from other reservations within the same
-            admin project. If true, a query or pipeline job using this
-            reservation will execute with the slot capacity specified in
-            the slot_capacity field at most.
+            Optional. If false, any query or pipeline job using this
+            reservation will use idle slots from other reservations
+            within the same admin project. If true, a query or pipeline
+            job using this reservation will execute with the slot
+            capacity specified in the slot_capacity field at most.
         autoscale (google.cloud.bigquery_reservation_v1.types.Reservation.Autoscale):
-            The configuration parameters for the auto
-            scaling feature.
+            Optional. The configuration parameters for
+            the auto scaling feature.
         concurrency (int):
-            Job concurrency target which sets a soft
-            upper bound on the number of jobs that can run
-            concurrently in this reservation. This is a soft
-            target due to asynchronous nature of the system
-            and various optimizations for small queries.
-            Default value is 0 which means that concurrency
-            target will be automatically computed by the
-            system.
-            NOTE: this field is exposed as target job
-            concurrency in the Information Schema, DDL and
-            BigQuery CLI.
+            Optional. Job concurrency target which sets a
+            soft upper bound on the number of jobs that can
+            run concurrently in this reservation. This is a
+            soft target due to asynchronous nature of the
+            system and various optimizations for small
+            queries. Default value is 0 which means that
+            concurrency target will be automatically
+            computed by the system. NOTE: this field is
+            exposed as target job concurrency in the
+            Information Schema, DDL and BigQuery CLI.
         creation_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. Creation time of the
             reservation.
@@ -156,7 +193,7 @@ class Reservation(proto.Message):
             NOTE: this is a preview feature. Project must be
             allow-listed in order to set this field.
         edition (google.cloud.bigquery_reservation_v1.types.Edition):
-            Edition of the reservation.
+            Optional. Edition of the reservation.
         primary_location (str):
             Output only. The current location of the
             reservation's primary replica. This field is
@@ -177,6 +214,80 @@ class Reservation(proto.Message):
             only during the failover reservation's creation.
             All billing charges for the failover reservation
             will be applied to this location.
+        max_slots (int):
+            Optional. The overall max slots for the reservation,
+            covering slot_capacity (baseline), idle slots (if
+            ignore_idle_slots is false) and scaled slots. If present,
+            the reservation won't use more than the specified number of
+            slots, even if there is demand and supply (from idle slots).
+            NOTE: capping a reservation's idle slot usage is best effort
+            and its usage may exceed the max_slots value. However, in
+            terms of autoscale.current_slots (which accounts for the
+            additional added slots), it will never exceed the max_slots
+            - baseline.
+
+            This field must be set together with the scaling_mode enum
+            value, otherwise the request will be rejected with error
+            code ``google.rpc.Code.INVALID_ARGUMENT``.
+
+            If the max_slots and scaling_mode are set, the autoscale or
+            autoscale.max_slots field must be unset. Otherwise the
+            request will be rejected with error code
+            ``google.rpc.Code.INVALID_ARGUMENT``. However, the autoscale
+            field may still be in the output. The autopscale.max_slots
+            will always show as 0 and the autoscaler.current_slots will
+            represent the current slots from autoscaler excluding idle
+            slots. For example, if the max_slots is 1000 and
+            scaling_mode is AUTOSCALE_ONLY, then in the output, the
+            autoscaler.max_slots will be 0 and the
+            autoscaler.current_slots may be any value between 0 and
+            1000.
+
+            If the max_slots is 1000, scaling_mode is ALL_SLOTS, the
+            baseline is 100 and idle slots usage is 200, then in the
+            output, the autoscaler.max_slots will be 0 and the
+            autoscaler.current_slots will not be higher than 700.
+
+            If the max_slots is 1000, scaling_mode is IDLE_SLOTS_ONLY,
+            then in the output, the autoscaler field will be null.
+
+            If the max_slots and scaling_mode are set, then the
+            ignore_idle_slots field must be aligned with the
+            scaling_mode enum value.(See details in ScalingMode
+            comments). Otherwise the request will be rejected with error
+            code ``google.rpc.Code.INVALID_ARGUMENT``.
+
+            Please note, the max_slots is for user to manage the part of
+            slots greater than the baseline. Therefore, we don't allow
+            users to set max_slots smaller or equal to the baseline as
+            it will not be meaningful. If the field is present and
+            slot_capacity>=max_slots, requests will be rejected with
+            error code ``google.rpc.Code.INVALID_ARGUMENT``.
+
+            Please note that if max_slots is set to 0, we will treat it
+            as unset. Customers can set max_slots to 0 and set
+            scaling_mode to SCALING_MODE_UNSPECIFIED to disable the
+            max_slots feature.
+
+            This field is a member of `oneof`_ ``_max_slots``.
+        scaling_mode (google.cloud.bigquery_reservation_v1.types.Reservation.ScalingMode):
+            Optional. The scaling mode for the reservation. If the field
+            is present but max_slots is not present, requests will be
+            rejected with error code
+            ``google.rpc.Code.INVALID_ARGUMENT``.
+        labels (MutableMapping[str, str]):
+            Optional. The labels associated with this
+            reservation. You can use these to organize and
+            group your reservations. You can set this
+            property when you create or update a
+            reservation.
+        reservation_group (str):
+            Optional. The reservation group that this reservation
+            belongs to. You can set this property when you create or
+            update a reservation. Reservations do not need to belong to
+            a reservation group. Format:
+            projects/{project}/locations/{location}/reservationGroups/{reservation_group}
+            or just {reservation_group}
         replication_status (google.cloud.bigquery_reservation_v1.types.Reservation.ReplicationStatus):
             Output only. The Disaster Recovery(DR)
             replication status of the reservation. This is
@@ -190,7 +301,85 @@ class Reservation(proto.Message):
             reservation or the reservation is a DR secondary
             or that any replication operations on the
             reservation have succeeded.
+        scheduling_policy (google.cloud.bigquery_reservation_v1.types.SchedulingPolicy):
+            Optional. The scheduling policy to use for
+            jobs and queries running under this reservation.
+            The scheduling policy controls how the
+            reservation's resources are distributed.
+
+            This feature is not yet generally available.
     """
+
+    class ScalingMode(proto.Enum):
+        r"""The scaling mode for the reservation. This enum determines
+        how the reservation scales up and down.
+
+        Values:
+            SCALING_MODE_UNSPECIFIED (0):
+                Default value of ScalingMode.
+            AUTOSCALE_ONLY (1):
+                The reservation will scale up only using slots from
+                autoscaling. It will not use any idle slots even if there
+                may be some available. The upper limit that autoscaling can
+                scale up to will be max_slots - baseline. For example, if
+                max_slots is 1000, baseline is 200 and customer sets
+                ScalingMode to AUTOSCALE_ONLY, then autoscalerg will scale
+                up to 800 slots and no idle slots will be used.
+
+                Please note, in this mode, the ignore_idle_slots field must
+                be set to true. Otherwise the request will be rejected with
+                error code ``google.rpc.Code.INVALID_ARGUMENT``.
+            IDLE_SLOTS_ONLY (2):
+                The reservation will scale up using only idle slots
+                contributed by other reservations or from unassigned
+                commitments. If no idle slots are available it will not
+                scale up further. If the idle slots which it is using are
+                reclaimed by the contributing reservation(s) it may be
+                forced to scale down. The max idle slots the reservation can
+                be max_slots - baseline capacity. For example, if max_slots
+                is 1000, baseline is 200 and customer sets ScalingMode to
+                IDLE_SLOTS_ONLY,
+
+                1. if there are 1000 idle slots available in other
+                   reservations, the reservation will scale up to 1000 slots
+                   with 200 baseline and 800 idle slots.
+                2. if there are 500 idle slots available in other
+                   reservations, the reservation will scale up to 700 slots
+                   with 200 baseline and 500 idle slots. Please note, in
+                   this mode, the reservation might not be able to scale up
+                   to max_slots.
+
+                Please note, in this mode, the ignore_idle_slots field must
+                be set to false. Otherwise the request will be rejected with
+                error code ``google.rpc.Code.INVALID_ARGUMENT``.
+            ALL_SLOTS (3):
+                The reservation will scale up using all slots available to
+                it. It will use idle slots contributed by other reservations
+                or from unassigned commitments first. If no idle slots are
+                available it will scale up using autoscaling. For example,
+                if max_slots is 1000, baseline is 200 and customer sets
+                ScalingMode to ALL_SLOTS,
+
+                1. if there are 800 idle slots available in other
+                   reservations, the reservation will scale up to 1000 slots
+                   with 200 baseline and 800 idle slots.
+                2. if there are 500 idle slots available in other
+                   reservations, the reservation will scale up to 1000 slots
+                   with 200 baseline, 500 idle slots and 300 autoscaling
+                   slots.
+                3. if there are no idle slots available in other
+                   reservations, it will scale up to 1000 slots with 200
+                   baseline and 800 autoscaling slots.
+
+                Please note, in this mode, the ignore_idle_slots field must
+                be set to false. Otherwise the request will be rejected with
+                error code ``google.rpc.Code.INVALID_ARGUMENT``.
+        """
+
+        SCALING_MODE_UNSPECIFIED = 0
+        AUTOSCALE_ONLY = 1
+        IDLE_SLOTS_ONLY = 2
+        ALL_SLOTS = 3
 
     class Autoscale(proto.Message):
         r"""Auto scaling settings.
@@ -204,7 +393,8 @@ class Reservation(proto.Message):
                 the original value and could be larger than max_slots for
                 that brief period (less than one minute)
             max_slots (int):
-                Number of slots to be scaled when needed.
+                Optional. Number of slots to be scaled when
+                needed.
         """
 
         current_slots: int = proto.Field(
@@ -235,6 +425,14 @@ class Reservation(proto.Message):
                 Output only. A timestamp corresponding to the
                 last change on the primary that was successfully
                 replicated to the secondary.
+            soft_failover_start_time (google.protobuf.timestamp_pb2.Timestamp):
+                Output only. The time at which a soft
+                failover for the reservation and its associated
+                datasets was initiated. After this field is set,
+                all subsequent changes to the reservation will
+                be rejected unless a hard failover overrides
+                this operation. This field will be cleared once
+                the failover is complete.
         """
 
         error: status_pb2.Status = proto.Field(
@@ -250,6 +448,11 @@ class Reservation(proto.Message):
         last_replication_time: timestamp_pb2.Timestamp = proto.Field(
             proto.MESSAGE,
             number=3,
+            message=timestamp_pb2.Timestamp,
+        )
+        soft_failover_start_time: timestamp_pb2.Timestamp = proto.Field(
+            proto.MESSAGE,
+            number=4,
             message=timestamp_pb2.Timestamp,
         )
 
@@ -305,10 +508,94 @@ class Reservation(proto.Message):
         proto.STRING,
         number=20,
     )
+    max_slots: int = proto.Field(
+        proto.INT64,
+        number=21,
+        optional=True,
+    )
+    scaling_mode: ScalingMode = proto.Field(
+        proto.ENUM,
+        number=22,
+        enum=ScalingMode,
+    )
+    labels: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=23,
+    )
+    reservation_group: str = proto.Field(
+        proto.STRING,
+        number=25,
+    )
     replication_status: ReplicationStatus = proto.Field(
         proto.MESSAGE,
         number=24,
         message=ReplicationStatus,
+    )
+    scheduling_policy: "SchedulingPolicy" = proto.Field(
+        proto.MESSAGE,
+        number=27,
+        message="SchedulingPolicy",
+    )
+
+
+class SchedulingPolicy(proto.Message):
+    r"""The scheduling policy controls how a reservation's resources
+    are distributed.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        concurrency (int):
+            Optional. If present and > 0, the reservation
+            will attempt to limit the concurrency of jobs
+            running for any particular project within it to
+            the given value.
+
+            This feature is not yet generally available.
+
+            This field is a member of `oneof`_ ``_concurrency``.
+        max_slots (int):
+            Optional. If present and > 0, the reservation
+            will attempt to limit the slot consumption of
+            queries running for any particular project
+            within it to the given value.
+
+            This feature is not yet generally available.
+
+            This field is a member of `oneof`_ ``_max_slots``.
+    """
+
+    concurrency: int = proto.Field(
+        proto.INT64,
+        number=1,
+        optional=True,
+    )
+    max_slots: int = proto.Field(
+        proto.INT64,
+        number=2,
+        optional=True,
+    )
+
+
+class ReservationGroup(proto.Message):
+    r"""A reservation group is a container for reservations.
+
+    Attributes:
+        name (str):
+            Identifier. The resource name of the reservation group,
+            e.g.,
+            ``projects/*/locations/*/reservationGroups/team1-prod``. The
+            reservation_group_id must only contain lower case
+            alphanumeric characters or dashes. It must start with a
+            letter and must not end with a dash. Its maximum length is
+            64 characters.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
     )
 
 
@@ -333,9 +620,10 @@ class CapacityCommitment(proto.Message):
             characters or dashes. It must start with a letter and must
             not end with a dash. Its maximum length is 64 characters.
         slot_count (int):
-            Number of slots in this commitment.
+            Optional. Number of slots in this commitment.
         plan (google.cloud.bigquery_reservation_v1.types.CapacityCommitment.CommitmentPlan):
-            Capacity commitment commitment plan.
+            Optional. Capacity commitment commitment
+            plan.
         state (google.cloud.bigquery_reservation_v1.types.CapacityCommitment.State):
             Output only. State of the commitment.
         commitment_start_time (google.protobuf.timestamp_pb2.Timestamp):
@@ -348,15 +636,15 @@ class CapacityCommitment(proto.Message):
             Output only. The end of the current commitment period. It is
             applicable only for ACTIVE capacity commitments. Note after
             renewal, commitment_end_time is the time the renewed
-            commitment expires. So it would be at a time after
+            commitment expires. So itwould be at a time after
             commitment_start_time + committed period, because we don't
             change commitment_start_time ,
         failure_status (google.rpc.status_pb2.Status):
             Output only. For FAILED commitment plan,
             provides the reason of failure.
         renewal_plan (google.cloud.bigquery_reservation_v1.types.CapacityCommitment.CommitmentPlan):
-            The plan this capacity commitment is converted to after
-            commitment_end_time passes. Once the plan is changed,
+            Optional. The plan this capacity commitment is converted to
+            after commitment_end_time passes. Once the plan is changed,
             committed period is extended according to commitment plan.
             Only applicable for ANNUAL and TRIAL commitments.
         multi_region_auxiliary (bool):
@@ -373,7 +661,7 @@ class CapacityCommitment(proto.Message):
             NOTE: this is a preview feature. Project must be
             allow-listed in order to set this field.
         edition (google.cloud.bigquery_reservation_v1.types.Edition):
-            Edition of the capacity commitment.
+            Optional. Edition of the capacity commitment.
         is_flat_rate (bool):
             Output only. If true, the commitment is a
             flat-rate commitment, otherwise, it's an edition
@@ -433,6 +721,7 @@ class CapacityCommitment(proto.Message):
                 renewal_plan is NONE, capacity commitment will be removed at
                 the end of its commitment period.
         """
+
         COMMITMENT_PLAN_UNSPECIFIED = 0
         FLEX = 3
         FLEX_FLAT_RATE = 7
@@ -462,6 +751,7 @@ class CapacityCommitment(proto.Message):
                 Capacity commitment is failed to be activated
                 by the backend.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2
@@ -676,6 +966,141 @@ class FailoverReservationRequest(proto.Message):
             Required. Resource name of the reservation to failover.
             E.g.,
             ``projects/myproject/locations/US/reservations/team1-prod``
+        failover_mode (google.cloud.bigquery_reservation_v1.types.FailoverMode):
+            Optional. A parameter that determines how
+            writes that are pending replication are handled
+            after a failover is initiated. If not specified,
+            HARD failover mode is used by default.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    failover_mode: "FailoverMode" = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum="FailoverMode",
+    )
+
+
+class CreateReservationGroupRequest(proto.Message):
+    r"""The request for
+    [ReservationService.CreateReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.CreateReservationGroup].
+
+    Attributes:
+        parent (str):
+            Required. Project, location. E.g.,
+            ``projects/myproject/locations/US``
+        reservation_group_id (str):
+            Required. The reservation group ID. It must
+            only contain lower case alphanumeric characters
+            or dashes. It must start with a letter and must
+            not end with a dash. Its maximum length is 64
+            characters.
+        reservation_group (google.cloud.bigquery_reservation_v1.types.ReservationGroup):
+            Required. New Reservation Group to create.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    reservation_group_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    reservation_group: "ReservationGroup" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message="ReservationGroup",
+    )
+
+
+class GetReservationGroupRequest(proto.Message):
+    r"""The request for
+    [ReservationService.GetReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.GetReservationGroup].
+
+    Attributes:
+        name (str):
+            Required. Resource name of the reservation group to
+            retrieve. E.g.,
+            ``projects/myproject/locations/US/reservationGroups/team1-prod``
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class ListReservationGroupsRequest(proto.Message):
+    r"""The request for
+    [ReservationService.ListReservationGroups][google.cloud.bigquery.reservation.v1.ReservationService.ListReservationGroups].
+
+    Attributes:
+        parent (str):
+            Required. The parent resource name containing project and
+            location, e.g.: ``projects/myproject/locations/US``
+        page_size (int):
+            The maximum number of items to return per
+            page.
+        page_token (str):
+            The next_page_token value returned from a previous List
+            request, if any.
+    """
+
+    parent: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    page_size: int = proto.Field(
+        proto.INT32,
+        number=2,
+    )
+    page_token: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+
+
+class ListReservationGroupsResponse(proto.Message):
+    r"""The response for
+    [ReservationService.ListReservationGroups][google.cloud.bigquery.reservation.v1.ReservationService.ListReservationGroups].
+
+    Attributes:
+        reservation_groups (MutableSequence[google.cloud.bigquery_reservation_v1.types.ReservationGroup]):
+            List of reservations visible to the user.
+        next_page_token (str):
+            Token to retrieve the next page of results,
+            or empty if there are no more results in the
+            list.
+    """
+
+    @property
+    def raw_page(self):
+        return self
+
+    reservation_groups: MutableSequence["ReservationGroup"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message="ReservationGroup",
+    )
+    next_page_token: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+
+
+class DeleteReservationGroupRequest(proto.Message):
+    r"""The request for
+    [ReservationService.DeleteReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.DeleteReservationGroup].
+
+    Attributes:
+        name (str):
+            Required. Resource name of the reservation group to
+            retrieve. E.g.,
+            ``projects/myproject/locations/US/reservationGroups/team1-prod``
     """
 
     name: str = proto.Field(
@@ -915,6 +1340,14 @@ class MergeCapacityCommitmentsRequest(proto.Message):
             ID is the last portion of capacity commitment
             name e.g., 'abc' for
             projects/myproject/locations/US/capacityCommitments/abc
+        capacity_commitment_id (str):
+            Optional. The optional resulting capacity
+            commitment ID. Capacity commitment name will be
+            generated automatically if this field is empty.
+            This field must only contain lower case
+            alphanumeric characters or dashes. The first and
+            last character cannot be a dash. Max length is
+            64 characters.
     """
 
     parent: str = proto.Field(
@@ -924,6 +1357,10 @@ class MergeCapacityCommitmentsRequest(proto.Message):
     capacity_commitment_ids: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
         number=2,
+    )
+    capacity_commitment_id: str = proto.Field(
+        proto.STRING,
+        number=3,
     )
 
 
@@ -938,23 +1375,49 @@ class Assignment(proto.Message):
             The assignment_id must only contain lower case alphanumeric
             characters or dashes and the max length is 64 characters.
         assignee (str):
-            The resource which will use the reservation. E.g.
+            Optional. The resource which will use the reservation. E.g.
             ``projects/myproject``, ``folders/123``, or
             ``organizations/456``.
         job_type (google.cloud.bigquery_reservation_v1.types.Assignment.JobType):
-            Which type of jobs will use the reservation.
+            Optional. Which type of jobs will use the
+            reservation.
         state (google.cloud.bigquery_reservation_v1.types.Assignment.State):
             Output only. State of the assignment.
         enable_gemini_in_bigquery (bool):
-            Optional. This field controls if "Gemini in BigQuery"
+            Optional. Deprecated: "Gemini in BigQuery" is
+            now available by default for all BigQuery
+            editions and should not be explicitly set.
+            Controls if "Gemini in BigQuery"
             (https://cloud.google.com/gemini/docs/bigquery/overview)
-            features should be enabled for this reservation assignment,
-            which is not on by default. "Gemini in BigQuery" has a
-            distinct compliance posture from BigQuery. If this field is
-            set to true, the assignment job type is QUERY, and the
-            parent reservation edition is ENTERPRISE_PLUS, then the
-            assignment will give the grantee project/organization access
-            to "Gemini in BigQuery" features.
+            features should be enabled for this reservation
+            assignment.
+        scheduling_policy (google.cloud.bigquery_reservation_v1.types.SchedulingPolicy):
+            Optional. The scheduling policy to use for
+            jobs and queries of this assignee when running
+            under the associated reservation. The scheduling
+            policy controls how the reservation's resources
+            are distributed. This overrides the default
+            scheduling policy specified on the reservation.
+
+            This feature is not yet generally available.
+        principal (str):
+            Optional. Represents the principal for this assignment. If
+            not empty, jobs run by this principal will utilize the
+            associated reservation. Otherwise, jobs will fall back to
+            using the reservation assigned to the project, folder, or
+            organization (in that order). If no reservation is assigned
+            at any of these levels, on-demand capacity will be used.
+
+            The supported formats are:
+
+            - ``principal://goog/subject/USER_EMAIL_ADDRESS`` for users,
+            - ``principal://iam.googleapis.com/projects/-/serviceAccounts/SA_EMAIL_ADDRESS``
+              for service accounts,
+            - ``principal://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/subject/SUBJECT_ID``
+              for workload identity pool identities.
+            - The special value ``unknown_or_deleted_user`` represents
+              principals which cannot be read from the user info
+              service, for example deleted users.
     """
 
     class JobType(proto.Enum):
@@ -983,13 +1446,36 @@ class Assignment(proto.Message):
                 reservation. Reservations with continuous
                 assignments cannot be mixed with non-continuous
                 assignments.
+            BACKGROUND_CHANGE_DATA_CAPTURE (7):
+                Finer granularity background jobs for
+                capturing changes in a source database and
+                streaming them into BigQuery. Reservations with
+                this job type take priority over a default
+                BACKGROUND reservation assignment (if it
+                exists).
+            BACKGROUND_COLUMN_METADATA_INDEX (8):
+                Finer granularity background jobs for
+                refreshing cached metadata for BigQuery tables.
+                Reservations with this job type take priority
+                over a default BACKGROUND reservation assignment
+                (if it exists).
+            BACKGROUND_SEARCH_INDEX_REFRESH (9):
+                Finer granularity background jobs for
+                refreshing search indexes upon BigQuery table
+                columns. Reservations with this job type take
+                priority over a default BACKGROUND reservation
+                assignment (if it exists).
         """
+
         JOB_TYPE_UNSPECIFIED = 0
         PIPELINE = 1
         QUERY = 2
         ML_EXTERNAL = 3
         BACKGROUND = 4
         CONTINUOUS = 6
+        BACKGROUND_CHANGE_DATA_CAPTURE = 7
+        BACKGROUND_COLUMN_METADATA_INDEX = 8
+        BACKGROUND_SEARCH_INDEX_REFRESH = 9
 
     class State(proto.Enum):
         r"""Assignment will remain in PENDING state if no active capacity
@@ -1005,6 +1491,7 @@ class Assignment(proto.Message):
             ACTIVE (2):
                 Assignment is ready.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2
@@ -1030,6 +1517,15 @@ class Assignment(proto.Message):
     enable_gemini_in_bigquery: bool = proto.Field(
         proto.BOOL,
         number=10,
+    )
+    scheduling_policy: "SchedulingPolicy" = proto.Field(
+        proto.MESSAGE,
+        number=11,
+        message="SchedulingPolicy",
+    )
+    principal: str = proto.Field(
+        proto.STRING,
+        number=12,
     )
 
 
@@ -1165,9 +1661,9 @@ class SearchAssignmentsRequest(proto.Message):
 
             Examples:
 
-            -  ``assignee=projects/myproject``
-            -  ``assignee=folders/123``
-            -  ``assignee=organizations/456``
+            - ``assignee=projects/myproject``
+            - ``assignee=folders/123``
+            - ``assignee=organizations/456``
         page_size (int):
             The maximum number of items to return per
             page.
@@ -1210,9 +1706,9 @@ class SearchAllAssignmentsRequest(proto.Message):
 
             Examples:
 
-            -  ``assignee=projects/myproject``
-            -  ``assignee=folders/123``
-            -  ``assignee=organizations/456``
+            - ``assignee=projects/myproject``
+            - ``assignee=folders/123``
+            - ``assignee=organizations/456``
         page_size (int):
             The maximum number of items to return per
             page.
@@ -1366,11 +1862,14 @@ class TableReference(proto.Message):
 
     Attributes:
         project_id (str):
-            The assigned project ID of the project.
+            Optional. The assigned project ID of the
+            project.
         dataset_id (str):
-            The ID of the dataset in the above project.
+            Optional. The ID of the dataset in the above
+            project.
         table_id (str):
-            The ID of the table in the above dataset.
+            Optional. The ID of the table in the above
+            dataset.
     """
 
     project_id: str = proto.Field(
@@ -1392,16 +1891,17 @@ class BiReservation(proto.Message):
 
     Attributes:
         name (str):
-            The resource name of the singleton BI reservation.
-            Reservation names have the form
+            Identifier. The resource name of the singleton BI
+            reservation. Reservation names have the form
             ``projects/{project_id}/locations/{location_id}/biReservation``.
         update_time (google.protobuf.timestamp_pb2.Timestamp):
             Output only. The last update timestamp of a
             reservation.
         size (int):
-            Size of a reservation, in bytes.
+            Optional. Size of a reservation, in bytes.
         preferred_tables (MutableSequence[google.cloud.bigquery_reservation_v1.types.TableReference]):
-            Preferred tables to use BI capacity for.
+            Optional. Preferred tables to use BI capacity
+            for.
     """
 
     name: str = proto.Field(

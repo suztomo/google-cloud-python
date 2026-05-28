@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import functools
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -33,8 +34,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import extended_operation, gapic_v1
@@ -44,7 +45,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.compute_v1 import gapic_version as package_version
 
@@ -62,7 +62,7 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import extended_operation  # type: ignore
+import google.api_core.extended_operation as extended_operation  # type: ignore
 
 from google.cloud.compute_v1.services.reservation_blocks import pagers
 from google.cloud.compute_v1.types import compute
@@ -79,9 +79,7 @@ class ReservationBlocksClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[ReservationBlocksTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[ReservationBlocksTransport]]
     _transport_registry["rest"] = ReservationBlocksRestTransport
 
     def get_transport_class(
@@ -110,7 +108,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
     """The ReservationBlocks API."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -118,7 +116,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -128,6 +126,10 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -147,6 +149,34 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -313,12 +343,8 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = ReservationBlocksClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -326,7 +352,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -358,20 +384,14 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = ReservationBlocksClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -395,7 +415,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -492,7 +512,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -586,18 +606,16 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = ReservationBlocksClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            ReservationBlocksClient._read_environment_variables()
+        )
         self._client_cert_source = ReservationBlocksClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = ReservationBlocksClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -625,8 +643,7 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(ReservationBlocksTransport, transport)
             self._api_endpoint = self._transport.host
@@ -757,8 +774,8 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             reservation (str):
-                The name of the reservation. Name
-                should conform to RFC1035 or be a
+                The name of the reservation.
+                Name should conform to RFC1035 or be a
                 resource ID.
 
                 This corresponds to the ``reservation`` field
@@ -843,6 +860,184 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
         # Done; return the response.
         return response
 
+    def get_iam_policy(
+        self,
+        request: Optional[
+            Union[compute.GetIamPolicyReservationBlockRequest, dict]
+        ] = None,
+        *,
+        project: Optional[str] = None,
+        zone: Optional[str] = None,
+        parent_resource: Optional[str] = None,
+        resource: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> compute.Policy:
+        r"""Gets the access control policy for a resource. May be
+        empty if no such policy or resource exists.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import compute_v1
+
+            def sample_get_iam_policy():
+                # Create a client
+                client = compute_v1.ReservationBlocksClient()
+
+                # Initialize request argument(s)
+                request = compute_v1.GetIamPolicyReservationBlockRequest(
+                    parent_resource="parent_resource_value",
+                    project="project_value",
+                    resource="resource_value",
+                    zone="zone_value",
+                )
+
+                # Make the request
+                response = client.get_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.compute_v1.types.GetIamPolicyReservationBlockRequest, dict]):
+                The request object. A request message for
+                ReservationBlocks.GetIamPolicy. See the
+                method description for details.
+            project (str):
+                Project ID for this request.
+                This corresponds to the ``project`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            zone (str):
+                The name of the zone for this
+                request.
+
+                This corresponds to the ``zone`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            parent_resource (str):
+                Name or id of parent resource of the
+                resource for this request.
+
+                This corresponds to the ``parent_resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource (str):
+                Name or id of the resource for this
+                request.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.compute_v1.types.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [project, zone, parent_resource, resource]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, compute.GetIamPolicyReservationBlockRequest):
+            request = compute.GetIamPolicyReservationBlockRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if project is not None:
+                request.project = project
+            if zone is not None:
+                request.zone = zone
+            if parent_resource is not None:
+                request.parent_resource = parent_resource
+            if resource is not None:
+                request.resource = resource
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.get_iam_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    ("project", request.project),
+                    ("zone", request.zone),
+                    ("parent_resource", request.parent_resource),
+                    ("resource", request.resource),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
     def list(
         self,
         request: Optional[Union[compute.ListReservationBlocksRequest, dict]] = None,
@@ -904,8 +1099,8 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             reservation (str):
-                The name of the reservation. Name
-                should conform to RFC1035 or be a
+                The name of the reservation.
+                Name should conform to RFC1035 or be a
                 resource ID.
 
                 This corresponds to the ``reservation`` field
@@ -1062,8 +1257,8 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             reservation (str):
-                The name of the reservation. Name
-                should conform to RFC1035 or be a
+                The name of the reservation.
+                Name should conform to RFC1035 or be a
                 resource ID.
 
                 This corresponds to the ``reservation`` field
@@ -1232,8 +1427,8 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             reservation (str):
-                The name of the reservation. Name
-                should conform to RFC1035 or be a
+                The name of the reservation.
+                Name should conform to RFC1035 or be a
                 resource ID.
 
                 This corresponds to the ``reservation`` field
@@ -1356,6 +1551,368 @@ class ReservationBlocksClient(metaclass=ReservationBlocksClientMeta):
                 return self._extended_operation.http_error_status_code
 
         response = _CustomOperation.make(get_operation, cancel_operation, response)
+
+        # Done; return the response.
+        return response
+
+    def set_iam_policy(
+        self,
+        request: Optional[
+            Union[compute.SetIamPolicyReservationBlockRequest, dict]
+        ] = None,
+        *,
+        project: Optional[str] = None,
+        zone: Optional[str] = None,
+        parent_resource: Optional[str] = None,
+        resource: Optional[str] = None,
+        zone_set_nested_policy_request_resource: Optional[
+            compute.ZoneSetNestedPolicyRequest
+        ] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> compute.Policy:
+        r"""Sets the access control policy on the specified
+        resource. Replaces any existing policy.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import compute_v1
+
+            def sample_set_iam_policy():
+                # Create a client
+                client = compute_v1.ReservationBlocksClient()
+
+                # Initialize request argument(s)
+                request = compute_v1.SetIamPolicyReservationBlockRequest(
+                    parent_resource="parent_resource_value",
+                    project="project_value",
+                    resource="resource_value",
+                    zone="zone_value",
+                )
+
+                # Make the request
+                response = client.set_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.compute_v1.types.SetIamPolicyReservationBlockRequest, dict]):
+                The request object. A request message for
+                ReservationBlocks.SetIamPolicy. See the
+                method description for details.
+            project (str):
+                Project ID for this request.
+                This corresponds to the ``project`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            zone (str):
+                The name of the zone for this
+                request.
+
+                This corresponds to the ``zone`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            parent_resource (str):
+                Name or id of parent resource of the
+                resource for this request.
+
+                This corresponds to the ``parent_resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource (str):
+                Name or id of the resource for this
+                request.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            zone_set_nested_policy_request_resource (google.cloud.compute_v1.types.ZoneSetNestedPolicyRequest):
+                The body resource for this request
+                This corresponds to the ``zone_set_nested_policy_request_resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.compute_v1.types.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time < timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [
+            project,
+            zone,
+            parent_resource,
+            resource,
+            zone_set_nested_policy_request_resource,
+        ]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, compute.SetIamPolicyReservationBlockRequest):
+            request = compute.SetIamPolicyReservationBlockRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if project is not None:
+                request.project = project
+            if zone is not None:
+                request.zone = zone
+            if parent_resource is not None:
+                request.parent_resource = parent_resource
+            if resource is not None:
+                request.resource = resource
+            if zone_set_nested_policy_request_resource is not None:
+                request.zone_set_nested_policy_request_resource = (
+                    zone_set_nested_policy_request_resource
+                )
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.set_iam_policy]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    ("project", request.project),
+                    ("zone", request.zone),
+                    ("parent_resource", request.parent_resource),
+                    ("resource", request.resource),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def test_iam_permissions(
+        self,
+        request: Optional[
+            Union[compute.TestIamPermissionsReservationBlockRequest, dict]
+        ] = None,
+        *,
+        project: Optional[str] = None,
+        zone: Optional[str] = None,
+        parent_resource: Optional[str] = None,
+        resource: Optional[str] = None,
+        test_permissions_request_resource: Optional[
+            compute.TestPermissionsRequest
+        ] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> compute.TestPermissionsResponse:
+        r"""Returns permissions that a caller has on the
+        specified resource.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import compute_v1
+
+            def sample_test_iam_permissions():
+                # Create a client
+                client = compute_v1.ReservationBlocksClient()
+
+                # Initialize request argument(s)
+                request = compute_v1.TestIamPermissionsReservationBlockRequest(
+                    parent_resource="parent_resource_value",
+                    project="project_value",
+                    resource="resource_value",
+                    zone="zone_value",
+                )
+
+                # Make the request
+                response = client.test_iam_permissions(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Union[google.cloud.compute_v1.types.TestIamPermissionsReservationBlockRequest, dict]):
+                The request object. A request message for
+                ReservationBlocks.TestIamPermissions.
+                See the method description for details.
+            project (str):
+                Project ID for this request.
+                This corresponds to the ``project`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            zone (str):
+                The name of the zone for this
+                request.
+
+                This corresponds to the ``zone`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            parent_resource (str):
+                Name or id of parent resource of the
+                resource for this request.
+
+                This corresponds to the ``parent_resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            resource (str):
+                Name or id of the resource for this
+                request.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+                The body resource for this request
+                This corresponds to the ``test_permissions_request_resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.compute_v1.types.TestPermissionsResponse:
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [
+            project,
+            zone,
+            parent_resource,
+            resource,
+            test_permissions_request_resource,
+        ]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, compute.TestIamPermissionsReservationBlockRequest):
+            request = compute.TestIamPermissionsReservationBlockRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if project is not None:
+                request.project = project
+            if zone is not None:
+                request.zone = zone
+            if parent_resource is not None:
+                request.parent_resource = parent_resource
+            if resource is not None:
+                request.resource = resource
+            if test_permissions_request_resource is not None:
+                request.test_permissions_request_resource = (
+                    test_permissions_request_resource
+                )
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[self._transport.test_iam_permissions]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    ("project", request.project),
+                    ("zone", request.zone),
+                    ("parent_resource", request.parent_resource),
+                    ("resource", request.resource),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
 
         # Done; return the response.
         return response

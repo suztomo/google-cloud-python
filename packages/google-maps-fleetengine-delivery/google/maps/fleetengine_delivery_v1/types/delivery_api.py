@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.geo.type.types import viewport as ggt_viewport
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
+from google.geo.type.types import viewport as ggt_viewport
 
 from google.maps.fleetengine_delivery_v1.types import (
     delivery_vehicles as mfd_delivery_vehicles,
@@ -64,20 +64,20 @@ class CreateDeliveryVehicleRequest(proto.Message):
             Required. The Delivery Vehicle ID must be unique and subject
             to the following restrictions:
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         delivery_vehicle (google.maps.fleetengine_delivery_v1.types.DeliveryVehicle):
             Required. The ``DeliveryVehicle`` entity to create. When
             creating a new delivery vehicle, you may set the following
             optional fields:
 
-            -  type
-            -  last_location
-            -  attributes
+            - type
+            - last_location
+            - attributes
 
             Note: The DeliveryVehicle's ``name`` field is ignored. All
             other DeliveryVehicle fields must not be set; otherwise, an
@@ -261,12 +261,12 @@ class ListDeliveryVehiclesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    delivery_vehicles: MutableSequence[
-        mfd_delivery_vehicles.DeliveryVehicle
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=mfd_delivery_vehicles.DeliveryVehicle,
+    delivery_vehicles: MutableSequence[mfd_delivery_vehicles.DeliveryVehicle] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=mfd_delivery_vehicles.DeliveryVehicle,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -385,29 +385,29 @@ class CreateTaskRequest(proto.Message):
             the same ``tracking_id``. Task IDs are subject to the
             following restrictions:
 
-            -  Must be a valid Unicode string.
-            -  Limited to a maximum length of 64 characters.
-            -  Normalized according to [Unicode Normalization Form C]
-               (http://www.unicode.org/reports/tr15/).
-            -  May not contain any of the following ASCII characters:
-               '/', ':', '?', ',', or '#'.
+            - Must be a valid Unicode string.
+            - Limited to a maximum length of 64 characters.
+            - Normalized according to [Unicode Normalization Form C]
+              (http://www.unicode.org/reports/tr15/).
+            - May not contain any of the following ASCII characters:
+              '/', ':', '?', ',', or '#'.
         task (google.maps.fleetengine_delivery_v1.types.Task):
             Required. The Task entity to create. When creating a Task,
             the following fields are required:
 
-            -  ``type``
-            -  ``state`` (must be set to ``OPEN``)
-            -  ``tracking_id`` (must not be set for ``UNAVAILABLE`` or
-               ``SCHEDULED_STOP`` tasks, but required for all other task
-               types)
-            -  ``planned_location`` (optional for ``UNAVAILABLE`` tasks)
-            -  ``task_duration``
+            - ``type``
+            - ``state`` (must be set to ``OPEN``)
+            - ``tracking_id`` (must not be set for ``UNAVAILABLE`` or
+              ``SCHEDULED_STOP`` tasks, but required for all other task
+              types)
+            - ``planned_location`` (optional for ``UNAVAILABLE`` tasks)
+            - ``task_duration``
 
             The following fields can be optionally set:
 
-            -  ``target_time_window``
-            -  ``task_tracking_view_config``
-            -  ``attributes``
+            - ``target_time_window``
+            - ``task_tracking_view_config``
+            - ``attributes``
 
             Note: The Task's ``name`` field is ignored. All other Task
             fields must not be set; otherwise, an error is returned.
@@ -495,11 +495,11 @@ class UpdateTaskRequest(proto.Message):
             fields are maintained by Fleet Engine. Do not update them
             using ``Task.update``.
 
-            -  ``last_location``.
-            -  ``last_location_snappable``.
-            -  ``name``.
-            -  ``remaining_vehicle_journey_segments``.
-            -  ``task_outcome_location_source``.
+            - ``last_location``.
+            - ``last_location_snappable``.
+            - ``name``.
+            - ``remaining_vehicle_journey_segments``.
+            - ``task_outcome_location_source``.
 
             Note: You cannot change the value of ``task_outcome`` once
             you set it.

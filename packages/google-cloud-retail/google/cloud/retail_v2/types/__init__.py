@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ from .common import (
     ColorInfo,
     Condition,
     CustomAttribute,
+    DoubleList,
     FulfillmentInfo,
     Image,
     Interval,
@@ -52,10 +53,16 @@ from .common import (
     Rule,
     SearchSolutionUseCase,
     SolutionType,
+    StringList,
     UserInfo,
 )
-from .completion_service import CompleteQueryRequest, CompleteQueryResponse
-from .control import Control
+from .completion_service import (
+    CompleteQueryRequest,
+    CompleteQueryResponse,
+)
+from .control import (
+    Control,
+)
 from .control_service import (
     CreateControlRequest,
     DeleteControlRequest,
@@ -63,6 +70,10 @@ from .control_service import (
     ListControlsRequest,
     ListControlsResponse,
     UpdateControlRequest,
+)
+from .conversational_search_service import (
+    ConversationalSearchRequest,
+    ConversationalSearchResponse,
 )
 from .export_config import (
     BigQueryOutputResult,
@@ -105,7 +116,9 @@ from .import_config import (
     UserEventInlineSource,
     UserEventInputConfig,
 )
-from .model import Model
+from .model import (
+    Model,
+)
 from .model_service import (
     CreateModelMetadata,
     CreateModelRequest,
@@ -120,8 +133,13 @@ from .model_service import (
     TuneModelResponse,
     UpdateModelRequest,
 )
-from .prediction_service import PredictRequest, PredictResponse
-from .product import Product
+from .prediction_service import (
+    PredictRequest,
+    PredictResponse,
+)
+from .product import (
+    Product,
+)
 from .product_service import (
     AddFulfillmentPlacesMetadata,
     AddFulfillmentPlacesRequest,
@@ -145,7 +163,9 @@ from .product_service import (
     SetInventoryResponse,
     UpdateProductRequest,
 )
-from .promotion import Promotion
+from .promotion import (
+    Promotion,
+)
 from .purge_config import (
     PurgeMetadata,
     PurgeProductsMetadata,
@@ -153,6 +173,10 @@ from .purge_config import (
     PurgeProductsResponse,
     PurgeUserEventsRequest,
     PurgeUserEventsResponse,
+)
+from .safety import (
+    HarmCategory,
+    SafetySetting,
 )
 from .search_service import (
     ExperimentInfo,
@@ -162,7 +186,9 @@ from .search_service import (
     SearchResponse,
     Tile,
 )
-from .serving_config import ServingConfig
+from .serving_config import (
+    ServingConfig,
+)
 from .serving_config_service import (
     AddControlRequest,
     CreateServingConfigRequest,
@@ -173,7 +199,12 @@ from .serving_config_service import (
     RemoveControlRequest,
     UpdateServingConfigRequest,
 )
-from .user_event import CompletionDetail, ProductDetail, PurchaseTransaction, UserEvent
+from .user_event import (
+    CompletionDetail,
+    ProductDetail,
+    PurchaseTransaction,
+    UserEvent,
+)
 from .user_event_service import (
     CollectUserEventRequest,
     RejoinUserEventsMetadata,
@@ -205,6 +236,7 @@ __all__ = (
     "ColorInfo",
     "Condition",
     "CustomAttribute",
+    "DoubleList",
     "FulfillmentInfo",
     "Image",
     "Interval",
@@ -213,6 +245,7 @@ __all__ = (
     "PriceInfo",
     "Rating",
     "Rule",
+    "StringList",
     "UserInfo",
     "AttributeConfigLevel",
     "RecommendationsFilteringOption",
@@ -227,6 +260,8 @@ __all__ = (
     "ListControlsRequest",
     "ListControlsResponse",
     "UpdateControlRequest",
+    "ConversationalSearchRequest",
+    "ConversationalSearchResponse",
     "BigQueryOutputResult",
     "ExportAnalyticsMetricsRequest",
     "ExportAnalyticsMetricsResponse",
@@ -304,6 +339,8 @@ __all__ = (
     "PurgeProductsResponse",
     "PurgeUserEventsRequest",
     "PurgeUserEventsResponse",
+    "SafetySetting",
+    "HarmCategory",
     "ExperimentInfo",
     "ProductAttributeInterval",
     "ProductAttributeValue",

@@ -1,5 +1,64 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-os-config/#history
+
+## [1.24.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.23.0...google-cloud-os-config-v1.24.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [1.23.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.22.0...google-cloud-os-config-v1.23.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [1.22.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.21.0...google-cloud-os-config-v1.22.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [1.21.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.20.2...google-cloud-os-config-v1.21.0) (2025-08-10)
+
+
+### Features
+
+* Add highest_upgradable_cve_severity field to Vulnerability report ([e8feca7](https://github.com/googleapis/google-cloud-python/commit/e8feca76cfe1a2eaf7e96ff2341715545d15b5a8))
+
+
+### Documentation
+
+* A comment for field `filter` in message `.google.cloud.osconfig.v1.ListVulnerabilityReportsRequest` is changed ([e8feca7](https://github.com/googleapis/google-cloud-python/commit/e8feca76cfe1a2eaf7e96ff2341715545d15b5a8))
+* A comment for field `update_time` in message `.google.cloud.osconfig.v1.VulnerabilityReport` is changed ([e8feca7](https://github.com/googleapis/google-cloud-python/commit/e8feca76cfe1a2eaf7e96ff2341715545d15b5a8))
+
+## [1.20.2](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.20.1...google-cloud-os-config-v1.20.2) (2025-06-11)
+
+
+### Documentation
+
+* Update import statement example in README ([dfc2cd6](https://github.com/googleapis/google-cloud-python/commit/dfc2cd6be6422baa45dcebc5ff6e7fc846bf5c7d))
+
 ## [1.20.1](https://github.com/googleapis/google-cloud-python/compare/google-cloud-os-config-v1.20.0...google-cloud-os-config-v1.20.1) (2025-03-15)
 
 

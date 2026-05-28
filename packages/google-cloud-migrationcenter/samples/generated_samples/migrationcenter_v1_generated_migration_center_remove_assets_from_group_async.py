@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ async def sample_remove_assets_from_group():
 
     # Initialize request argument(s)
     assets = migrationcenter_v1.AssetList()
-    assets.asset_ids = ['asset_ids_value1', 'asset_ids_value2']
+    assets.asset_ids = ["asset_ids_value1", "asset_ids_value2"]
 
     request = migrationcenter_v1.RemoveAssetsFromGroupRequest(
         group="group_value",
@@ -48,13 +48,14 @@ async def sample_remove_assets_from_group():
     )
 
     # Make the request
-    operation = client.remove_assets_from_group(request=request)
+    operation = await client.remove_assets_from_group(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END migrationcenter_v1_generated_MigrationCenter_RemoveAssetsFromGroup_async]

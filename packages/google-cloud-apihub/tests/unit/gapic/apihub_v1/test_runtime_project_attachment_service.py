@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,26 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import os
-
-# try/except added for compatibility with python < 3.8
-try:
-    from unittest import mock
-    from unittest.mock import AsyncMock  # pragma: NO COVER
-except ImportError:  # pragma: NO COVER
-    import mock
-
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+import os
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+from unittest import mock
+from unittest.mock import AsyncMock
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,19 +37,25 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.apihub_v1.services.runtime_project_attachment_service import (
+    RuntimeProjectAttachmentServiceAsyncClient,
     RuntimeProjectAttachmentServiceClient,
     pagers,
     transports,
@@ -116,6 +116,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert (
         RuntimeProjectAttachmentServiceClient._get_default_mtls_endpoint(None) is None
@@ -146,6 +147,12 @@ def test__get_default_mtls_endpoint():
         RuntimeProjectAttachmentServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
     )
+    assert (
+        RuntimeProjectAttachmentServiceClient._get_default_mtls_endpoint(
+            custom_endpoint
+        )
+        == custom_endpoint
+    )
 
 
 def test__read_environment_variables():
@@ -172,12 +179,22 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            RuntimeProjectAttachmentServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                RuntimeProjectAttachmentServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert (
+                RuntimeProjectAttachmentServiceClient._read_environment_variables()
+                == (
+                    False,
+                    "auto",
+                    None,
+                )
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert RuntimeProjectAttachmentServiceClient._read_environment_variables() == (
@@ -214,6 +231,138 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is True
+            )
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert (
+                RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                is False
+            )
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert (
+                    RuntimeProjectAttachmentServiceClient._use_client_cert_effective()
+                    is False
+                )
 
 
 def test__get_client_cert_source():
@@ -262,6 +411,11 @@ def test__get_client_cert_source():
     RuntimeProjectAttachmentServiceClient,
     "_DEFAULT_ENDPOINT_TEMPLATE",
     modify_default_endpoint_template(RuntimeProjectAttachmentServiceClient),
+)
+@mock.patch.object(
+    RuntimeProjectAttachmentServiceAsyncClient,
+    "_DEFAULT_ENDPOINT_TEMPLATE",
+    modify_default_endpoint_template(RuntimeProjectAttachmentServiceAsyncClient),
 )
 def test__get_api_endpoint():
     api_override = "foo.com"
@@ -404,6 +558,8 @@ def test__add_cred_info_for_auth_errors_no_get_cred_info(error_code):
 @pytest.mark.parametrize(
     "client_class,transport_name",
     [
+        (RuntimeProjectAttachmentServiceClient, "grpc"),
+        (RuntimeProjectAttachmentServiceAsyncClient, "grpc_asyncio"),
         (RuntimeProjectAttachmentServiceClient, "rest"),
     ],
 )
@@ -430,6 +586,11 @@ def test_runtime_project_attachment_service_client_from_service_account_info(
 @pytest.mark.parametrize(
     "transport_class,transport_name",
     [
+        (transports.RuntimeProjectAttachmentServiceGrpcTransport, "grpc"),
+        (
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+        ),
         (transports.RuntimeProjectAttachmentServiceRestTransport, "rest"),
     ],
 )
@@ -454,6 +615,8 @@ def test_runtime_project_attachment_service_client_service_account_always_use_jw
 @pytest.mark.parametrize(
     "client_class,transport_name",
     [
+        (RuntimeProjectAttachmentServiceClient, "grpc"),
+        (RuntimeProjectAttachmentServiceAsyncClient, "grpc_asyncio"),
         (RuntimeProjectAttachmentServiceClient, "rest"),
     ],
 )
@@ -487,17 +650,28 @@ def test_runtime_project_attachment_service_client_from_service_account_file(
 def test_runtime_project_attachment_service_client_get_transport_class():
     transport = RuntimeProjectAttachmentServiceClient.get_transport_class()
     available_transports = [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
         transports.RuntimeProjectAttachmentServiceRestTransport,
     ]
     assert transport in available_transports
 
-    transport = RuntimeProjectAttachmentServiceClient.get_transport_class("rest")
-    assert transport == transports.RuntimeProjectAttachmentServiceRestTransport
+    transport = RuntimeProjectAttachmentServiceClient.get_transport_class("grpc")
+    assert transport == transports.RuntimeProjectAttachmentServiceGrpcTransport
 
 
 @pytest.mark.parametrize(
     "client_class,transport_class,transport_name",
     [
+        (
+            RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+        ),
         (
             RuntimeProjectAttachmentServiceClient,
             transports.RuntimeProjectAttachmentServiceRestTransport,
@@ -509,6 +683,11 @@ def test_runtime_project_attachment_service_client_get_transport_class():
     RuntimeProjectAttachmentServiceClient,
     "_DEFAULT_ENDPOINT_TEMPLATE",
     modify_default_endpoint_template(RuntimeProjectAttachmentServiceClient),
+)
+@mock.patch.object(
+    RuntimeProjectAttachmentServiceAsyncClient,
+    "_DEFAULT_ENDPOINT_TEMPLATE",
+    modify_default_endpoint_template(RuntimeProjectAttachmentServiceAsyncClient),
 )
 def test_runtime_project_attachment_service_client_client_options(
     client_class, transport_class, transport_name
@@ -593,17 +772,6 @@ def test_runtime_project_attachment_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -649,6 +817,30 @@ def test_runtime_project_attachment_service_client_client_options(
     [
         (
             RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+            "true",
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+            "true",
+        ),
+        (
+            RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+            "false",
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+            "false",
+        ),
+        (
+            RuntimeProjectAttachmentServiceClient,
             transports.RuntimeProjectAttachmentServiceRestTransport,
             "rest",
             "true",
@@ -665,6 +857,11 @@ def test_runtime_project_attachment_service_client_client_options(
     RuntimeProjectAttachmentServiceClient,
     "_DEFAULT_ENDPOINT_TEMPLATE",
     modify_default_endpoint_template(RuntimeProjectAttachmentServiceClient),
+)
+@mock.patch.object(
+    RuntimeProjectAttachmentServiceAsyncClient,
+    "_DEFAULT_ENDPOINT_TEMPLATE",
+    modify_default_endpoint_template(RuntimeProjectAttachmentServiceAsyncClient),
 )
 @mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "auto"})
 def test_runtime_project_attachment_service_client_mtls_env_auto(
@@ -769,11 +966,19 @@ def test_runtime_project_attachment_service_client_mtls_env_auto(
                 )
 
 
-@pytest.mark.parametrize("client_class", [RuntimeProjectAttachmentServiceClient])
+@pytest.mark.parametrize(
+    "client_class",
+    [RuntimeProjectAttachmentServiceClient, RuntimeProjectAttachmentServiceAsyncClient],
+)
 @mock.patch.object(
     RuntimeProjectAttachmentServiceClient,
     "DEFAULT_ENDPOINT",
     modify_default_endpoint(RuntimeProjectAttachmentServiceClient),
+)
+@mock.patch.object(
+    RuntimeProjectAttachmentServiceAsyncClient,
+    "DEFAULT_ENDPOINT",
+    modify_default_endpoint(RuntimeProjectAttachmentServiceAsyncClient),
 )
 def test_runtime_project_attachment_service_client_get_mtls_endpoint_and_cert_source(
     client_class,
@@ -804,6 +1009,117 @@ def test_runtime_project_attachment_service_client_get_mtls_endpoint_and_cert_so
         )
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
+
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
 
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
@@ -837,10 +1153,9 @@ def test_runtime_project_attachment_service_client_get_mtls_endpoint_and_cert_so
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -855,24 +1170,20 @@ def test_runtime_project_attachment_service_client_get_mtls_endpoint_and_cert_so
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
         )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
 
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-        )
-
-
-@pytest.mark.parametrize("client_class", [RuntimeProjectAttachmentServiceClient])
+@pytest.mark.parametrize(
+    "client_class",
+    [RuntimeProjectAttachmentServiceClient, RuntimeProjectAttachmentServiceAsyncClient],
+)
 @mock.patch.object(
     RuntimeProjectAttachmentServiceClient,
     "_DEFAULT_ENDPOINT_TEMPLATE",
     modify_default_endpoint_template(RuntimeProjectAttachmentServiceClient),
+)
+@mock.patch.object(
+    RuntimeProjectAttachmentServiceAsyncClient,
+    "_DEFAULT_ENDPOINT_TEMPLATE",
+    modify_default_endpoint_template(RuntimeProjectAttachmentServiceAsyncClient),
 )
 def test_runtime_project_attachment_service_client_client_api_endpoint(client_class):
     mock_client_cert_source = client_cert_source_callback
@@ -956,6 +1267,16 @@ def test_runtime_project_attachment_service_client_client_api_endpoint(client_cl
     [
         (
             RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+        ),
+        (
+            RuntimeProjectAttachmentServiceClient,
             transports.RuntimeProjectAttachmentServiceRestTransport,
             "rest",
         ),
@@ -991,6 +1312,18 @@ def test_runtime_project_attachment_service_client_client_options_scopes(
     [
         (
             RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+            grpc_helpers,
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+            grpc_helpers_async,
+        ),
+        (
+            RuntimeProjectAttachmentServiceClient,
             transports.RuntimeProjectAttachmentServiceRestTransport,
             "rest",
             None,
@@ -1018,6 +1351,2121 @@ def test_runtime_project_attachment_service_client_client_options_credentials_fi
             client_info=transports.base.DEFAULT_CLIENT_INFO,
             always_use_jwt_access=True,
             api_audience=None,
+        )
+
+
+def test_runtime_project_attachment_service_client_client_options_from_dict():
+    with mock.patch(
+        "google.cloud.apihub_v1.services.runtime_project_attachment_service.transports.RuntimeProjectAttachmentServiceGrpcTransport.__init__"
+    ) as grpc_transport:
+        grpc_transport.return_value = None
+        client = RuntimeProjectAttachmentServiceClient(
+            client_options={"api_endpoint": "squid.clam.whelk"}
+        )
+        grpc_transport.assert_called_once_with(
+            credentials=None,
+            credentials_file=None,
+            host="squid.clam.whelk",
+            scopes=None,
+            client_cert_source_for_mtls=None,
+            quota_project_id=None,
+            client_info=transports.base.DEFAULT_CLIENT_INFO,
+            always_use_jwt_access=True,
+            api_audience=None,
+        )
+
+
+@pytest.mark.parametrize(
+    "client_class,transport_class,transport_name,grpc_helpers",
+    [
+        (
+            RuntimeProjectAttachmentServiceClient,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+            "grpc",
+            grpc_helpers,
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            "grpc_asyncio",
+            grpc_helpers_async,
+        ),
+    ],
+)
+def test_runtime_project_attachment_service_client_create_channel_credentials_file(
+    client_class, transport_class, transport_name, grpc_helpers
+):
+    # Check the case credentials file is provided.
+    options = client_options.ClientOptions(credentials_file="credentials.json")
+
+    with mock.patch.object(transport_class, "__init__") as patched:
+        patched.return_value = None
+        client = client_class(client_options=options, transport=transport_name)
+        patched.assert_called_once_with(
+            credentials=None,
+            credentials_file="credentials.json",
+            host=client._DEFAULT_ENDPOINT_TEMPLATE.format(
+                UNIVERSE_DOMAIN=client._DEFAULT_UNIVERSE
+            ),
+            scopes=None,
+            client_cert_source_for_mtls=None,
+            quota_project_id=None,
+            client_info=transports.base.DEFAULT_CLIENT_INFO,
+            always_use_jwt_access=True,
+            api_audience=None,
+        )
+
+    # test that the credentials from file are saved and used as the credentials.
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
+        creds = ga_credentials.AnonymousCredentials()
+        file_creds = ga_credentials.AnonymousCredentials()
+        load_creds.return_value = (file_creds, None)
+        adc.return_value = (creds, None)
+        client = client_class(client_options=options, transport=transport_name)
+        create_channel.assert_called_with(
+            "apihub.googleapis.com:443",
+            credentials=file_creds,
+            credentials_file=None,
+            quota_project_id=None,
+            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            scopes=None,
+            default_host="apihub.googleapis.com",
+            ssl_credentials=None,
+            options=[
+                ("grpc.max_send_message_length", -1),
+                ("grpc.max_receive_message_length", -1),
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest,
+        dict,
+    ],
+)
+def test_create_runtime_project_attachment(request_type, transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = runtime_project_attachment_service.RuntimeProjectAttachment(
+            name="name_value",
+            runtime_project="runtime_project_value",
+        )
+        response = client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response, runtime_project_attachment_service.RuntimeProjectAttachment
+    )
+    assert response.name == "name_value"
+    assert response.runtime_project == "runtime_project_value"
+
+
+def test_create_runtime_project_attachment_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest(
+        parent="parent_value",
+        runtime_project_attachment_id="runtime_project_attachment_id_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.create_runtime_project_attachment(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[
+            0
+        ] == runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest(
+            parent="parent_value",
+            runtime_project_attachment_id="runtime_project_attachment_id_value",
+        )
+
+
+def test_create_runtime_project_attachment_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.create_runtime_project_attachment
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.create_runtime_project_attachment
+        ] = mock_rpc
+        request = {}
+        client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.create_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.create_runtime_project_attachment
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.create_runtime_project_attachment
+        ] = mock_rpc
+
+        request = {}
+        await client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.create_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_async(
+    transport: str = "grpc_asyncio",
+    request_type=runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest,
+):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value",
+                runtime_project="runtime_project_value",
+            )
+        )
+        response = await client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response, runtime_project_attachment_service.RuntimeProjectAttachment
+    )
+    assert response.name == "name_value"
+    assert response.runtime_project == "runtime_project_value"
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_async_from_dict():
+    await test_create_runtime_project_attachment_async(request_type=dict)
+
+
+def test_create_runtime_project_attachment_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        await client.create_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_create_runtime_project_attachment_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.create_runtime_project_attachment(
+            parent="parent_value",
+            runtime_project_attachment=runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value"
+            ),
+            runtime_project_attachment_id="runtime_project_attachment_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].runtime_project_attachment
+        mock_val = runtime_project_attachment_service.RuntimeProjectAttachment(
+            name="name_value"
+        )
+        assert arg == mock_val
+        arg = args[0].runtime_project_attachment_id
+        mock_val = "runtime_project_attachment_id_value"
+        assert arg == mock_val
+
+
+def test_create_runtime_project_attachment_flattened_error():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.create_runtime_project_attachment(
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest(),
+            parent="parent_value",
+            runtime_project_attachment=runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value"
+            ),
+            runtime_project_attachment_id="runtime_project_attachment_id_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.create_runtime_project_attachment(
+            parent="parent_value",
+            runtime_project_attachment=runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value"
+            ),
+            runtime_project_attachment_id="runtime_project_attachment_id_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+        arg = args[0].runtime_project_attachment
+        mock_val = runtime_project_attachment_service.RuntimeProjectAttachment(
+            name="name_value"
+        )
+        assert arg == mock_val
+        arg = args[0].runtime_project_attachment_id
+        mock_val = "runtime_project_attachment_id_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_flattened_error_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.create_runtime_project_attachment(
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest(),
+            parent="parent_value",
+            runtime_project_attachment=runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value"
+            ),
+            runtime_project_attachment_id="runtime_project_attachment_id_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest,
+        dict,
+    ],
+)
+def test_get_runtime_project_attachment(request_type, transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = runtime_project_attachment_service.RuntimeProjectAttachment(
+            name="name_value",
+            runtime_project="runtime_project_value",
+        )
+        response = client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response, runtime_project_attachment_service.RuntimeProjectAttachment
+    )
+    assert response.name == "name_value"
+    assert response.runtime_project == "runtime_project_value"
+
+
+def test_get_runtime_project_attachment_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.get_runtime_project_attachment(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[
+            0
+        ] == runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest(
+            name="name_value",
+        )
+
+
+def test_get_runtime_project_attachment_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.get_runtime_project_attachment
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.get_runtime_project_attachment
+        ] = mock_rpc
+        request = {}
+        client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.get_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.get_runtime_project_attachment
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.get_runtime_project_attachment
+        ] = mock_rpc
+
+        request = {}
+        await client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.get_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_async(
+    transport: str = "grpc_asyncio",
+    request_type=runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest,
+):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value",
+                runtime_project="runtime_project_value",
+            )
+        )
+        response = await client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response, runtime_project_attachment_service.RuntimeProjectAttachment
+    )
+    assert response.name == "name_value"
+    assert response.runtime_project == "runtime_project_value"
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_async_from_dict():
+    await test_get_runtime_project_attachment_async(request_type=dict)
+
+
+def test_get_runtime_project_attachment_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        await client.get_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_get_runtime_project_attachment_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.get_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_get_runtime_project_attachment_flattened_error():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.get_runtime_project_attachment(
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.get_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_flattened_error_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.get_runtime_project_attachment(
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest,
+        dict,
+    ],
+)
+def test_list_runtime_project_attachments(request_type, transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                next_page_token="next_page_token_value",
+            )
+        )
+        response = client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListRuntimeProjectAttachmentsPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+def test_list_runtime_project_attachments_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest(
+        parent="parent_value",
+        page_token="page_token_value",
+        filter="filter_value",
+        order_by="order_by_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.list_runtime_project_attachments(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[
+            0
+        ] == runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest(
+            parent="parent_value",
+            page_token="page_token_value",
+            filter="filter_value",
+            order_by="order_by_value",
+        )
+
+
+def test_list_runtime_project_attachments_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.list_runtime_project_attachments
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.list_runtime_project_attachments
+        ] = mock_rpc
+        request = {}
+        client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.list_runtime_project_attachments(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.list_runtime_project_attachments
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.list_runtime_project_attachments
+        ] = mock_rpc
+
+        request = {}
+        await client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.list_runtime_project_attachments(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_async(
+    transport: str = "grpc_asyncio",
+    request_type=runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest,
+):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                next_page_token="next_page_token_value",
+            )
+        )
+        response = await client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, pagers.ListRuntimeProjectAttachmentsAsyncPager)
+    assert response.next_page_token == "next_page_token_value"
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_async_from_dict():
+    await test_list_runtime_project_attachments_async(request_type=dict)
+
+
+def test_list_runtime_project_attachments_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+        client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+
+    request.parent = "parent_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+        await client.list_runtime_project_attachments(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "parent=parent_value",
+    ) in kw["metadata"]
+
+
+def test_list_runtime_project_attachments_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.list_runtime_project_attachments(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+def test_list_runtime_project_attachments_flattened_error():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.list_runtime_project_attachments(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest(),
+            parent="parent_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.list_runtime_project_attachments(
+            parent="parent_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].parent
+        mock_val = "parent_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_flattened_error_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.list_runtime_project_attachments(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest(),
+            parent="parent_value",
+        )
+
+
+def test_list_runtime_project_attachments_pager(transport_name: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="abc",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[],
+                next_page_token="def",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="ghi",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+            ),
+            RuntimeError,
+        )
+
+        expected_metadata = ()
+        retry = retries.Retry()
+        timeout = 5
+        expected_metadata = tuple(expected_metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", ""),)),
+        )
+        pager = client.list_runtime_project_attachments(
+            request={}, retry=retry, timeout=timeout
+        )
+
+        assert pager._metadata == expected_metadata
+        assert pager._retry == retry
+        assert pager._timeout == timeout
+
+        results = list(pager)
+        assert len(results) == 6
+        assert all(
+            isinstance(i, runtime_project_attachment_service.RuntimeProjectAttachment)
+            for i in results
+        )
+
+
+def test_list_runtime_project_attachments_pages(transport_name: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport_name,
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="abc",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[],
+                next_page_token="def",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="ghi",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = list(client.list_runtime_project_attachments(request={}).pages)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_async_pager():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="abc",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[],
+                next_page_token="def",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="ghi",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+            ),
+            RuntimeError,
+        )
+        async_pager = await client.list_runtime_project_attachments(
+            request={},
+        )
+        assert async_pager.next_page_token == "abc"
+        responses = []
+        async for response in async_pager:  # pragma: no branch
+            responses.append(response)
+
+        assert len(responses) == 6
+        assert all(
+            isinstance(i, runtime_project_attachment_service.RuntimeProjectAttachment)
+            for i in responses
+        )
+
+
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_async_pages():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments),
+        "__call__",
+        new_callable=mock.AsyncMock,
+    ) as call:
+        # Set the response to a series of pages.
+        call.side_effect = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="abc",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[],
+                next_page_token="def",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+                next_page_token="ghi",
+            ),
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                runtime_project_attachments=[
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                    runtime_project_attachment_service.RuntimeProjectAttachment(),
+                ],
+            ),
+            RuntimeError,
+        )
+        pages = []
+        async for page_ in (
+            await client.list_runtime_project_attachments(request={})
+        ).pages:
+            pages.append(page_)
+        for page_, token in zip(pages, ["abc", "def", "ghi", ""]):
+            assert page_.raw_page.next_page_token == token
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest,
+        dict,
+    ],
+)
+def test_delete_runtime_project_attachment(request_type, transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+        response = client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+def test_delete_runtime_project_attachment_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.delete_runtime_project_attachment(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[
+            0
+        ] == runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest(
+            name="name_value",
+        )
+
+
+def test_delete_runtime_project_attachment_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.delete_runtime_project_attachment
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.delete_runtime_project_attachment
+        ] = mock_rpc
+        request = {}
+        client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.delete_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.delete_runtime_project_attachment
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.delete_runtime_project_attachment
+        ] = mock_rpc
+
+        request = {}
+        await client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.delete_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_async(
+    transport: str = "grpc_asyncio",
+    request_type=runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest,
+):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        response = await client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_async_from_dict():
+    await test_delete_runtime_project_attachment_async(request_type=dict)
+
+
+def test_delete_runtime_project_attachment_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = None
+        client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_delete_runtime_project_attachment_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.delete_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_delete_runtime_project_attachment_flattened_error():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.delete_runtime_project_attachment(
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.delete_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_flattened_error_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.delete_runtime_project_attachment(
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest,
+        dict,
+    ],
+)
+def test_lookup_runtime_project_attachment(request_type, transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        response = client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response,
+        runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse,
+    )
+
+
+def test_lookup_runtime_project_attachment_non_empty_request_with_auto_populated_field():
+    # This test is a coverage failsafe to make sure that UUID4 fields are
+    # automatically populated, according to AIP-4235, with non-empty requests.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Populate all string fields in the request which are not UUID4
+    # since we want to check that UUID4 are populated automatically
+    # if they meet the requirements of AIP 4235.
+    request = runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest(
+        name="name_value",
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client.lookup_runtime_project_attachment(request=request)
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        assert args[
+            0
+        ] == runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest(
+            name="name_value",
+        )
+
+
+def test_lookup_runtime_project_attachment_use_cached_wrapped_rpc():
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceClient(
+            credentials=ga_credentials.AnonymousCredentials(),
+            transport="grpc",
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._transport.lookup_runtime_project_attachment
+            in client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.Mock()
+        mock_rpc.return_value.name = (
+            "foo"  # operation_request.operation in compute client(s) expect a string.
+        )
+        client._transport._wrapped_methods[
+            client._transport.lookup_runtime_project_attachment
+        ] = mock_rpc
+        request = {}
+        client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        client.lookup_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_async_use_cached_wrapped_rpc(
+    transport: str = "grpc_asyncio",
+):
+    # Clients should use _prep_wrapped_messages to create cached wrapped rpcs,
+    # instead of constructing them on each call
+    with mock.patch("google.api_core.gapic_v1.method_async.wrap_method") as wrapper_fn:
+        client = RuntimeProjectAttachmentServiceAsyncClient(
+            credentials=async_anonymous_credentials(),
+            transport=transport,
+        )
+
+        # Should wrap all calls on client creation
+        assert wrapper_fn.call_count > 0
+        wrapper_fn.reset_mock()
+
+        # Ensure method has been cached
+        assert (
+            client._client._transport.lookup_runtime_project_attachment
+            in client._client._transport._wrapped_methods
+        )
+
+        # Replace cached wrapped function with mock
+        mock_rpc = mock.AsyncMock()
+        mock_rpc.return_value = mock.Mock()
+        client._client._transport._wrapped_methods[
+            client._client._transport.lookup_runtime_project_attachment
+        ] = mock_rpc
+
+        request = {}
+        await client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert mock_rpc.call_count == 1
+
+        await client.lookup_runtime_project_attachment(request)
+
+        # Establish that a new wrapper was not created for this call
+        assert wrapper_fn.call_count == 0
+        assert mock_rpc.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_async(
+    transport: str = "grpc_asyncio",
+    request_type=runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest,
+):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = request_type()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        response = await client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        request = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+        )
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(
+        response,
+        runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse,
+    )
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_async_from_dict():
+    await test_lookup_runtime_project_attachment_async(request_type=dict)
+
+
+def test_lookup_runtime_project_attachment_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+
+    request.name = "name_value"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        await client.lookup_runtime_project_attachment(request)
+
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=name_value",
+    ) in kw["metadata"]
+
+
+def test_lookup_runtime_project_attachment_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        client.lookup_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+def test_lookup_runtime_project_attachment_flattened_error():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        client.lookup_runtime_project_attachment(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest(),
+            name="name_value",
+        )
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        # Call the method with a truthy value for each flattened field,
+        # using the keyword arguments to the method.
+        response = await client.lookup_runtime_project_attachment(
+            name="name_value",
+        )
+
+        # Establish that the underlying call was made with the expected
+        # request object values.
+        assert len(call.mock_calls)
+        _, args, _ = call.mock_calls[0]
+        arg = args[0].name
+        mock_val = "name_value"
+        assert arg == mock_val
+
+
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_flattened_error_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Attempting to call a method with both a request object and flattened
+    # fields is an error.
+    with pytest.raises(ValueError):
+        await client.lookup_runtime_project_attachment(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest(),
+            name="name_value",
         )
 
 
@@ -1092,9 +3540,9 @@ def test_create_runtime_project_attachment_rest_required_fields(
     )
 
     jsonified_request["parent"] = "parent_value"
-    jsonified_request[
-        "runtimeProjectAttachmentId"
-    ] = "runtime_project_attachment_id_value"
+    jsonified_request["runtimeProjectAttachmentId"] = (
+        "runtime_project_attachment_id_value"
+    )
 
     unset_fields = transport_class(
         credentials=ga_credentials.AnonymousCredentials()
@@ -1162,7 +3610,7 @@ def test_create_runtime_project_attachment_rest_required_fields(
                 ("$alt", "json;enum-encoding=int"),
             ]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_create_runtime_project_attachment_rest_unset_required_fields():
@@ -1372,7 +3820,7 @@ def test_get_runtime_project_attachment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_get_runtime_project_attachment_rest_unset_required_fields():
@@ -1574,7 +4022,7 @@ def test_list_runtime_project_attachments_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_list_runtime_project_attachments_rest_unset_required_fields():
@@ -1843,7 +4291,7 @@ def test_delete_runtime_project_attachment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_delete_runtime_project_attachment_rest_unset_required_fields():
@@ -2034,7 +4482,7 @@ def test_lookup_runtime_project_attachment_rest_required_fields(
 
             expected_params = [("$alt", "json;enum-encoding=int")]
             actual_params = req.call_args.kwargs["params"]
-            assert expected_params == actual_params
+            assert sorted(expected_params) == sorted(actual_params)
 
 
 def test_lookup_runtime_project_attachment_rest_unset_required_fields():
@@ -2114,7 +4562,7 @@ def test_lookup_runtime_project_attachment_rest_flattened_error(
 
 def test_credentials_transport_error():
     # It is an error to provide credentials and a transport instance.
-    transport = transports.RuntimeProjectAttachmentServiceRestTransport(
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
         credentials=ga_credentials.AnonymousCredentials(),
     )
     with pytest.raises(ValueError):
@@ -2124,7 +4572,7 @@ def test_credentials_transport_error():
         )
 
     # It is an error to provide a credentials file and a transport instance.
-    transport = transports.RuntimeProjectAttachmentServiceRestTransport(
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
         credentials=ga_credentials.AnonymousCredentials(),
     )
     with pytest.raises(ValueError):
@@ -2134,7 +4582,7 @@ def test_credentials_transport_error():
         )
 
     # It is an error to provide an api_key and a transport instance.
-    transport = transports.RuntimeProjectAttachmentServiceRestTransport(
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
         credentials=ga_credentials.AnonymousCredentials(),
     )
     options = client_options.ClientOptions()
@@ -2154,7 +4602,7 @@ def test_credentials_transport_error():
         )
 
     # It is an error to provide scopes and a transport instance.
-    transport = transports.RuntimeProjectAttachmentServiceRestTransport(
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
         credentials=ga_credentials.AnonymousCredentials(),
     )
     with pytest.raises(ValueError):
@@ -2166,16 +4614,33 @@ def test_credentials_transport_error():
 
 def test_transport_instance():
     # A client may be instantiated with a custom transport instance.
-    transport = transports.RuntimeProjectAttachmentServiceRestTransport(
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
         credentials=ga_credentials.AnonymousCredentials(),
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
     assert client.transport is transport
 
 
+def test_transport_get_channel():
+    # A client may be instantiated with a custom transport instance.
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    channel = transport.grpc_channel
+    assert channel
+
+    transport = transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    channel = transport.grpc_channel
+    assert channel
+
+
 @pytest.mark.parametrize(
     "transport_class",
     [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
         transports.RuntimeProjectAttachmentServiceRestTransport,
     ],
 )
@@ -2185,6 +4650,318 @@ def test_transport_adc(transport_class):
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport_class()
         adc.assert_called_once()
+
+
+def test_transport_kind_grpc():
+    transport = RuntimeProjectAttachmentServiceClient.get_transport_class("grpc")(
+        credentials=ga_credentials.AnonymousCredentials()
+    )
+    assert transport.kind == "grpc"
+
+
+def test_initialize_client_w_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="grpc"
+    )
+    assert client is not None
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_create_runtime_project_attachment_empty_call_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        client.create_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_get_runtime_project_attachment_empty_call_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.RuntimeProjectAttachment()
+        )
+        client.get_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_list_runtime_project_attachments_empty_call_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse()
+        )
+        client.list_runtime_project_attachments(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_delete_runtime_project_attachment_empty_call_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = None
+        client.delete_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+def test_lookup_runtime_project_attachment_empty_call_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport="grpc",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        call.return_value = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        client.lookup_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+def test_transport_kind_grpc_asyncio():
+    transport = RuntimeProjectAttachmentServiceAsyncClient.get_transport_class(
+        "grpc_asyncio"
+    )(credentials=async_anonymous_credentials())
+    assert transport.kind == "grpc_asyncio"
+
+
+def test_initialize_client_w_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(), transport="grpc_asyncio"
+    )
+    assert client is not None
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_create_runtime_project_attachment_empty_call_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.create_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value",
+                runtime_project="runtime_project_value",
+            )
+        )
+        await client.create_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.CreateRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_get_runtime_project_attachment_empty_call_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.get_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.RuntimeProjectAttachment(
+                name="name_value",
+                runtime_project="runtime_project_value",
+            )
+        )
+        await client.get_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.GetRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_list_runtime_project_attachments_empty_call_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.list_runtime_project_attachments), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsResponse(
+                next_page_token="next_page_token_value",
+            )
+        )
+        await client.list_runtime_project_attachments(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.ListRuntimeProjectAttachmentsRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_delete_runtime_project_attachment_empty_call_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.delete_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
+
+
+# This test is a coverage failsafe to make sure that totally empty calls,
+# i.e. request == None and no flattened fields passed, work.
+@pytest.mark.asyncio
+async def test_lookup_runtime_project_attachment_empty_call_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport="grpc_asyncio",
+    )
+
+    # Mock the actual call, and fake the request.
+    with mock.patch.object(
+        type(client.transport.lookup_runtime_project_attachment), "__call__"
+    ) as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentResponse()
+        )
+        await client.lookup_runtime_project_attachment(request=None)
+
+        # Establish that the underlying stub method was called.
+        call.assert_called()
+        _, args, _ = call.mock_calls[0]
+        request_msg = (
+            runtime_project_attachment_service.LookupRuntimeProjectAttachmentRequest()
+        )
+
+        assert args[0] == request_msg
 
 
 def test_transport_kind_rest():
@@ -2205,8 +4982,9 @@ def test_create_runtime_project_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -2353,20 +5131,22 @@ def test_create_runtime_project_attachment_rest_interceptors(null_interceptor):
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_create_runtime_project_attachment",
-    ) as post, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_create_runtime_project_attachment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "pre_create_runtime_project_attachment",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_create_runtime_project_attachment",
+        ) as post,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_create_runtime_project_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "pre_create_runtime_project_attachment",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -2432,8 +5212,9 @@ def test_get_runtime_project_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -2504,20 +5285,22 @@ def test_get_runtime_project_attachment_rest_interceptors(null_interceptor):
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_get_runtime_project_attachment",
-    ) as post, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_get_runtime_project_attachment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "pre_get_runtime_project_attachment",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_get_runtime_project_attachment",
+        ) as post,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_get_runtime_project_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "pre_get_runtime_project_attachment",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -2583,8 +5366,9 @@ def test_list_runtime_project_attachments_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -2653,20 +5437,22 @@ def test_list_runtime_project_attachments_rest_interceptors(null_interceptor):
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_list_runtime_project_attachments",
-    ) as post, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_list_runtime_project_attachments_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "pre_list_runtime_project_attachments",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_list_runtime_project_attachments",
+        ) as post,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_list_runtime_project_attachments_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "pre_list_runtime_project_attachments",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -2730,8 +5516,9 @@ def test_delete_runtime_project_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -2790,14 +5577,14 @@ def test_delete_runtime_project_attachment_rest_interceptors(null_interceptor):
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "pre_delete_runtime_project_attachment",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "pre_delete_runtime_project_attachment",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest.pb(
             runtime_project_attachment_service.DeleteRuntimeProjectAttachmentRequest()
@@ -2844,8 +5631,9 @@ def test_lookup_runtime_project_attachment_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -2912,20 +5700,22 @@ def test_lookup_runtime_project_attachment_rest_interceptors(null_interceptor):
     )
     client = RuntimeProjectAttachmentServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_lookup_runtime_project_attachment",
-    ) as post, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "post_lookup_runtime_project_attachment_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.RuntimeProjectAttachmentServiceRestInterceptor,
-        "pre_lookup_runtime_project_attachment",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_lookup_runtime_project_attachment",
+        ) as post,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "post_lookup_runtime_project_attachment_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.RuntimeProjectAttachmentServiceRestInterceptor,
+            "pre_lookup_runtime_project_attachment",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -2987,8 +5777,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3047,8 +5838,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3109,8 +5901,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3171,8 +5964,9 @@ def test_delete_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3233,8 +6027,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3295,8 +6090,9 @@ def test_list_operations_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -3471,6 +6267,17 @@ def test_lookup_runtime_project_attachment_empty_call_rest():
         assert args[0] == request_msg
 
 
+def test_transport_grpc_default():
+    # A client should use the gRPC transport by default.
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    assert isinstance(
+        client.transport,
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+    )
+
+
 def test_runtime_project_attachment_service_base_transport_error():
     # Passing both a credentials object and credentials_file should raise an error
     with pytest.raises(core_exceptions.DuplicateCredentialArgs):
@@ -3523,11 +6330,14 @@ def test_runtime_project_attachment_service_base_transport():
 
 def test_runtime_project_attachment_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.apihub_v1.services.runtime_project_attachment_service.transports.RuntimeProjectAttachmentServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.apihub_v1.services.runtime_project_attachment_service.transports.RuntimeProjectAttachmentServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.RuntimeProjectAttachmentServiceTransport(
@@ -3544,9 +6354,12 @@ def test_runtime_project_attachment_service_base_transport_with_credentials_file
 
 def test_runtime_project_attachment_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.apihub_v1.services.runtime_project_attachment_service.transports.RuntimeProjectAttachmentServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.apihub_v1.services.runtime_project_attachment_service.transports.RuntimeProjectAttachmentServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.RuntimeProjectAttachmentServiceTransport()
@@ -3565,6 +6378,139 @@ def test_runtime_project_attachment_service_auth_adc():
         )
 
 
+@pytest.mark.parametrize(
+    "transport_class",
+    [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+    ],
+)
+def test_runtime_project_attachment_service_transport_auth_adc(transport_class):
+    # If credentials and host are not provided, the transport class should use
+    # ADC credentials.
+    with mock.patch.object(google.auth, "default", autospec=True) as adc:
+        adc.return_value = (ga_credentials.AnonymousCredentials(), None)
+        transport_class(quota_project_id="octopus", scopes=["1", "2"])
+        adc.assert_called_once_with(
+            scopes=["1", "2"],
+            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            quota_project_id="octopus",
+        )
+
+
+@pytest.mark.parametrize(
+    "transport_class",
+    [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+        transports.RuntimeProjectAttachmentServiceRestTransport,
+    ],
+)
+def test_runtime_project_attachment_service_transport_auth_gdch_credentials(
+    transport_class,
+):
+    host = "https://language.com"
+    api_audience_tests = [None, "https://language2.com"]
+    api_audience_expect = [host, "https://language2.com"]
+    for t, e in zip(api_audience_tests, api_audience_expect):
+        with mock.patch.object(google.auth, "default", autospec=True) as adc:
+            gdch_mock = mock.MagicMock()
+            type(gdch_mock).with_gdch_audience = mock.PropertyMock(
+                return_value=gdch_mock
+            )
+            adc.return_value = (gdch_mock, None)
+            transport_class(host=host, api_audience=t)
+            gdch_mock.with_gdch_audience.assert_called_once_with(e)
+
+
+@pytest.mark.parametrize(
+    "transport_class,grpc_helpers",
+    [
+        (transports.RuntimeProjectAttachmentServiceGrpcTransport, grpc_helpers),
+        (
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+            grpc_helpers_async,
+        ),
+    ],
+)
+def test_runtime_project_attachment_service_transport_create_channel(
+    transport_class, grpc_helpers
+):
+    # If credentials and host are not provided, the transport class should use
+    # ADC credentials.
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
+        creds = ga_credentials.AnonymousCredentials()
+        adc.return_value = (creds, None)
+        transport_class(quota_project_id="octopus", scopes=["1", "2"])
+
+        create_channel.assert_called_with(
+            "apihub.googleapis.com:443",
+            credentials=creds,
+            credentials_file=None,
+            quota_project_id="octopus",
+            default_scopes=("https://www.googleapis.com/auth/cloud-platform",),
+            scopes=["1", "2"],
+            default_host="apihub.googleapis.com",
+            ssl_credentials=None,
+            options=[
+                ("grpc.max_send_message_length", -1),
+                ("grpc.max_receive_message_length", -1),
+            ],
+        )
+
+
+@pytest.mark.parametrize(
+    "transport_class",
+    [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+    ],
+)
+def test_runtime_project_attachment_service_grpc_transport_client_cert_source_for_mtls(
+    transport_class,
+):
+    cred = ga_credentials.AnonymousCredentials()
+
+    # Check ssl_channel_credentials is used if provided.
+    with mock.patch.object(transport_class, "create_channel") as mock_create_channel:
+        mock_ssl_channel_creds = mock.Mock()
+        transport_class(
+            host="squid.clam.whelk",
+            credentials=cred,
+            ssl_channel_credentials=mock_ssl_channel_creds,
+        )
+        mock_create_channel.assert_called_once_with(
+            "squid.clam.whelk:443",
+            credentials=cred,
+            credentials_file=None,
+            scopes=None,
+            ssl_credentials=mock_ssl_channel_creds,
+            quota_project_id=None,
+            options=[
+                ("grpc.max_send_message_length", -1),
+                ("grpc.max_receive_message_length", -1),
+            ],
+        )
+
+    # Check if ssl_channel_credentials is not provided, then client_cert_source_for_mtls
+    # is used.
+    with mock.patch.object(transport_class, "create_channel", return_value=mock.Mock()):
+        with mock.patch("grpc.ssl_channel_credentials") as mock_ssl_cred:
+            transport_class(
+                credentials=cred,
+                client_cert_source_for_mtls=client_cert_source_callback,
+            )
+            expected_cert, expected_key = client_cert_source_callback()
+            mock_ssl_cred.assert_called_once_with(
+                certificate_chain=expected_cert, private_key=expected_key
+            )
+
+
 def test_runtime_project_attachment_service_http_transport_client_cert_source_for_mtls():
     cred = ga_credentials.AnonymousCredentials()
     with mock.patch(
@@ -3579,6 +6525,8 @@ def test_runtime_project_attachment_service_http_transport_client_cert_source_fo
 @pytest.mark.parametrize(
     "transport_name",
     [
+        "grpc",
+        "grpc_asyncio",
         "rest",
     ],
 )
@@ -3600,6 +6548,8 @@ def test_runtime_project_attachment_service_host_no_port(transport_name):
 @pytest.mark.parametrize(
     "transport_name",
     [
+        "grpc",
+        "grpc_asyncio",
         "rest",
     ],
 )
@@ -3652,6 +6602,135 @@ def test_runtime_project_attachment_service_client_transport_session_collision(
     session1 = client1.transport.lookup_runtime_project_attachment._session
     session2 = client2.transport.lookup_runtime_project_attachment._session
     assert session1 != session2
+
+
+def test_runtime_project_attachment_service_grpc_transport_channel():
+    channel = grpc.secure_channel("http://localhost/", grpc.local_channel_credentials())
+
+    # Check that channel is used if provided.
+    transport = transports.RuntimeProjectAttachmentServiceGrpcTransport(
+        host="squid.clam.whelk",
+        channel=channel,
+    )
+    assert transport.grpc_channel == channel
+    assert transport._host == "squid.clam.whelk:443"
+    assert transport._ssl_channel_credentials == None
+
+
+def test_runtime_project_attachment_service_grpc_asyncio_transport_channel():
+    channel = aio.secure_channel("http://localhost/", grpc.local_channel_credentials())
+
+    # Check that channel is used if provided.
+    transport = transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport(
+        host="squid.clam.whelk",
+        channel=channel,
+    )
+    assert transport.grpc_channel == channel
+    assert transport._host == "squid.clam.whelk:443"
+    assert transport._ssl_channel_credentials == None
+
+
+# Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
+# removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+@pytest.mark.parametrize(
+    "transport_class",
+    [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+    ],
+)
+def test_runtime_project_attachment_service_transport_channel_mtls_with_client_cert_source(
+    transport_class,
+):
+    with mock.patch(
+        "grpc.ssl_channel_credentials", autospec=True
+    ) as grpc_ssl_channel_cred:
+        with mock.patch.object(
+            transport_class, "create_channel"
+        ) as grpc_create_channel:
+            mock_ssl_cred = mock.Mock()
+            grpc_ssl_channel_cred.return_value = mock_ssl_cred
+
+            mock_grpc_channel = mock.Mock()
+            grpc_create_channel.return_value = mock_grpc_channel
+
+            cred = ga_credentials.AnonymousCredentials()
+            with pytest.warns(DeprecationWarning):
+                with mock.patch.object(google.auth, "default") as adc:
+                    adc.return_value = (cred, None)
+                    transport = transport_class(
+                        host="squid.clam.whelk",
+                        api_mtls_endpoint="mtls.squid.clam.whelk",
+                        client_cert_source=client_cert_source_callback,
+                    )
+                    adc.assert_called_once()
+
+            grpc_ssl_channel_cred.assert_called_once_with(
+                certificate_chain=b"cert bytes", private_key=b"key bytes"
+            )
+            grpc_create_channel.assert_called_once_with(
+                "mtls.squid.clam.whelk:443",
+                credentials=cred,
+                credentials_file=None,
+                scopes=None,
+                ssl_credentials=mock_ssl_cred,
+                quota_project_id=None,
+                options=[
+                    ("grpc.max_send_message_length", -1),
+                    ("grpc.max_receive_message_length", -1),
+                ],
+            )
+            assert transport.grpc_channel == mock_grpc_channel
+            assert transport._ssl_channel_credentials == mock_ssl_cred
+
+
+# Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
+# removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.parametrize(
+    "transport_class",
+    [
+        transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
+    ],
+)
+def test_runtime_project_attachment_service_transport_channel_mtls_with_adc(
+    transport_class,
+):
+    mock_ssl_cred = mock.Mock()
+    with mock.patch.multiple(
+        "google.auth.transport.grpc.SslCredentials",
+        __init__=mock.Mock(return_value=None),
+        ssl_credentials=mock.PropertyMock(return_value=mock_ssl_cred),
+    ):
+        with mock.patch.object(
+            transport_class, "create_channel"
+        ) as grpc_create_channel:
+            mock_grpc_channel = mock.Mock()
+            grpc_create_channel.return_value = mock_grpc_channel
+            mock_cred = mock.Mock()
+
+            with pytest.warns(DeprecationWarning):
+                transport = transport_class(
+                    host="squid.clam.whelk",
+                    credentials=mock_cred,
+                    api_mtls_endpoint="mtls.squid.clam.whelk",
+                    client_cert_source=None,
+                )
+
+            grpc_create_channel.assert_called_once_with(
+                "mtls.squid.clam.whelk:443",
+                credentials=mock_cred,
+                credentials_file=None,
+                scopes=None,
+                ssl_credentials=mock_ssl_cred,
+                quota_project_id=None,
+                options=[
+                    ("grpc.max_send_message_length", -1),
+                    ("grpc.max_receive_message_length", -1),
+                ],
+            )
+            assert transport.grpc_channel == mock_grpc_channel
 
 
 def test_runtime_project_attachment_path():
@@ -3822,6 +6901,1089 @@ def test_client_with_default_client_info():
         prep.assert_called_once_with(client_info)
 
 
+def test_delete_operation(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.DeleteOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+        response = client.delete_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.DeleteOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        response = await client.delete_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+def test_delete_operation_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.DeleteOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        call.return_value = None
+
+        client.delete_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.DeleteOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+def test_delete_operation_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        response = client.delete_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        response = await client.delete_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_delete_operation_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_delete_operation_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.delete_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.delete_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.DeleteOperationRequest()
+
+
+def test_cancel_operation(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.CancelOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+        response = client.cancel_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.CancelOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        response = await client.cancel_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert response is None
+
+
+def test_cancel_operation_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.CancelOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        call.return_value = None
+
+        client.cancel_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.CancelOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+def test_cancel_operation_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        response = client.cancel_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        response = await client.cancel_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_cancel_operation_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+def test_get_operation(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.GetOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+        response = client.get_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.Operation)
+
+
+@pytest.mark.asyncio
+async def test_get_operation_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.GetOperationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        response = await client.get_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.Operation)
+
+
+def test_get_operation_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.GetOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_operation_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.GetOperationRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+def test_get_operation_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        response = client.get_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        response = await client.get_operation(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_get_operation_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+def test_list_operations(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.ListOperationsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+        response = client.list_operations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.ListOperationsResponse)
+
+
+@pytest.mark.asyncio
+async def test_list_operations_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = operations_pb2.ListOperationsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        response = await client.list_operations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, operations_pb2.ListOperationsResponse)
+
+
+def test_list_operations_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.ListOperationsRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_operations_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = operations_pb2.ListOperationsRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+def test_list_operations_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        response = client.list_operations(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        response = await client.list_operations(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_list_operations_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+def test_list_locations(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = locations_pb2.ListLocationsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+        response = client.list_locations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, locations_pb2.ListLocationsResponse)
+
+
+@pytest.mark.asyncio
+async def test_list_locations_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = locations_pb2.ListLocationsRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        response = await client.list_locations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, locations_pb2.ListLocationsResponse)
+
+
+def test_list_locations_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = locations_pb2.ListLocationsRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_list_locations_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = locations_pb2.ListLocationsRequest()
+    request.name = "locations"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations",
+    ) in kw["metadata"]
+
+
+def test_list_locations_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        response = client.list_locations(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        response = await client.list_locations(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_list_locations_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+def test_get_location(transport: str = "grpc"):
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = locations_pb2.GetLocationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+        response = client.get_location(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, locations_pb2.Location)
+
+
+@pytest.mark.asyncio
+async def test_get_location_async(transport: str = "grpc_asyncio"):
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+        transport=transport,
+    )
+
+    # Everything is optional in proto3 as far as the runtime is concerned,
+    # and we are mocking out the actual API, so just send an empty request.
+    request = locations_pb2.GetLocationRequest()
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        response = await client.get_location(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the response is the type that we expect.
+    assert isinstance(response, locations_pb2.Location)
+
+
+def test_get_location_field_headers():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials()
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = locations_pb2.GetLocationRequest()
+    request.name = "locations/abc"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        call.return_value = locations_pb2.Location()
+
+        client.get_location(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations/abc",
+    ) in kw["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_get_location_field_headers_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials()
+    )
+
+    # Any value that is part of the HTTP/1.1 URI should be sent as
+    # a field header. Set these to a non-empty value.
+    request = locations_pb2.GetLocationRequest()
+    request.name = "locations/abc"
+
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location(request)
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == request
+
+    # Establish that the field header was sent.
+    _, _, kw = call.mock_calls[0]
+    assert (
+        "x-goog-request-params",
+        "name=locations/abc",
+    ) in kw["metadata"]
+
+
+def test_get_location_from_dict():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        response = client.get_location(
+            request={
+                "name": "locations/abc",
+            }
+        )
+        call.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_get_location_from_dict_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        response = await client.get_location(
+            request={
+                "name": "locations",
+            }
+        )
+        call.assert_called()
+
+
+def test_get_location_flattened():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+def test_transport_close_grpc():
+    client = RuntimeProjectAttachmentServiceClient(
+        credentials=ga_credentials.AnonymousCredentials(), transport="grpc"
+    )
+    with mock.patch.object(
+        type(getattr(client.transport, "_grpc_channel")), "close"
+    ) as close:
+        with client:
+            close.assert_not_called()
+        close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_transport_close_grpc_asyncio():
+    client = RuntimeProjectAttachmentServiceAsyncClient(
+        credentials=async_anonymous_credentials(), transport="grpc_asyncio"
+    )
+    with mock.patch.object(
+        type(getattr(client.transport, "_grpc_channel")), "close"
+    ) as close:
+        async with client:
+            close.assert_not_called()
+        close.assert_called_once()
+
+
 def test_transport_close_rest():
     client = RuntimeProjectAttachmentServiceClient(
         credentials=ga_credentials.AnonymousCredentials(), transport="rest"
@@ -3837,6 +7999,7 @@ def test_transport_close_rest():
 def test_client_ctx():
     transports = [
         "rest",
+        "grpc",
     ]
     for transport in transports:
         client = RuntimeProjectAttachmentServiceClient(
@@ -3855,7 +8018,11 @@ def test_client_ctx():
     [
         (
             RuntimeProjectAttachmentServiceClient,
-            transports.RuntimeProjectAttachmentServiceRestTransport,
+            transports.RuntimeProjectAttachmentServiceGrpcTransport,
+        ),
+        (
+            RuntimeProjectAttachmentServiceAsyncClient,
+            transports.RuntimeProjectAttachmentServiceGrpcAsyncIOTransport,
         ),
     ],
 )

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,19 +135,19 @@ class WebDetection(proto.Message):
             proto.STRING,
             number=3,
         )
-        full_matching_images: MutableSequence[
-            "WebDetection.WebImage"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=4,
-            message="WebDetection.WebImage",
+        full_matching_images: MutableSequence["WebDetection.WebImage"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=4,
+                message="WebDetection.WebImage",
+            )
         )
-        partial_matching_images: MutableSequence[
-            "WebDetection.WebImage"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message="WebDetection.WebImage",
+        partial_matching_images: MutableSequence["WebDetection.WebImage"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message="WebDetection.WebImage",
+            )
         )
 
     class WebLabel(proto.Message):

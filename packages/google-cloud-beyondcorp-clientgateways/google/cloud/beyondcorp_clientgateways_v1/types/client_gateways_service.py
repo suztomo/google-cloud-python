@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -80,6 +80,7 @@ class ClientGateway(proto.Message):
                 ClientGateway encountered an error and is in
                 indeterministic state.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         UPDATING = 2
@@ -215,10 +216,10 @@ class CreateClientGatewayRequest(proto.Message):
         client_gateway_id (str):
             Optional. User-settable client gateway resource ID.
 
-            -  Must start with a letter.
-            -  Must contain between 4-63 characters from
-               ``/[a-z][0-9]-/``.
-            -  Must end with a number or a letter.
+            - Must start with a letter.
+            - Must contain between 4-63 characters from
+              ``/[a-z][0-9]-/``.
+            - Must end with a number or a letter.
         client_gateway (google.cloud.beyondcorp_clientgateways_v1.types.ClientGateway):
             Required. The resource being created.
         request_id (str):

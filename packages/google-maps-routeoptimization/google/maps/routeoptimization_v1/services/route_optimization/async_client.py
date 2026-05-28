@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.maps.routeoptimization_v1 import gapic_version as package_version
 
@@ -44,8 +44,8 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 
 from google.maps.routeoptimization_v1.types import route_optimization_service
@@ -69,25 +69,24 @@ class RouteOptimizationAsyncClient:
 
     Validity of certain types of fields:
 
-    -  ``google.protobuf.Timestamp``
+    - ``google.protobuf.Timestamp``
 
-       -  Times are in Unix time: seconds since
-          1970-01-01T00:00:00+00:00.
-       -  seconds must be in [0, 253402300799], i.e. in
-          [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
-       -  nanos must be unset or set to 0.
+      - Times are in Unix time: seconds since 1970-01-01T00:00:00+00:00.
+      - seconds must be in [0, 253402300799], i.e. in
+        [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
+      - nanos must be unset or set to 0.
 
-    -  ``google.protobuf.Duration``
+    - ``google.protobuf.Duration``
 
-       -  seconds must be in [0, 253402300799], i.e. in
-          [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
-       -  nanos must be unset or set to 0.
+      - seconds must be in [0, 253402300799], i.e. in
+        [1970-01-01T00:00:00+00:00, 9999-12-31T23:59:59+00:00].
+      - nanos must be unset or set to 0.
 
-    -  ``google.type.LatLng``
+    - ``google.type.LatLng``
 
-       -  latitude must be in [-90.0, 90.0].
-       -  longitude must be in [-180.0, 180.0].
-       -  at least one of latitude and longitude must be non-zero.
+      - latitude must be in [-90.0, 90.0].
+      - longitude must be in [-180.0, 180.0].
+      - at least one of latitude and longitude must be non-zero.
     """
 
     _client: RouteOptimizationClient
@@ -137,7 +136,10 @@ class RouteOptimizationAsyncClient:
         Returns:
             RouteOptimizationAsyncClient: The constructed client.
         """
-        return RouteOptimizationClient.from_service_account_info.__func__(RouteOptimizationAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            RouteOptimizationClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(RouteOptimizationAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -153,7 +155,10 @@ class RouteOptimizationAsyncClient:
         Returns:
             RouteOptimizationAsyncClient: The constructed client.
         """
-        return RouteOptimizationClient.from_service_account_file.__func__(RouteOptimizationAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            RouteOptimizationClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(RouteOptimizationAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -203,7 +208,7 @@ class RouteOptimizationAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -487,11 +492,11 @@ class RouteOptimizationAsyncClient:
                 )
 
                 # Make the request
-                operation = client.batch_optimize_tours(request=request)
+                operation = await client.batch_optimize_tours(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -564,9 +569,263 @@ class RouteOptimizationAsyncClient:
         # Done; return the response.
         return response
 
+    async def optimize_tours_long_running(
+        self,
+        request: Optional[
+            Union[route_optimization_service.OptimizeToursRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""This is a variant of the
+        [OptimizeTours][google.maps.routeoptimization.v1.RouteOptimization.OptimizeTours]
+        method designed for optimizations with large timeout values. It
+        should be preferred over the ``OptimizeTours`` method for
+        optimizations that take longer than a few minutes.
+
+        The returned [long-running
+        operation][google.longrunning.Operation] (LRO) will have a name
+        of the format ``<parent>/operations/<operation_id>`` and can be
+        used to track progress of the computation. The
+        [metadata][google.longrunning.Operation.metadata] field type is
+        [OptimizeToursLongRunningMetadata][google.maps.routeoptimization.v1.OptimizeToursLongRunningMetadata].
+        The [response][google.longrunning.Operation.response] field type
+        is
+        [OptimizeToursResponse][google.maps.routeoptimization.v1.OptimizeToursResponse],
+        if successful.
+
+        Experimental: See
+        https://developers.google.com/maps/tt/route-optimization/experimental/otlr/make-request
+        for more details.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.maps import routeoptimization_v1
+
+            async def sample_optimize_tours_long_running():
+                # Create a client
+                client = routeoptimization_v1.RouteOptimizationAsyncClient()
+
+                # Initialize request argument(s)
+                request = routeoptimization_v1.OptimizeToursRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                operation = await client.optimize_tours_long_running(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.maps.routeoptimization_v1.types.OptimizeToursRequest, dict]]):
+                The request object. Request to be given to a tour
+                optimization solver which defines the
+                shipment model to solve as well as
+                optimization parameters.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be :class:`google.maps.routeoptimization_v1.types.OptimizeToursResponse` Response after solving a tour optimization problem containing the routes
+                   followed by each vehicle, the shipments which have
+                   been skipped and the overall cost of the solution.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, route_optimization_service.OptimizeToursRequest):
+            request = route_optimization_service.OptimizeToursRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.optimize_tours_long_running
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            route_optimization_service.OptimizeToursResponse,
+            metadata_type=route_optimization_service.OptimizeToursLongRunningMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def optimize_tours_uri(
+        self,
+        request: Optional[
+            Union[route_optimization_service.OptimizeToursUriRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> operation_async.AsyncOperation:
+        r"""This is a variant of the
+        [OptimizeToursLongRunning][google.maps.routeoptimization.v1.RouteOptimization.OptimizeToursLongRunning]
+        method designed for optimizations with large timeout values and
+        large input/output sizes.
+
+        The client specifies the URI of the ``OptimizeToursRequest``
+        stored in Google Cloud Storage and the server writes the
+        ``OptimizeToursResponse`` to a client-specified Google Cloud
+        Storage URI.
+
+        This method should be preferred over the ``OptimizeTours``
+        method for optimizations that take longer than a few minutes and
+        input/output sizes that are larger than 8MB, though it can be
+        used for shorter and smaller optimizations as well.
+
+        The returned [long-running
+        operation][google.longrunning.Operation] (LRO) will have a name
+        of the format ``<parent>/operations/<operation_id>`` and can be
+        used to track progress of the computation. The
+        [metadata][google.longrunning.Operation.metadata] field type is
+        [OptimizeToursLongRunningMetadata][google.maps.routeoptimization.v1.OptimizeToursUriMetadata].
+        The [response][google.longrunning.Operation.response] field type
+        is
+        [OptimizeToursUriResponse][google.maps.routeoptimization.v1.OptimizeToursUriResponse],
+        if successful.
+
+        Experimental: See
+        https://developers.google.com/maps/tt/route-optimization/experimental/otlr/make-request
+        for more details.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.maps import routeoptimization_v1
+
+            async def sample_optimize_tours_uri():
+                # Create a client
+                client = routeoptimization_v1.RouteOptimizationAsyncClient()
+
+                # Initialize request argument(s)
+                request = routeoptimization_v1.OptimizeToursUriRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                operation = await client.optimize_tours_uri(request=request)
+
+                print("Waiting for operation to complete...")
+
+                response = await operation.result()
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.maps.routeoptimization_v1.types.OptimizeToursUriRequest, dict]]):
+                The request object. A request used by the ``OptimizeToursUri`` method.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.api_core.operation_async.AsyncOperation:
+                An object representing a long-running operation.
+
+                The result type for the operation will be
+                :class:`google.maps.routeoptimization_v1.types.OptimizeToursUriResponse`
+                A response returned by the OptimizeToursUri method.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, route_optimization_service.OptimizeToursUriRequest):
+            request = route_optimization_service.OptimizeToursUriRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.optimize_tours_uri
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Wrap the response in an operation future.
+        response = operation_async.from_gapic(
+            response,
+            self._client._transport.operations_client,
+            route_optimization_service.OptimizeToursUriResponse,
+            metadata_type=route_optimization_service.OptimizeToursUriMetadata,
+        )
+
+        # Done; return the response.
+        return response
+
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -592,8 +851,12 @@ class RouteOptimizationAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -602,7 +865,7 @@ class RouteOptimizationAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -610,7 +873,7 @@ class RouteOptimizationAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 import abc
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.compute_v1beta import gapic_version as package_version
 from google.cloud.compute_v1beta.services import zone_operations
@@ -70,9 +70,10 @@ class InstancesTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -83,10 +84,12 @@ class InstancesTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         self._extended_operations_services: Dict[str, Any] = {}
-
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
 
         # Save the scopes.
         self._scopes = scopes
@@ -102,11 +105,16 @@ class InstancesTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -130,6 +138,8 @@ class InstancesTransport(abc.ABC):
             host += ":443"
         self._host = host
 
+        self._wrapped_methods: Dict[Callable, Callable] = {}
+
     @property
     def host(self):
         return self._host
@@ -139,282 +149,402 @@ class InstancesTransport(abc.ABC):
         self._wrapped_methods = {
             self.add_access_config: gapic_v1.method.wrap_method(
                 self.add_access_config,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.add_network_interface: gapic_v1.method.wrap_method(
                 self.add_network_interface,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.add_resource_policies: gapic_v1.method.wrap_method(
                 self.add_resource_policies,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.aggregated_list: gapic_v1.method.wrap_method(
                 self.aggregated_list,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.attach_disk: gapic_v1.method.wrap_method(
                 self.attach_disk,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.bulk_insert: gapic_v1.method.wrap_method(
                 self.bulk_insert,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.delete: gapic_v1.method.wrap_method(
                 self.delete,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.delete_access_config: gapic_v1.method.wrap_method(
                 self.delete_access_config,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.delete_network_interface: gapic_v1.method.wrap_method(
                 self.delete_network_interface,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.detach_disk: gapic_v1.method.wrap_method(
                 self.detach_disk,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get: gapic_v1.method.wrap_method(
                 self.get,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_effective_firewalls: gapic_v1.method.wrap_method(
                 self.get_effective_firewalls,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_guest_attributes: gapic_v1.method.wrap_method(
                 self.get_guest_attributes,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_iam_policy: gapic_v1.method.wrap_method(
                 self.get_iam_policy,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_partner_metadata: gapic_v1.method.wrap_method(
                 self.get_partner_metadata,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_screenshot: gapic_v1.method.wrap_method(
                 self.get_screenshot,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_serial_port_output: gapic_v1.method.wrap_method(
                 self.get_serial_port_output,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_shielded_instance_identity: gapic_v1.method.wrap_method(
                 self.get_shielded_instance_identity,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.get_shielded_vm_identity: gapic_v1.method.wrap_method(
                 self.get_shielded_vm_identity,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.insert: gapic_v1.method.wrap_method(
                 self.insert,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.list: gapic_v1.method.wrap_method(
                 self.list,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.list_referrers: gapic_v1.method.wrap_method(
                 self.list_referrers,
-                default_timeout=None,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=600.0,
+                ),
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.patch_partner_metadata: gapic_v1.method.wrap_method(
                 self.patch_partner_metadata,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.perform_maintenance: gapic_v1.method.wrap_method(
                 self.perform_maintenance,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.remove_resource_policies: gapic_v1.method.wrap_method(
                 self.remove_resource_policies,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.report_host_as_faulty: gapic_v1.method.wrap_method(
                 self.report_host_as_faulty,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.reset: gapic_v1.method.wrap_method(
                 self.reset,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.resume: gapic_v1.method.wrap_method(
                 self.resume,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.send_diagnostic_interrupt: gapic_v1.method.wrap_method(
                 self.send_diagnostic_interrupt,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_deletion_protection: gapic_v1.method.wrap_method(
                 self.set_deletion_protection,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_disk_auto_delete: gapic_v1.method.wrap_method(
                 self.set_disk_auto_delete,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_iam_policy: gapic_v1.method.wrap_method(
                 self.set_iam_policy,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_labels: gapic_v1.method.wrap_method(
                 self.set_labels,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_machine_resources: gapic_v1.method.wrap_method(
                 self.set_machine_resources,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_machine_type: gapic_v1.method.wrap_method(
                 self.set_machine_type,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_metadata: gapic_v1.method.wrap_method(
                 self.set_metadata,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_min_cpu_platform: gapic_v1.method.wrap_method(
                 self.set_min_cpu_platform,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_name: gapic_v1.method.wrap_method(
                 self.set_name,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_scheduling: gapic_v1.method.wrap_method(
                 self.set_scheduling,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_security_policy: gapic_v1.method.wrap_method(
                 self.set_security_policy,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_service_account: gapic_v1.method.wrap_method(
                 self.set_service_account,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_shielded_instance_integrity_policy: gapic_v1.method.wrap_method(
                 self.set_shielded_instance_integrity_policy,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_shielded_vm_integrity_policy: gapic_v1.method.wrap_method(
                 self.set_shielded_vm_integrity_policy,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.set_tags: gapic_v1.method.wrap_method(
                 self.set_tags,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.simulate_maintenance_event: gapic_v1.method.wrap_method(
                 self.simulate_maintenance_event,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.start: gapic_v1.method.wrap_method(
                 self.start,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.start_with_encryption_key: gapic_v1.method.wrap_method(
                 self.start_with_encryption_key,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.stop: gapic_v1.method.wrap_method(
                 self.stop,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.suspend: gapic_v1.method.wrap_method(
                 self.suspend,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.test_iam_permissions: gapic_v1.method.wrap_method(
                 self.test_iam_permissions,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update: gapic_v1.method.wrap_method(
                 self.update,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update_access_config: gapic_v1.method.wrap_method(
                 self.update_access_config,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update_display_device: gapic_v1.method.wrap_method(
                 self.update_display_device,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update_network_interface: gapic_v1.method.wrap_method(
                 self.update_network_interface,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update_shielded_instance_config: gapic_v1.method.wrap_method(
                 self.update_shielded_instance_config,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
             self.update_shielded_vm_config: gapic_v1.method.wrap_method(
                 self.update_shielded_vm_config,
-                default_timeout=None,
+                default_timeout=600.0,
                 client_info=client_info,
             ),
         }

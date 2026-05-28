@@ -1,5 +1,80 @@
 # Changelog
 
+[PyPI History][1]
+
+[1]: https://pypi.org/project/google-cloud-modelarmor/#history
+
+## [0.6.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.5.0...google-cloud-modelarmor-v0.6.0) (2026-05-06)
+
+## [0.5.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.4.0...google-cloud-modelarmor-v0.5.0) (2026-03-26)
+
+
+### Features
+
+* Allow Protobuf 7.x ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* update image to us-central1-docker.pkg.dev/cloud-sdk-librarian-prod/images-prod/python-librarian-generator@sha256:f5426423676c75008c2135037e7b98f78cbb99f78b3c46fe043b6897be92d836 ([3654fe76d755dd8db62ece81d5770ec58b3624df](https://github.com/googleapis/google-cloud-python/commit/3654fe76d755dd8db62ece81d5770ec58b3624df))
+
+
+### Bug Fixes
+
+* Require Python 3.9 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Require google-api-core >= 2.11.0 ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+* Improve type checking ([1eb7c268482e55971966e284dac2cbeb903adcbb](https://github.com/googleapis/google-cloud-python/commit/1eb7c268482e55971966e284dac2cbeb903adcbb))
+
+## [0.4.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.3.0...google-cloud-modelarmor-v0.4.0) (2026-01-09)
+
+
+### Features
+
+* auto-enable mTLS when supported certificates are detected ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+* check Python and dependency versions in generated GAPICs ([c353aa5bcc937ef9399c8efc90492dadbcf01aa2](https://github.com/googleapis/google-cloud-python/commit/c353aa5bcc937ef9399c8efc90492dadbcf01aa2))
+
+## [0.3.0](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.2.8...google-cloud-modelarmor-v0.3.0) (2025-10-20)
+
+
+### Features
+
+* Add support for Python 3.14  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+
+### Bug Fixes
+
+* Deprecate credentials_file argument  ([98ee71abc0f97c88239b50bf0e0827df19630def](https://github.com/googleapis/google-cloud-python/commit/98ee71abc0f97c88239b50bf0e0827df19630def))
+
+## [0.2.8](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.2.7...google-cloud-modelarmor-v0.2.8) (2025-08-06)
+
+
+### Features
+
+* MultiLanguage Detection in Model Armor Floor Setting ([30452f1](https://github.com/googleapis/google-cloud-python/commit/30452f1ce7b3fbaffa9845ff46965ceb90a508d7))
+* MultiLanguage Detection in Model Armor Floor Setting ([30452f1](https://github.com/googleapis/google-cloud-python/commit/30452f1ce7b3fbaffa9845ff46965ceb90a508d7))
+
+## [0.2.7](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.2.6...google-cloud-modelarmor-v0.2.7) (2025-07-23)
+
+
+### Features
+
+* Add support for EnforcementType ([5324195](https://github.com/googleapis/google-cloud-python/commit/5324195e74df117c50f3e615127f45b33967c192))
+* MultiLanguage Detection in Model Armor Floor Setting ([5324195](https://github.com/googleapis/google-cloud-python/commit/5324195e74df117c50f3e615127f45b33967c192))
+
+
+### Documentation
+
+* fix comment formatting ([5324195](https://github.com/googleapis/google-cloud-python/commit/5324195e74df117c50f3e615127f45b33967c192))
+
+## [0.2.6](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.2.5...google-cloud-modelarmor-v0.2.6) (2025-07-02)
+
+
+### Features
+
+* Add MultiLingual Support for Sanitize APIs ([02d876c](https://github.com/googleapis/google-cloud-python/commit/02d876cdaa089818f34c286a5cb01b6cde3d8ad7))
+* Support added for `TXT` and `CSV` files ([02d876c](https://github.com/googleapis/google-cloud-python/commit/02d876cdaa089818f34c286a5cb01b6cde3d8ad7))
+
+
+### Documentation
+
+* Updated docs for Multi Language Detection Metadata ([02d876c](https://github.com/googleapis/google-cloud-python/commit/02d876cdaa089818f34c286a5cb01b6cde3d8ad7))
+
 ## [0.2.5](https://github.com/googleapis/google-cloud-python/compare/google-cloud-modelarmor-v0.2.4...google-cloud-modelarmor-v0.2.5) (2025-05-26)
 
 

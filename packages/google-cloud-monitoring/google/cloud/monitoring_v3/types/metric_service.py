@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import metric_pb2  # type: ignore
-from google.api import monitored_resource_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.api.metric_pb2 as metric_pb2  # type: ignore
+import google.api.monitored_resource_pb2 as monitored_resource_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import common
@@ -191,18 +191,17 @@ class ListMetricDescriptorsRequest(proto.Message):
             resource types that have recent data (within
             roughly 25 hours) will be included in the
             response.
-
-            - If a metric descriptor enumerates monitored
-              resource types, only the monitored resource
+             - If a metric descriptor enumerates monitored
+              resource types, only the    monitored resource
               types for which the metric type has recent
-              data will be included in the returned
+              data will    be included in the returned
               metric descriptor, and if none of them have
               recent data, the metric descriptor will not be
               returned.
-            - If a metric descriptor does not enumerate the
-              compatible monitored resource types, it
+             - If a metric descriptor does not enumerate the
+              compatible monitored    resource types, it
               will be returned only if the metric type has
-              recent data for some monitored resource
+              recent    data for some monitored resource
               type. The returned descriptor will not
               enumerate any monitored resource types.
     """
@@ -247,12 +246,12 @@ class ListMetricDescriptorsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    metric_descriptors: MutableSequence[
-        metric_pb2.MetricDescriptor
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=metric_pb2.MetricDescriptor,
+    metric_descriptors: MutableSequence[metric_pb2.MetricDescriptor] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=metric_pb2.MetricDescriptor,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -405,6 +404,7 @@ class ListTimeSeriesRequest(proto.Message):
                 time series resource, but not the time series
                 data.
         """
+
         FULL = 0
         HEADERS = 1
 

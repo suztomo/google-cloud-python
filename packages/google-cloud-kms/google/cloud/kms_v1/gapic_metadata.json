@@ -257,6 +257,160 @@
         }
       }
     },
+    "HsmManagement": {
+      "clients": {
+        "grpc": {
+          "libraryClient": "HsmManagementClient",
+          "rpcs": {
+            "ApproveSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "approve_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "CreateSingleTenantHsmInstance": {
+              "methods": [
+                "create_single_tenant_hsm_instance"
+              ]
+            },
+            "CreateSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "create_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "DeleteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "delete_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ExecuteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "execute_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "GetSingleTenantHsmInstance": {
+              "methods": [
+                "get_single_tenant_hsm_instance"
+              ]
+            },
+            "GetSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "get_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ListSingleTenantHsmInstanceProposals": {
+              "methods": [
+                "list_single_tenant_hsm_instance_proposals"
+              ]
+            },
+            "ListSingleTenantHsmInstances": {
+              "methods": [
+                "list_single_tenant_hsm_instances"
+              ]
+            }
+          }
+        },
+        "grpc-async": {
+          "libraryClient": "HsmManagementAsyncClient",
+          "rpcs": {
+            "ApproveSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "approve_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "CreateSingleTenantHsmInstance": {
+              "methods": [
+                "create_single_tenant_hsm_instance"
+              ]
+            },
+            "CreateSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "create_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "DeleteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "delete_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ExecuteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "execute_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "GetSingleTenantHsmInstance": {
+              "methods": [
+                "get_single_tenant_hsm_instance"
+              ]
+            },
+            "GetSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "get_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ListSingleTenantHsmInstanceProposals": {
+              "methods": [
+                "list_single_tenant_hsm_instance_proposals"
+              ]
+            },
+            "ListSingleTenantHsmInstances": {
+              "methods": [
+                "list_single_tenant_hsm_instances"
+              ]
+            }
+          }
+        },
+        "rest": {
+          "libraryClient": "HsmManagementClient",
+          "rpcs": {
+            "ApproveSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "approve_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "CreateSingleTenantHsmInstance": {
+              "methods": [
+                "create_single_tenant_hsm_instance"
+              ]
+            },
+            "CreateSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "create_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "DeleteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "delete_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ExecuteSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "execute_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "GetSingleTenantHsmInstance": {
+              "methods": [
+                "get_single_tenant_hsm_instance"
+              ]
+            },
+            "GetSingleTenantHsmInstanceProposal": {
+              "methods": [
+                "get_single_tenant_hsm_instance_proposal"
+              ]
+            },
+            "ListSingleTenantHsmInstanceProposals": {
+              "methods": [
+                "list_single_tenant_hsm_instance_proposals"
+              ]
+            },
+            "ListSingleTenantHsmInstances": {
+              "methods": [
+                "list_single_tenant_hsm_instances"
+              ]
+            }
+          }
+        }
+      }
+    },
     "KeyManagementService": {
       "clients": {
         "grpc": {
@@ -292,9 +446,24 @@
                 "create_key_ring"
               ]
             },
+            "Decapsulate": {
+              "methods": [
+                "decapsulate"
+              ]
+            },
             "Decrypt": {
               "methods": [
                 "decrypt"
+              ]
+            },
+            "DeleteCryptoKey": {
+              "methods": [
+                "delete_crypto_key"
+              ]
+            },
+            "DeleteCryptoKeyVersion": {
+              "methods": [
+                "delete_crypto_key_version"
               ]
             },
             "DestroyCryptoKeyVersion": {
@@ -337,6 +506,11 @@
                 "get_public_key"
               ]
             },
+            "GetRetiredResource": {
+              "methods": [
+                "get_retired_resource"
+              ]
+            },
             "ImportCryptoKeyVersion": {
               "methods": [
                 "import_crypto_key_version"
@@ -360,6 +534,11 @@
             "ListKeyRings": {
               "methods": [
                 "list_key_rings"
+              ]
+            },
+            "ListRetiredResources": {
+              "methods": [
+                "list_retired_resources"
               ]
             },
             "MacSign": {
@@ -437,9 +616,24 @@
                 "create_key_ring"
               ]
             },
+            "Decapsulate": {
+              "methods": [
+                "decapsulate"
+              ]
+            },
             "Decrypt": {
               "methods": [
                 "decrypt"
+              ]
+            },
+            "DeleteCryptoKey": {
+              "methods": [
+                "delete_crypto_key"
+              ]
+            },
+            "DeleteCryptoKeyVersion": {
+              "methods": [
+                "delete_crypto_key_version"
               ]
             },
             "DestroyCryptoKeyVersion": {
@@ -482,6 +676,11 @@
                 "get_public_key"
               ]
             },
+            "GetRetiredResource": {
+              "methods": [
+                "get_retired_resource"
+              ]
+            },
             "ImportCryptoKeyVersion": {
               "methods": [
                 "import_crypto_key_version"
@@ -505,6 +704,11 @@
             "ListKeyRings": {
               "methods": [
                 "list_key_rings"
+              ]
+            },
+            "ListRetiredResources": {
+              "methods": [
+                "list_retired_resources"
               ]
             },
             "MacSign": {
@@ -582,9 +786,24 @@
                 "create_key_ring"
               ]
             },
+            "Decapsulate": {
+              "methods": [
+                "decapsulate"
+              ]
+            },
             "Decrypt": {
               "methods": [
                 "decrypt"
+              ]
+            },
+            "DeleteCryptoKey": {
+              "methods": [
+                "delete_crypto_key"
+              ]
+            },
+            "DeleteCryptoKeyVersion": {
+              "methods": [
+                "delete_crypto_key_version"
               ]
             },
             "DestroyCryptoKeyVersion": {
@@ -627,6 +846,11 @@
                 "get_public_key"
               ]
             },
+            "GetRetiredResource": {
+              "methods": [
+                "get_retired_resource"
+              ]
+            },
             "ImportCryptoKeyVersion": {
               "methods": [
                 "import_crypto_key_version"
@@ -650,6 +874,11 @@
             "ListKeyRings": {
               "methods": [
                 "list_key_rings"
+              ]
+            },
+            "ListRetiredResources": {
+              "methods": [
+                "list_retired_resources"
               ]
             },
             "MacSign": {

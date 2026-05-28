@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.tasks_v2beta2.types import target
@@ -58,19 +58,19 @@ class Queue(proto.Message):
             The queue name must have the following format:
             ``projects/PROJECT_ID/locations/LOCATION_ID/queues/QUEUE_ID``
 
-            -  ``PROJECT_ID`` can contain letters ([A-Za-z]), numbers
-               ([0-9]), hyphens (-), colons (:), or periods (.). For
-               more information, see `Identifying
-               projects <https://cloud.google.com/resource-manager/docs/creating-managing-projects#identifying_projects>`__
-            -  ``LOCATION_ID`` is the canonical ID for the queue's
-               location. The list of available locations can be obtained
-               by calling
-               [ListLocations][google.cloud.location.Locations.ListLocations].
-               For more information, see
-               https://cloud.google.com/about/locations/.
-            -  ``QUEUE_ID`` can contain letters ([A-Za-z]), numbers
-               ([0-9]), or hyphens (-). The maximum length is 100
-               characters.
+            - ``PROJECT_ID`` can contain letters ([A-Za-z]), numbers
+              ([0-9]), hyphens (-), colons (:), or periods (.). For more
+              information, see `Identifying
+              projects <https://cloud.google.com/resource-manager/docs/creating-managing-projects#identifying_projects>`__
+            - ``LOCATION_ID`` is the canonical ID for the queue's
+              location. The list of available locations can be obtained
+              by calling
+              [ListLocations][google.cloud.location.Locations.ListLocations].
+              For more information, see
+              https://cloud.google.com/about/locations/.
+            - ``QUEUE_ID`` can contain letters ([A-Za-z]), numbers
+              ([0-9]), or hyphens (-). The maximum length is 100
+              characters.
         app_engine_http_target (google.cloud.tasks_v2beta2.types.AppEngineHttpTarget):
             App Engine HTTP target.
 
@@ -99,29 +99,29 @@ class Queue(proto.Message):
             are related because they both control task attempts however
             they control how tasks are attempted in different ways:
 
-            -  [rate_limits][google.cloud.tasks.v2beta2.Queue.rate_limits]
-               controls the total rate of dispatches from a queue (i.e.
-               all traffic dispatched from the queue, regardless of
-               whether the dispatch is from a first attempt or a retry).
-            -  [retry_config][google.cloud.tasks.v2beta2.Queue.retry_config]
-               controls what happens to particular a task after its
-               first attempt fails. That is,
-               [retry_config][google.cloud.tasks.v2beta2.Queue.retry_config]
-               controls task retries (the second attempt, third attempt,
-               etc).
+            - [rate_limits][google.cloud.tasks.v2beta2.Queue.rate_limits]
+              controls the total rate of dispatches from a queue (i.e.
+              all traffic dispatched from the queue, regardless of
+              whether the dispatch is from a first attempt or a retry).
+            - [retry_config][google.cloud.tasks.v2beta2.Queue.retry_config]
+              controls what happens to particular a task after its first
+              attempt fails. That is,
+              [retry_config][google.cloud.tasks.v2beta2.Queue.retry_config]
+              controls task retries (the second attempt, third attempt,
+              etc).
         retry_config (google.cloud.tasks_v2beta2.types.RetryConfig):
             Settings that determine the retry behavior.
 
-            -  For tasks created using Cloud Tasks: the queue-level
-               retry settings apply to all tasks in the queue that were
-               created using Cloud Tasks. Retry settings cannot be set
-               on individual tasks.
-            -  For tasks created using the App Engine SDK: the
-               queue-level retry settings apply to all tasks in the
-               queue which do not have retry settings explicitly set on
-               the task and were created by the App Engine SDK. See `App
-               Engine
-               documentation <https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/retrying-tasks>`__.
+            - For tasks created using Cloud Tasks: the queue-level retry
+              settings apply to all tasks in the queue that were created
+              using Cloud Tasks. Retry settings cannot be set on
+              individual tasks.
+            - For tasks created using the App Engine SDK: the
+              queue-level retry settings apply to all tasks in the queue
+              which do not have retry settings explicitly set on the
+              task and were created by the App Engine SDK. See `App
+              Engine
+              documentation <https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/retrying-tasks>`__.
         state (google.cloud.tasks_v2beta2.types.Queue.State):
             Output only. The state of the queue.
 
@@ -223,6 +223,7 @@ class Queue(proto.Message):
                 To permanently delete this queue and all of its tasks, call
                 [DeleteQueue][google.cloud.tasks.v2beta2.CloudTasks.DeleteQueue].
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         PAUSED = 2
@@ -307,15 +308,15 @@ class RateLimits(proto.Message):
             If unspecified when the queue is created, Cloud Tasks will
             pick the default.
 
-            -  For [App Engine
-               queues][google.cloud.tasks.v2beta2.AppEngineHttpTarget],
-               the maximum allowed value is 500.
-            -  This field is output only for [pull
-               queues][google.cloud.tasks.v2beta2.PullTarget]. In
-               addition to the ``max_tasks_dispatched_per_second``
-               limit, a maximum of 10 QPS of
-               [LeaseTasks][google.cloud.tasks.v2beta2.CloudTasks.LeaseTasks]
-               requests are allowed per pull queue.
+            - For [App Engine
+              queues][google.cloud.tasks.v2beta2.AppEngineHttpTarget],
+              the maximum allowed value is 500.
+            - This field is output only for [pull
+              queues][google.cloud.tasks.v2beta2.PullTarget]. In
+              addition to the ``max_tasks_dispatched_per_second`` limit,
+              a maximum of 10 QPS of
+              [LeaseTasks][google.cloud.tasks.v2beta2.CloudTasks.LeaseTasks]
+              requests are allowed per pull queue.
 
             This field has the same meaning as `rate in
             queue.yaml/xml <https://cloud.google.com/appengine/docs/standard/python/config/queueref#rate>`__.

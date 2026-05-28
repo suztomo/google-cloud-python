@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -1989,9 +1991,10 @@ class CertificateAuthorityServiceRestTransport(
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -2009,6 +2012,12 @@ class CertificateAuthorityServiceRestTransport(
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[CertificateAuthorityServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2147,9 +2156,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseActivateCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseActivateCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_activate_certificate_authority(
                 request, metadata
@@ -2175,7 +2182,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2216,11 +2223,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_activate_certificate_authority(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_activate_certificate_authority_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_activate_certificate_authority_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -2305,9 +2311,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseCreateCaPool._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseCreateCaPool._get_http_options()
 
             request, metadata = self._interceptor.pre_create_ca_pool(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseCreateCaPool._get_transcoded_request(
@@ -2331,7 +2335,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2461,9 +2465,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate(
                 request, metadata
@@ -2621,9 +2623,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate_authority(
                 request, metadata
@@ -2649,7 +2649,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2779,9 +2779,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificateTemplate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseCreateCertificateTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate_template(
                 request, metadata
@@ -2807,7 +2805,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2933,9 +2931,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCaPool._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCaPool._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_ca_pool(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCaPool._get_transcoded_request(
@@ -2955,7 +2951,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3085,9 +3081,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_certificate_authority(
                 request, metadata
@@ -3109,7 +3103,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3237,9 +3231,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCertificateTemplate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseDeleteCertificateTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_certificate_template(
                 request, metadata
@@ -3261,7 +3253,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3390,9 +3382,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseDisableCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseDisableCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_disable_certificate_authority(
                 request, metadata
@@ -3418,7 +3408,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3459,11 +3449,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_disable_certificate_authority(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_disable_certificate_authority_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_disable_certificate_authority_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3551,9 +3540,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseEnableCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseEnableCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_enable_certificate_authority(
                 request, metadata
@@ -3579,7 +3566,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3705,9 +3692,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseFetchCaCerts._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseFetchCaCerts._get_http_options()
 
             request, metadata = self._interceptor.pre_fetch_ca_certs(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseFetchCaCerts._get_transcoded_request(
@@ -3863,9 +3848,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseFetchCertificateAuthorityCsr._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseFetchCertificateAuthorityCsr._get_http_options()
 
             request, metadata = self._interceptor.pre_fetch_certificate_authority_csr(
                 request, metadata
@@ -3929,11 +3912,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_fetch_certificate_authority_csr(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_fetch_certificate_authority_csr_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_fetch_certificate_authority_csr_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4025,9 +4007,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetCaPool._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetCaPool._get_http_options()
 
             request, metadata = self._interceptor.pre_get_ca_pool(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseGetCaPool._get_transcoded_request(
@@ -4177,9 +4157,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificate._get_transcoded_request(
@@ -4333,9 +4311,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_authority(
                 request, metadata
@@ -4489,9 +4465,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateRevocationList._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateRevocationList._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_revocation_list(
                 request, metadata
@@ -4555,11 +4529,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_get_certificate_revocation_list(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_certificate_revocation_list_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_certificate_revocation_list_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4647,9 +4620,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateTemplate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetCertificateTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_template(
                 request, metadata
@@ -4797,9 +4768,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListCaPools._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListCaPools._get_http_options()
 
             request, metadata = self._interceptor.pre_list_ca_pools(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseListCaPools._get_transcoded_request(
@@ -4950,9 +4919,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateAuthorities._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateAuthorities._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_authorities(
                 request, metadata
@@ -5105,9 +5072,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateRevocationLists._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateRevocationLists._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_revocation_lists(
                 request, metadata
@@ -5171,11 +5136,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_list_certificate_revocation_lists(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_certificate_revocation_lists_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_certificate_revocation_lists_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -5260,9 +5224,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListCertificates._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListCertificates._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificates(
                 request, metadata
@@ -5415,9 +5377,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateTemplates._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListCertificateTemplates._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_templates(
                 request, metadata
@@ -5570,9 +5530,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseRevokeCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseRevokeCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_revoke_certificate(
                 request, metadata
@@ -5730,9 +5688,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUndeleteCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUndeleteCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_undelete_certificate_authority(
                 request, metadata
@@ -5758,7 +5714,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5799,11 +5755,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_undelete_certificate_authority(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_undelete_certificate_authority_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_undelete_certificate_authority_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -5888,9 +5843,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCaPool._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCaPool._get_http_options()
 
             request, metadata = self._interceptor.pre_update_ca_pool(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCaPool._get_transcoded_request(
@@ -5914,7 +5867,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6044,9 +5997,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate(
                 request, metadata
@@ -6204,9 +6155,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateAuthority._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateAuthority._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate_authority(
                 request, metadata
@@ -6232,7 +6181,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6362,15 +6311,12 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateRevocationList._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateRevocationList._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_update_certificate_revocation_list(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_update_certificate_revocation_list(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateRevocationList._get_transcoded_request(
                 http_options, request
@@ -6393,7 +6339,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6434,11 +6380,10 @@ class CertificateAuthorityServiceRestTransport(
 
             resp = self._interceptor.post_update_certificate_revocation_list(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_certificate_revocation_list_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_certificate_revocation_list_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -6526,9 +6471,7 @@ class CertificateAuthorityServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateTemplate._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseUpdateCertificateTemplate._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate_template(
                 request, metadata
@@ -6554,7 +6497,7 @@ class CertificateAuthorityServiceRestTransport(
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6629,7 +6572,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ActivateCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ActivateCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_ca_pool(
@@ -6655,7 +6600,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_certificate_template(
@@ -6663,7 +6610,9 @@ class CertificateAuthorityServiceRestTransport(
     ) -> Callable[[service.CreateCertificateTemplateRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCertificateTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCertificateTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_ca_pool(
@@ -6681,7 +6630,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_certificate_template(
@@ -6689,7 +6640,9 @@ class CertificateAuthorityServiceRestTransport(
     ) -> Callable[[service.DeleteCertificateTemplateRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCertificateTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCertificateTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def disable_certificate_authority(
@@ -6699,7 +6652,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DisableCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DisableCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def enable_certificate_authority(
@@ -6709,7 +6664,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._EnableCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._EnableCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def fetch_ca_certs(
@@ -6728,7 +6685,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._FetchCertificateAuthorityCsr(self._session, self._host, self._interceptor)  # type: ignore
+        return self._FetchCertificateAuthorityCsr(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_ca_pool(self) -> Callable[[service.GetCaPoolRequest], resources.CaPool]:
@@ -6752,7 +6711,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_certificate_revocation_list(
@@ -6763,7 +6724,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetCertificateRevocationList(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetCertificateRevocationList(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_certificate_template(
@@ -6773,7 +6736,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetCertificateTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetCertificateTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_ca_pools(
@@ -6792,7 +6757,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCertificateAuthorities(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCertificateAuthorities(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_certificate_revocation_lists(
@@ -6803,7 +6770,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCertificateRevocationLists(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCertificateRevocationLists(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_certificates(
@@ -6822,7 +6791,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCertificateTemplates(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCertificateTemplates(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def revoke_certificate(
@@ -6840,7 +6811,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UndeleteCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UndeleteCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_ca_pool(
@@ -6866,7 +6839,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCertificateAuthority(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCertificateAuthority(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_certificate_revocation_list(
@@ -6876,7 +6851,9 @@ class CertificateAuthorityServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCertificateRevocationList(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCertificateRevocationList(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_certificate_template(
@@ -6884,7 +6861,9 @@ class CertificateAuthorityServiceRestTransport(
     ) -> Callable[[service.UpdateCertificateTemplateRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCertificateTemplate(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCertificateTemplate(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -6944,9 +6923,7 @@ class CertificateAuthorityServiceRestTransport(
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -7087,9 +7064,7 @@ class CertificateAuthorityServiceRestTransport(
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseListLocations._get_transcoded_request(
@@ -7230,9 +7205,7 @@ class CertificateAuthorityServiceRestTransport(
                 policy_pb2.Policy: Response from GetIamPolicy method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -7374,9 +7347,7 @@ class CertificateAuthorityServiceRestTransport(
                 policy_pb2.Policy: Response from SetIamPolicy method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -7523,9 +7494,7 @@ class CertificateAuthorityServiceRestTransport(
                 iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -7669,9 +7638,7 @@ class CertificateAuthorityServiceRestTransport(
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -7791,9 +7758,7 @@ class CertificateAuthorityServiceRestTransport(
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -7911,9 +7876,7 @@ class CertificateAuthorityServiceRestTransport(
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseGetOperation._get_transcoded_request(
@@ -8054,9 +8017,7 @@ class CertificateAuthorityServiceRestTransport(
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseCertificateAuthorityServiceRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseCertificateAuthorityServiceRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseCertificateAuthorityServiceRestTransport._BaseListOperations._get_transcoded_request(

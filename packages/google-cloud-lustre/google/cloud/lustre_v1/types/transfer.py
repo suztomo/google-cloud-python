@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -52,6 +52,7 @@ class TransferType(proto.Enum):
         EXPORT (2):
             Exports from Lustre.
     """
+
     TRANSFER_TYPE_UNSPECIFIED = 0
     IMPORT = 1
     EXPORT = 2
@@ -64,8 +65,9 @@ class ImportDataRequest(proto.Message):
 
     Attributes:
         gcs_path (google.cloud.lustre_v1.types.GcsPath):
-            The Cloud Storage source bucket and,
-            optionally, path inside the bucket.
+            The Cloud Storage source bucket and, optionally, path inside
+            the bucket. If a path inside the bucket is specified, it
+            must end with a forward slash (``/``).
 
             This field is a member of `oneof`_ ``source``.
         lustre_path (google.cloud.lustre_v1.types.LustrePath):
@@ -73,13 +75,16 @@ class ImportDataRequest(proto.Message):
 
             This field is a member of `oneof`_ ``destination``.
         name (str):
-            Required. Name of the resource.
+            Required. The name of the Managed Lustre instance in the
+            format
+            ``projects/{project}/locations/{location}/instances/{instance}``.
         request_id (str):
             Optional. UUID to identify requests.
         service_account (str):
             Optional. User-specified service account used
             to perform the transfer. If unspecified, the
-            default Lustre P4 service account will be used.
+            default Managed Lustre service agent will be
+            used.
     """
 
     gcs_path: "GcsPath" = proto.Field(
@@ -109,21 +114,28 @@ class ImportDataRequest(proto.Message):
 
 
 class ExportDataRequest(proto.Message):
-    r"""Message for exporting data from Lustre.
+    r"""Export data from Managed Lustre to a Cloud Storage bucket.
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         lustre_path (google.cloud.lustre_v1.types.LustrePath):
-            Lustre path source.
+            The root directory path to the Managed Lustre file system.
+            Must start with ``/``. Default is ``/``.
 
             This field is a member of `oneof`_ ``source``.
         gcs_path (google.cloud.lustre_v1.types.GcsPath):
-            Cloud Storage destination.
+            The URI to a Cloud Storage bucket, or a path within a
+            bucket, using the format
+            ``gs://<bucket_name>/<optional_path_inside_bucket>/``. If a
+            path inside the bucket is specified, it must end with a
+            forward slash (``/``).
 
             This field is a member of `oneof`_ ``destination``.
         name (str):
-            Required. Name of the resource.
+            Required. The name of the Managed Lustre instance in the
+            format
+            ``projects/{project}/locations/{location}/instances/{instance}``.
         request_id (str):
             Optional. UUID to identify requests.
         service_account (str):
@@ -302,12 +314,16 @@ class ImportDataMetadata(proto.Message):
 
 
 class GcsPath(proto.Message):
-    r"""Cloud Storage as the source of a data transfer.
+    r"""Specifies a Cloud Storage bucket and, optionally, a path
+    inside the bucket.
 
     Attributes:
         uri (str):
-            Required. URI to a Cloud Storage path in the format:
-            ``gs://<bucket_name>``.
+            Required. The URI to a Cloud Storage bucket, or a path
+            within a bucket, using the format
+            ``gs://<bucket_name>/<optional_path_inside_bucket>/``. If a
+            path inside the bucket is specified, it must end with a
+            forward slash (``/``).
     """
 
     uri: str = proto.Field(
@@ -317,12 +333,14 @@ class GcsPath(proto.Message):
 
 
 class LustrePath(proto.Message):
-    r"""LustrePath represents a path in the Lustre file system.
+    r"""The root directory path to the Lustre file system.
 
     Attributes:
         path (str):
-            Optional. Root directory path to the Managed Lustre file
-            system, starting with ``/``. Defaults to ``/`` if unset.
+            Optional. The root directory path to the Managed Lustre file
+            system. Must start with ``/``. Default is ``/``. If you're
+            importing data into Managed Lustre, any path other than the
+            default must already exist on the file system.
     """
 
     path: str = proto.Field(

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ class AnnotatedString(proto.Message):
 
     Table Data:
 
-    -  "country" - dimension
-    -  "population" - metric
-    -  "Africa" - value in the "continent" column
+    - "country" - dimension
+    - "population" - metric
+    - "Africa" - value in the "continent" column
 
     text_formatted = ``"top countries by population in Africa"``
 
@@ -89,6 +89,7 @@ class AnnotatedString(proto.Message):
                 Markup for a substring that contains terms
                 for row.
         """
+
         MARKUP_TYPE_UNSPECIFIED = 0
         METRIC = 1
         DIMENSION = 2

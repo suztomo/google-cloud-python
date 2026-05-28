@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ async def sample_update_contact():
     # Initialize request argument(s)
     contact = essential_contacts_v1.Contact()
     contact.email = "email_value"
-    contact.notification_category_subscriptions = ['TECHNICAL_INCIDENTS']
+    contact.notification_category_subscriptions = ["TECHNICAL_INCIDENTS"]
     contact.language_tag = "language_tag_value"
 
     request = essential_contacts_v1.UpdateContactRequest(
@@ -53,5 +53,6 @@ async def sample_update_contact():
 
     # Handle the response
     print(response)
+
 
 # [END essentialcontacts_v1_generated_EssentialContactsService_UpdateContact_async]

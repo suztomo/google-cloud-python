@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.appengine_admin_v1 import gapic_version as package_version
 
@@ -44,9 +44,9 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation as gac_operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
+import google.api_core.operation as gac_operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 
 from google.cloud.appengine_admin_v1.types import appengine, application
 from google.cloud.appengine_admin_v1.types import operation as ga_operation
@@ -111,7 +111,10 @@ class ApplicationsAsyncClient:
         Returns:
             ApplicationsAsyncClient: The constructed client.
         """
-        return ApplicationsClient.from_service_account_info.__func__(ApplicationsAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ApplicationsClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ApplicationsAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -127,7 +130,10 @@ class ApplicationsAsyncClient:
         Returns:
             ApplicationsAsyncClient: The constructed client.
         """
-        return ApplicationsClient.from_service_account_file.__func__(ApplicationsAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ApplicationsClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ApplicationsAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -177,7 +183,7 @@ class ApplicationsAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -406,10 +412,10 @@ class ApplicationsAsyncClient:
         r"""Creates an App Engine application for a Google Cloud Platform
         project. Required fields:
 
-        -  ``id`` - The ID of the target Cloud Platform project.
-        -  *location* - The
-           `region <https://cloud.google.com/appengine/docs/locations>`__
-           where you want the App Engine application located.
+        - ``id`` - The ID of the target Cloud Platform project.
+        - *location* - The
+          `region <https://cloud.google.com/appengine/docs/locations>`__
+          where you want the App Engine application located.
 
         For more information about App Engine applications, see
         `Managing Projects, Applications, and
@@ -435,11 +441,11 @@ class ApplicationsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_application(request=request)
+                operation = await client.create_application(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -508,12 +514,11 @@ class ApplicationsAsyncClient:
         r"""Updates the specified Application resource. You can update the
         following fields:
 
-        -  ``auth_domain`` - Google authentication domain for
-           controlling user access to the application.
-        -  ``default_cookie_expiration`` - Cookie expiration policy for
-           the application.
-        -  ``iap`` - Identity-Aware Proxy properties for the
-           application.
+        - ``auth_domain`` - Google authentication domain for controlling
+          user access to the application.
+        - ``default_cookie_expiration`` - Cookie expiration policy for
+          the application.
+        - ``iap`` - Identity-Aware Proxy properties for the application.
 
         .. code-block:: python
 
@@ -535,11 +540,11 @@ class ApplicationsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_application(request=request)
+                operation = await client.update_application(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -643,11 +648,11 @@ class ApplicationsAsyncClient:
                 )
 
                 # Make the request
-                operation = client.repair_application(request=request)
+                operation = await client.repair_application(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

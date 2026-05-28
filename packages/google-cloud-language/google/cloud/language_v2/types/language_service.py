@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ class EncodingType(proto.Enum):
             is an example of a language that uses this encoding
             natively.
     """
+
     NONE = 0
     UTF8 = 1
     UTF16 = 2
@@ -128,6 +129,7 @@ class Document(proto.Message):
             HTML (2):
                 HTML
         """
+
         TYPE_UNSPECIFIED = 0
         PLAIN_TEXT = 1
         HTML = 2
@@ -235,37 +237,37 @@ class Entity(proto.Message):
                 local convention, plus whichever additional elements appear
                 in the text:
 
-                -  ``number`` - the actual number, broken down into sections
-                   as per local convention
-                -  ``national_prefix`` - country code, if detected
-                -  ``area_code`` - region or area code, if detected
-                -  ``extension`` - phone extension (to be dialed after
-                   connection), if detected
+                - ``number`` - the actual number, broken down into sections
+                  as per local convention
+                - ``national_prefix`` - country code, if detected
+                - ``area_code`` - region or area code, if detected
+                - ``extension`` - phone extension (to be dialed after
+                  connection), if detected
             ADDRESS (10):
                 Address
 
                 The metadata identifies the street number and locality plus
                 whichever additional elements appear in the text:
 
-                -  ``street_number`` - street number
-                -  ``locality`` - city or town
-                -  ``street_name`` - street/route name, if detected
-                -  ``postal_code`` - postal code, if detected
-                -  ``country`` - country, if detected
-                -  ``broad_region`` - administrative area, such as the
-                   state, if detected
-                -  ``narrow_region`` - smaller administrative area, such as
-                   county, if detected
-                -  ``sublocality`` - used in Asian addresses to demark a
-                   district within a city, if detected
+                - ``street_number`` - street number
+                - ``locality`` - city or town
+                - ``street_name`` - street/route name, if detected
+                - ``postal_code`` - postal code, if detected
+                - ``country`` - country, if detected
+                - ``broad_region`` - administrative area, such as the state,
+                  if detected
+                - ``narrow_region`` - smaller administrative area, such as
+                  county, if detected
+                - ``sublocality`` - used in Asian addresses to demark a
+                  district within a city, if detected
             DATE (11):
                 Date
 
                 The metadata identifies the components of the date:
 
-                -  ``year`` - four digit year, if detected
-                -  ``month`` - two digit month number, if detected
-                -  ``day`` - two digit day number, if detected
+                - ``year`` - four digit year, if detected
+                - ``month`` - two digit month number, if detected
+                - ``day`` - two digit day number, if detected
             NUMBER (12):
                 Number
 
@@ -275,6 +277,7 @@ class Entity(proto.Message):
 
                 The metadata identifies the ``value`` and ``currency``.
         """
+
         UNKNOWN = 0
         PERSON = 1
         LOCATION = 2
@@ -372,6 +375,7 @@ class EntityMention(proto.Message):
             COMMON (2):
                 Common noun (or noun compound)
         """
+
         TYPE_UNKNOWN = 0
         PROPER = 1
         COMMON = 2
@@ -651,6 +655,7 @@ class ModerateTextRequest(proto.Message):
                 returns severity score for a subset of the
                 categories.
         """
+
         MODEL_VERSION_UNSPECIFIED = 0
         MODEL_VERSION_1 = 1
         MODEL_VERSION_2 = 2
@@ -686,12 +691,12 @@ class ModerateTextResponse(proto.Message):
             effort basis.
     """
 
-    moderation_categories: MutableSequence[
-        "ClassificationCategory"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="ClassificationCategory",
+    moderation_categories: MutableSequence["ClassificationCategory"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="ClassificationCategory",
+        )
     )
     language_code: str = proto.Field(
         proto.STRING,
@@ -828,12 +833,12 @@ class AnnotateTextResponse(proto.Message):
         number=5,
         message="ClassificationCategory",
     )
-    moderation_categories: MutableSequence[
-        "ClassificationCategory"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message="ClassificationCategory",
+    moderation_categories: MutableSequence["ClassificationCategory"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message="ClassificationCategory",
+        )
     )
     language_supported: bool = proto.Field(
         proto.BOOL,

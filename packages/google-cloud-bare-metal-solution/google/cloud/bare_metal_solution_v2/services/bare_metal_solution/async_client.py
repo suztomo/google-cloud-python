@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.bare_metal_solution_v2 import gapic_version as package_version
 
@@ -44,34 +44,40 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.bare_metal_solution_v2.services.bare_metal_solution import pagers
+from google.cloud.bare_metal_solution_v2.types import (
+    baremetalsolution,
+    common,
+    instance,
+    lun,
+    network,
+    nfs_share,
+    osimage,
+    provisioning,
+    ssh_key,
+    volume,
+    volume_snapshot,
+)
+from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
+from google.cloud.bare_metal_solution_v2.types import network as gcb_network
 from google.cloud.bare_metal_solution_v2.types import nfs_share as gcb_nfs_share
+from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
+from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
 from google.cloud.bare_metal_solution_v2.types import (
     volume_snapshot as gcb_volume_snapshot,
 )
-from google.cloud.bare_metal_solution_v2.types import baremetalsolution, common
-from google.cloud.bare_metal_solution_v2.types import instance
-from google.cloud.bare_metal_solution_v2.types import instance as gcb_instance
-from google.cloud.bare_metal_solution_v2.types import lun
-from google.cloud.bare_metal_solution_v2.types import network
-from google.cloud.bare_metal_solution_v2.types import network as gcb_network
-from google.cloud.bare_metal_solution_v2.types import nfs_share
-from google.cloud.bare_metal_solution_v2.types import osimage, provisioning
-from google.cloud.bare_metal_solution_v2.types import ssh_key
-from google.cloud.bare_metal_solution_v2.types import ssh_key as gcb_ssh_key
-from google.cloud.bare_metal_solution_v2.types import volume
-from google.cloud.bare_metal_solution_v2.types import volume as gcb_volume
-from google.cloud.bare_metal_solution_v2.types import volume_snapshot
 
 from .client import BareMetalSolutionClient
 from .transports.base import DEFAULT_CLIENT_INFO, BareMetalSolutionTransport
@@ -204,7 +210,10 @@ class BareMetalSolutionAsyncClient:
         Returns:
             BareMetalSolutionAsyncClient: The constructed client.
         """
-        return BareMetalSolutionClient.from_service_account_info.__func__(BareMetalSolutionAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            BareMetalSolutionClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(BareMetalSolutionAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -220,7 +229,10 @@ class BareMetalSolutionAsyncClient:
         Returns:
             BareMetalSolutionAsyncClient: The constructed client.
         """
-        return BareMetalSolutionClient.from_service_account_file.__func__(BareMetalSolutionAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            BareMetalSolutionClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(BareMetalSolutionAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -270,7 +282,7 @@ class BareMetalSolutionAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -647,11 +659,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_instance(request=request)
+                operation = await client.update_instance(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -911,11 +923,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.reset_instance(request=request)
+                operation = await client.reset_instance(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1034,11 +1046,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.start_instance(request=request)
+                operation = await client.start_instance(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1157,11 +1169,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.stop_instance(request=request)
+                operation = await client.stop_instance(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1283,11 +1295,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.enable_interactive_serial_console(request=request)
+                operation = await client.enable_interactive_serial_console(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1410,11 +1422,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.disable_interactive_serial_console(request=request)
+                operation = await client.disable_interactive_serial_console(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1536,11 +1548,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.detach_lun(request=request)
+                operation = await client.detach_lun(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -1825,7 +1837,7 @@ class BareMetalSolutionAsyncClient:
                 Required. The ID to use for the key, which will become
                 the final component of the key's resource name.
 
-                This value must match the regex: [a-zA-Z0-9@.-_]{1,64}
+                This value must match the regex: [a-zA-Z0-9@.-\_]{1,64}
 
                 This corresponds to the ``ssh_key_id`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2263,11 +2275,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_volume(request=request)
+                operation = await client.update_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2526,11 +2538,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.evict_volume(request=request)
+                operation = await client.evict_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -2658,11 +2670,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.resize_volume(request=request)
+                operation = await client.resize_volume(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3131,11 +3143,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_network(request=request)
+                operation = await client.update_network(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -3395,11 +3407,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.restore_volume_snapshot(request=request)
+                operation = await client.restore_volume_snapshot(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4102,11 +4114,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.evict_lun(request=request)
+                operation = await client.evict_lun(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4466,11 +4478,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.update_nfs_share(request=request)
+                operation = await client.update_nfs_share(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4607,11 +4619,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.create_nfs_share(request=request)
+                operation = await client.create_nfs_share(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -4861,11 +4873,11 @@ class BareMetalSolutionAsyncClient:
                 )
 
                 # Make the request
-                operation = client.delete_nfs_share(request=request)
+                operation = await client.delete_nfs_share(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -5817,7 +5829,7 @@ class BareMetalSolutionAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5843,8 +5855,12 @@ class BareMetalSolutionAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5853,7 +5869,7 @@ class BareMetalSolutionAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5861,7 +5877,7 @@ class BareMetalSolutionAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -5872,7 +5888,7 @@ class BareMetalSolutionAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -5898,8 +5914,12 @@ class BareMetalSolutionAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -5908,7 +5928,7 @@ class BareMetalSolutionAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -5916,7 +5936,7 @@ class BareMetalSolutionAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

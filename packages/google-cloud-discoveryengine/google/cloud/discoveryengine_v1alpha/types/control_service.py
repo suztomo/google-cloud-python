@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.discoveryengine_v1alpha.types import control as gcd_control
@@ -51,7 +51,7 @@ class CreateControlRequest(proto.Message):
             the final component of the Control's resource name.
 
             This value must be within 1-63 characters. Valid characters
-            are /[a-z][0-9]-_/.
+            are /[a-z][0-9]-\_/.
     """
 
     parent: str = proto.Field(
@@ -80,8 +80,8 @@ class UpdateControlRequest(proto.Message):
             [Control][google.cloud.discoveryengine.v1alpha.Control] to
             update. The following are NOT supported:
 
-            -  [Control.name][google.cloud.discoveryengine.v1alpha.Control.name]
-            -  [Control.solution_type][google.cloud.discoveryengine.v1alpha.Control.solution_type]
+            - [Control.name][google.cloud.discoveryengine.v1alpha.Control.name]
+            - [Control.solution_type][google.cloud.discoveryengine.v1alpha.Control.solution_type]
 
             If not set or empty, all supported fields are updated.
     """
@@ -150,9 +150,9 @@ class ListControlsRequest(proto.Message):
             Optional. A filter to apply on the list results. Supported
             features:
 
-            -  List all the products under the parent branch if
-               [filter][google.cloud.discoveryengine.v1alpha.ListControlsRequest.filter]
-               is unset. Currently this field is unsupported.
+            - List all the products under the parent branch if
+              [filter][google.cloud.discoveryengine.v1alpha.ListControlsRequest.filter]
+              is unset. Currently this field is unsupported.
     """
 
     parent: str = proto.Field(

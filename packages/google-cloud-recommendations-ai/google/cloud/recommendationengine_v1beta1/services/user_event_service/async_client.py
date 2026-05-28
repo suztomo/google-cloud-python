@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.recommendationengine_v1beta1 import gapic_version as package_version
 
@@ -44,17 +44,19 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api import httpbody_pb2  # type: ignore
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.httpbody_pb2 as httpbody_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.recommendationengine_v1beta1.services.user_event_service import pagers
+from google.cloud.recommendationengine_v1beta1.types import (
+    import_,
+    user_event,
+    user_event_service,
+)
 from google.cloud.recommendationengine_v1beta1.types import user_event as gcr_user_event
-from google.cloud.recommendationengine_v1beta1.types import import_
-from google.cloud.recommendationengine_v1beta1.types import user_event
-from google.cloud.recommendationengine_v1beta1.types import user_event_service
 
 from .client import UserEventServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, UserEventServiceTransport
@@ -124,7 +126,10 @@ class UserEventServiceAsyncClient:
         Returns:
             UserEventServiceAsyncClient: The constructed client.
         """
-        return UserEventServiceClient.from_service_account_info.__func__(UserEventServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            UserEventServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(UserEventServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +145,10 @@ class UserEventServiceAsyncClient:
         Returns:
             UserEventServiceAsyncClient: The constructed client.
         """
-        return UserEventServiceClient.from_service_account_file.__func__(UserEventServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            UserEventServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(UserEventServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -190,7 +198,7 @@ class UserEventServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -708,15 +716,15 @@ class UserEventServiceAsyncClient:
 
                 Some examples of valid filters expressions:
 
-                -  Example 1: eventTime > "2012-04-23T18:25:43.511Z"
-                   eventTime < "2012-04-23T18:30:43.511Z"
-                -  Example 2: eventTime > "2012-04-23T18:25:43.511Z"
-                   eventType = detail-page-view
-                -  Example 3: eventsMissingCatalogItems eventType =
-                   search eventTime < "2018-04-23T18:30:43.511Z"
-                -  Example 4: eventTime > "2012-04-23T18:25:43.511Z"
-                -  Example 5: eventType = search
-                -  Example 6: eventsMissingCatalogItems
+                - Example 1: eventTime > "2012-04-23T18:25:43.511Z"
+                  eventTime < "2012-04-23T18:30:43.511Z"
+                - Example 2: eventTime > "2012-04-23T18:25:43.511Z"
+                  eventType = detail-page-view
+                - Example 3: eventsMissingCatalogItems eventType =
+                  search eventTime < "2018-04-23T18:30:43.511Z"
+                - Example 4: eventTime > "2012-04-23T18:25:43.511Z"
+                - Example 5: eventType = search
+                - Example 6: eventsMissingCatalogItems
 
                 This corresponds to the ``filter`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -841,11 +849,11 @@ class UserEventServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.purge_user_events(request=request)
+                operation = await client.purge_user_events(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)
@@ -869,19 +877,19 @@ class UserEventServiceAsyncClient:
                 that will be deleted. The eligible fields for filtering
                 are:
 
-                -  eventType - UserEvent.eventType field of type string.
-                -  eventTime - in ISO 8601 "zulu" format.
-                -  visitorId - field of type string. Specifying this
-                   will delete all events associated with a visitor.
-                -  userId - field of type string. Specifying this will
-                   delete all events associated with a user. Example 1:
-                   Deleting all events in a time range.
-                   ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
-                   Example 2: Deleting specific eventType in time range.
-                   ``eventTime > "2012-04-23T18:25:43.511Z" eventType = "detail-page-view"``
-                   Example 3: Deleting all events for a specific visitor
-                   ``visitorId = visitor1024`` The filtering fields are
-                   assumed to have an implicit AND.
+                - eventType - UserEvent.eventType field of type string.
+                - eventTime - in ISO 8601 "zulu" format.
+                - visitorId - field of type string. Specifying this will
+                  delete all events associated with a visitor.
+                - userId - field of type string. Specifying this will
+                  delete all events associated with a user. Example 1:
+                  Deleting all events in a time range.
+                  ``eventTime > "2012-04-23T18:25:43.511Z" eventTime < "2012-04-23T18:30:43.511Z"``
+                  Example 2: Deleting specific eventType in time range.
+                  ``eventTime > "2012-04-23T18:25:43.511Z" eventType = "detail-page-view"``
+                  Example 3: Deleting all events for a specific visitor
+                  ``visitorId = visitor1024`` The filtering fields are
+                  assumed to have an implicit AND.
 
                 This corresponds to the ``filter`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1016,11 +1024,11 @@ class UserEventServiceAsyncClient:
                 )
 
                 # Make the request
-                operation = client.import_user_events(request=request)
+                operation = await client.import_user_events(request=request)
 
                 print("Waiting for operation to complete...")
 
-                response = (await operation).result()
+                response = await operation.result()
 
                 # Handle the response
                 print(response)

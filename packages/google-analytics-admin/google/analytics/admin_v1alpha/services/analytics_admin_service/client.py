@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.analytics.admin_v1alpha import gapic_version as package_version
 
@@ -61,12 +61,23 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.protobuf import wrappers_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.protobuf.wrappers_pb2 as wrappers_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 
 from google.analytics.admin_v1alpha.services.analytics_admin_service import pagers
+from google.analytics.admin_v1alpha.types import (
+    access_report,
+    analytics_admin,
+    audience,
+    channel_group,
+    event_create_and_edit,
+    expanded_data_set,
+    resources,
+    subproperty_event_filter,
+)
+from google.analytics.admin_v1alpha.types import audience as gaa_audience
 from google.analytics.admin_v1alpha.types import channel_group as gaa_channel_group
 from google.analytics.admin_v1alpha.types import (
     expanded_data_set as gaa_expanded_data_set,
@@ -74,14 +85,6 @@ from google.analytics.admin_v1alpha.types import (
 from google.analytics.admin_v1alpha.types import (
     subproperty_event_filter as gaa_subproperty_event_filter,
 )
-from google.analytics.admin_v1alpha.types import access_report, analytics_admin
-from google.analytics.admin_v1alpha.types import audience
-from google.analytics.admin_v1alpha.types import audience as gaa_audience
-from google.analytics.admin_v1alpha.types import channel_group
-from google.analytics.admin_v1alpha.types import event_create_and_edit
-from google.analytics.admin_v1alpha.types import expanded_data_set
-from google.analytics.admin_v1alpha.types import resources
-from google.analytics.admin_v1alpha.types import subproperty_event_filter
 
 from .transports.base import DEFAULT_CLIENT_INFO, AnalyticsAdminServiceTransport
 from .transports.grpc import AnalyticsAdminServiceGrpcTransport
@@ -97,9 +100,7 @@ class AnalyticsAdminServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[AnalyticsAdminServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[AnalyticsAdminServiceTransport]]
     _transport_registry["grpc"] = AnalyticsAdminServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = AnalyticsAdminServiceGrpcAsyncIOTransport
     _transport_registry["rest"] = AnalyticsAdminServiceRestTransport
@@ -130,7 +131,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
     """Service Interface for the Google Analytics Admin API."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -138,7 +139,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -148,6 +149,10 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -167,6 +172,34 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
 
     _DEFAULT_ENDPOINT_TEMPLATE = "analyticsadmin.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
+
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
 
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
@@ -795,6 +828,21 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         return m.groupdict() if m else {}
 
     @staticmethod
+    def reporting_identity_settings_path(
+        property: str,
+    ) -> str:
+        """Returns a fully-qualified reporting_identity_settings string."""
+        return "properties/{property}/reportingIdentitySettings".format(
+            property=property,
+        )
+
+    @staticmethod
+    def parse_reporting_identity_settings_path(path: str) -> Dict[str, str]:
+        """Parses a reporting_identity_settings path into its component segments."""
+        m = re.match(r"^properties/(?P<property>.+?)/reportingIdentitySettings$", path)
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def rollup_property_source_link_path(
         property: str,
         rollup_property_source_link: str,
@@ -874,6 +922,41 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             r"^properties/(?P<property>.+?)/subpropertyEventFilters/(?P<sub_property_event_filter>.+?)$",
             path,
         )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def subproperty_sync_config_path(
+        property: str,
+        subproperty_sync_config: str,
+    ) -> str:
+        """Returns a fully-qualified subproperty_sync_config string."""
+        return "properties/{property}/subpropertySyncConfigs/{subproperty_sync_config}".format(
+            property=property,
+            subproperty_sync_config=subproperty_sync_config,
+        )
+
+    @staticmethod
+    def parse_subproperty_sync_config_path(path: str) -> Dict[str, str]:
+        """Parses a subproperty_sync_config path into its component segments."""
+        m = re.match(
+            r"^properties/(?P<property>.+?)/subpropertySyncConfigs/(?P<subproperty_sync_config>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def user_provided_data_settings_path(
+        property: str,
+    ) -> str:
+        """Returns a fully-qualified user_provided_data_settings string."""
+        return "properties/{property}/userProvidedDataSettings".format(
+            property=property,
+        )
+
+    @staticmethod
+    def parse_user_provided_data_settings_path(path: str) -> Dict[str, str]:
+        """Parses a user_provided_data_settings path into its component segments."""
+        m = re.match(r"^properties/(?P<property>.+?)/userProvidedDataSettings$", path)
         return m.groupdict() if m else {}
 
     @staticmethod
@@ -994,12 +1077,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AnalyticsAdminServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -1007,7 +1086,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -1039,20 +1118,14 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AnalyticsAdminServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -1076,7 +1149,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -1175,7 +1248,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1266,18 +1339,16 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = AnalyticsAdminServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            AnalyticsAdminServiceClient._read_environment_variables()
+        )
         self._client_cert_source = AnalyticsAdminServiceClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = AnalyticsAdminServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -1305,8 +1376,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(AnalyticsAdminServiceTransport, transport)
             self._api_endpoint = self._transport.host
@@ -1640,8 +1710,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (for example, "field_to_update").
                 Omitted fields will not be updated. To replace the
-                entire entity, use one path with the string "*" to match
-                all fields.
+                entire entity, use one path with the string "\*" to
+                match all fields.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2186,7 +2256,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -2739,7 +2809,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -4322,7 +4392,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -4531,7 +4601,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -5006,7 +5076,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -5750,7 +5820,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -6531,7 +6601,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -6973,7 +7043,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -7415,7 +7485,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -7680,7 +7750,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -8229,7 +8299,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -8732,7 +8802,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -8920,7 +8990,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -10069,7 +10139,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -10515,7 +10585,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -10660,132 +10730,6 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             timeout=timeout,
             metadata=metadata,
         )
-
-    def set_automated_ga4_configuration_opt_out(
-        self,
-        request: Optional[
-            Union[analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_admin.SetAutomatedGa4ConfigurationOptOutResponse:
-        r"""Sets the opt out status for the automated GA4 setup
-        process for a UA property.
-        Note: this has no effect on GA4 property.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.SetAutomatedGa4ConfigurationOptOutRequest, dict]):
-                The request object. Request for setting the opt out
-                status for the automated GA4 setup
-                process.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.admin_v1alpha.types.SetAutomatedGa4ConfigurationOptOutResponse:
-                Response message for setting the opt
-                out status for the automated GA4 setup
-                process.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(
-            request, analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest
-        ):
-            request = analytics_admin.SetAutomatedGa4ConfigurationOptOutRequest(request)
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.set_automated_ga4_configuration_opt_out
-        ]
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
-
-    def fetch_automated_ga4_configuration_opt_out(
-        self,
-        request: Optional[
-            Union[analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_admin.FetchAutomatedGa4ConfigurationOptOutResponse:
-        r"""Fetches the opt out status for the automated GA4
-        setup process for a UA property.
-        Note: this has no effect on GA4 property.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.FetchAutomatedGa4ConfigurationOptOutRequest, dict]):
-                The request object. Request for fetching the opt out
-                status for the automated GA4 setup
-                process.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.admin_v1alpha.types.FetchAutomatedGa4ConfigurationOptOutResponse:
-                Response message for fetching the opt
-                out status for the automated GA4 setup
-                process.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(
-            request, analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest
-        ):
-            request = analytics_admin.FetchAutomatedGa4ConfigurationOptOutRequest(
-                request
-            )
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.fetch_automated_ga4_configuration_opt_out
-        ]
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
 
     def create_big_query_link(
         self,
@@ -11165,7 +11109,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -11362,7 +11306,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -11428,229 +11372,6 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 )
             ),
         )
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
-
-    def create_connected_site_tag(
-        self,
-        request: Optional[
-            Union[analytics_admin.CreateConnectedSiteTagRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_admin.CreateConnectedSiteTagResponse:
-        r"""Creates a connected site tag for a Universal
-        Analytics property. You can create a maximum of 20
-        connected site tags per property. Note: This API cannot
-        be used on GA4 properties.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.CreateConnectedSiteTagRequest, dict]):
-                The request object. Request message for
-                CreateConnectedSiteTag RPC.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.admin_v1alpha.types.CreateConnectedSiteTagResponse:
-                Response message for
-                CreateConnectedSiteTag RPC.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(request, analytics_admin.CreateConnectedSiteTagRequest):
-            request = analytics_admin.CreateConnectedSiteTagRequest(request)
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.create_connected_site_tag
-        ]
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
-
-    def delete_connected_site_tag(
-        self,
-        request: Optional[
-            Union[analytics_admin.DeleteConnectedSiteTagRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> None:
-        r"""Deletes a connected site tag for a Universal
-        Analytics property. Note: this has no effect on GA4
-        properties.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.DeleteConnectedSiteTagRequest, dict]):
-                The request object. Request message for
-                DeleteConnectedSiteTag RPC.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(request, analytics_admin.DeleteConnectedSiteTagRequest):
-            request = analytics_admin.DeleteConnectedSiteTagRequest(request)
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.delete_connected_site_tag
-        ]
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-    def list_connected_site_tags(
-        self,
-        request: Optional[
-            Union[analytics_admin.ListConnectedSiteTagsRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_admin.ListConnectedSiteTagsResponse:
-        r"""Lists the connected site tags for a Universal
-        Analytics property. A maximum of 20 connected site tags
-        will be returned. Note: this has no effect on GA4
-        property.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.ListConnectedSiteTagsRequest, dict]):
-                The request object. Request message for
-                ListConnectedSiteTags RPC.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.admin_v1alpha.types.ListConnectedSiteTagsResponse:
-                Response message for
-                ListConnectedSiteTags RPC.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(request, analytics_admin.ListConnectedSiteTagsRequest):
-            request = analytics_admin.ListConnectedSiteTagsRequest(request)
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[self._transport.list_connected_site_tags]
-
-        # Validate the universe domain.
-        self._validate_universe_domain()
-
-        # Send the request.
-        response = rpc(
-            request,
-            retry=retry,
-            timeout=timeout,
-            metadata=metadata,
-        )
-
-        # Done; return the response.
-        return response
-
-    def fetch_connected_ga4_property(
-        self,
-        request: Optional[
-            Union[analytics_admin.FetchConnectedGa4PropertyRequest, dict]
-        ] = None,
-        *,
-        retry: OptionalRetry = gapic_v1.method.DEFAULT,
-        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
-        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
-    ) -> analytics_admin.FetchConnectedGa4PropertyResponse:
-        r"""Given a specified UA property, looks up the GA4
-        property connected to it. Note: this cannot be used with
-        GA4 properties.
-
-        Args:
-            request (Union[google.analytics.admin_v1alpha.types.FetchConnectedGa4PropertyRequest, dict]):
-                The request object. Request for looking up GA4 property
-                connected to a UA property.
-            retry (google.api_core.retry.Retry): Designation of what errors, if any,
-                should be retried.
-            timeout (float): The timeout for this request.
-            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
-                sent along with the request as metadata. Normally, each value must be of type `str`,
-                but for metadata keys ending with the suffix `-bin`, the corresponding values must
-                be of type `bytes`.
-
-        Returns:
-            google.analytics.admin_v1alpha.types.FetchConnectedGa4PropertyResponse:
-                Response for looking up GA4 property
-                connected to a UA property.
-
-        """
-        # Create or coerce a protobuf request object.
-        # - Use the request object if provided (there's no risk of modifying the input as
-        #   there are no flattened fields), or create one.
-        if not isinstance(request, analytics_admin.FetchConnectedGa4PropertyRequest):
-            request = analytics_admin.FetchConnectedGa4PropertyRequest(request)
-
-        # Wrap the RPC method; this adds retry and timeout information,
-        # and friendly error handling.
-        rpc = self._transport._wrapped_methods[
-            self._transport.fetch_connected_ga4_property
-        ]
 
         # Validate the universe domain.
         self._validate_universe_domain()
@@ -12350,7 +12071,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -12837,7 +12558,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -13075,7 +12796,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -13365,7 +13086,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 metric's resource name.
 
                 This value should be 1-80 characters and valid
-                characters are `[a-zA-Z0-9_]`, no spaces allowed.
+                characters are /[a-zA-Z0-9\_]/, no spaces allowed.
                 calculated_metric_id must be unique between all
                 calculated metrics under a property. The
                 calculated_metric_id is used when referencing this
@@ -13563,7 +13284,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -14523,8 +14244,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to update. Field names must
                 be in snake case (for example, "field_to_update").
                 Omitted fields will not be updated. To replace the
-                entire entity, use one path with the string "*" to match
-                all fields.
+                entire entity, use one path with the string "\*" to
+                match all fields.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -14998,8 +14719,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Optional. The list of fields to update. Field names must
                 be in snake case (for example, "field_to_update").
                 Omitted fields will not be updated. To replace the
-                entire entity, use one path with the string "*" to match
-                all fields.
+                entire entity, use one path with the string "\*" to
+                match all fields.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -15222,6 +14943,487 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
         rpc = self._transport._wrapped_methods[self._transport.submit_user_deletion]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def list_subproperty_sync_configs(
+        self,
+        request: Optional[
+            Union[analytics_admin.ListSubpropertySyncConfigsRequest, dict]
+        ] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListSubpropertySyncConfigsPager:
+        r"""List all ``SubpropertySyncConfig`` resources for a property.
+
+        Args:
+            request (Union[google.analytics.admin_v1alpha.types.ListSubpropertySyncConfigsRequest, dict]):
+                The request object. Request message for
+                ListSubpropertySyncConfigs RPC.
+            parent (str):
+                Required. Resource name of the property. Format:
+                properties/property_id Example: properties/123
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.admin_v1alpha.services.analytics_admin_service.pagers.ListSubpropertySyncConfigsPager:
+                Response message for
+                ListSubpropertySyncConfigs RPC.
+                Iterating over this object will yield
+                results and resolve additional pages
+                automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_admin.ListSubpropertySyncConfigsRequest):
+            request = analytics_admin.ListSubpropertySyncConfigsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if parent is not None:
+                request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.list_subproperty_sync_configs
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__iter__` convenience method.
+        response = pagers.ListSubpropertySyncConfigsPager(
+            method=rpc,
+            request=request,
+            response=response,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def update_subproperty_sync_config(
+        self,
+        request: Optional[
+            Union[analytics_admin.UpdateSubpropertySyncConfigRequest, dict]
+        ] = None,
+        *,
+        subproperty_sync_config: Optional[resources.SubpropertySyncConfig] = None,
+        update_mask: Optional[field_mask_pb2.FieldMask] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> resources.SubpropertySyncConfig:
+        r"""Updates a ``SubpropertySyncConfig``.
+
+        Args:
+            request (Union[google.analytics.admin_v1alpha.types.UpdateSubpropertySyncConfigRequest, dict]):
+                The request object. Request message for
+                UpdateSubpropertySyncConfig RPC.
+            subproperty_sync_config (google.analytics.admin_v1alpha.types.SubpropertySyncConfig):
+                Required. The ``SubpropertySyncConfig`` to update.
+                This corresponds to the ``subproperty_sync_config`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            update_mask (google.protobuf.field_mask_pb2.FieldMask):
+                Optional. The list of fields to update. Field names must
+                be in snake case (for example, "field_to_update").
+                Omitted fields will not be updated. To replace the
+                entire entity, use one path with the string "\*" to
+                match all fields.
+
+                This corresponds to the ``update_mask`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.admin_v1alpha.types.SubpropertySyncConfig:
+                Subproperty synchronization
+                configuration controls how ordinary
+                property configurations are synchronized
+                to subproperties. This resource is
+                provisioned automatically for each
+                subproperty.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [subproperty_sync_config, update_mask]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_admin.UpdateSubpropertySyncConfigRequest):
+            request = analytics_admin.UpdateSubpropertySyncConfigRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if subproperty_sync_config is not None:
+                request.subproperty_sync_config = subproperty_sync_config
+            if update_mask is not None:
+                request.update_mask = update_mask
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.update_subproperty_sync_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata(
+                (
+                    (
+                        "subproperty_sync_config.name",
+                        request.subproperty_sync_config.name,
+                    ),
+                )
+            ),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_subproperty_sync_config(
+        self,
+        request: Optional[
+            Union[analytics_admin.GetSubpropertySyncConfigRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> resources.SubpropertySyncConfig:
+        r"""Lookup for a single ``SubpropertySyncConfig``.
+
+        Args:
+            request (Union[google.analytics.admin_v1alpha.types.GetSubpropertySyncConfigRequest, dict]):
+                The request object. Request message for
+                GetSubpropertySyncConfig RPC.
+            name (str):
+                Required. Resource name of the SubpropertySyncConfig to
+                lookup. Format:
+                properties/{ordinary_property_id}/subpropertySyncConfigs/{subproperty_id}
+                Example: properties/1234/subpropertySyncConfigs/5678
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.admin_v1alpha.types.SubpropertySyncConfig:
+                Subproperty synchronization
+                configuration controls how ordinary
+                property configurations are synchronized
+                to subproperties. This resource is
+                provisioned automatically for each
+                subproperty.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_admin.GetSubpropertySyncConfigRequest):
+            request = analytics_admin.GetSubpropertySyncConfigRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_subproperty_sync_config
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_reporting_identity_settings(
+        self,
+        request: Optional[
+            Union[analytics_admin.GetReportingIdentitySettingsRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> resources.ReportingIdentitySettings:
+        r"""Returns the reporting identity settings for this
+        property.
+
+        Args:
+            request (Union[google.analytics.admin_v1alpha.types.GetReportingIdentitySettingsRequest, dict]):
+                The request object. Request message for
+                GetReportingIdentitySettings RPC.
+            name (str):
+                Required. The name of the settings to
+                lookup. Format:
+
+                properties/{property}/reportingIdentitySettings
+                Example:
+                "properties/1000/reportingIdentitySettings"
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.admin_v1alpha.types.ReportingIdentitySettings:
+                A resource containing settings
+                related to reporting identity.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_admin.GetReportingIdentitySettingsRequest):
+            request = analytics_admin.GetReportingIdentitySettingsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_reporting_identity_settings
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._validate_universe_domain()
+
+        # Send the request.
+        response = rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    def get_user_provided_data_settings(
+        self,
+        request: Optional[
+            Union[analytics_admin.GetUserProvidedDataSettingsRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> resources.UserProvidedDataSettings:
+        r"""Looks up settings related to user-provided data for a
+        property.
+
+        Args:
+            request (Union[google.analytics.admin_v1alpha.types.GetUserProvidedDataSettingsRequest, dict]):
+                The request object. Request message for
+                GetUserProvidedDataSettings RPC
+            name (str):
+                Required. The name of the user
+                provided data settings to retrieve.
+                Format:
+                properties/{property}/userProvidedDataSettings
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry.Retry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.analytics.admin_v1alpha.types.UserProvidedDataSettings:
+                Configuration for user-provided data
+                collection. This is a singleton resource
+                for a Google Analytics property.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, analytics_admin.GetUserProvidedDataSettingsRequest):
+            request = analytics_admin.GetUserProvidedDataSettingsRequest(request)
+            # If we have keyword arguments corresponding to fields on the
+            # request, apply these.
+            if name is not None:
+                request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._transport._wrapped_methods[
+            self._transport.get_user_provided_data_settings
+        ]
 
         # Certain fields should be provided within the metadata header;
         # add these here.

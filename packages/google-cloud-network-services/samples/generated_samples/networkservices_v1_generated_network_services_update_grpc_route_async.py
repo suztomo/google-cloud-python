@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,21 +40,21 @@ async def sample_update_grpc_route():
 
     # Initialize request argument(s)
     grpc_route = network_services_v1.GrpcRoute()
-    grpc_route.name = "name_value"
-    grpc_route.hostnames = ['hostnames_value1', 'hostnames_value2']
+    grpc_route.hostnames = ["hostnames_value1", "hostnames_value2"]
 
     request = network_services_v1.UpdateGrpcRouteRequest(
         grpc_route=grpc_route,
     )
 
     # Make the request
-    operation = client.update_grpc_route(request=request)
+    operation = await client.update_grpc_route(request=request)
 
     print("Waiting for operation to complete...")
 
-    response = (await operation).result()
+    response = await operation.result()
 
     # Handle the response
     print(response)
+
 
 # [END networkservices_v1_generated_NetworkServices_UpdateGrpcRoute_async]

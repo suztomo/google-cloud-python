@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.bigquery_reservation_v1 import gapic_version as package_version
 
@@ -45,13 +45,15 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.cloud.bigquery_reservation_v1.services.reservation_service import pagers
-from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 from google.cloud.bigquery_reservation_v1.types import reservation
+from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 
 from .client import ReservationServiceClient
 from .transports.base import DEFAULT_CLIENT_INFO, ReservationServiceTransport
@@ -111,6 +113,12 @@ class ReservationServiceAsyncClient:
     parse_reservation_path = staticmethod(
         ReservationServiceClient.parse_reservation_path
     )
+    reservation_group_path = staticmethod(
+        ReservationServiceClient.reservation_group_path
+    )
+    parse_reservation_group_path = staticmethod(
+        ReservationServiceClient.parse_reservation_group_path
+    )
     common_billing_account_path = staticmethod(
         ReservationServiceClient.common_billing_account_path
     )
@@ -149,7 +157,10 @@ class ReservationServiceAsyncClient:
         Returns:
             ReservationServiceAsyncClient: The constructed client.
         """
-        return ReservationServiceClient.from_service_account_info.__func__(ReservationServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ReservationServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ReservationServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -165,7 +176,10 @@ class ReservationServiceAsyncClient:
         Returns:
             ReservationServiceAsyncClient: The constructed client.
         """
-        return ReservationServiceClient.from_service_account_file.__func__(ReservationServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ReservationServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ReservationServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -203,7 +217,9 @@ class ReservationServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return ReservationServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return ReservationServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> ReservationServiceTransport:
@@ -215,7 +231,7 @@ class ReservationServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1961,11 +1977,11 @@ class ReservationServiceAsyncClient:
 
         Example:
 
-        -  The organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Assignments for all three entities (``organizationA``,
-           ``project1``, and ``project2``) could all be created and
-           mapped to the same or different reservations.
+        - The organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Assignments for all three entities (``organizationA``,
+          ``project1``, and ``project2``) could all be created and
+          mapped to the same or different reservations.
 
         "None" assignments represent an absence of the assignment.
         Projects assigned to None use on-demand pricing. To create a
@@ -2106,12 +2122,12 @@ class ReservationServiceAsyncClient:
 
         Example:
 
-        -  Organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Reservation ``res1`` exists and was created previously.
-        -  CreateAssignment was used previously to define the following
-           associations between entities and reservations:
-           ``<organizationA, res1>`` and ``<project1, res1>``
+        - Organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Reservation ``res1`` exists and was created previously.
+        - CreateAssignment was used previously to define the following
+          associations between entities and reservations:
+          ``<organizationA, res1>`` and ``<project1, res1>``
 
         In this example, ListAssignments will just return the above two
         assignments for reservation ``res1``, and no expansion/merge
@@ -2256,12 +2272,12 @@ class ReservationServiceAsyncClient:
 
         Example:
 
-        -  Organization ``organizationA`` contains two projects,
-           ``project1`` and ``project2``.
-        -  Reservation ``res1`` exists and was created previously.
-        -  CreateAssignment was used previously to define the following
-           associations between entities and reservations:
-           ``<organizationA, res1>`` and ``<project1, res1>``
+        - Organization ``organizationA`` contains two projects,
+          ``project1`` and ``project2``.
+        - Reservation ``res1`` exists and was created previously.
+        - CreateAssignment was used previously to define the following
+          associations between entities and reservations:
+          ``<organizationA, res1>`` and ``<project1, res1>``
 
         In this example, deletion of the ``<organizationA, res1>``
         assignment won't affect the other assignment
@@ -2441,9 +2457,9 @@ class ReservationServiceAsyncClient:
 
                 Examples:
 
-                -  ``assignee=projects/myproject``
-                -  ``assignee=folders/123``
-                -  ``assignee=organizations/456``
+                - ``assignee=projects/myproject``
+                - ``assignee=folders/123``
+                - ``assignee=organizations/456``
 
                 This corresponds to the ``query`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2612,9 +2628,9 @@ class ReservationServiceAsyncClient:
 
                 Examples:
 
-                -  ``assignee=projects/myproject``
-                -  ``assignee=folders/123``
-                -  ``assignee=organizations/456``
+                - ``assignee=projects/myproject``
+                - ``assignee=folders/123``
+                - ``assignee=organizations/456``
 
                 This corresponds to the ``query`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3181,6 +3197,836 @@ class ReservationServiceAsyncClient:
         # Send the request.
         response = await rpc(
             request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_iam_policy(
+        self,
+        request: Optional[Union[iam_policy_pb2.GetIamPolicyRequest, dict]] = None,
+        *,
+        resource: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> policy_pb2.Policy:
+        r"""Gets the access control policy for a resource. May return:
+
+        - A\ ``NOT_FOUND`` error if the resource doesn't exist or you
+          don't have the permission to view it.
+        - An empty policy if the resource exists but doesn't have a set
+          policy.
+
+        Supported resources are:
+
+        - Reservations
+        - ReservationAssignments
+
+        To call this method, you must have the following Google IAM
+        permissions:
+
+        - ``bigqueryreservation.reservations.getIamPolicy`` to get
+          policies on reservations.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_get_iam_policy():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.GetIamPolicyRequest(
+                    resource="resource_value",
+                )
+
+                # Make the request
+                response = await client.get_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.GetIamPolicyRequest, dict]]):
+                The request object. Request message for ``GetIamPolicy`` method.
+            resource (:class:`str`):
+                REQUIRED: The resource for which the
+                policy is being requested. See the
+                operation documentation for the
+                appropriate value for this field.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.policy_pb2.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [resource]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.GetIamPolicyRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.GetIamPolicyRequest(resource=resource)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_iam_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def set_iam_policy(
+        self,
+        request: Optional[Union[iam_policy_pb2.SetIamPolicyRequest, dict]] = None,
+        *,
+        resource: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> policy_pb2.Policy:
+        r"""Sets an access control policy for a resource. Replaces any
+        existing policy.
+
+        Supported resources are:
+
+        - Reservations
+
+        To call this method, you must have the following Google IAM
+        permissions:
+
+        - ``bigqueryreservation.reservations.setIamPolicy`` to set
+          policies on reservations.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_set_iam_policy():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.SetIamPolicyRequest(
+                    resource="resource_value",
+                )
+
+                # Make the request
+                response = await client.set_iam_policy(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.SetIamPolicyRequest, dict]]):
+                The request object. Request message for ``SetIamPolicy`` method.
+            resource (:class:`str`):
+                REQUIRED: The resource for which the
+                policy is being specified. See the
+                operation documentation for the
+                appropriate value for this field.
+
+                This corresponds to the ``resource`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.policy_pb2.Policy:
+                An Identity and Access Management (IAM) policy, which specifies access
+                   controls for Google Cloud resources.
+
+                   A Policy is a collection of bindings. A binding binds
+                   one or more members, or principals, to a single role.
+                   Principals can be user accounts, service accounts,
+                   Google groups, and domains (such as G Suite). A role
+                   is a named list of permissions; each role can be an
+                   IAM predefined role or a user-created custom role.
+
+                   For some types of Google Cloud resources, a binding
+                   can also specify a condition, which is a logical
+                   expression that allows access to a resource only if
+                   the expression evaluates to true. A condition can add
+                   constraints based on attributes of the request, the
+                   resource, or both. To learn which resources support
+                   conditions in their IAM policies, see the [IAM
+                   documentation](https://cloud.google.com/iam/help/conditions/resource-policies).
+
+                   **JSON example:**
+
+                   :literal:``     {       "bindings": [         {           "role": "roles/resourcemanager.organizationAdmin",           "members": [             "user:mike@example.com",             "group:admins@example.com",             "domain:google.com",             "serviceAccount:my-project-id@appspot.gserviceaccount.com"           ]         },         {           "role": "roles/resourcemanager.organizationViewer",           "members": [             "user:eve@example.com"           ],           "condition": {             "title": "expirable access",             "description": "Does not grant access after Sep 2020",             "expression": "request.time <             timestamp('2020-10-01T00:00:00.000Z')",           }         }       ],       "etag": "BwWWja0YfJA=",       "version": 3     }`\ \`
+
+                   **YAML example:**
+
+                   :literal:``     bindings:     - members:       - user:mike@example.com       - group:admins@example.com       - domain:google.com       - serviceAccount:my-project-id@appspot.gserviceaccount.com       role: roles/resourcemanager.organizationAdmin     - members:       - user:eve@example.com       role: roles/resourcemanager.organizationViewer       condition:         title: expirable access         description: Does not grant access after Sep 2020         expression: request.time < timestamp('2020-10-01T00:00:00.000Z')     etag: BwWWja0YfJA=     version: 3`\ \`
+
+                   For a description of IAM and its features, see the
+                   [IAM
+                   documentation](https://cloud.google.com/iam/docs/).
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [resource]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.SetIamPolicyRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.SetIamPolicyRequest(resource=resource)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.set_iam_policy
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def test_iam_permissions(
+        self,
+        request: Optional[Union[iam_policy_pb2.TestIamPermissionsRequest, dict]] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> iam_policy_pb2.TestIamPermissionsResponse:
+        r"""Gets your permissions on a resource. Returns an empty
+        set of permissions if the resource doesn't exist.
+
+        Supported resources are:
+
+        - Reservations
+
+        No Google IAM permissions are required to call this
+        method.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+
+            async def sample_test_iam_permissions():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = iam_policy_pb2.TestIamPermissionsRequest(
+                    resource="resource_value",
+                    permissions=['permissions_value1', 'permissions_value2'],
+                )
+
+                # Make the request
+                response = await client.test_iam_permissions(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.iam.v1.iam_policy_pb2.TestIamPermissionsRequest, dict]]):
+                The request object. Request message for ``TestIamPermissions`` method.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.iam.v1.iam_policy_pb2.TestIamPermissionsResponse:
+                Response message for TestIamPermissions method.
+        """
+        # Create or coerce a protobuf request object.
+        # - The request isn't a proto-plus wrapped type,
+        #   so it must be constructed via keyword expansion.
+        if isinstance(request, dict):
+            request = iam_policy_pb2.TestIamPermissionsRequest(**request)
+        elif not request:
+            request = iam_policy_pb2.TestIamPermissionsRequest()
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.test_iam_permissions
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("resource", request.resource),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def create_reservation_group(
+        self,
+        request: Optional[
+            Union[reservation.CreateReservationGroupRequest, dict]
+        ] = None,
+        *,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> reservation.ReservationGroup:
+        r"""Creates a new reservation group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+
+            async def sample_create_reservation_group():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = bigquery_reservation_v1.CreateReservationGroupRequest(
+                    parent="parent_value",
+                    reservation_group_id="reservation_group_id_value",
+                )
+
+                # Make the request
+                response = await client.create_reservation_group(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.bigquery_reservation_v1.types.CreateReservationGroupRequest, dict]]):
+                The request object. The request for
+                [ReservationService.CreateReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.CreateReservationGroup].
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.bigquery_reservation_v1.types.ReservationGroup:
+                A reservation group is a container
+                for reservations.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, reservation.CreateReservationGroupRequest):
+            request = reservation.CreateReservationGroupRequest(request)
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.create_reservation_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def get_reservation_group(
+        self,
+        request: Optional[Union[reservation.GetReservationGroupRequest, dict]] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> reservation.ReservationGroup:
+        r"""Returns information about the reservation group.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+
+            async def sample_get_reservation_group():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = bigquery_reservation_v1.GetReservationGroupRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                response = await client.get_reservation_group(request=request)
+
+                # Handle the response
+                print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.bigquery_reservation_v1.types.GetReservationGroupRequest, dict]]):
+                The request object. The request for
+                [ReservationService.GetReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.GetReservationGroup].
+            name (:class:`str`):
+                Required. Resource name of the reservation group to
+                retrieve. E.g.,
+                ``projects/myproject/locations/US/reservationGroups/team1-prod``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.bigquery_reservation_v1.types.ReservationGroup:
+                A reservation group is a container
+                for reservations.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, reservation.GetReservationGroupRequest):
+            request = reservation.GetReservationGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.get_reservation_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # Done; return the response.
+        return response
+
+    async def delete_reservation_group(
+        self,
+        request: Optional[
+            Union[reservation.DeleteReservationGroupRequest, dict]
+        ] = None,
+        *,
+        name: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> None:
+        r"""Deletes a reservation. Returns
+        ``google.rpc.Code.FAILED_PRECONDITION`` when reservation has
+        assignments.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+
+            async def sample_delete_reservation_group():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = bigquery_reservation_v1.DeleteReservationGroupRequest(
+                    name="name_value",
+                )
+
+                # Make the request
+                await client.delete_reservation_group(request=request)
+
+        Args:
+            request (Optional[Union[google.cloud.bigquery_reservation_v1.types.DeleteReservationGroupRequest, dict]]):
+                The request object. The request for
+                [ReservationService.DeleteReservationGroup][google.cloud.bigquery.reservation.v1.ReservationService.DeleteReservationGroup].
+            name (:class:`str`):
+                Required. Resource name of the reservation group to
+                retrieve. E.g.,
+                ``projects/myproject/locations/US/reservationGroups/team1-prod``
+
+                This corresponds to the ``name`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [name]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, reservation.DeleteReservationGroupRequest):
+            request = reservation.DeleteReservationGroupRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if name is not None:
+            request.name = name
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.delete_reservation_group
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+    async def list_reservation_groups(
+        self,
+        request: Optional[Union[reservation.ListReservationGroupsRequest, dict]] = None,
+        *,
+        parent: Optional[str] = None,
+        retry: OptionalRetry = gapic_v1.method.DEFAULT,
+        timeout: Union[float, object] = gapic_v1.method.DEFAULT,
+        metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
+    ) -> pagers.ListReservationGroupsAsyncPager:
+        r"""Lists all the reservation groups for the project in
+        the specified location.
+
+        .. code-block:: python
+
+            # This snippet has been automatically generated and should be regarded as a
+            # code template only.
+            # It will require modifications to work:
+            # - It may require correct/in-range values for request initialization.
+            # - It may require specifying regional endpoints when creating the service
+            #   client as shown in:
+            #   https://googleapis.dev/python/google-api-core/latest/client_options.html
+            from google.cloud import bigquery_reservation_v1
+
+            async def sample_list_reservation_groups():
+                # Create a client
+                client = bigquery_reservation_v1.ReservationServiceAsyncClient()
+
+                # Initialize request argument(s)
+                request = bigquery_reservation_v1.ListReservationGroupsRequest(
+                    parent="parent_value",
+                )
+
+                # Make the request
+                page_result = client.list_reservation_groups(request=request)
+
+                # Handle the response
+                async for response in page_result:
+                    print(response)
+
+        Args:
+            request (Optional[Union[google.cloud.bigquery_reservation_v1.types.ListReservationGroupsRequest, dict]]):
+                The request object. The request for
+                [ReservationService.ListReservationGroups][google.cloud.bigquery.reservation.v1.ReservationService.ListReservationGroups].
+            parent (:class:`str`):
+                Required. The parent resource name containing project
+                and location, e.g.: ``projects/myproject/locations/US``
+
+                This corresponds to the ``parent`` field
+                on the ``request`` instance; if ``request`` is provided, this
+                should not be set.
+            retry (google.api_core.retry_async.AsyncRetry): Designation of what errors, if any,
+                should be retried.
+            timeout (float): The timeout for this request.
+            metadata (Sequence[Tuple[str, Union[str, bytes]]]): Key/value pairs which should be
+                sent along with the request as metadata. Normally, each value must be of type `str`,
+                but for metadata keys ending with the suffix `-bin`, the corresponding values must
+                be of type `bytes`.
+
+        Returns:
+            google.cloud.bigquery_reservation_v1.services.reservation_service.pagers.ListReservationGroupsAsyncPager:
+                The response for
+                   [ReservationService.ListReservationGroups][google.cloud.bigquery.reservation.v1.ReservationService.ListReservationGroups].
+
+                Iterating over this object will yield results and
+                resolve additional pages automatically.
+
+        """
+        # Create or coerce a protobuf request object.
+        # - Quick check: If we got a request object, we should *not* have
+        #   gotten any keyword arguments that map to the request.
+        flattened_params = [parent]
+        has_flattened_params = (
+            len([param for param in flattened_params if param is not None]) > 0
+        )
+        if request is not None and has_flattened_params:
+            raise ValueError(
+                "If the `request` argument is set, then none of "
+                "the individual field arguments should be set."
+            )
+
+        # - Use the request object if provided (there's no risk of modifying the input as
+        #   there are no flattened fields), or create one.
+        if not isinstance(request, reservation.ListReservationGroupsRequest):
+            request = reservation.ListReservationGroupsRequest(request)
+
+        # If we have keyword arguments corresponding to fields on the
+        # request, apply these.
+        if parent is not None:
+            request.parent = parent
+
+        # Wrap the RPC method; this adds retry and timeout information,
+        # and friendly error handling.
+        rpc = self._client._transport._wrapped_methods[
+            self._client._transport.list_reservation_groups
+        ]
+
+        # Certain fields should be provided within the metadata header;
+        # add these here.
+        metadata = tuple(metadata) + (
+            gapic_v1.routing_header.to_grpc_metadata((("parent", request.parent),)),
+        )
+
+        # Validate the universe domain.
+        self._client._validate_universe_domain()
+
+        # Send the request.
+        response = await rpc(
+            request,
+            retry=retry,
+            timeout=timeout,
+            metadata=metadata,
+        )
+
+        # This method is paged; wrap the response in a pager, which provides
+        # an `__aiter__` convenience method.
+        response = pagers.ListReservationGroupsAsyncPager(
+            method=rpc,
+            request=request,
+            response=response,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

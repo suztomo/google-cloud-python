@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -68,6 +68,13 @@ class CloudEvent(proto.Message):
             This field is a member of `oneof`_ ``data``.
         proto_data (google.protobuf.any_pb2.Any):
             Optional. Proto data.
+
+            NOTE: The ``protoData`` field only functions as expected
+            when the payload is specifically a ``CloudEvent`` message
+            type, and can't be used for arbitrary protocol buffer
+            messages. For any other protocol buffer type, you must
+            serialize your proto message into bytes, and use the
+            ``binaryData`` field instead.
 
             This field is a member of `oneof`_ ``data``.
     """

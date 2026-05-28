@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -100,7 +100,7 @@ class PolicyBasedRoute(proto.Message):
             one with the lowest-numbered priority value
             wins. The default value is
             1000. The priority value must be from 1 to
-            65535, inclusive.
+                65535, inclusive.
         warnings (MutableSequence[google.cloud.networkconnectivity_v1.types.PolicyBasedRoute.Warnings]):
             Output only. If potential misconfigurations
             are detected for this route, this field will be
@@ -127,6 +127,7 @@ class PolicyBasedRoute(proto.Message):
                 effectively excludes matching packets being
                 applied on other PBRs with a lower priority.
         """
+
         OTHER_ROUTES_UNSPECIFIED = 0
         DEFAULT_ROUTING = 1
 
@@ -196,6 +197,7 @@ class PolicyBasedRoute(proto.Message):
                     The PBR is for IPv4 internet protocol
                     traffic.
             """
+
             PROTOCOL_VERSION_UNSPECIFIED = 0
             IPV4 = 1
 
@@ -254,6 +256,7 @@ class PolicyBasedRoute(proto.Message):
                     The policy-based route is being modified
                     (e.g. created/deleted) at this time.
             """
+
             WARNING_UNSPECIFIED = 0
             RESOURCE_NOT_ACTIVE = 1
             RESOURCE_BEING_MODIFIED = 2

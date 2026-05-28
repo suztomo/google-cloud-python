@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -59,7 +59,8 @@ class Backup(proto.Message):
             Output only. Type of backup, manually created
             or created by a backup policy.
         source_volume (str):
-            Volume full name of this backup belongs to. Format:
+            Volume full name of this backup belongs to. Either
+            source_volume or ontap_source should be provided. Format:
             ``projects/{projects_id}/locations/{location}/volumes/{volume_id}``
         source_snapshot (str):
             If specified, backup will be created from the given
@@ -120,6 +121,7 @@ class Backup(proto.Message):
             UPDATING (6):
                 Backup is being updated.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         UPLOADING = 2
@@ -139,6 +141,7 @@ class Backup(proto.Message):
             SCHEDULED (2):
                 Scheduled backup type.
         """
+
         TYPE_UNSPECIFIED = 0
         MANUAL = 1
         SCHEDULED = 2

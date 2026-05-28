@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -46,6 +46,7 @@ class HealthStatus(proto.Enum):
         DEGRADED (4):
             Some sub-resources are UNHEALTHY.
     """
+
     HEALTH_STATUS_UNSPECIFIED = 0
     HEALTHY = 1
     UNHEALTHY = 2
@@ -57,20 +58,20 @@ class ResourceInfo(proto.Message):
     r"""ResourceInfo represents the information/status of an app connector
     resource. Such as:
 
-    -  remote_agent
+    - remote_agent
 
-       -  container
+      - container
 
-          -  runtime
-          -  appgateway
+        - runtime
+        - appgateway
 
-             -  appconnector
+          - appconnector
 
-                -  appconnection
+            - appconnection
 
-                   -  tunnel
+              - tunnel
 
-             -  logagent
+          - logagent
 
     Attributes:
         id (str):

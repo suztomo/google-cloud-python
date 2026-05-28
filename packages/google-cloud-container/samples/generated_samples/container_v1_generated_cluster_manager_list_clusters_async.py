@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,13 @@ async def sample_list_clusters():
     client = container_v1.ClusterManagerAsyncClient()
 
     # Initialize request argument(s)
-    request = container_v1.ListClustersRequest(
-    )
+    request = container_v1.ListClustersRequest()
 
     # Make the request
     response = await client.list_clusters(request=request)
 
     # Handle the response
     print(response)
+
 
 # [END container_v1_generated_ClusterManager_ListClusters_async]
